@@ -17,6 +17,8 @@ public static class SaveSync
     public static bool IsSaving { get; private set; }
     public static DateTime? LastUploadUtc { get; private set; }
     public static string? LastError { get; private set; }
+    /// <summary>Set when the server refused the last upload as older than a transfer; the game component shows the choice once.</summary>
+    public static bool StaleSaveDetected { get; set; }
 
     private static Task? upload;
 
@@ -67,6 +69,13 @@ public static class SaveSync
                 LastUploadUtc = DateTime.UtcNow;
                 LastError = null;
                 RimlinkLog.Instance.Info($"save uploaded as v{info.Version}");
+            }
+            catch (Grpc.Core.RpcException ex) when (Rimlink.Client.Economy.EconomyClient.CodeOf(ex) == Rimlink.Protocol.V1.ErrorCode.SaveStale)
+            {
+                // Not a retry case: this file would bring back what was given away. The player decides in game.
+                LastError = Rimlink.Client.Economy.EconomyClient.MessageOf(ex);
+                StaleSaveDetected = true;
+                RimlinkLog.Instance.Warn($"save refused as stale: {LastError}");
             }
             catch (Exception ex)
             {

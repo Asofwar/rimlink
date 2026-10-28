@@ -62,4 +62,66 @@
   <Rimlink.Flow.Downloading>Downloading your save from the server...</Rimlink.Flow.Downloading>
   <Rimlink.Flow.Uploading>Sending your last save to the server...</Rimlink.Flow.Uploading>
   <Rimlink.Flow.Error>Could not join: {0}</Rimlink.Flow.Error>
+  <Rimlink.Economy.CallLabel>Rimlink</Rimlink.Economy.CallLabel>
+  <Rimlink.Economy.CallInfo>Market, mailbox and wallet of {0}.</Rimlink.Economy.CallInfo>
+  <Rimlink.Economy.CallOption>Rimlink: market and transfers</Rimlink.Economy.CallOption>
+  <Rimlink.Economy.Title>Rimlink</Rimlink.Economy.Title>
+  <Rimlink.Economy.Tab.Market>Market</Rimlink.Economy.Tab.Market>
+  <Rimlink.Economy.Tab.MyLots>My lots</Rimlink.Economy.Tab.MyLots>
+  <Rimlink.Economy.Tab.Send>Send</Rimlink.Economy.Tab.Send>
+  <Rimlink.Economy.Tab.Wallet>Wallet</Rimlink.Economy.Tab.Wallet>
+  <Rimlink.Economy.Tab.Mailbox>Mailbox</Rimlink.Economy.Tab.Mailbox>
+  <Rimlink.Economy.Refresh>Refresh</Rimlink.Economy.Refresh>
+  <Rimlink.Economy.Working>Working...</Rimlink.Economy.Working>
+  <Rimlink.Economy.Search>Search</Rimlink.Economy.Search>
+  <Rimlink.Economy.LotsCount>{0} lots</Rimlink.Economy.LotsCount>
+  <Rimlink.Economy.Price>{0} silver</Rimlink.Economy.Price>
+  <Rimlink.Economy.Buy>Buy</Rimlink.Economy.Buy>
+  <Rimlink.Economy.Bought>Bought. The goods arrive by drop pod.</Rimlink.Economy.Bought>
+  <Rimlink.Economy.Withdraw>Withdraw</Rimlink.Economy.Withdraw>
+  <Rimlink.Economy.Withdrawn>Lot withdrawn. The goods come back by drop pod.</Rimlink.Economy.Withdrawn>
+  <Rimlink.Economy.PriceLabel>Price (silver)</Rimlink.Economy.PriceLabel>
+  <Rimlink.Economy.PostLot>Post lot</Rimlink.Economy.PostLot>
+  <Rimlink.Economy.Posted>Posted for {0} silver.</Rimlink.Economy.Posted>
+  <Rimlink.Economy.OneLotRule>A lot holds either items or exactly one pawn.</Rimlink.Economy.OneLotRule>
+  <Rimlink.Economy.MyLots>My open lots: {0}</Rimlink.Economy.MyLots>
+  <Rimlink.Economy.PickRecipient>Choose a player...</Rimlink.Economy.PickRecipient>
+  <Rimlink.Economy.NobodyKnown>No other players known yet</Rimlink.Economy.NobodyKnown>
+  <Rimlink.Economy.SendingTo>Sending to {0}</Rimlink.Economy.SendingTo>
+  <Rimlink.Economy.SilverFromWallet>Silver from wallet ({0})</Rimlink.Economy.SilverFromWallet>
+  <Rimlink.Economy.SendButton>Send</Rimlink.Economy.SendButton>
+  <Rimlink.Economy.Sent>Sent to {0}.</Rimlink.Economy.Sent>
+  <Rimlink.Economy.NothingPicked>Nothing selected.</Rimlink.Economy.NothingPicked>
+  <Rimlink.Economy.Balance>Balance: {0} silver</Rimlink.Economy.Balance>
+  <Rimlink.Economy.DepositLabel>Deposit from beacons</Rimlink.Economy.DepositLabel>
+  <Rimlink.Economy.Deposit>Deposit</Rimlink.Economy.Deposit>
+  <Rimlink.Economy.Deposited>{0} silver deposited.</Rimlink.Economy.Deposited>
+  <Rimlink.Economy.NotEnoughSilverOnMap>Not enough silver under the trade beacons ({0} needed).</Rimlink.Economy.NotEnoughSilverOnMap>
+  <Rimlink.Economy.WithdrawLabel>Withdraw to the colony</Rimlink.Economy.WithdrawLabel>
+  <Rimlink.Economy.WithdrawSilver>Withdraw</Rimlink.Economy.WithdrawSilver>
+  <Rimlink.Economy.WithdrawQueued>{0} silver arrives by drop pod.</Rimlink.Economy.WithdrawQueued>
+  <Rimlink.Economy.History>History</Rimlink.Economy.History>
+  <Rimlink.Economy.PendingParcels>Parcels waiting: {0}</Rimlink.Economy.PendingParcels>
+  <Rimlink.Economy.AcceptNow>Accept now</Rimlink.Economy.AcceptNow>
+  <Rimlink.Economy.SilverAmount>{0} silver</Rimlink.Economy.SilverAmount>
+  <Rimlink.Economy.Kind.ParcelGift>Gift</Rimlink.Economy.Kind.ParcelGift>
+  <Rimlink.Economy.Kind.ParcelPurchase>Purchase</Rimlink.Economy.Kind.ParcelPurchase>
+  <Rimlink.Economy.Kind.ParcelLotReturn>Lot returned</Rimlink.Economy.Kind.ParcelLotReturn>
+  <Rimlink.Economy.Kind.ParcelWithdraw>Silver withdrawal</Rimlink.Economy.Kind.ParcelWithdraw>
+  <Rimlink.Economy.Kind.ParcelAdmin>Admin</Rimlink.Economy.Kind.ParcelAdmin>
+  <Rimlink.Economy.ItemsUnderBeacons>Items under trade beacons: {0}</Rimlink.Economy.ItemsUnderBeacons>
+  <Rimlink.Economy.NoBeacon>Nothing here: put a trade beacon over a stockpile.</Rimlink.Economy.NoBeacon>
+  <Rimlink.Economy.Pawns>Colonists and animals</Rimlink.Economy.Pawns>
+  <Rimlink.Economy.CaravanItems>Caravan inventory</Rimlink.Economy.CaravanItems>
+  <Rimlink.Economy.ConfirmPawn>{0} will leave your colony for good. Continue?</Rimlink.Economy.ConfirmPawn>
+  <Rimlink.Economy.TooManyItems>At most {0} stacks per transfer.</Rimlink.Economy.TooManyItems>
+  <Rimlink.Economy.TooManyPawns>At most {0} pawns per transfer.</Rimlink.Economy.TooManyPawns>
+  <Rimlink.Economy.TooBig>Too much data for one transfer (limit {0} MB).</Rimlink.Economy.TooBig>
+  <Rimlink.Economy.UploadFailed>Transfer cancelled: the save could not be uploaded ({0}). Everything was put back.</Rimlink.Economy.UploadFailed>
+  <Rimlink.Economy.Failed>Transfer refused: {0}. Everything was put back.</Rimlink.Economy.Failed>
+  <Rimlink.Economy.ParcelFailed>A parcel could not be unpacked ({0}); it stays in your mailbox.</Rimlink.Economy.ParcelFailed>
+  <Rimlink.Economy.ParcelDropped>A parcel from {0} is dropping in.</Rimlink.Economy.ParcelDropped>
+  <Rimlink.Economy.CaravanTransfer>Transfer to {0}...</Rimlink.Economy.CaravanTransfer>
+  <Rimlink.Save.Stale>This save is older than your last transfer; the server will not take it (what you sent is already with another player). Go back to the menu and log in again to get the server copy, or keep playing without uploads.</Rimlink.Save.Stale>
+  <Rimlink.Save.KeepPlaying>Keep playing (no uploads)</Rimlink.Save.KeepPlaying>
 </LanguageData>

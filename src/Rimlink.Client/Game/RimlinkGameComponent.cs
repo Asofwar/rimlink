@@ -28,6 +28,8 @@ public sealed class RimlinkGameComponent : GameComponent
         RimlinkSession.Inbox.DrainTo(RimlinkSession.State.Apply);
         HandleConnectionState();
         HandleNotices();
+        Economy.Incoming.Tick();
+        HandleStaleSave();
     }
 
     private void HandleConnectionState()
@@ -106,6 +108,16 @@ public sealed class RimlinkGameComponent : GameComponent
         }
     }
 
+    private static void HandleStaleSave()
+    {
+        if (!SaveSync.StaleSaveDetected) return;
+        SaveSync.StaleSaveDetected = false;
+        Find.TickManager.Pause();
+        var box = new Dialog_MessageBox("Rimlink.Save.Stale".Translate(), "Rimlink.Net.ToMenu".Translate(), AbortToMenu, "Rimlink.Save.KeepPlaying".Translate(), null);
+        box.forcePause = true;
+        Find.WindowStack.Add(box);
+    }
+
     /// <summary>The colony is saved locally and flagged for upload at the next login (the connection is gone); the session ends.</summary>
     public static void LeaveToMenu()
     {
@@ -126,6 +138,7 @@ public sealed class RimlinkGameComponent : GameComponent
         var connection = RimlinkSession.Connection;
         RimlinkSession.End();
         ForeignSettlements.Clear();
+        Economy.Incoming.Reset();
         if (connection is not null) _ = connection.DisposeAsync();
     }
 }

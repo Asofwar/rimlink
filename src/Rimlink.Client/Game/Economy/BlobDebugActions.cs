@@ -7,6 +7,23 @@ namespace Rimlink.Client.Game.Economy;
 /// <summary>Dev-mode check of the blob round trip: the selected thing or pawn is serialised, removed and respawned from its blob.</summary>
 public static class BlobDebugActions
 {
+    /// <summary>Dev convenience: the pickers list every haulable item on the map, not only those under powered beacons.</summary>
+    public static bool PickAnywhere;
+
+    [DebugAction("Rimlink", "Open economy window", allowedGameStates = AllowedGameStates.PlayingOnMap)]
+    public static void OpenEconomyWindow()
+    {
+        if (!RimlinkSession.Active) { Log.Message("[Rimlink] no session"); return; }
+        Find.WindowStack.Add(new UI.Economy.Dialog_Economy(Find.CurrentMap));
+    }
+
+    [DebugAction("Rimlink", "Toggle pick items anywhere", allowedGameStates = AllowedGameStates.PlayingOnMap)]
+    public static void TogglePickAnywhere()
+    {
+        PickAnywhere = !PickAnywhere;
+        Log.Message("[Rimlink] pick anywhere: " + PickAnywhere);
+    }
+
     [DebugAction("Rimlink", "Blob round-trip selected thing", allowedGameStates = AllowedGameStates.PlayingOnMap)]
     public static void BlobRoundTripSelected()
     {

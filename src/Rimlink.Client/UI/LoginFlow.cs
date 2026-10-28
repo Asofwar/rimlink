@@ -42,6 +42,7 @@ public static class LoginFlow
                 RimlinkSession.World = world;
                 RimlinkSession.State.LoadSnapshot(objects, history, reply.Online.Count > 0 ? reply.Online : [reply.Player]);
                 ForeignSettlements.Subscribe();
+                await LoadEconomy(connection, reply.Player.PlayerId, cts.Token);
 
                 string savePath = SaveSync.SaveFilePath;
                 var pending = SaveSync.Pending;
@@ -154,7 +155,8 @@ public static class LoginFlow
         }
         catch (RpcException ex) when (ex.StatusCode != StatusCode.Cancelled && ex.StatusCode != StatusCode.Unavailable)
         {
-            string kept = Path.ChangeExtension(savePath, $".rejected-{DateTime.Now:yyyyMMdd-HHmm}.rws");
+            bool stale = Rimlink.Client.Economy.EconomyClient.CodeOf(ex) == ErrorCode.SaveStale;
+            string kept = Path.ChangeExtension(savePath, $".{(stale ? "stale" : "rejected")}-{DateTime.Now:yyyyMMdd-HHmm}.rws");
             File.Move(savePath, kept, overwrite: true);
             pending.Clear();
             string reason = ErrorMessage(ex);
@@ -173,6 +175,20 @@ public static class LoginFlow
             wait.Close();
             if (error is not null) Find.WindowStack.Add(new Dialog_MessageBox("Rimlink.Flow.Error".Translate(error)));
         });
+    }
+
+    /// <summary>Wallet, mailbox and own lots; a server with the economy off leaves the state empty.</summary>
+    private static async Task LoadEconomy(RimlinkConnection connection, long me, CancellationToken ct)
+    {
+        try
+        {
+            var economy = new Rimlink.Client.Economy.EconomyClient(connection);
+            RimlinkSession.State.Economy.Load(await economy.Wallet(ct), await economy.Pending(ct), await economy.Lots(new MarketQuery { SellerPlayerId = me }, ct));
+        }
+        catch (RpcException ex) when (Rimlink.Client.Economy.EconomyClient.CodeOf(ex) == ErrorCode.EconomyFrozen)
+        {
+            RimlinkLog.Instance.Info("economy is off or frozen on this server: " + ex.Status.Detail);
+        }
     }
 
     private static ErrorCode? ErrorCodeOf(RpcException ex) => Rimlink.Client.Economy.EconomyClient.CodeOf(ex);

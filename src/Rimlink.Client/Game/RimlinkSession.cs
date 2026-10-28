@@ -17,6 +17,7 @@ public static class RimlinkSession
     public static ConnectionState LastState { get; set; } = ConnectionState.Disconnected;
 
     public static bool Active => Connection is not null && Login is not null && Login.SessionToken.Length > 0;
+    public static Rimlink.Client.Economy.EconomyClient? Economy => Connection is null ? null : new(Connection);
     public static long MyPlayerId => Login?.Player.PlayerId ?? 0;
     public static bool IsAdmin => Login?.Role == Role.Admin;
     public static bool IsModerator => Login?.Role is Role.Admin or Role.Moderator;

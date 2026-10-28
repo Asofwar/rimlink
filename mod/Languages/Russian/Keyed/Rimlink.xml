@@ -62,4 +62,66 @@
   <Rimlink.Flow.Downloading>Загрузка вашего сохранения с сервера...</Rimlink.Flow.Downloading>
   <Rimlink.Flow.Uploading>Отправка последнего сохранения на сервер...</Rimlink.Flow.Uploading>
   <Rimlink.Flow.Error>Не удалось подключиться: {0}</Rimlink.Flow.Error>
+  <Rimlink.Economy.CallLabel>Rimlink</Rimlink.Economy.CallLabel>
+  <Rimlink.Economy.CallInfo>Рынок, ящик и кошелёк сервера {0}.</Rimlink.Economy.CallInfo>
+  <Rimlink.Economy.CallOption>Rimlink: рынок и передачи</Rimlink.Economy.CallOption>
+  <Rimlink.Economy.Title>Rimlink</Rimlink.Economy.Title>
+  <Rimlink.Economy.Tab.Market>Рынок</Rimlink.Economy.Tab.Market>
+  <Rimlink.Economy.Tab.MyLots>Мои лоты</Rimlink.Economy.Tab.MyLots>
+  <Rimlink.Economy.Tab.Send>Отправить</Rimlink.Economy.Tab.Send>
+  <Rimlink.Economy.Tab.Wallet>Кошелёк</Rimlink.Economy.Tab.Wallet>
+  <Rimlink.Economy.Tab.Mailbox>Ящик</Rimlink.Economy.Tab.Mailbox>
+  <Rimlink.Economy.Refresh>Обновить</Rimlink.Economy.Refresh>
+  <Rimlink.Economy.Working>Выполняется...</Rimlink.Economy.Working>
+  <Rimlink.Economy.Search>Искать</Rimlink.Economy.Search>
+  <Rimlink.Economy.LotsCount>Лотов: {0}</Rimlink.Economy.LotsCount>
+  <Rimlink.Economy.Price>{0} серебра</Rimlink.Economy.Price>
+  <Rimlink.Economy.Buy>Купить</Rimlink.Economy.Buy>
+  <Rimlink.Economy.Bought>Куплено. Товар прилетит дроп-подом.</Rimlink.Economy.Bought>
+  <Rimlink.Economy.Withdraw>Снять</Rimlink.Economy.Withdraw>
+  <Rimlink.Economy.Withdrawn>Лот снят. Товар вернётся дроп-подом.</Rimlink.Economy.Withdrawn>
+  <Rimlink.Economy.PriceLabel>Цена (серебро)</Rimlink.Economy.PriceLabel>
+  <Rimlink.Economy.PostLot>Выставить лот</Rimlink.Economy.PostLot>
+  <Rimlink.Economy.Posted>Выставлено за {0} серебра.</Rimlink.Economy.Posted>
+  <Rimlink.Economy.OneLotRule>В лоте либо вещи, либо ровно одна пешка.</Rimlink.Economy.OneLotRule>
+  <Rimlink.Economy.MyLots>Моих открытых лотов: {0}</Rimlink.Economy.MyLots>
+  <Rimlink.Economy.PickRecipient>Выберите игрока...</Rimlink.Economy.PickRecipient>
+  <Rimlink.Economy.NobodyKnown>Других игроков пока не видно</Rimlink.Economy.NobodyKnown>
+  <Rimlink.Economy.SendingTo>Получатель: {0}</Rimlink.Economy.SendingTo>
+  <Rimlink.Economy.SilverFromWallet>Серебро из кошелька ({0})</Rimlink.Economy.SilverFromWallet>
+  <Rimlink.Economy.SendButton>Отправить</Rimlink.Economy.SendButton>
+  <Rimlink.Economy.Sent>Отправлено игроку {0}.</Rimlink.Economy.Sent>
+  <Rimlink.Economy.NothingPicked>Ничего не выбрано.</Rimlink.Economy.NothingPicked>
+  <Rimlink.Economy.Balance>Баланс: {0} серебра</Rimlink.Economy.Balance>
+  <Rimlink.Economy.DepositLabel>Внести с маяков</Rimlink.Economy.DepositLabel>
+  <Rimlink.Economy.Deposit>Внести</Rimlink.Economy.Deposit>
+  <Rimlink.Economy.Deposited>Внесено {0} серебра.</Rimlink.Economy.Deposited>
+  <Rimlink.Economy.NotEnoughSilverOnMap>Под торговыми маяками нет {0} серебра.</Rimlink.Economy.NotEnoughSilverOnMap>
+  <Rimlink.Economy.WithdrawLabel>Выдать в колонию</Rimlink.Economy.WithdrawLabel>
+  <Rimlink.Economy.WithdrawSilver>Выдать</Rimlink.Economy.WithdrawSilver>
+  <Rimlink.Economy.WithdrawQueued>{0} серебра прилетит дроп-подом.</Rimlink.Economy.WithdrawQueued>
+  <Rimlink.Economy.History>История</Rimlink.Economy.History>
+  <Rimlink.Economy.PendingParcels>Посылок в ожидании: {0}</Rimlink.Economy.PendingParcels>
+  <Rimlink.Economy.AcceptNow>Принять сейчас</Rimlink.Economy.AcceptNow>
+  <Rimlink.Economy.SilverAmount>{0} серебра</Rimlink.Economy.SilverAmount>
+  <Rimlink.Economy.Kind.ParcelGift>Подарок</Rimlink.Economy.Kind.ParcelGift>
+  <Rimlink.Economy.Kind.ParcelPurchase>Покупка</Rimlink.Economy.Kind.ParcelPurchase>
+  <Rimlink.Economy.Kind.ParcelLotReturn>Возврат лота</Rimlink.Economy.Kind.ParcelLotReturn>
+  <Rimlink.Economy.Kind.ParcelWithdraw>Выдача серебра</Rimlink.Economy.Kind.ParcelWithdraw>
+  <Rimlink.Economy.Kind.ParcelAdmin>Администратор</Rimlink.Economy.Kind.ParcelAdmin>
+  <Rimlink.Economy.ItemsUnderBeacons>Вещей под торговыми маяками: {0}</Rimlink.Economy.ItemsUnderBeacons>
+  <Rimlink.Economy.NoBeacon>Пусто: поставьте торговый маяк над складом.</Rimlink.Economy.NoBeacon>
+  <Rimlink.Economy.Pawns>Колонисты и животные</Rimlink.Economy.Pawns>
+  <Rimlink.Economy.CaravanItems>Инвентарь каравана</Rimlink.Economy.CaravanItems>
+  <Rimlink.Economy.ConfirmPawn>{0} навсегда покинет вашу колонию. Продолжить?</Rimlink.Economy.ConfirmPawn>
+  <Rimlink.Economy.TooManyItems>Не больше {0} стаков за одну передачу.</Rimlink.Economy.TooManyItems>
+  <Rimlink.Economy.TooManyPawns>Не больше {0} пешек за одну передачу.</Rimlink.Economy.TooManyPawns>
+  <Rimlink.Economy.TooBig>Слишком много данных для одной передачи (лимит {0} МБ).</Rimlink.Economy.TooBig>
+  <Rimlink.Economy.UploadFailed>Передача отменена: сейв не удалось выгрузить ({0}). Всё возвращено на место.</Rimlink.Economy.UploadFailed>
+  <Rimlink.Economy.Failed>Передача отклонена: {0}. Всё возвращено на место.</Rimlink.Economy.Failed>
+  <Rimlink.Economy.ParcelFailed>Посылку не удалось распаковать ({0}); она остаётся в ящике.</Rimlink.Economy.ParcelFailed>
+  <Rimlink.Economy.ParcelDropped>Прилетает посылка от {0}.</Rimlink.Economy.ParcelDropped>
+  <Rimlink.Economy.CaravanTransfer>Передать игроку {0}...</Rimlink.Economy.CaravanTransfer>
+  <Rimlink.Save.Stale>Этот сейв старше вашей последней передачи; сервер его не примет (отправленное уже у другого игрока). Выйдите в меню и войдите снова, чтобы получить копию с сервера, или играйте дальше без выгрузки.</Rimlink.Save.Stale>
+  <Rimlink.Save.KeepPlaying>Играть дальше (без выгрузки)</Rimlink.Save.KeepPlaying>
 </LanguageData>
