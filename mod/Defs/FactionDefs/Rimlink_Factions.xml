@@ -34,14 +34,5 @@
         <li>(0, 0)</li>
       </points>
     </raidCommonalityFromPointsCurve>
-    <pawnGroupMakers>
-      <li>
-        <kindDef>Combat</kindDef>
-        <commonality>100</commonality>
-        <options>
-          <Villager>10</Villager>
-        </options>
-      </li>
-    </pawnGroupMakers>
   </FactionDef>
 </Defs>
