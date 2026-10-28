@@ -33,12 +33,14 @@ builder.Services.AddGrpc(options =>
 {
     options.MaxReceiveMessageSize = Limits.MaxMessageBytes;
     options.Interceptors.Add<SessionInterceptor>();
+    options.Interceptors.Add<RateLimitInterceptor>();
 });
 builder.Services.AddHealthChecks();
 builder.Services.AddHostedService<TlsStartupCheck>();
 
 builder.Services.AddSingleton<SessionRegistry>();
 builder.Services.AddSingleton<EventBus>();
+builder.Services.AddSingleton<RateLimitInterceptor>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<BanService>();
 builder.Services.AddScoped<LoginGate>();
