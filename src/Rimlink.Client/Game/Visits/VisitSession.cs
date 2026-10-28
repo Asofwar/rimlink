@@ -188,7 +188,7 @@ public static class VisitLoader
         var host = FactionGenerator.NewGeneratedFaction(new FactionGeneratorParms(FactionDefOf.OutlanderCivil, default, hidden: false));
         host.Name = pending.HostName;
         Find.FactionManager.Add(host);
-        host.SetRelationDirect(player, FactionRelationKind.Ally, canSendHostilityLetter: false);
+        host.TryAffectGoodwillWith(player, 100, canSendMessage: false, canSendHostilityLetter: false);
 
         foreach (var map in Find.Maps)
         {
