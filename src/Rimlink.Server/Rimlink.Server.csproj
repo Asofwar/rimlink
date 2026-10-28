@@ -10,6 +10,7 @@
     <PackageReference Include="prometheus-net.AspNetCore" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
     <PackageReference Include="Konscious.Security.Cryptography.Argon2" />
+    <PackageReference Include="ZstdSharp.Port" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>

@@ -6,6 +6,7 @@ option csharp_namespace = "Rimlink.Protocol.V1";
 import "google/protobuf/timestamp.proto";
 import "common.proto";
 import "world.proto";
+import "saves.proto";
 
 // One server-push stream per session; everything that changes arrives here.
 service Events {
@@ -19,11 +20,12 @@ message ServerEvent {
     PlayerJoined player_joined = 10;
     PlayerLeft player_left = 11;
     SessionReplaced session_replaced = 12;
-    // 20: chat (chat.proto), 42: save rollback (saves.proto)
+    // 20: chat (chat.proto)
     WorldObjectAdded world_object_added = 30;
     WorldObjectRemoved world_object_removed = 31;
     Notice notice = 40;
     ServerShutdown shutdown = 41;
+    SaveRolledBack save_rolled_back = 42;
   }
 }
 

@@ -1,13 +1,14 @@
 using Grpc.Core;
 using Rimlink.Protocol.V1;
 using Rimlink.Server.Application.Auth;
+using Rimlink.Server.Application.Saves;
 using Rimlink.Server.Application.World;
 using Rimlink.Server.Hosting;
 using Rimlink.Server.Storage.Entities;
 
 namespace Rimlink.Server.Grpc;
 
-public sealed class AuthGrpcService(AuthService auth, WorldService worlds) : Protocol.V1.Auth.AuthBase
+public sealed class AuthGrpcService(AuthService auth, WorldService worlds, SaveStore saves) : Protocol.V1.Auth.AuthBase
 {
     public override async Task<LoginReply> Login(LoginRequest request, ServerCallContext context)
     {
@@ -48,6 +49,7 @@ public sealed class AuthGrpcService(AuthService auth, WorldService worlds) : Pro
                     Role = (Protocol.V1.Role)s.Account.Role,
                     WorldExists = await worlds.Exists(),
                     HasSettlement = await worlds.HasSettlement(s.Player.Id),
+                    HasSave = await saves.HasSave(s.Player.Id),
                 };
             default:
                 throw new InvalidOperationException("unknown login result");

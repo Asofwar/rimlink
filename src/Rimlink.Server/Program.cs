@@ -2,6 +2,7 @@ using Prometheus;
 using Rimlink.Protocol;
 using Rimlink.Server.Application.Auth;
 using Rimlink.Server.Application.Events;
+using Rimlink.Server.Application.Saves;
 using Rimlink.Server.Application.Sessions;
 using Rimlink.Server.Application.World;
 using Rimlink.Server.Grpc;
@@ -32,7 +33,8 @@ builder.WebHost.ConfigureKestrel(kestrel => KestrelSetup.Configure(kestrel, serv
 builder.Services.AddRimlinkStorage(new DataDirectory(serverOptions.DataDir));
 builder.Services.AddGrpc(options =>
 {
-    options.MaxReceiveMessageSize = Limits.MaxMessageBytes;
+    // A 1 MB save chunk plus its protobuf framing must still fit.
+    options.MaxReceiveMessageSize = Limits.MaxMessageBytes + 16 * 1024;
     options.Interceptors.Add<SessionInterceptor>();
     options.Interceptors.Add<RateLimitInterceptor>();
 });
@@ -46,6 +48,7 @@ builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<BanService>();
 builder.Services.AddScoped<LoginGate>();
 builder.Services.AddScoped<WorldService>();
+builder.Services.AddScoped<SaveStore>();
 builder.Services.AddHttpClient<ISteamTicketVerifier, SteamWebApiTicketVerifier>(client => client.Timeout = TimeSpan.FromSeconds(10));
 
 var app = builder.Build();
@@ -58,6 +61,7 @@ app.MapMetrics("/metrics");
 app.MapGrpcService<AuthGrpcService>();
 app.MapGrpcService<EventsGrpcService>();
 app.MapGrpcService<WorldGrpcService>();
+app.MapGrpcService<SavesGrpcService>();
 
 app.Run();
 

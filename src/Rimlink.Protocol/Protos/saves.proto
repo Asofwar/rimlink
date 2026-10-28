@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package rimlink.v1;
+option csharp_namespace = "Rimlink.Protocol.V1";
+
+import "google/protobuf/timestamp.proto";
+import "common.proto";
+
+// Save games are zstd-compressed .rws files, streamed in chunks of at most 1 MB (Limits.SaveChunkBytes).
+service Saves {
+  // First message must be a header, then data chunks. Fails with SAVE_INVALID when size, hash or content do not match.
+  rpc Upload (stream SaveChunk) returns (SaveInfo);
+  // Current version: header first, then data chunks. NOT_FOUND when the player has no save.
+  rpc Download (Empty) returns (stream SaveChunk);
+  rpc List (Empty) returns (SaveVersions);
+}
+
+message SaveChunk {
+  oneof part {
+    SaveHeader header = 1;
+    bytes data = 2;
+  }
+}
+
+message SaveHeader {
+  int64 game_tick = 1;
+  string world_seed = 2;
+  string faction_name = 3;
+  // Size and SHA-256 of the compressed payload that follows.
+  int64 total_size = 4;
+  bytes sha256 = 5;
+}
+
+message SaveInfo {
+  int32 version = 1;
+  int64 size = 2;
+  google.protobuf.Timestamp created_at = 3;
+  bool is_current = 4;
+  int64 game_tick = 5;
+}
+
+message SaveVersions {
+  repeated SaveInfo versions = 1;
+}
+
+// Event body (ServerEvent 42): an admin made another version current; re-login to load it.
+message SaveRolledBack { int32 version = 1; }
