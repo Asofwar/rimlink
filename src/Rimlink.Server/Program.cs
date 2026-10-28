@@ -79,6 +79,8 @@ builder.Services.AddScoped<Rimlink.Server.Application.Raids.RaidRules>();
 builder.Services.AddScoped<Rimlink.Server.Application.Raids.RaidService>();
 builder.Services.AddScoped<Rimlink.Server.Application.Raids.RaidReportValidator>();
 builder.Services.AddHostedService<Rimlink.Server.Application.Raids.RaidExpiryService>();
+builder.Services.AddScoped<Rimlink.Server.Application.Visits.VisitService>();
+builder.Services.AddScoped<Rimlink.Server.Application.Visits.ShopService>();
 builder.Services.AddSingleton<PresenceNotifier>();
 builder.Services.AddHttpClient<ISteamTicketVerifier, SteamWebApiTicketVerifier>(client => client.Timeout = TimeSpan.FromSeconds(10));
 
@@ -103,6 +105,8 @@ app.MapGrpcService<MailboxGrpcService>();
 app.MapGrpcService<TransferGrpcService>();
 app.MapGrpcService<MarketGrpcService>();
 app.MapGrpcService<RaidsGrpcService>();
+app.MapGrpcService<VisitsGrpcService>();
+app.MapGrpcService<ShopGrpcService>();
 app.MapAdminApi();
 
 app.Run();

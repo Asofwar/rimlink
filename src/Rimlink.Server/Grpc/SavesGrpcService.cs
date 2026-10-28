@@ -6,7 +6,7 @@ using Rimlink.Server.Application.Saves;
 
 namespace Rimlink.Server.Grpc;
 
-public sealed class SavesGrpcService(SaveStore store) : Protocol.V1.Saves.SavesBase
+public sealed class SavesGrpcService(SaveStore store, Rimlink.Server.Application.Visits.VisitService visits) : Protocol.V1.Saves.SavesBase
 {
     public override async Task<SaveInfo> Upload(IAsyncStreamReader<SaveChunk> requestStream, ServerCallContext context)
     {
@@ -26,10 +26,20 @@ public sealed class SavesGrpcService(SaveStore store) : Protocol.V1.Saves.SavesB
         }
     }
 
-    public override async Task Download(Empty request, IServerStreamWriter<SaveChunk> responseStream, ServerCallContext context)
+    public override Task Download(Empty request, IServerStreamWriter<SaveChunk> responseStream, ServerCallContext context) =>
+        Stream(context.GetSession().PlayerId, responseStream, context);
+
+    /// <summary>Another player's current save, only for a visitor with an open visit to them.</summary>
+    public override async Task DownloadOf(PlayerRef request, IServerStreamWriter<SaveChunk> responseStream, ServerCallContext context)
     {
-        var session = context.GetSession();
-        var current = await store.OpenCurrent(session.PlayerId) ?? throw new RpcException(new Status(StatusCode.NotFound, "no save stored for this player"));
+        if (!await visits.IsVisiting(context.GetSession().PlayerId, request.PlayerId))
+            throw new RpcException(new Status(StatusCode.PermissionDenied, "you are not visiting this player"));
+        await Stream(request.PlayerId, responseStream, context);
+    }
+
+    private async Task Stream(long playerId, IServerStreamWriter<SaveChunk> responseStream, ServerCallContext context)
+    {
+        var current = await store.OpenCurrent(playerId) ?? throw new RpcException(new Status(StatusCode.NotFound, "no save stored for this player"));
         var (version, content) = current;
 
         await using (content)

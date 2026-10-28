@@ -9,6 +9,8 @@ using Parcel = Rimlink.Server.Storage.Entities.Parcel;
 using Transfer = Rimlink.Server.Storage.Entities.Transfer;
 using Rimlink.Server.Application.Events;
 using Rimlink.Server.Application.Raids;
+using Rimlink.Server.Application.Visits;
+using ShopItem = Rimlink.Server.Storage.Entities.ShopItem;
 using Raid = Rimlink.Server.Storage.Entities.Raid;
 using Rimlink.Server.Application.Saves;
 using Rimlink.Server.Application.Sessions;
@@ -37,8 +39,22 @@ public sealed class AdminOperations(
     FreezeState freeze,
     RaidService raids,
     RaidFreezeState raidFreeze,
+    ShopService shop,
+    VisitService visits,
     ILogger<AdminOperations> log)
 {
+    public Task<List<ShopItem>> ListShop(Actor actor, long playerId)
+    {
+        actor.Require(Role.Moderator);
+        return db.ShopItems.AsNoTracking().Where(s => s.HostPlayerId == playerId).OrderBy(s => s.ThingId).ToListAsync();
+    }
+
+    public Task<List<PendingRemoval>> ListRemovals(Actor actor, long playerId)
+    {
+        actor.Require(Role.Moderator);
+        return shop.Pending(playerId);
+    }
+
     public sealed record RaidStatsResult(int Queued, int Announced, int Landed, int ResolvedToday, int Expired, int Cancelled, bool Frozen, string? FreezeReason);
 
     public Task<List<Raid>> ListRaids(Actor actor, long? playerId)
@@ -305,6 +321,8 @@ public sealed class AdminOperations(
         await saves.Archive(playerId, archive);
         await RemoveObjectsOf(playerId);
         await raids.CancelAllOf(playerId, "colony reset");
+        await shop.ClearOf(playerId);
+        await visits.EndAllOf(playerId);
         await Audit(actor, "reset", player.AccountId, archive);
         log.LogInformation("Player {Name} reset by {Actor}", player.Name, actor.Name);
     }
@@ -379,6 +397,8 @@ public sealed class AdminOperations(
         {
             await saves.Archive(playerId, Path.Combine(archive, playerId.ToString()));
             await raids.CancelAllOf(playerId, "world recreated");
+            await shop.ClearOf(playerId);
+            await visits.EndAllOf(playerId);
         }
         await db.WorldObjects.ExecuteDeleteAsync();
         await db.World.ExecuteDeleteAsync();

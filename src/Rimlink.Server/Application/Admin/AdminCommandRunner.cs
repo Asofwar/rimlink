@@ -135,6 +135,12 @@ public sealed class AdminCommandRunner(AdminOperations ops, ModpackService modpa
                         return $"queued {rs.Queued}, announced {rs.Announced}, landed {rs.Landed}, resolved today {rs.ResolvedToday}, expired {rs.Expired}, cancelled {rs.Cancelled}{(rs.Frozen ? $", FROZEN: {rs.FreezeReason}" : "")}";
                     default: throw new RpcException(new Status(StatusCode.InvalidArgument, "raids list [player] | cancel <id> [reason] | freeze [reason] | unfreeze | stats"));
                 }
+            case "shop":
+                var shopRows = await ops.ListShop(actor, await PlayerId(Arg(0)));
+                return shopRows.Count == 0 ? "nothing for sale" : string.Join("\n", shopRows.Select(s => $"#{s.ThingId} {s.Count}x {s.Label} @ {s.Price}{(s.SoldAt is not null ? " (sold)" : "")}"));
+            case "removals":
+                var removals = await ops.ListRemovals(actor, await PlayerId(Arg(0)));
+                return removals.Count == 0 ? "nothing pending" : string.Join("\n", removals.Select(r => $"#{r.Id} thing {r.ThingId} x{r.Count} since {r.CreatedAt:u}"));
             case "peaceful":
                 await ops.SetPeaceful(actor, await PlayerId(Arg(0)), Arg(1) == "on");
                 return $"peaceful mode {Arg(1)} for {Arg(0)}";

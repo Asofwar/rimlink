@@ -90,6 +90,10 @@ public static class AdminEndpoints
             var s = await ops.RaidStats(Actor.Api);
             return new { queued = s.Queued, announced = s.Announced, landed = s.Landed, resolvedToday = s.ResolvedToday, expired = s.Expired, cancelled = s.Cancelled, frozen = s.Frozen, freezeReason = s.FreezeReason };
         });
+        group.MapGet("/shop/{id:long}", async (long id, AdminOperations ops) =>
+            (await ops.ListShop(Actor.Api, id)).Select(s => new { s.ThingId, s.DefName, s.StuffDef, s.Count, s.Quality, s.Price, s.SaveTick, s.Label, s.SoldAt }));
+        group.MapGet("/shop/{id:long}/removals", async (long id, AdminOperations ops) =>
+            (await ops.ListRemovals(Actor.Api, id)).Select(r => new { r.Id, r.ThingId, r.Count, r.CreatedAt }));
         group.MapPost("/players/{id:long}/peaceful", async (long id, PeacefulBody body, AdminOperations ops) => { await ops.SetPeaceful(Actor.Api, id, body.Peaceful); return Results.Ok(); });
 
         group.MapPut("/modpack", async (ModpackBody body, ModpackService modpack) =>

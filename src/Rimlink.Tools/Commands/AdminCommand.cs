@@ -10,7 +10,7 @@ public static class AdminCommand
         var server = new Option<string>("--server") { Description = "Server base URL, e.g. https://host:25560", Required = true };
         var token = new Option<string>("--token") { Description = "Admin:ApiToken", Required = true };
         var insecure = new Option<bool>("--insecure") { Description = "Accept a self-signed server certificate" };
-        var name = new Argument<string>("command") { Description = "online | kick <playerId> [reason] | ban <playerId> [days] [reason] | pardon <banId> | bans | mute <playerId> <minutes> | unmute <playerId> | saves <playerId> | rollback <playerId> <version> | reset <playerId> | broadcast <text> | shutdown <seconds> [reason] | recreateworld | modpack | actions | wallet <playerId> [+n|-n] [reason] | parcels <playerId> | lots [playerId] | refund lot <id> | refund parcel <id> | economy freeze [reason]|unfreeze|stats | raids list [playerId]|cancel <id> [reason]|freeze [reason]|unfreeze|stats | peaceful <playerId> on|off" };
+        var name = new Argument<string>("command") { Description = "online | kick <playerId> [reason] | ban <playerId> [days] [reason] | pardon <banId> | bans | mute <playerId> <minutes> | unmute <playerId> | saves <playerId> | rollback <playerId> <version> | reset <playerId> | broadcast <text> | shutdown <seconds> [reason] | recreateworld | modpack | actions | wallet <playerId> [+n|-n] [reason] | parcels <playerId> | lots [playerId] | refund lot <id> | refund parcel <id> | economy freeze [reason]|unfreeze|stats | raids list [playerId]|cancel <id> [reason]|freeze [reason]|unfreeze|stats | peaceful <playerId> on|off | shop <playerId> | removals <playerId>" };
         var args = new Argument<string[]>("args") { Arity = ArgumentArity.ZeroOrMore };
 
         var command = new Command("admin", "Run an admin operation on a running server") { server, token, insecure, name, args };
@@ -51,6 +51,8 @@ public static class AdminCommand
                     "stats" => await rest.Get("raids/stats"),
                     _ => throw new InvalidOperationException("raids list [playerId] | cancel <id> [reason] | freeze [reason] | unfreeze | stats"),
                 },
+                "shop" => await rest.Get($"shop/{a[0]}"),
+                "removals" => await rest.Get($"shop/{a[0]}/removals"),
                 "peaceful" => await rest.Post($"players/{a[0]}/peaceful", new { peaceful = a[1] == "on" }),
                 "economy" => a[0] switch
                 {
