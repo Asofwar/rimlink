@@ -1,6 +1,7 @@
 using Prometheus;
 using Rimlink.Protocol;
 using Rimlink.Server.Hosting;
+using Rimlink.Server.Storage;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -23,11 +24,13 @@ builder.Services.Configure<AdminOptions>(builder.Configuration.GetSection(AdminO
 
 builder.WebHost.ConfigureKestrel(kestrel => KestrelSetup.Configure(kestrel, serverOptions, tlsOptions));
 
+builder.Services.AddRimlinkStorage(new DataDirectory(serverOptions.DataDir));
 builder.Services.AddGrpc(options => options.MaxReceiveMessageSize = Limits.MaxMessageBytes);
 builder.Services.AddHealthChecks();
 builder.Services.AddHostedService<TlsStartupCheck>();
 
 var app = builder.Build();
+app.Services.MigrateRimlinkStorage();
 
 app.UseSerilogRequestLogging();
 app.UseHttpMetrics();
