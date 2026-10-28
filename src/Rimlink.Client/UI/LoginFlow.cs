@@ -175,13 +175,9 @@ public static class LoginFlow
         });
     }
 
-    private static ErrorCode? ErrorCodeOf(RpcException ex) =>
-        ex.Trailers.FirstOrDefault(t => t.Key == "rimlink-error-bin") is { } trailer ? ErrorDetail.Parser.ParseFrom(trailer.ValueBytes).Code : null;
+    private static ErrorCode? ErrorCodeOf(RpcException ex) => Rimlink.Client.Economy.EconomyClient.CodeOf(ex);
 
-    private static string ErrorMessage(RpcException ex) =>
-        ex.Trailers.FirstOrDefault(t => t.Key == "rimlink-error-bin") is { } trailer
-            ? ErrorDetail.Parser.ParseFrom(trailer.ValueBytes).Message
-            : $"{ex.StatusCode}: {ex.Status.Detail}";
+    private static string ErrorMessage(RpcException ex) => Rimlink.Client.Economy.EconomyClient.MessageOf(ex);
 
     /// <summary>Seed, faction name and tick straight from the .rws header, without loading the game.</summary>
     private static SaveMeta ReadMeta(string rwsPath)

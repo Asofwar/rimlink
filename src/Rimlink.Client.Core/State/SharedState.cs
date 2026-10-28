@@ -9,6 +9,7 @@ public sealed class SharedState
     public WorldObjectsIndex Objects { get; } = new();
     public ChatLog Chat { get; } = new();
     public PlayersOnline Players { get; } = new();
+    public Economy.EconomyState Economy { get; } = new();
     public List<Notice> Notices { get; } = [];
     public int? PendingRollbackVersion { get; private set; }
     public ServerShutdown? PendingShutdown { get; private set; }
@@ -54,6 +55,12 @@ public sealed class SharedState
             case ServerEvent.BodyOneofCase.Shutdown:
                 PendingShutdown = ev.Shutdown;
                 break;
+            case ServerEvent.BodyOneofCase.ParcelArrived:
+            case ServerEvent.BodyOneofCase.LotSold:
+            case ServerEvent.BodyOneofCase.LotClosed:
+            case ServerEvent.BodyOneofCase.WalletChanged:
+                Economy.Apply(ev);
+                break;
             // SessionReplaced is handled by the connection; unknown bodies (newer server) are skipped.
         }
     }
@@ -70,6 +77,7 @@ public sealed class SharedState
         Notices.Clear();
         PendingRollbackVersion = null;
         PendingShutdown = null;
+        Economy.Reset();
     }
 }
 

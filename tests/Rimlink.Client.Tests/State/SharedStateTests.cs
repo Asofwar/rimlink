@@ -19,6 +19,27 @@ public class SharedStateTests
     };
 
     [Fact]
+    public void DuplicateParcelArrivedIsStoredOnce()
+    {
+        var state = new SharedState();
+        int raised = 0;
+        state.Economy.ParcelArrived += _ => raised++;
+        var parcel = new Parcel { Id = 7, Kind = ParcelKind.ParcelGift, Silver = 5 };
+
+        state.Apply(new ServerEvent { ParcelArrived = new ParcelArrived { Parcel = parcel } });
+        state.Apply(new ServerEvent { ParcelArrived = new ParcelArrived { Parcel = parcel } });
+        state.Apply(new ServerEvent { WalletChanged = new WalletChanged { Balance = 42, Delta = 42, Kind = "admin" } });
+        state.Apply(new ServerEvent { LotClosed = new LotClosed { LotId = 3, Reason = "expired" } });
+
+        Assert.Single(state.Economy.Pending);
+        Assert.Equal(1, raised);
+        Assert.Equal(42, state.Economy.Balance);
+        state.Reset();
+        Assert.Empty(state.Economy.Pending);
+        Assert.Equal(0, state.Economy.Balance);
+    }
+
+    [Fact]
     public void ChatMessageSeenInHistoryAndAsLiveEventIsStoredOnce()
     {
         var state = new SharedState();

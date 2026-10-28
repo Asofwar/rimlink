@@ -68,6 +68,10 @@ public sealed class RimlinkConnection : IAsyncDisposable
         Chat = new Protocol.V1.Chat.ChatClient(channel);
         Modpack = new Protocol.V1.Modpack.ModpackClient(channel);
         Admin = new Protocol.V1.Admin.AdminClient(channel);
+        WalletApi = new Protocol.V1.Wallet.WalletClient(channel);
+        MailboxApi = new Protocol.V1.Mailbox.MailboxClient(channel);
+        MarketApi = new Protocol.V1.Market.MarketClient(channel);
+        TransferApi = new Protocol.V1.Transfer.TransferClient(channel);
     }
 
     /// <summary>Pins live next to the game's config; the game layer sets the path before the first connection.</summary>
@@ -88,6 +92,10 @@ public sealed class RimlinkConnection : IAsyncDisposable
     public Protocol.V1.Chat.ChatClient Chat { get; }
     public Protocol.V1.Modpack.ModpackClient Modpack { get; }
     public Protocol.V1.Admin.AdminClient Admin { get; }
+    public Protocol.V1.Wallet.WalletClient WalletApi { get; }
+    public Protocol.V1.Mailbox.MailboxClient MailboxApi { get; }
+    public Protocol.V1.Market.MarketClient MarketApi { get; }
+    public Protocol.V1.Transfer.TransferClient TransferApi { get; }
 
     /// <summary>Logs in and starts the event stream. A modpack mismatch returns the reply (no token) and leaves the connection down.</summary>
     public async Task<LoginReply> ConnectAsync(CancellationToken cancellationToken)
