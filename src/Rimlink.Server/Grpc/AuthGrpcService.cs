@@ -15,6 +15,7 @@ public sealed class AuthGrpcService(AuthService auth, RimlinkDbContext db) : Pro
         LoginResult result = request.CredentialCase switch
         {
             LoginRequest.CredentialOneofCase.Password => await auth.LoginWithPassword(request.Password.Login, request.Password.Password, ctx),
+            LoginRequest.CredentialOneofCase.SteamTicket => await auth.LoginWithSteam(request.SteamTicket.ToByteArray(), ctx),
             _ => LoginResult.Failed(StatusCode.InvalidArgument, ErrorCode.Unspecified, "no supported credential in request"),
         };
         return await ToReply(result);

@@ -12,6 +12,7 @@ namespace Rimlink.Server.Application.Auth;
 public sealed class AuthService(
     RimlinkDbContext db,
     SessionRegistry sessions,
+    ISteamTicketVerifier steam,
     IOptions<AuthOptions> authOptions,
     ILogger<AuthService> log)
 {
@@ -55,6 +56,32 @@ public sealed class AuthService(
         return await Complete(account, ctx);
     }
 
+    public async Task<LoginResult> LoginWithSteam(byte[] ticket, LoginContext ctx)
+    {
+        var identity = await steam.Verify(ticket, CancellationToken.None);
+        if (identity is null)
+            return LoginResult.Failed(StatusCode.Unauthenticated, ErrorCode.Unspecified, "Steam ticket is not valid");
+
+        var account = await db.Accounts.Include(a => a.Player).FirstOrDefaultAsync(a => a.SteamId == identity.SteamId);
+        if (account is null)
+        {
+            account = new Account
+            {
+                SteamId = identity.SteamId,
+                Role = authOptions.Value.AdminSteamIds.Contains(identity.SteamId) ? Storage.Entities.Role.Admin : Storage.Entities.Role.Player,
+                CreatedAt = DateTime.UtcNow,
+            };
+            string name = "Player" + identity.SteamId.ToString()[^4..];
+            account.Player = new Player { Account = account, Name = name, FactionName = name };
+            db.Accounts.Add(account);
+            log.LogInformation("Registered Steam account {SteamId} ({Name})", identity.SteamId, name);
+        }
+        account.OwnerSteamId = identity.OwnerSteamId;
+        await db.SaveChangesAsync();
+
+        return await Complete(account, ctx, identity);
+    }
+
     public void Logout(Session session)
     {
         sessions.End(session.Token);
@@ -62,7 +89,7 @@ public sealed class AuthService(
     }
 
     /// <summary>Shared tail of every credential path: gate checks, session start, bookkeeping.</summary>
-    private async Task<LoginResult> Complete(Account account, LoginContext ctx)
+    private async Task<LoginResult> Complete(Account account, LoginContext ctx, SteamIdentity? steamIdentity = null)
     {
         if (ctx.ProtocolVersion != Protocol.ProtocolVersion.Current)
             return LoginResult.Failed(StatusCode.FailedPrecondition, ErrorCode.ProtocolVersion,

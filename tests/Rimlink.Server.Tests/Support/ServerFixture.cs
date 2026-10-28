@@ -1,6 +1,9 @@
 using Grpc.Net.Client;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Rimlink.Server.Application.Auth;
 
 namespace Rimlink.Server.Tests.Support;
 
@@ -23,6 +26,7 @@ public class ServerFixture : WebApplicationFactory<Program>
         builder.UseSetting("Tls:Required", "false");
         builder.UseSetting("Server:DataDir", DataDir);
         foreach (var (key, value) in settings) builder.UseSetting(key, value);
+        builder.ConfigureTestServices(services => services.AddSingleton<ISteamTicketVerifier, FakeSteamVerifier>());
     }
 
     public GrpcChannel CreateChannel() =>

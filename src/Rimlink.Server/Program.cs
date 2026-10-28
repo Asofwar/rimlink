@@ -38,6 +38,7 @@ builder.Services.AddHostedService<TlsStartupCheck>();
 
 builder.Services.AddSingleton<SessionRegistry>();
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddHttpClient<ISteamTicketVerifier, SteamWebApiTicketVerifier>(client => client.Timeout = TimeSpan.FromSeconds(10));
 
 var app = builder.Build();
 app.Services.MigrateRimlinkStorage();
