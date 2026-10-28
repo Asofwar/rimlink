@@ -25,7 +25,8 @@ Rimlink needs the exact server version it was built with (the server tells you w
    - If the server has password accounts enabled (or Steam is unavailable), the account dialog opens.
      **Log in** with an existing account or **Create account** with a login, a password and the player name
      others will see (defaults to the login).
-4. Your mods are compared with the server's modpack. If they differ, a dialog lists what is missing, has the
+4. A server with a join password asks for it once (it is not your account password; the admin gives it out).
+5. Your mods are compared with the server's modpack. If they differ, a dialog lists what is missing, has the
    wrong version or is not allowed. Use **Subscribe in Steam** / **Open download links**, then
    **Use server mod order** and **Restart game**. Your previous mod list is kept as
    `Config/ModsConfig.rimlink-backup.xml`.
@@ -38,6 +39,9 @@ Rimlink needs the exact server version it was built with (the server tells you w
 - **Leaving**: use the vanilla **Quit to main menu**. The game saves, uploads the save and only then returns to
   the menu. Autosaves are uploaded too. Saves live in `Saves/Rimlink_<host>_<port>_<player>.rws`; manual saves
   under other names stay local and are not sent to the server.
+- If the connection is lost for good or your account logs in elsewhere, the game saves locally and returns to the menu;
+  that save is sent to the server at your next login, before anything is downloaded. Loading another (single-player)
+  save from inside a multiplayer game ends the session the same way.
 - **Chat / Players** buttons in the top-right corner: global chat, direct messages (click a player → Message),
   who is online. Moderators and admins type `/help` in chat for commands.
 - Settling, abandoning or losing a settlement is reported to the server; other players see it on their map.

@@ -1,14 +1,17 @@
 using Grpc.Core;
+using Microsoft.EntityFrameworkCore;
 using Rimlink.Protocol.V1;
 using Rimlink.Server.Application.Auth;
 using Rimlink.Server.Application.Saves;
+using Rimlink.Server.Application.Sessions;
 using Rimlink.Server.Application.World;
 using Rimlink.Server.Hosting;
+using Rimlink.Server.Storage;
 using Rimlink.Server.Storage.Entities;
 
 namespace Rimlink.Server.Grpc;
 
-public sealed class AuthGrpcService(AuthService auth, WorldService worlds, SaveStore saves) : Protocol.V1.Auth.AuthBase
+public sealed class AuthGrpcService(AuthService auth, WorldService worlds, SaveStore saves, SessionRegistry sessions, RimlinkDbContext db) : Protocol.V1.Auth.AuthBase
 {
     public override async Task<LoginReply> Login(LoginRequest request, ServerCallContext context)
     {
@@ -44,7 +47,7 @@ public sealed class AuthGrpcService(AuthService auth, WorldService worlds, SaveS
                 return new LoginReply { ModpackDiff = m.Diff };
             case LoginResult.Success s:
                 UnauthenticatedConnectionLimiter.MarkAuthenticated(context.GetHttpContext());
-                return new LoginReply
+                var reply = new LoginReply
                 {
                     SessionToken = s.Session.Token,
                     Player = s.Player.ToRef(),
@@ -53,6 +56,9 @@ public sealed class AuthGrpcService(AuthService auth, WorldService worlds, SaveS
                     HasSettlement = await worlds.HasSettlement(s.Player.Id),
                     HasSave = await saves.HasSave(s.Player.Id),
                 };
+                var onlineIds = sessions.All.Select(x => x.PlayerId).Distinct().ToList();
+                reply.Online.AddRange((await db.Players.AsNoTracking().Where(p => onlineIds.Contains(p.Id)).ToListAsync()).Select(p => p.ToRef()));
+                return reply;
             default:
                 throw new InvalidOperationException("unknown login result");
         }

@@ -28,6 +28,19 @@ public class PasswordLoginTests
     }
 
     [Fact]
+    public async Task LoginReplyListsEveryoneOnlineIncludingSelf()
+    {
+        using var fixture = PasswordServer();
+        await fixture.RegisterAndLogin("nova", playerName: "Nova");
+        var auth = new Protocol.V1.Auth.AuthClient(fixture.CreateChannel());
+
+        var bob = await auth.RegisterAsync(new RegisterRequest { Login = "bob", Password = "pw", PlayerName = "Bob" });
+
+        Assert.Equal(["Bob", "Nova"], bob.Online.Select(p => p.Name).OrderBy(n => n).ToArray());
+        Assert.All(bob.Online, p => Assert.NotEqual(0, p.PlayerId));
+    }
+
+    [Fact]
     public async Task WrongPasswordIsUnauthenticated()
     {
         using var fixture = PasswordServer();

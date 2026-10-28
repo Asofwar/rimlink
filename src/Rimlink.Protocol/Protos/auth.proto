@@ -51,4 +51,6 @@ message LoginReply {
   bool has_settlement = 6;
   // Set (with an empty session_token) when the client's mods do not match the server modpack.
   ModpackDiff modpack_diff = 7;
+  // Everyone with a live session at login time, this player included; later changes arrive as PlayerJoined/PlayerLeft.
+  repeated PlayerRef online = 8;
 }

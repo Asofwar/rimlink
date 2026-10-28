@@ -32,6 +32,10 @@
   <Rimlink.Login.Password>Password</Rimlink.Login.Password>
   <Rimlink.Login.Register>Create account</Rimlink.Login.Register>
   <Rimlink.Login.Hint>Log in with an existing account, or create one with the login and password above (player name defaults to the login).</Rimlink.Login.Hint>
+  <Rimlink.ServerPassword.Title>Join password for {0}</Rimlink.ServerPassword.Title>
+  <Rimlink.ServerPassword.Hint>This server asks for a join password (not your account password). Get it from the server admin.</Rimlink.ServerPassword.Hint>
+  <Rimlink.Save.Rejected>The server refused your local save ({0}). It was kept as {1}; the server copy is used instead.</Rimlink.Save.Rejected>
+  <Rimlink.Tile.Taken>Another player's settlement</Rimlink.Tile.Taken>
   <Rimlink.Login.PlayerName>Player name</Rimlink.Login.PlayerName>
   <Rimlink.Login.Ok>Log in</Rimlink.Login.Ok>
   <Rimlink.Modpack.Title>Your mods do not match the server</Rimlink.Modpack.Title>

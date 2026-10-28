@@ -1,5 +1,6 @@
 using RimWorld;
 using Rimlink.Client.Net;
+using Rimlink.Protocol.V1;
 using Verse;
 
 namespace Rimlink.Client.Game;
@@ -43,6 +44,7 @@ public sealed class RimlinkGameComponent : GameComponent
                 break;
             case ConnectionState.Connected:
                 Messages.Message("Rimlink.Net.Reconnected".Translate(), MessageTypeDefOf.PositiveEvent, historical: false);
+                Resync();
                 break;
             case ConnectionState.Replaced:
                 Find.TickManager.Pause();
@@ -53,6 +55,34 @@ public sealed class RimlinkGameComponent : GameComponent
                 Find.WindowStack.Add(new Dialog_MessageBox("Rimlink.Net.Failed".Translate(), "Rimlink.Net.ToMenu".Translate(), LeaveToMenu));
                 break;
         }
+    }
+
+    /// <summary>A reconnect starts a fresh server session with an empty event queue: fetch what was missed meanwhile.</summary>
+    private static void Resync()
+    {
+        var connection = RimlinkSession.Connection;
+        var login = RimlinkSession.Login;
+        if (connection is null || login is null) return;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var objects = await connection.World.ListObjectsAsync(new Empty());
+                var history = await connection.Chat.HistoryAsync(new Empty());
+                var online = connection.Login?.Online.ToList() ?? [login.Player];
+                UI.MainThread.Post(() =>
+                {
+                    if (RimlinkSession.Connection != connection) return;
+                    RimlinkSession.State.LoadSnapshot(objects, history, online);
+                    ForeignSettlements.RebuildFromState();
+                    RimlinkLog.Instance.Info($"resynced after reconnect: {objects.Objects.Count} world objects, {online.Count} online");
+                });
+            }
+            catch (Exception ex)
+            {
+                RimlinkLog.Instance.Warn($"resync after reconnect failed: {ex.Message}");
+            }
+        });
     }
 
     private void HandleNotices()
@@ -76,8 +106,16 @@ public sealed class RimlinkGameComponent : GameComponent
         }
     }
 
-    /// <summary>Local save stays as it is (its upload is retried at next login); the session ends.</summary>
+    /// <summary>The colony is saved locally and flagged for upload at the next login (the connection is gone); the session ends.</summary>
     public static void LeaveToMenu()
+    {
+        SaveSync.SaveLocallyForLater("leaving after a lost or replaced session");
+        EndSession();
+        GenScene.GoToMainMenu();
+    }
+
+    /// <summary>The server refused what the game did (a settlement on a taken tile): the colony cannot continue here.</summary>
+    public static void AbortToMenu()
     {
         EndSession();
         GenScene.GoToMainMenu();

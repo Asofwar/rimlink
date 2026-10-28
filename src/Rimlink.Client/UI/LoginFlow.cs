@@ -24,28 +24,7 @@ public static class LoginFlow
             try
             {
                 connection = new RimlinkConnection(endpoint, credentials, new GamePinPrompt(), RimlinkLog.Instance);
-                LoginReply reply;
-                while (true)
-                {
-                    try
-                    {
-                        reply = await connection.ConnectAsync(cts.Token);
-                        break;
-                    }
-                    catch (RpcException ex) when (ex.StatusCode == StatusCode.Unauthenticated && !credentials.PreferPassword)
-                    {
-                        // The Steam ticket was refused (server without a Steam key, or Steam offline): offer the account login.
-                        credentials.PreferPassword = true;
-                        credentials.LastError = ex.Status.Detail;
-                    }
-                    catch (RpcException ex) when (ex.StatusCode is StatusCode.Unauthenticated or StatusCode.AlreadyExists or StatusCode.InvalidArgument
-                                                  && credentials.LastPassword is not null)
-                    {
-                        // Wrong password or a refused registration (name taken, bad name): ask again instead of failing the whole flow.
-                        credentials.LastError = ex.Status.Detail;
-                        credentials.ForgetPassword();
-                    }
-                }
+                var reply = await Login(connection, credentials, endpoint, cts.Token);
 
                 if (reply.SessionToken.Length == 0)
                 {
@@ -61,59 +40,128 @@ public static class LoginFlow
                 var objects = await connection.World.ListObjectsAsync(new Empty(), cancellationToken: cts.Token);
                 var history = await connection.Chat.HistoryAsync(new Empty(), cancellationToken: cts.Token);
                 RimlinkSession.World = world;
-                // Only this player is known to be online at login; others show up through PlayerJoined events.
-                RimlinkSession.State.LoadSnapshot(objects, history, [reply.Player]);
+                RimlinkSession.State.LoadSnapshot(objects, history, reply.Online.Count > 0 ? reply.Online : [reply.Player]);
                 ForeignSettlements.Subscribe();
 
-                if (reply.HasSave)
-                {
-                    MainThread.Post(() => wait.Text = "Rimlink.Flow.Downloading".Translate());
-                    await new SaveTransfer(connection).DownloadAsync(SaveSync.SaveFilePath, cts.Token);
-                    SaveSync.Pending.Clear();
-                    MainThread.Post(() => { wait.Close(); GameDataSaveLoader.LoadGame(SaveSync.SaveFileName); });
-                    return;
-                }
+                string savePath = SaveSync.SaveFilePath;
+                var pending = SaveSync.Pending;
+                var action = LoginPlan.Decide(pending.IsSet, File.Exists(savePath), reply.HasSave, reply.HasSettlement);
+                RimlinkLog.Instance.Info($"login plan: {action} (pending={pending.IsSet}, local={File.Exists(savePath)}, server save={reply.HasSave}, settlement={reply.HasSettlement})");
 
-                if (SaveSync.Pending.IsSet && File.Exists(SaveSync.SaveFilePath))
+                switch (action)
                 {
-                    // The last session's save never reached the server; it is the newest copy there is.
-                    MainThread.Post(() => wait.Text = "Rimlink.Flow.Uploading".Translate());
-                    var meta = ReadMeta(SaveSync.SaveFilePath);
-                    await new SaveTransfer(connection).UploadAsync(SaveSync.SaveFilePath, meta, cts.Token);
-                    SaveSync.Pending.Clear();
-                    MainThread.Post(() => { wait.Close(); GameDataSaveLoader.LoadGame(SaveSync.SaveFileName); });
-                    return;
-                }
+                    case LoginAction.UploadLocalThenLoad:
+                        MainThread.Post(() => wait.Text = "Rimlink.Flow.Uploading".Translate());
+                        if (await UploadLocal(connection, savePath, pending, cts.Token))
+                        {
+                            MainThread.Post(() => { wait.Close(); GameDataSaveLoader.LoadGame(SaveSync.SaveFileName); });
+                            return;
+                        }
+                        // Refused: the file was set aside; carry on with whatever the server has.
+                        if (reply.HasSave) goto case LoginAction.DownloadThenLoad;
+                        if (reply.HasSettlement) goto case LoginAction.AbandonThenNewColony;
+                        goto case LoginAction.NewColony;
 
-                if (reply.HasSettlement)
-                {
-                    // A settlement without a save (the first save never happened): the colony is gone, free its tile.
-                    foreach (var own in RimlinkSession.State.Objects.All.Where(o => o.Owner?.PlayerId == RimlinkSession.MyPlayerId).ToList())
-                    {
-                        await connection.World.AbandonAsync(new AbandonRequest { ObjectId = own.Id }, cancellationToken: cts.Token);
-                        RimlinkSession.State.Objects.Remove(own.Id);
-                        RimlinkLog.Instance.Warn($"abandoned settlement {own.Id} on tile {own.Tile}: no save on the server");
-                    }
-                }
+                    case LoginAction.DownloadThenLoad:
+                        MainThread.Post(() => wait.Text = "Rimlink.Flow.Downloading".Translate());
+                        await new SaveTransfer(connection).DownloadAsync(savePath, cts.Token);
+                        pending.Clear();
+                        MainThread.Post(() => { wait.Close(); GameDataSaveLoader.LoadGame(SaveSync.SaveFileName); });
+                        return;
 
-                // No save yet: the vanilla new-colony pages, with the world page locked to the server's planet.
-                MainThread.Post(() => { wait.Close(); Find.WindowStack.Add(new Page_SelectScenario()); });
+                    case LoginAction.AbandonThenNewColony:
+                        // A settlement without a save anywhere (the first save never happened): the colony is gone, free its tile.
+                        foreach (var own in RimlinkSession.State.Objects.All.Where(o => o.Owner?.PlayerId == RimlinkSession.MyPlayerId).ToList())
+                        {
+                            await connection.World.AbandonAsync(new AbandonRequest { ObjectId = own.Id }, cancellationToken: cts.Token);
+                            RimlinkSession.State.Objects.Remove(own.Id);
+                            RimlinkLog.Instance.Warn($"abandoned settlement {own.Id} on tile {own.Tile}: no save anywhere");
+                        }
+                        goto case LoginAction.NewColony;
+
+                    case LoginAction.NewColony:
+                        // The vanilla new-colony pages, with the world page locked to the server's planet.
+                        MainThread.Post(() => { wait.Close(); Find.WindowStack.Add(new Page_SelectScenario()); });
+                        return;
+                }
             }
             catch (OperationCanceledException)
             {
                 await Fail(connection, wait, null);
             }
+            catch (RpcException ex) when (ex.StatusCode == StatusCode.Cancelled && cts.IsCancellationRequested)
+            {
+                await Fail(connection, wait, null);
+            }
             catch (RpcException ex)
             {
-                await Fail(connection, wait, ex.Trailers.FirstOrDefault(t => t.Key == "rimlink-error-bin") is { } trailer
-                    ? ErrorDetail.Parser.ParseFrom(trailer.ValueBytes).Message
-                    : $"{ex.StatusCode}: {ex.Status.Detail}");
+                await Fail(connection, wait, ErrorMessage(ex));
             }
             catch (Exception ex)
             {
                 await Fail(connection, wait, ex.Message);
             }
         });
+    }
+
+    /// <summary>Connects, re-asking for credentials where a retry can help; everything else propagates.</summary>
+    private static async Task<LoginReply> Login(RimlinkConnection connection, GameCredentials credentials, ServerEndpoint endpoint, CancellationToken ct)
+    {
+        bool serverPasswordAsked = false;
+        while (true)
+        {
+            try
+            {
+                return await connection.ConnectAsync(ct);
+            }
+            catch (RpcException ex) when (ex.StatusCode == StatusCode.Unauthenticated && !credentials.PreferPassword)
+            {
+                // The Steam ticket was refused (server without a Steam key, or Steam offline): offer the account login.
+                credentials.PreferPassword = true;
+                credentials.LastError = ex.Status.Detail;
+            }
+            catch (RpcException ex) when (ex.StatusCode is StatusCode.Unauthenticated or StatusCode.AlreadyExists or StatusCode.InvalidArgument
+                                          && credentials.LastPassword is not null)
+            {
+                // Wrong password or a refused registration (name taken, bad name): ask again instead of failing the whole flow.
+                credentials.LastError = ex.Status.Detail;
+                credentials.ForgetPassword();
+            }
+            catch (RpcException ex) when (ErrorCodeOf(ex) == ErrorCode.WrongPassword && !serverPasswordAsked)
+            {
+                // The server has a join password: ask once; a second refusal is reported like any other error.
+                serverPasswordAsked = true;
+                string? serverPassword = await MainThread.Ask<string?>(tcs => new Dialog_ServerPassword(endpoint.Display, tcs));
+                if (serverPassword is null) throw new OperationCanceledException("join cancelled");
+                credentials.ServerPassword = serverPassword;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Sends the local file the server never got. A refusal (another world after a recreate, a damaged file) keeps the
+    /// file under a dated name so nothing is lost, clears the marker and returns false.
+    /// </summary>
+    private static async Task<bool> UploadLocal(RimlinkConnection connection, string savePath, PendingUpload pending, CancellationToken ct)
+    {
+        try
+        {
+            var meta = ReadMeta(savePath);
+            await new SaveTransfer(connection).UploadAsync(savePath, meta, ct);
+            pending.Clear();
+            RimlinkLog.Instance.Info("pending local save uploaded");
+            return true;
+        }
+        catch (RpcException ex) when (ex.StatusCode != StatusCode.Cancelled && ex.StatusCode != StatusCode.Unavailable)
+        {
+            string kept = Path.ChangeExtension(savePath, $".rejected-{DateTime.Now:yyyyMMdd-HHmm}.rws");
+            File.Move(savePath, kept, overwrite: true);
+            pending.Clear();
+            string reason = ErrorMessage(ex);
+            RimlinkLog.Instance.Warn($"pending local save refused ({reason}); kept as {kept}");
+            MainThread.Post(() => Find.WindowStack.Add(new Dialog_MessageBox("Rimlink.Save.Rejected".Translate(reason, Path.GetFileName(kept)))));
+            return false;
+        }
     }
 
     private static async Task Fail(RimlinkConnection? connection, Dialog_Wait wait, string? error)
@@ -126,6 +174,14 @@ public static class LoginFlow
             if (error is not null) Find.WindowStack.Add(new Dialog_MessageBox("Rimlink.Flow.Error".Translate(error)));
         });
     }
+
+    private static ErrorCode? ErrorCodeOf(RpcException ex) =>
+        ex.Trailers.FirstOrDefault(t => t.Key == "rimlink-error-bin") is { } trailer ? ErrorDetail.Parser.ParseFrom(trailer.ValueBytes).Code : null;
+
+    private static string ErrorMessage(RpcException ex) =>
+        ex.Trailers.FirstOrDefault(t => t.Key == "rimlink-error-bin") is { } trailer
+            ? ErrorDetail.Parser.ParseFrom(trailer.ValueBytes).Message
+            : $"{ex.StatusCode}: {ex.Status.Detail}";
 
     /// <summary>Seed, faction name and tick straight from the .rws header, without loading the game.</summary>
     private static SaveMeta ReadMeta(string rwsPath)

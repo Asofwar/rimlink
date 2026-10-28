@@ -32,6 +32,10 @@
   <Rimlink.Login.Password>Пароль</Rimlink.Login.Password>
   <Rimlink.Login.Register>Создать аккаунт</Rimlink.Login.Register>
   <Rimlink.Login.Hint>Войдите в существующий аккаунт или создайте новый с логином и паролем выше (имя игрока по умолчанию равно логину).</Rimlink.Login.Hint>
+  <Rimlink.ServerPassword.Title>Пароль для входа на {0}</Rimlink.ServerPassword.Title>
+  <Rimlink.ServerPassword.Hint>Сервер требует пароль для входа (не пароль аккаунта). Узнайте его у администратора сервера.</Rimlink.ServerPassword.Hint>
+  <Rimlink.Save.Rejected>Сервер отклонил ваш локальный сейв ({0}). Он сохранён как {1}; будет использована копия с сервера.</Rimlink.Save.Rejected>
+  <Rimlink.Tile.Taken>Поселение другого игрока</Rimlink.Tile.Taken>
   <Rimlink.Login.PlayerName>Имя игрока</Rimlink.Login.PlayerName>
   <Rimlink.Login.Ok>Войти</Rimlink.Login.Ok>
   <Rimlink.Modpack.Title>Ваши моды не совпадают с сервером</Rimlink.Modpack.Title>

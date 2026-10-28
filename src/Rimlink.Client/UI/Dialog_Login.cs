@@ -3,7 +3,11 @@ using Verse;
 
 namespace Rimlink.Client.UI;
 
-public sealed record PasswordLogin(string Login, string Password, bool Register, string PlayerName);
+public sealed record PasswordLogin(string Login, string Password, bool Register, string PlayerName)
+{
+    /// <summary>Never prints the password (records print every member by default; this one can reach a log).</summary>
+    public override string ToString() => $"PasswordLogin {{ Login = {Login}, Register = {Register}, PlayerName = {PlayerName} }}";
+}
 
 /// <summary>Login/password form used when Steam is not available or the player prefers an account.</summary>
 public sealed class Dialog_Login : Window
@@ -43,7 +47,7 @@ public sealed class Dialog_Login : Window
         login = Widgets.TextField(new Rect(124f, y, inRect.width - 124f, 28f), login, 32);
         y += 34f;
         Widgets.Label(new Rect(0f, y, 120f, 28f), "Rimlink.Login.Password".Translate());
-        password = Widgets.TextField(new Rect(124f, y, inRect.width - 124f, 28f), password, 128);
+        password = PasswordWidget.Draw(new Rect(124f, y, inRect.width - 124f, 28f), password);
         y += 34f;
         Widgets.Label(new Rect(0f, y, 120f, 28f), "Rimlink.Login.PlayerName".Translate());
         playerName = Widgets.TextField(new Rect(124f, y, inRect.width - 124f, 28f), playerName, 32);
