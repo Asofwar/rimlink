@@ -62,11 +62,33 @@ rimlink-tools modpack import --from "<Config>/ModsConfig.xml" \
 
 An empty list disables the check. Entries with `kind=allowed` may be missing on the client (UI mods and the like).
 
+### Modpack defs (economy)
+
+Items and pawns travel as game data; the server refuses blobs whose ThingDef / PawnKindDef is not in the modpack when the
+def list is set (empty list = check off):
+
+```bash
+rimlink-tools modpack defs --mods-dir "<RimWorld>/Data" "<RimWorld>/Mods" "<steamapps>/workshop/content/294100" \
+  --server https://host:25560 --token <Admin:ApiToken> --insecure
+```
+
+## 5a. Economy
+
+Market board with escrow, server-side silver wallets, mailbox for offline recipients and direct transfers. Settings
+under `Economy` (defaults): `Enabled` true, `MaxParcelBytes` 4194304, `MaxItemsPerParcel` 200, `MaxPawnsPerParcel` 10,
+`MaxLotsPerPlayer` 20, `MaxPendingParcels` 50, `LotLifetimeDays` 30, `MarketFeePercent` 0 (fee goes to the bank account,
+player id 0), `SendCooldownSeconds` 5. A save uploaded with a game tick older than the player's last transfer is refused
+(`SAVE_STALE`): that file would bring back what was given away. An admin rollback behind a transfer is allowed and
+logged as such.
+
 ## 6. Administration
 
 - In game, moderators and admins type `/help` in chat.
 - REST API under `/api/admin/*`, bearer token `Admin:ApiToken` (leave it empty to disable the API). The CLI wraps it:
   `rimlink-tools admin online|kick|ban|pardon|bans|mute|unmute|saves|rollback|reset|broadcast|shutdown|recreateworld|modpack|actions --server URL --token T [--insecure]`.
+- Economy: chat `/wallet <player> [+n|-n] [reason]`, `/parcels <player>`, `/lots [player]`, `/refund lot <id>`,
+  `/refund parcel <id>` (undelivered gift back to its sender), `/economy freeze [reason]|unfreeze|stats`; the same via
+  `rimlink-tools admin wallet|parcels|lots|refund|economy …` and REST `/api/admin/economy/*`.
 - Every admin action is logged (`/actions`).
 
 ## 7. Backups
@@ -77,7 +99,7 @@ An empty list disables the check. Entries with `kind=allowed` may be missing on 
 
 ## 8. Monitoring
 
-`GET /health` (used by the Docker health check) and Prometheus metrics at `GET /metrics`. Logs go to the console
+`GET /health` (used by the Docker health check) and Prometheus metrics at `GET /metrics` (economy: `rimlink_trades_total{kind}`, `rimlink_silver_moved_total`, `rimlink_parcels_pending`, `rimlink_economy_errors_total{code}`). Logs go to the console
 and `logs/server-<date>.log`.
 
 ## 9. Limits (built in)
