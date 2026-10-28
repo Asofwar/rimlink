@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package rimlink.v1;
+option csharp_namespace = "Rimlink.Protocol.V1";
+
+message Empty {}
+
+enum ErrorCode {
+  UNSPECIFIED = 0;
+  WORLD_NOT_CREATED = 1;
+  TILE_TAKEN = 2;
+  SETTLEMENT_LIMIT = 3;
+  MODPACK_MISMATCH = 4;
+  BANNED = 5;
+  SERVER_FULL = 6;
+  WRONG_PASSWORD = 7;
+  PROTOCOL_VERSION = 8;
+  NAME_INVALID = 9;
+  SAVE_INVALID = 10;
+  MUTED = 11;
+}
+
+// Attached to failed calls as the "rimlink-error-bin" trailer.
+message ErrorDetail {
+  ErrorCode code = 1;
+  string message = 2;
+}
+
+message PlayerRef {
+  int64 player_id = 1;
+  string name = 2;
+  string faction_name = 3;
+  uint32 color_argb = 4;
+}
+
+// A mod as the client reports it: ModMetaData.packageId + modVersion.
+message ModRef {
+  string package_id = 1;
+  string version = 2;
+}
