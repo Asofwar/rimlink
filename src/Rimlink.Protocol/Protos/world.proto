@@ -24,6 +24,9 @@ message WorldParams {
   string scenario_def = 7;
   string storyteller_def = 8;
   string difficulty_def = 9;
+  // Faction defs chosen at world creation; NPC settlement placement depends on them.
+  repeated string faction_defs = 10;
+  int32 landmark_density = 11;
 }
 
 message CreateWorldRequest {

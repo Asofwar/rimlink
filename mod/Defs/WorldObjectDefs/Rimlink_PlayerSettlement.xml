@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <WorldObjectDef ParentName="StaticWorldObjectBase">
+    <defName>Rimlink_PlayerSettlement</defName>
+    <label>player settlement</label>
+    <description>Another player's colony on this shared world.</description>
+    <worldObjectClass>Rimlink.Client.Game.PlayerSettlement</worldObjectClass>
+    <texture>World/WorldObjects/Expanding/Town</texture>
+    <expandingIcon>true</expandingIcon>
+    <expandingIconTexture>World/WorldObjects/Expanding/Town</expandingIconTexture>
+    <expandingIconPriority>10</expandingIconPriority>
+    <canHaveFaction>false</canHaveFaction>
+    <saved>false</saved>
+    <selectable>true</selectable>
+  </WorldObjectDef>
+</Defs>

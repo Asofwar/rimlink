@@ -2,4 +2,15 @@
 <LanguageData>
   <Rimlink.Settings.Servers>Saved servers: {0}. Manage them from the Multiplayer button in the main menu.</Rimlink.Settings.Servers>
   <Rimlink.MainMenu.Multiplayer>Multiplayer</Rimlink.MainMenu.Multiplayer>
+  <Rimlink.Settlement.Inspect>Colony of player {0}</Rimlink.Settlement.Inspect>
+  <Rimlink.Net.Reconnecting>Connection to the server lost, reconnecting...</Rimlink.Net.Reconnecting>
+  <Rimlink.Net.Reconnected>Reconnected to the server.</Rimlink.Net.Reconnected>
+  <Rimlink.Net.Replaced>This account logged in from another place. The game is paused; your save stays on this computer.</Rimlink.Net.Replaced>
+  <Rimlink.Net.Failed>Could not reconnect to the server within two minutes. Your save stays on this computer and is uploaded at the next login.</Rimlink.Net.Failed>
+  <Rimlink.Net.ToMenu>Back to main menu</Rimlink.Net.ToMenu>
+  <Rimlink.Net.Shutdown>Server shutdown in {0} s: {1}</Rimlink.Net.Shutdown>
+  <Rimlink.Save.RolledBack>An admin restored your save to version {0}. Return to the menu and log in again to load it.</Rimlink.Save.RolledBack>
+  <Rimlink.Settle.Refused>The server refused this settlement: {0}</Rimlink.Settle.Refused>
+  <Rimlink.World.Locked>World parameters are set by the server {0}.</Rimlink.World.Locked>
+  <Rimlink.Saving>Saving to the Rimlink server...</Rimlink.Saving>
 </LanguageData>

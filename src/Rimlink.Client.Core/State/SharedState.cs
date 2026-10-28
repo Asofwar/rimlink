@@ -58,6 +58,10 @@ public sealed class SharedState
         }
     }
 
+    /// <summary>The game layer calls these once it has shown the pending notice.</summary>
+    public void ClearPendingShutdown() => PendingShutdown = null;
+    public void ClearPendingRollback() => PendingRollbackVersion = null;
+
     public void Reset()
     {
         Objects.Clear();

@@ -2,4 +2,15 @@
 <LanguageData>
   <Rimlink.Settings.Servers>Сохранённых серверов: {0}. Управление — через кнопку «Мультиплеер» в главном меню.</Rimlink.Settings.Servers>
   <Rimlink.MainMenu.Multiplayer>Мультиплеер</Rimlink.MainMenu.Multiplayer>
+  <Rimlink.Settlement.Inspect>Колония игрока {0}</Rimlink.Settlement.Inspect>
+  <Rimlink.Net.Reconnecting>Связь с сервером потеряна, переподключение...</Rimlink.Net.Reconnecting>
+  <Rimlink.Net.Reconnected>Связь с сервером восстановлена.</Rimlink.Net.Reconnected>
+  <Rimlink.Net.Replaced>В этот аккаунт вошли с другого места. Игра на паузе; сохранение остаётся на этом компьютере.</Rimlink.Net.Replaced>
+  <Rimlink.Net.Failed>Не удалось переподключиться к серверу за две минуты. Сохранение остаётся на этом компьютере и отправится при следующем входе.</Rimlink.Net.Failed>
+  <Rimlink.Net.ToMenu>В главное меню</Rimlink.Net.ToMenu>
+  <Rimlink.Net.Shutdown>Сервер выключится через {0} с: {1}</Rimlink.Net.Shutdown>
+  <Rimlink.Save.RolledBack>Администратор вернул ваше сохранение к версии {0}. Выйдите в меню и войдите снова, чтобы загрузить его.</Rimlink.Save.RolledBack>
+  <Rimlink.Settle.Refused>Сервер отклонил поселение: {0}</Rimlink.Settle.Refused>
+  <Rimlink.World.Locked>Параметры мира заданы сервером {0}.</Rimlink.World.Locked>
+  <Rimlink.Saving>Сохранение на сервер Rimlink...</Rimlink.Saving>
 </LanguageData>
