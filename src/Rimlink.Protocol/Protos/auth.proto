@@ -4,6 +4,7 @@ package rimlink.v1;
 option csharp_namespace = "Rimlink.Protocol.V1";
 
 import "common.proto";
+import "modpack.proto";
 
 service Auth {
   rpc Login (LoginRequest) returns (LoginReply);
@@ -37,6 +38,8 @@ message RegisterRequest {
   string login = 1;
   string password = 2;
   string player_name = 3;
+  // Registration logs the new account in, so it is checked against the modpack like a login.
+  repeated ModRef mods = 4;
 }
 
 message LoginReply {
@@ -46,5 +49,6 @@ message LoginReply {
   bool world_exists = 4;
   bool has_save = 5;
   bool has_settlement = 6;
-  // Field 7 (modpack_diff) is added together with the modpack service.
+  // Set (with an empty session_token) when the client's mods do not match the server modpack.
+  ModpackDiff modpack_diff = 7;
 }

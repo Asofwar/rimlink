@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package rimlink.v1;
+option csharp_namespace = "Rimlink.Protocol.V1";
+
+import "common.proto";
+
+service Modpack {
+  rpc Get (Empty) returns (ModpackList);
+  // Admin only. An empty list disables the check.
+  rpc Set (ModpackList) returns (Empty);
+}
+
+enum EntryKind {
+  REQUIRED = 0;
+  ALLOWED = 1;
+}
+
+message ModpackEntry {
+  int32 position = 1;
+  // ModMetaData.packageId, lower case, without the "_steam" suffix.
+  string package_id = 2;
+  // ModMetaData.modVersion; empty = any version.
+  string version = 3;
+  uint64 workshop_id = 4;
+  string url = 5;
+  EntryKind kind = 6;
+}
+
+message ModpackList {
+  repeated ModpackEntry entries = 1;
+}
+
+message VersionMismatch {
+  string package_id = 1;
+  string client_version = 2;
+  string server_version = 3;
+}
+
+// Returned in LoginReply when the client's mods do not match; the token is empty in that case.
+message ModpackDiff {
+  repeated ModpackEntry missing = 1;
+  repeated ModRef extra = 2;
+  repeated VersionMismatch wrong_version = 3;
+  repeated ModpackEntry server_list = 4;
+}

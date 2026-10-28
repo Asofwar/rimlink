@@ -2,6 +2,7 @@ using Prometheus;
 using Rimlink.Protocol;
 using Rimlink.Server.Application.Auth;
 using Rimlink.Server.Application.Events;
+using Rimlink.Server.Application.Modpack;
 using Rimlink.Server.Application.Saves;
 using Rimlink.Server.Application.Sessions;
 using Rimlink.Server.Application.World;
@@ -49,6 +50,7 @@ builder.Services.AddScoped<BanService>();
 builder.Services.AddScoped<LoginGate>();
 builder.Services.AddScoped<WorldService>();
 builder.Services.AddScoped<SaveStore>();
+builder.Services.AddScoped<ModpackService>();
 builder.Services.AddHttpClient<ISteamTicketVerifier, SteamWebApiTicketVerifier>(client => client.Timeout = TimeSpan.FromSeconds(10));
 
 var app = builder.Build();
@@ -62,6 +64,7 @@ app.MapGrpcService<AuthGrpcService>();
 app.MapGrpcService<EventsGrpcService>();
 app.MapGrpcService<WorldGrpcService>();
 app.MapGrpcService<SavesGrpcService>();
+app.MapGrpcService<ModpackGrpcService>();
 
 app.Run();
 

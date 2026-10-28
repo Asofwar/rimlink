@@ -24,7 +24,7 @@ public sealed class AuthGrpcService(AuthService auth, WorldService worlds, SaveS
 
     public override async Task<LoginReply> Register(RegisterRequest request, ServerCallContext context)
     {
-        var ctx = new LoginContext(Protocol.ProtocolVersion.Current, null, [], context.ClientIp());
+        var ctx = new LoginContext(Protocol.ProtocolVersion.Current, null, request.Mods, context.ClientIp());
         return await ToReply(await auth.Register(request.Login, request.Password, request.PlayerName, ctx), context);
     }
 
@@ -40,6 +40,8 @@ public sealed class AuthGrpcService(AuthService auth, WorldService worlds, SaveS
         {
             case LoginResult.Failure f:
                 throw RpcErrors.With(f.Status, f.Code, f.Message);
+            case LoginResult.ModpackMismatch m:
+                return new LoginReply { ModpackDiff = m.Diff };
             case LoginResult.Success s:
                 UnauthenticatedConnectionLimiter.MarkAuthenticated(context.GetHttpContext());
                 return new LoginReply
