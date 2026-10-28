@@ -31,7 +31,9 @@ public sealed class RaidRules(IOptions<RaidOptions> options, RimlinkDbContext db
         var o = options.Value;
         if (IsPeaceful(attacker, now)) return (ErrorCode.PeacefulMode, "you are in peaceful mode");
         if (IsPeaceful(target, now)) return (ErrorCode.PeacefulMode, $"{target.Name} is in peaceful mode");
-        if (target.FirstSaveAt is null || now - target.FirstSaveAt.Value < TimeSpan.FromDays(o.NewbieProtectionDays))
+        // Players from before this column existed have saves but no stamp: their oldest save is the first one.
+        var firstSave = target.FirstSaveAt ?? await db.SaveVersions.Where(v => v.PlayerId == target.Id).MinAsync(v => (DateTime?)v.CreatedAt);
+        if (firstSave is null || now - firstSave.Value < TimeSpan.FromDays(o.NewbieProtectionDays))
             return (ErrorCode.TargetProtected, $"{target.Name}'s colony is too new to be raided");
         if (target.WealthTotal < o.MinColonyWealth)
             return (ErrorCode.TargetProtected, $"{target.Name}'s colony is too poor to be raided");

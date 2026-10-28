@@ -8,6 +8,7 @@ using Xunit;
 using static Rimlink.Server.Tests.Support.EconomyFixtures;
 using static Rimlink.Server.Tests.Support.GrpcTestExtensions;
 using static Rimlink.Server.Tests.Support.RaidFixtures;
+using static Rimlink.Server.Tests.Support.SaveFixtures;
 
 namespace Rimlink.Server.Tests.Raids;
 
@@ -158,6 +159,25 @@ public class RaidTests
         await MakeTargetRaidable(fixture, bob.Player.PlayerId, wealthItems: 100, wealthTotal: 100);
         var poor = await Assert.ThrowsAsync<RpcException>(() => n.Raids.LaunchAsync(Launch(bob.Player.PlayerId), n.Auth).ResponseAsync);
         Assert.Equal(ErrorCode.TargetProtected, poor.ErrorDetail()!.Code);
+    }
+
+    [Fact]
+    public async Task AnOldSaveCountsAsTheFirstSaveWhenTheStampIsMissing()
+    {
+        using var fixture = RaidServer();
+        var nova = await fixture.RegisterAndLogin("nova");
+        var bob = await fixture.RegisterAndLogin("bob", playerName: "Bob");
+        var n = RaidClientsOf(fixture, nova.SessionToken);
+        var b = RaidClientsOf(fixture, bob.SessionToken);
+        byte[] save = MakeSave(ServerFixture.WorldSeed, "Bob", tick: 10);
+        await Upload(b.Saves, bob.SessionToken, save, HeaderFor(save, ServerFixture.WorldSeed, "Bob", tick: 10));
+        using (var scope = fixture.Services.CreateScope())
+            await scope.ServiceProvider.GetRequiredService<RimlinkDbContext>().Players.Where(x => x.Id == bob.Player.PlayerId)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.FirstSaveAt, (DateTime?)null)); // a player from before the raids migration
+
+        var raid = await n.Raids.LaunchAsync(Launch(bob.Player.PlayerId), n.Auth);
+
+        Assert.Equal(RaidState.RaidQueued, raid.State);
     }
 
     [Fact]
