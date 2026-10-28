@@ -74,13 +74,16 @@ public static class ShopGizmos
 /// <summary>Keeps the server's copy of the shop and the host's map in step.</summary>
 public static class ShopSync
 {
-    /// <summary>After a successful upload: the list of priced things as they are in that save.</summary>
-    public static void Publish(long saveTick)
+    /// <summary>
+    /// The priced things as they are in the save being written (main thread, at save time). Published by the uploader
+    /// right after the upload succeeds, while the connection is still open (a leave-to-menu save ends the session next).
+    /// </summary>
+    public static ShopList? Build(long saveTick)
     {
-        if (!RimlinkSession.Active || VisitSession.Active || RimlinkSession.Shop is not { } shop) return;
+        if (!RimlinkSession.Active || VisitSession.Active) return null;
         var home = Find.AnyPlayerHomeMap;
         var component = home?.GetComponent<MapComponent_RimlinkShop>();
-        if (home is null || component is null) return;
+        if (home is null || component is null) return null;
         var list = new ShopList();
         foreach (var (id, price) in component.Prices.ToList())
         {
@@ -99,11 +102,20 @@ public static class ShopSync
                 Label = thing.LabelCapNoCount,
             });
         }
-        _ = Task.Run(async () =>
+        return list;
+    }
+
+    public static async Task Publish(ShopList list, Rimlink.Client.Net.RimlinkConnection connection)
+    {
+        try
         {
-            try { await shop.Publish(list, CancellationToken.None); }
-            catch (Exception ex) { RimlinkLog.Instance.Warn("shop list not published: " + ex.Message); }
-        });
+            await new Rimlink.Client.Visits.ShopClient(connection).Publish(list, CancellationToken.None);
+            RimlinkLog.Instance.Info($"shop list published: {list.Items.Count} things");
+        }
+        catch (Exception ex)
+        {
+            RimlinkLog.Instance.Warn("shop list not published: " + ex.Message);
+        }
     }
 
     /// <summary>At login and map load: sold things leave the map, the removal is acknowledged through the outbox.</summary>

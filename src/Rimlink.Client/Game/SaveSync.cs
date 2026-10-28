@@ -62,6 +62,7 @@ public static class SaveSync
         var home = Find.AnyPlayerHomeMap;
         var meta = new SaveMeta(Find.World.info.seedString, Faction.OfPlayer.Name, Find.TickManager.TicksGame,
             (long)(home?.wealthWatcher.WealthTotal ?? 0f), (long)(home?.wealthWatcher.WealthItems ?? 0f));
+        var shopList = Shop.ShopSync.Build(meta.GameTick);
         var connection = RimlinkSession.Connection!;
         // Captured now: the session (and with it Endpoint/MyPlayerId) may be over by the time the upload finishes.
         string path = SaveFilePath;
@@ -77,7 +78,7 @@ public static class SaveSync
                 LastUploadUtc = DateTime.UtcNow;
                 LastError = null;
                 RimlinkLog.Instance.Info($"save uploaded as v{info.Version}");
-                UI.MainThread.Post(() => Shop.ShopSync.Publish(meta.GameTick));
+                if (shopList is not null) await Shop.ShopSync.Publish(shopList, connection);
             }
             catch (Grpc.Core.RpcException ex) when (Rimlink.Client.Economy.EconomyClient.CodeOf(ex) == Rimlink.Protocol.V1.ErrorCode.SaveStale)
             {
