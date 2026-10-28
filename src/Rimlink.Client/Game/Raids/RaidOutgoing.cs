@@ -43,6 +43,16 @@ public static class RaidOutgoing
             request => RimlinkSession.Raids!.Launch((LaunchRequest)request, CancellationToken.None));
     }
 
+    /// <summary>Dev harness: raid straight from the home map (no caravan). Real pawns leave the map and come back where they stood on a refusal.</summary>
+    public static void LaunchFromCaravanless(Map map, PlayerRef target, IReadOnlyList<Pawn> pawns, PawnMode mode, RaidTiming timing)
+    {
+        if (CheckLimits(pawns.Count) is { } limit) { Messages.Message(limit, MessageTypeDefOf.RejectInput, historical: false); return; }
+        if (mode == PawnMode.PawnSnapshot) { LaunchSnapshot(target, pawns, timing, RaidArrival.ArrivalEdge); return; }
+        Outgoing.RunWithMapPawns(map, pawns, "Rimlink.Raid.Launched".Translate(target.Name),
+            (pawnList, tick) => Build(target, PawnMode.PawnReal, timing, RaidArrival.ArrivalEdge, pawnList, tick),
+            request => RimlinkSession.Raids!.Launch((LaunchRequest)request, CancellationToken.None));
+    }
+
     /// <summary>From transport pods that landed on the target's tile: the pawns are already out of the pods and unspawned. Real mode only.</summary>
     public static void LaunchFromPods(List<Pawn> pawns, PlayerRef target, RaidTiming timing)
     {

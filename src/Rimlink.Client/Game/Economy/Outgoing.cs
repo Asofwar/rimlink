@@ -145,6 +145,14 @@ public static class Outgoing
         Run(taken, successMessage, (_, pawnList, tick) => build(pawnList, tick), call);
     }
 
+    /// <summary>Pawns taken straight off the map (dev harness and future uses); a refusal puts them back where they stood.</summary>
+    public static void RunWithMapPawns(Map map, IReadOnlyList<Pawn> pawns, string successMessage, Func<PawnList, long, IMessage> build, Func<IMessage, Task> call)
+    {
+        var taken = TakeFromMap(map, [], pawns);
+        if (taken is null) return;
+        Run(taken, successMessage, (_, pawnList, tick) => build(pawnList, tick), call);
+    }
+
     /// <summary>Raids by pod: the pawns are already out of their pods (unspawned); a refusal sends them home by pod.</summary>
     public static void RunWithPodPawns(IReadOnlyList<Pawn> pawns, string successMessage, Func<PawnList, long, IMessage> build, Func<IMessage, Task> call)
     {
