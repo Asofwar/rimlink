@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package rimlink.v1;
+option csharp_namespace = "Rimlink.Protocol.V1";
+
+import "google/protobuf/timestamp.proto";
+import "common.proto";
+
+// One server-push stream per session; everything that changes arrives here.
+service Events {
+  rpc Subscribe (Empty) returns (stream ServerEvent);
+}
+
+message ServerEvent {
+  int64 sequence = 1;
+  google.protobuf.Timestamp at = 2;
+  oneof body {
+    PlayerJoined player_joined = 10;
+    PlayerLeft player_left = 11;
+    SessionReplaced session_replaced = 12;
+    // 20: chat (chat.proto), 30/31: world objects (world.proto), 42: save rollback (saves.proto)
+    Notice notice = 40;
+    ServerShutdown shutdown = 41;
+  }
+}
+
+message PlayerJoined { PlayerRef player = 1; }
+message PlayerLeft { PlayerRef player = 1; }
+// The same account logged in from somewhere else; this session is over.
+message SessionReplaced {}
+message Notice { string text = 1; }
+message ServerShutdown { int32 in_seconds = 1; string reason = 2; }

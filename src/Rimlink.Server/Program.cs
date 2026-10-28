@@ -1,6 +1,7 @@
 using Prometheus;
 using Rimlink.Protocol;
 using Rimlink.Server.Application.Auth;
+using Rimlink.Server.Application.Events;
 using Rimlink.Server.Application.Sessions;
 using Rimlink.Server.Grpc;
 using Rimlink.Server.Hosting;
@@ -37,6 +38,7 @@ builder.Services.AddHealthChecks();
 builder.Services.AddHostedService<TlsStartupCheck>();
 
 builder.Services.AddSingleton<SessionRegistry>();
+builder.Services.AddSingleton<EventBus>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddHttpClient<ISteamTicketVerifier, SteamWebApiTicketVerifier>(client => client.Timeout = TimeSpan.FromSeconds(10));
 
@@ -48,6 +50,7 @@ app.UseHttpMetrics();
 app.MapHealthChecks("/health");
 app.MapMetrics("/metrics");
 app.MapGrpcService<AuthGrpcService>();
+app.MapGrpcService<EventsGrpcService>();
 
 app.Run();
 
