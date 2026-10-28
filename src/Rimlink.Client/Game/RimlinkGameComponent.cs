@@ -40,6 +40,7 @@ public sealed class RimlinkGameComponent : GameComponent
         HandleNotices();
         Economy.Incoming.Tick();
         Raids.RaidIncoming.Tick();
+        Raids.RaidResolver.Tick();
         HandleStaleSave();
     }
 

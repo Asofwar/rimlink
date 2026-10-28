@@ -154,6 +154,7 @@
   <Rimlink.Raid.Warning>{0} отправил на вашу колонию рейдеров ({1}). Они прибудут примерно через день.</Rimlink.Raid.Warning>
   <Rimlink.Raid.LandedLabel>Рейд: {0}</Rimlink.Raid.LandedLabel>
   <Rimlink.Raid.Landed>Прибыли рейдеры от {0} ({1}). Пленённые останутся у вас; украденное — пропало.</Rimlink.Raid.Landed>
+  <Rimlink.Raid.Resolved>Рейд от {0} окончен: погибло {1}, пленено {2}, ушло {3} с добычей на {4} серебра.</Rimlink.Raid.Resolved>
   <Rimlink.Raid.Failed>Рейд не удалось распаковать ({0}); попытка повторится при следующем входе.</Rimlink.Raid.Failed>
   <Rimlink.Economy.CaravanTransferGizmo>Передать</Rimlink.Economy.CaravanTransferGizmo>
 </LanguageData>

@@ -155,5 +155,6 @@
   <Rimlink.Raid.Warning>{0} has sent {1} raiders against your colony. They arrive in about a day.</Rimlink.Raid.Warning>
   <Rimlink.Raid.LandedLabel>Raid: {0}</Rimlink.Raid.LandedLabel>
   <Rimlink.Raid.Landed>{1} raiders sent by {0} have arrived. Captured raiders are yours to keep; what they steal is gone.</Rimlink.Raid.Landed>
+  <Rimlink.Raid.Resolved>The raid by {0} is over: {1} dead, {2} captured, {3} got away with loot worth {4} silver.</Rimlink.Raid.Resolved>
   <Rimlink.Raid.Failed>A raid could not be unpacked ({0}); it will try again at your next login.</Rimlink.Raid.Failed>
 </LanguageData>

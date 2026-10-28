@@ -201,6 +201,8 @@ public sealed class ActiveRaid : IExposable
     public bool AllowKidnap;
     /// <summary>Set once the report left this game (outbox or answered), so it is not reported twice.</summary>
     public bool Reported;
+    /// <summary>Raiders that left the map, with their state and load at the exit.</summary>
+    public List<RaiderExit> Exits = [];
 
     public void ExposeData()
     {
@@ -214,6 +216,24 @@ public sealed class ActiveRaid : IExposable
         Scribe_Values.Look(ref LootCap, "lootCap");
         Scribe_Values.Look(ref AllowKidnap, "allowKidnap");
         Scribe_Values.Look(ref Reported, "reported");
+        Scribe_Collections.Look(ref Exits, "exits", LookMode.Deep);
         PawnIds ??= [];
+        Exits ??= [];
+    }
+}
+
+public sealed class RaiderExit : IExposable
+{
+    public int PawnId;
+    public byte[] PawnBlob = [];
+    public byte[] Loot = [];
+
+    public void ExposeData()
+    {
+        Scribe_Values.Look(ref PawnId, "pawnId");
+        DataExposeUtility.LookByteArray(ref PawnBlob, "pawnBlob");
+        DataExposeUtility.LookByteArray(ref Loot, "loot");
+        PawnBlob ??= [];
+        Loot ??= [];
     }
 }
