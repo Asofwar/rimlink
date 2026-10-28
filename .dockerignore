@@ -1,0 +1,11 @@
+**/bin/
+**/obj/
+**/TestResults/
+.git/
+.superpowers/
+data/
+spike/
+docs/
+tests/
+build/
+*.md

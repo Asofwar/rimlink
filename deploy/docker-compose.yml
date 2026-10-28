@@ -1,0 +1,20 @@
+services:
+  rimlink:
+    image: ghcr.io/asofwar/rimlink-server:latest
+    # build: { context: .., dockerfile: deploy/Dockerfile }
+    container_name: rimlink
+    restart: unless-stopped
+    ports:
+      - "25560:25560"
+    volumes:
+      - ./data:/data
+    environment:
+      # Every appsettings key is available as Rimlink__Section__Key.
+      Rimlink__Server__MaxPlayers: "50"
+      Rimlink__Auth__SteamWebApiKey: "${STEAM_WEB_API_KEY:-}"
+      Rimlink__Auth__AdminSteamIds__0: "${ADMIN_STEAM_ID:-0}"
+      Rimlink__Auth__AllowPassword: "false"
+      Rimlink__Admin__ApiToken: "${RIMLINK_API_TOKEN:?set RIMLINK_API_TOKEN in .env}"
+      # Rimlink__Server__ServerPassword: "secret"
+      # Rimlink__Tls__CertificatePath: /data/tls/fullchain.pem
+      # Rimlink__Tls__KeyPath: /data/tls/privkey.pem
