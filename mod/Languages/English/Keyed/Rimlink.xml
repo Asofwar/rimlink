@@ -30,7 +30,8 @@
   <Rimlink.Login.Title>Rimlink account</Rimlink.Login.Title>
   <Rimlink.Login.Login>Login</Rimlink.Login.Login>
   <Rimlink.Login.Password>Password</Rimlink.Login.Password>
-  <Rimlink.Login.Register>Create a new account</Rimlink.Login.Register>
+  <Rimlink.Login.Register>Create account</Rimlink.Login.Register>
+  <Rimlink.Login.Hint>Log in with an existing account, or create one with the login and password above (player name defaults to the login).</Rimlink.Login.Hint>
   <Rimlink.Login.PlayerName>Player name</Rimlink.Login.PlayerName>
   <Rimlink.Login.Ok>Log in</Rimlink.Login.Ok>
   <Rimlink.Modpack.Title>Your mods do not match the server</Rimlink.Modpack.Title>

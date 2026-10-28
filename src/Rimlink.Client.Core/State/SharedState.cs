@@ -109,16 +109,28 @@ public sealed class WorldObjectsIndex
 public sealed class ChatLog
 {
     private readonly List<ChatMessageEvent> messages = [];
+    private readonly HashSet<long> ids = [];
 
     public IReadOnlyList<ChatMessageEvent> Messages => messages;
 
+    /// <summary>Ignores a message already stored: the history fetched at login overlaps the first live events.</summary>
     public void Add(ChatMessageEvent m)
     {
+        if (m.Id != 0 && !ids.Add(m.Id)) return;
         messages.Add(m);
-        if (messages.Count > Limits.ChatStored) messages.RemoveRange(0, messages.Count - Limits.ChatStored);
+        if (messages.Count > Limits.ChatStored)
+        {
+            int drop = messages.Count - Limits.ChatStored;
+            for (int i = 0; i < drop; i++) ids.Remove(messages[i].Id);
+            messages.RemoveRange(0, drop);
+        }
     }
 
-    public void Clear() => messages.Clear();
+    public void Clear()
+    {
+        messages.Clear();
+        ids.Clear();
+    }
 }
 
 public sealed class PlayersOnline

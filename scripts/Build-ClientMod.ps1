@@ -1,4 +1,4 @@
-# Builds the Rimlink client mod and assembles a mod folder.
+﻿# Builds the Rimlink client mod and assembles a mod folder.
 #   .\scripts\Build-ClientMod.ps1 [-RimWorldDir <game folder>] [-OutputDir <folder>] [-InstallTo <Mods folder>] [-BundleHarmony]
 # -BundleHarmony copies 0Harmony.dll from the NuGet cache next to the mod assembly for local test runs without the
 # Harmony mod. Release builds must NOT bundle it: players install the Harmony mod (brrainz.harmony).
@@ -39,8 +39,8 @@ foreach ($name in $ship) {
 if ($BundleHarmony) {
     $nuget = if ($env:NUGET_PACKAGES) { $env:NUGET_PACKAGES } else { Join-Path $env:USERPROFILE '.nuget\packages' }
     $harmony = Get-ChildItem (Join-Path $nuget 'lib.harmony') -Recurse -Filter '0Harmony.dll' |
-        Where-Object { $_.FullName -match '\\net8\.0\\' } | Select-Object -First 1
-    if (-not $harmony) { throw '0Harmony.dll (net8.0) not found in the NuGet cache' }
+        Where-Object { $_.FullName -match '\\net10\.0\\' } | Select-Object -First 1
+    if (-not $harmony) { throw '0Harmony.dll (net10.0) not found in the NuGet cache' }
     Copy-Item $harmony.FullName $assemblies
     Write-Host 'Bundled 0Harmony.dll (dev build only)'
 }
@@ -54,3 +54,4 @@ if ($InstallTo) {
     Copy-Item $OutputDir $target -Recurse
     Write-Host "Installed to $target"
 }
+

@@ -21,7 +21,11 @@ public static class ForeignSettlements
         RimlinkSession.State.ObjectRemoved += Remove;
     }
 
-    /// <summary>Called once the world exists (after load or generation): spawn everything the snapshot holds.</summary>
+    /// <summary>
+    /// Called once the world exists (after load or generation): spawn everything the snapshot holds.
+    /// Mirrors that came out of the save file (they are ordinary world objects to the game) are dropped first, so the
+    /// server state is the only source and nothing is doubled.
+    /// </summary>
     public static void RebuildFromState()
     {
         Clear();
@@ -32,7 +36,7 @@ public static class ForeignSettlements
     {
         if (Find.World != null)
         {
-            foreach (var s in spawned.Values) if (s.Spawned) Find.WorldObjects.Remove(s);
+            foreach (var s in Find.WorldObjects.AllWorldObjects.OfType<PlayerSettlement>().ToList()) Find.WorldObjects.Remove(s);
         }
         spawned.Clear();
     }
@@ -50,6 +54,7 @@ public static class ForeignSettlements
         settlement.Tile = o.Tile;
         Find.WorldObjects.Add(settlement);
         spawned[o.Id] = settlement;
+        RimlinkLog.Instance.Info($"placed {o.Owner.Name}'s settlement '{o.Name}' on tile {o.Tile}");
     }
 
     private static void Remove(long id)

@@ -9,15 +9,25 @@ public static class SaveSync
 {
     public const string SaveNamePrefix = "Rimlink_";
 
-    public static string SaveFileName => SaveNamePrefix + RimlinkSession.Endpoint!.Id;
+    /// <summary>One file per server and account, so two accounts used from one PC never overwrite each other.</summary>
+    public static string SaveFileName => $"{SaveNamePrefix}{RimlinkSession.Endpoint!.Id}_{RimlinkSession.MyPlayerId}";
     public static string SaveFilePath => GenFilePaths.FilePathForSavedGame(SaveFileName);
-    public static string SaveDir => RimlinkSession.SaveDir(RimlinkSession.Endpoint!);
+    public static string SaveDir => RimlinkSession.SaveDir(RimlinkSession.Endpoint!, RimlinkSession.MyPlayerId);
     public static PendingUpload Pending => new(SaveDir);
     public static bool IsSaving { get; private set; }
     public static DateTime? LastUploadUtc { get; private set; }
     public static string? LastError { get; private set; }
 
+    private static Task? upload;
+
     public static bool IsOurs(string fileName) => RimlinkSession.Active && fileName == SaveFileName;
+
+    /// <summary>Blocks until the upload started by the last save finishes (or the timeout passes); failures are already logged.</summary>
+    public static void WaitForUpload(TimeSpan timeout)
+    {
+        try { upload?.Wait(timeout); }
+        catch (AggregateException) { }
+    }
 
     /// <summary>Called from the SaveGame postfix on the main thread; the upload runs in the background.</summary>
     public static void OnSaved(string fileName)
@@ -26,7 +36,7 @@ public static class SaveSync
         var meta = new SaveMeta(Find.World.info.seedString, Faction.OfPlayer.Name, Find.TickManager.TicksGame);
         var connection = RimlinkSession.Connection!;
         string path = SaveFilePath;
-        _ = Task.Run(async () =>
+        upload = Task.Run(async () =>
         {
             try
             {

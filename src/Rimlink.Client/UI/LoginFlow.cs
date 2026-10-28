@@ -32,9 +32,16 @@ public static class LoginFlow
                         reply = await connection.ConnectAsync(cts.Token);
                         break;
                     }
-                    catch (RpcException ex) when (ex.StatusCode == StatusCode.Unauthenticated && credentials.LastPassword is not null)
+                    catch (RpcException ex) when (ex.StatusCode == StatusCode.Unauthenticated && !credentials.PreferPassword)
                     {
-                        // Wrong password: ask again instead of failing the whole flow.
+                        // The Steam ticket was refused (server without a Steam key, or Steam offline): offer the account login.
+                        credentials.PreferPassword = true;
+                        credentials.LastError = ex.Status.Detail;
+                    }
+                    catch (RpcException ex) when (ex.StatusCode is StatusCode.Unauthenticated or StatusCode.AlreadyExists or StatusCode.InvalidArgument
+                                                  && credentials.LastPassword is not null)
+                    {
+                        // Wrong password or a refused registration (name taken, bad name): ask again instead of failing the whole flow.
                         credentials.LastError = ex.Status.Detail;
                         credentials.ForgetPassword();
                     }
@@ -54,7 +61,8 @@ public static class LoginFlow
                 var objects = await connection.World.ListObjectsAsync(new Empty(), cancellationToken: cts.Token);
                 var history = await connection.Chat.HistoryAsync(new Empty(), cancellationToken: cts.Token);
                 RimlinkSession.World = world;
-                RimlinkSession.State.LoadSnapshot(objects, history, []);
+                // Only this player is known to be online at login; others show up through PlayerJoined events.
+                RimlinkSession.State.LoadSnapshot(objects, history, [reply.Player]);
                 ForeignSettlements.Subscribe();
 
                 if (reply.HasSave)
@@ -75,6 +83,17 @@ public static class LoginFlow
                     SaveSync.Pending.Clear();
                     MainThread.Post(() => { wait.Close(); GameDataSaveLoader.LoadGame(SaveSync.SaveFileName); });
                     return;
+                }
+
+                if (reply.HasSettlement)
+                {
+                    // A settlement without a save (the first save never happened): the colony is gone, free its tile.
+                    foreach (var own in RimlinkSession.State.Objects.All.Where(o => o.Owner?.PlayerId == RimlinkSession.MyPlayerId).ToList())
+                    {
+                        await connection.World.AbandonAsync(new AbandonRequest { ObjectId = own.Id }, cancellationToken: cts.Token);
+                        RimlinkSession.State.Objects.Remove(own.Id);
+                        RimlinkLog.Instance.Warn($"abandoned settlement {own.Id} on tile {own.Tile}: no save on the server");
+                    }
                 }
 
                 // No save yet: the vanilla new-colony pages, with the world page locked to the server's planet.

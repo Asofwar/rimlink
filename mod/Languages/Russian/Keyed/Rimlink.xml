@@ -30,7 +30,8 @@
   <Rimlink.Login.Title>Аккаунт Rimlink</Rimlink.Login.Title>
   <Rimlink.Login.Login>Логин</Rimlink.Login.Login>
   <Rimlink.Login.Password>Пароль</Rimlink.Login.Password>
-  <Rimlink.Login.Register>Создать новый аккаунт</Rimlink.Login.Register>
+  <Rimlink.Login.Register>Создать аккаунт</Rimlink.Login.Register>
+  <Rimlink.Login.Hint>Войдите в существующий аккаунт или создайте новый с логином и паролем выше (имя игрока по умолчанию равно логину).</Rimlink.Login.Hint>
   <Rimlink.Login.PlayerName>Имя игрока</Rimlink.Login.PlayerName>
   <Rimlink.Login.Ok>Войти</Rimlink.Login.Ok>
   <Rimlink.Modpack.Title>Ваши моды не совпадают с сервером</Rimlink.Modpack.Title>

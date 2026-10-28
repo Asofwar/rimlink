@@ -10,6 +10,9 @@ public enum ConnectionState { Disconnected, Connecting, Connected, Reconnecting,
 public interface ICredentialProvider
 {
     Task<LoginRequest> BuildLogin(CancellationToken cancellationToken);
+
+    /// <summary>A new account to create instead of logging in; returned once, then null (reconnects log in).</summary>
+    RegisterRequest? TakeRegistration() => null;
 }
 
 /// <summary>Asks the user whether to trust a server certificate that is new or has changed.</summary>
@@ -126,12 +129,16 @@ public sealed class RimlinkConnection : IAsyncDisposable
     {
         var request = await credentials.BuildLogin(cancellationToken);
         request.ProtocolVersion = ClientInfo.ProtocolVersion;
+        var registration = credentials.TakeRegistration();
+        if (registration is not null && registration.Mods.Count == 0) registration.Mods.AddRange(request.Mods);
 
         for (int attempt = 0; ; attempt++)
         {
             try
             {
-                var reply = await Auth.LoginAsync(request, cancellationToken: cancellationToken);
+                var reply = registration is not null
+                    ? await Auth.RegisterAsync(registration, cancellationToken: cancellationToken)
+                    : await Auth.LoginAsync(request, cancellationToken: cancellationToken);
                 if (reply.SessionToken.Length > 0) token = reply.SessionToken;
                 Login = reply;
                 return reply;

@@ -19,6 +19,19 @@ public class SharedStateTests
     };
 
     [Fact]
+    public void ChatMessageSeenInHistoryAndAsLiveEventIsStoredOnce()
+    {
+        var state = new SharedState();
+        var history = new ChatHistory();
+        history.Messages.Add(Chat(5, "admin joined the server").Chat);
+        state.LoadSnapshot(new WorldObjects(), history, []);
+
+        state.Apply(Chat(5, "admin joined the server")); // the same line arrives on the event stream right after login
+
+        Assert.Single(state.Chat.Messages);
+    }
+
+    [Fact]
     public void DuplicateWorldObjectAddedIsIgnored()
     {
         var state = new SharedState();

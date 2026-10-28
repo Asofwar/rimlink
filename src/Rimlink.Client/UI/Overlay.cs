@@ -16,7 +16,7 @@ public static class Overlay
         Text.Font = GameFont.Tiny;
         string status = RimlinkSession.LastState switch
         {
-            ConnectionState.Connected => "Rimlink.Overlay.Online".Translate(RimlinkSession.State.Players.Online.Count + 1),
+            ConnectionState.Connected => "Rimlink.Overlay.Online".Translate(RimlinkSession.State.Players.Online.Count),
             ConnectionState.Reconnecting => "Rimlink.Net.Reconnecting".Translate(),
             var other => other.ToString(),
         };

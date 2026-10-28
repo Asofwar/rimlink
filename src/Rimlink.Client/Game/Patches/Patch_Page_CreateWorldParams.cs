@@ -24,6 +24,9 @@ public static class Patch_Page_CreateWorldParams
         // Re-apply every frame so edits in the UI cannot drift from the server's world.
         WorldSetup.ApplyTo(__instance, RimlinkSession.World!.Params);
         Text.Font = GameFont.Small;
-        Widgets.Label(new Rect(rect.x, rect.y, rect.width, 24f), "Rimlink.World.Locked".Translate(RimlinkSession.Endpoint!.Display));
+        // In the empty strip above the bottom buttons; the vanilla page fills the top with its title and controls.
+        GUI.color = new Color(1f, 0.85f, 0.4f);
+        Widgets.Label(new Rect(rect.x, rect.yMax - 72f, rect.width, 24f), "Rimlink.World.Locked".Translate(RimlinkSession.Endpoint!.Display));
+        GUI.color = Color.white;
     }
 }

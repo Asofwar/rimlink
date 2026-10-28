@@ -24,7 +24,7 @@ public static class RimlinkSession
     /// <summary>Per-server data under the game's config folder: pins, saves, pending flag.</summary>
     public static string DataDir => Path.Combine(GenFilePaths.SaveDataFolderPath, "Rimlink");
 
-    public static string SaveDir(ServerEndpoint endpoint) => Path.Combine(GenFilePaths.SavedGamesFolderPath, "Rimlink", endpoint.Id);
+    public static string SaveDir(ServerEndpoint endpoint, long playerId) => Path.Combine(GenFilePaths.SavedGamesFolderPath, "Rimlink", $"{endpoint.Id}_{playerId}");
 
     public static void Begin(ServerEndpoint endpoint, RimlinkConnection connection, LoginReply login)
     {

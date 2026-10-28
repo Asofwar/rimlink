@@ -73,6 +73,36 @@ public class RimlinkConnectionTests
         Assert.Equal(1, (await connection.World.GetAsync(new Empty())).NpcTiles.Count + 1); // authenticated call works
     }
 
+    private sealed class RegisteringCredentials(string login, string password, string playerName) : ICredentialProvider
+    {
+        private RegisterRequest? pending = new() { Login = login, Password = password, PlayerName = playerName };
+
+        public Task<LoginRequest> BuildLogin(CancellationToken cancellationToken) =>
+            Task.FromResult(new LoginRequest { Password = new PasswordCredential { Login = login, Password = password } });
+
+        public RegisterRequest? TakeRegistration()
+        {
+            var request = pending;
+            pending = null;
+            return request;
+        }
+    }
+
+    [Fact]
+    public async Task ConnectRegistersWhenCredentialsAskForIt()
+    {
+        using var fixture = Server();
+        await using var connection = Connect(fixture, new RegisteringCredentials("nova", "pw", "Nova"));
+
+        var reply = await connection.ConnectAsync(CancellationToken.None);
+
+        Assert.Equal("Nova", reply.Player.Name);
+        Assert.Equal(ConnectionState.Connected, connection.State);
+        // The account exists now: a plain password login works from another connection.
+        await using var second = Connect(fixture, new PasswordCredentials("nova", "pw"));
+        Assert.Equal("Nova", (await second.ConnectAsync(CancellationToken.None)).Player.Name);
+    }
+
     [Fact]
     public async Task ModpackMismatchReturnsDiffAndStaysDisconnected()
     {

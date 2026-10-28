@@ -12,7 +12,6 @@ public sealed class Dialog_Login : Window
     private string login = "";
     private string password = "";
     private string playerName = "";
-    private bool register;
 
     public Dialog_Login(TaskCompletionSource<PasswordLogin?> answer, string? error = null)
     {
@@ -25,7 +24,7 @@ public sealed class Dialog_Login : Window
 
     public string? Error { get; }
 
-    public override Vector2 InitialSize => new(420f, 320f);
+    public override Vector2 InitialSize => new(460f, 370f);
 
     public override void DoWindowContents(Rect inRect)
     {
@@ -46,23 +45,26 @@ public sealed class Dialog_Login : Window
         Widgets.Label(new Rect(0f, y, 120f, 28f), "Rimlink.Login.Password".Translate());
         password = Widgets.TextField(new Rect(124f, y, inRect.width - 124f, 28f), password, 128);
         y += 34f;
-        Widgets.CheckboxLabeled(new Rect(0f, y, inRect.width, 28f), "Rimlink.Login.Register".Translate(), ref register);
+        Widgets.Label(new Rect(0f, y, 120f, 28f), "Rimlink.Login.PlayerName".Translate());
+        playerName = Widgets.TextField(new Rect(124f, y, inRect.width - 124f, 28f), playerName, 32);
         y += 34f;
-        if (register)
-        {
-            Widgets.Label(new Rect(0f, y, 120f, 28f), "Rimlink.Login.PlayerName".Translate());
-            playerName = Widgets.TextField(new Rect(124f, y, inRect.width - 124f, 28f), playerName, 32);
-        }
-        if (Widgets.ButtonText(new Rect(0f, inRect.height - 40f, 180f, 32f), "Rimlink.Login.Ok".Translate()))
-        {
-            answer.TrySetResult(new PasswordLogin(login.Trim(), password, register, register ? playerName.Trim() : ""));
-            Close();
-        }
-        if (Widgets.ButtonText(new Rect(inRect.width - 180f, inRect.height - 40f, 180f, 32f), "Rimlink.Cancel".Translate()))
+        Widgets.Label(new Rect(0f, y, inRect.width, 64f), "Rimlink.Login.Hint".Translate());
+
+        float w = (inRect.width - 16f) / 3f;
+        if (Widgets.ButtonText(new Rect(0f, inRect.height - 40f, w, 32f), "Rimlink.Login.Ok".Translate())) Submit(register: false);
+        if (Widgets.ButtonText(new Rect(w + 8f, inRect.height - 40f, w, 32f), "Rimlink.Login.Register".Translate())) Submit(register: true);
+        if (Widgets.ButtonText(new Rect(2f * (w + 8f), inRect.height - 40f, w, 32f), "Rimlink.Cancel".Translate()))
         {
             answer.TrySetResult(null);
             Close();
         }
+    }
+
+    private void Submit(bool register)
+    {
+        string name = playerName.Trim().Length > 0 ? playerName.Trim() : login.Trim();
+        answer.TrySetResult(new PasswordLogin(login.Trim(), password, register, name));
+        Close();
     }
 
     public override void PreClose()

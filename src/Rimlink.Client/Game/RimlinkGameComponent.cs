@@ -79,10 +79,15 @@ public sealed class RimlinkGameComponent : GameComponent
     /// <summary>Local save stays as it is (its upload is retried at next login); the session ends.</summary>
     public static void LeaveToMenu()
     {
+        EndSession();
+        GenScene.GoToMainMenu();
+    }
+
+    public static void EndSession()
+    {
         var connection = RimlinkSession.Connection;
         RimlinkSession.End();
         ForeignSettlements.Clear();
         if (connection is not null) _ = connection.DisposeAsync();
-        GenScene.GoToMainMenu();
     }
 }

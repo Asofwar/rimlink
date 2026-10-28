@@ -38,6 +38,13 @@ public sealed class GameCredentials : ICredentialProvider
         return request;
     }
 
+    public RegisterRequest? TakeRegistration()
+    {
+        if (password is not { Register: true } p) return null;
+        password = p with { Register = false };
+        return new RegisterRequest { Login = p.Login, Password = p.Password, PlayerName = p.PlayerName };
+    }
+
     public void ForgetPassword() => password = null;
 
     private bool TryGetTicket(out byte[] bytes)
