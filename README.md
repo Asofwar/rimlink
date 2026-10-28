@@ -15,7 +15,7 @@ Core complete: dedicated server (accounts via Steam or password, shared world an
 chat, modpack check, admin API, CLI, Docker image) and the RimWorld 1.7 client mod (server list, certificate
 pinning, login, locked world creation, settlements, save sync, chat, players, reconnect). Economy (sub-project 2):
 server mailbox, escrow market board, silver wallets, direct transfers of items/pawns/silver, caravan hand-overs at
-other players' settlements, anti-duplication by save tick. Next: real-time sync (visits and raids).
+other players' settlements, anti-duplication by save tick. Raids and visits (sub-project 3a): asynchronous raids with escrowed pawns, loot caps, cooldowns and peaceful mode; visits to a copy of another player's colony with a shop. Next: live raids and visits (3b).
 
 - Players: `docs/player-guide.md`
 - Server admins: `docs/server-setup.md`

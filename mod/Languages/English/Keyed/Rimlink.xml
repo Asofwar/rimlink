@@ -71,6 +71,27 @@
   <Rimlink.Economy.Tab.Send>Send</Rimlink.Economy.Tab.Send>
   <Rimlink.Economy.Tab.Wallet>Wallet</Rimlink.Economy.Tab.Wallet>
   <Rimlink.Economy.Tab.Mailbox>Mailbox</Rimlink.Economy.Tab.Mailbox>
+  <Rimlink.Economy.Tab.Raids>Raids</Rimlink.Economy.Tab.Raids>
+  <Rimlink.Economy.Tab.Shops>Shops</Rimlink.Economy.Tab.Shops>
+  <Rimlink.Raids.Peaceful>Peaceful mode (no raids either way; a day to switch off)</Rimlink.Raids.Peaceful>
+  <Rimlink.Raids.CloseVisits>Do not receive visitors</Rimlink.Raids.CloseVisits>
+  <Rimlink.Raids.PeacefulOffAt>Peaceful mode ends at {0}.</Rimlink.Raids.PeacefulOffAt>
+  <Rimlink.Raids.Incoming>Raids coming at you: {0}</Rimlink.Raids.Incoming>
+  <Rimlink.Raids.Mine>Your raids: {0}</Rimlink.Raids.Mine>
+  <Rimlink.Raids.None>none</Rimlink.Raids.None>
+  <Rimlink.Raids.Raiders>raiders</Rimlink.Raids.Raiders>
+  <Rimlink.Raids.LandsAt>lands in {0}</Rimlink.Raids.LandsAt>
+  <Rimlink.Raids.Summary>({0} dead, {1} captured, {2} back, loot {3} silver)</Rimlink.Raids.Summary>
+  <Rimlink.Raids.State.RaidQueued>queued</Rimlink.Raids.State.RaidQueued>
+  <Rimlink.Raids.State.RaidAnnounced>announced</Rimlink.Raids.State.RaidAnnounced>
+  <Rimlink.Raids.State.RaidLanded>fighting</Rimlink.Raids.State.RaidLanded>
+  <Rimlink.Raids.State.RaidResolved>over</Rimlink.Raids.State.RaidResolved>
+  <Rimlink.Raids.State.RaidExpired>expired, pawns returned</Rimlink.Raids.State.RaidExpired>
+  <Rimlink.Raids.State.RaidCancelled>cancelled</Rimlink.Raids.State.RaidCancelled>
+  <Rimlink.Shops.Pick>Choose a player...</Rimlink.Shops.Pick>
+  <Rimlink.Shops.Hint>Buying needs a visit: go there with a caravan or pods.</Rimlink.Shops.Hint>
+  <Rimlink.Shops.Empty>{0} sells nothing right now.</Rimlink.Shops.Empty>
+  <Rimlink.Shops.Item>{0} ×{1} — {2} silver each</Rimlink.Shops.Item>
   <Rimlink.Economy.Refresh>Refresh</Rimlink.Economy.Refresh>
   <Rimlink.Economy.Working>Working...</Rimlink.Economy.Working>
   <Rimlink.Economy.Search>Search</Rimlink.Economy.Search>

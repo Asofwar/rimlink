@@ -70,6 +70,27 @@
   <Rimlink.Economy.Tab.MyLots>Мои лоты</Rimlink.Economy.Tab.MyLots>
   <Rimlink.Economy.Tab.Send>Отправить</Rimlink.Economy.Tab.Send>
   <Rimlink.Economy.Tab.Wallet>Кошелёк</Rimlink.Economy.Tab.Wallet>
+  <Rimlink.Economy.Tab.Raids>Рейды</Rimlink.Economy.Tab.Raids>
+  <Rimlink.Economy.Tab.Shops>Магазины</Rimlink.Economy.Tab.Shops>
+  <Rimlink.Raids.Peaceful>Мирный режим (рейды запрещены в обе стороны; выключение через сутки)</Rimlink.Raids.Peaceful>
+  <Rimlink.Raids.CloseVisits>Не принимать гостей</Rimlink.Raids.CloseVisits>
+  <Rimlink.Raids.PeacefulOffAt>Мирный режим закончится {0}.</Rimlink.Raids.PeacefulOffAt>
+  <Rimlink.Raids.Incoming>Рейды на вас: {0}</Rimlink.Raids.Incoming>
+  <Rimlink.Raids.Mine>Ваши рейды: {0}</Rimlink.Raids.Mine>
+  <Rimlink.Raids.None>нет</Rimlink.Raids.None>
+  <Rimlink.Raids.Raiders>рейдеров</Rimlink.Raids.Raiders>
+  <Rimlink.Raids.LandsAt>высадка через {0}</Rimlink.Raids.LandsAt>
+  <Rimlink.Raids.Summary>(погибло {0}, пленено {1}, вернулось {2}, добыча {3} серебра)</Rimlink.Raids.Summary>
+  <Rimlink.Raids.State.RaidQueued>в очереди</Rimlink.Raids.State.RaidQueued>
+  <Rimlink.Raids.State.RaidAnnounced>объявлен</Rimlink.Raids.State.RaidAnnounced>
+  <Rimlink.Raids.State.RaidLanded>идёт бой</Rimlink.Raids.State.RaidLanded>
+  <Rimlink.Raids.State.RaidResolved>завершён</Rimlink.Raids.State.RaidResolved>
+  <Rimlink.Raids.State.RaidExpired>истёк, пешки вернулись</Rimlink.Raids.State.RaidExpired>
+  <Rimlink.Raids.State.RaidCancelled>отменён</Rimlink.Raids.State.RaidCancelled>
+  <Rimlink.Shops.Pick>Выберите игрока...</Rimlink.Shops.Pick>
+  <Rimlink.Shops.Hint>Купить можно только в гостях: отправляйтесь караваном или капсулами.</Rimlink.Shops.Hint>
+  <Rimlink.Shops.Empty>{0} сейчас ничего не продаёт.</Rimlink.Shops.Empty>
+  <Rimlink.Shops.Item>{0} ×{1} — {2} серебра за шт.</Rimlink.Shops.Item>
   <Rimlink.Economy.Tab.Mailbox>Ящик</Rimlink.Economy.Tab.Mailbox>
   <Rimlink.Economy.Refresh>Обновить</Rimlink.Economy.Refresh>
   <Rimlink.Economy.Working>Выполняется...</Rimlink.Economy.Working>

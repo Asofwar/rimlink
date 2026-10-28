@@ -81,6 +81,18 @@ player id 0), `SendCooldownSeconds` 5. A save uploaded with a game tick older th
 (`SAVE_STALE`): that file would bring back what was given away. An admin rollback behind a transfer is allowed and
 logged as such.
 
+## 5b. Raids, visits and the shop
+
+Asynchronous raids: an attacker's pawns wait on the server until the target next plays, fight there as a vanilla raid
+and the outcome comes back as parcels. Settings under `Raids` (defaults): `Enabled` true, `MaxRaiders` 10,
+`MaxActiveRaidsPerAttacker` 1, `TargetCooldownHours` 8, `PairCooldownHours` 24, `NewbieProtectionDays` 3,
+`MinColonyWealth` 20000, `LootCapPercent` 10, `LootCapSilver` 5000, `AllowKidnap` false, `WarnTicks` 60000,
+`TimeoutDays` 3, `ExpireRealDays` 7, `PeacefulOffDelayHours` 24. Wealth and the colony's age come from the save
+header: players who last saved before this version count as wealth 0 (protected) until their next save, and their
+oldest save counts as their first. Raids are refused while frozen (`/raids freeze`); visits and the shop keep working.
+Visits download the host's current save to the visitor (only while a visit is open); the shop lists what a host
+priced in their colony and sells it from the visitor's copy, the host's game removes the sold things at its next login.
+
 ## 6. Administration
 
 - In game, moderators and admins type `/help` in chat.
@@ -89,6 +101,10 @@ logged as such.
 - Economy: chat `/wallet <player> [+n|-n] [reason]`, `/parcels <player>`, `/lots [player]`, `/refund lot <id>`,
   `/refund parcel <id>` (undelivered gift back to its sender), `/economy freeze [reason]|unfreeze|stats`; the same via
   `rimlink-tools admin wallet|parcels|lots|refund|economy …` and REST `/api/admin/economy/*`.
+- Raids: chat `/raids list [player]|cancel <id> [reason]|freeze [reason]|unfreeze|stats`, `/peaceful <player> on|off`
+  (no delay), `/shop <player>`, `/removals <player>`; the same via `rimlink-tools admin raids|peaceful|shop|removals …`
+  and REST `/api/admin/raids/*`, `/api/admin/players/{id}/peaceful`, `/api/admin/shop/{id}[/removals]`. Cancelling a
+  raid that has not landed returns the pawns to the attacker; a landed one stays with the defender's map.
 - Every admin action is logged (`/actions`).
 
 ## 7. Backups
@@ -99,7 +115,7 @@ logged as such.
 
 ## 8. Monitoring
 
-`GET /health` (used by the Docker health check) and Prometheus metrics at `GET /metrics` (economy: `rimlink_trades_total{kind}`, `rimlink_silver_moved_total`, `rimlink_parcels_pending`, `rimlink_economy_errors_total{code}`). Logs go to the console
+`GET /health` (used by the Docker health check) and Prometheus metrics at `GET /metrics` (economy: `rimlink_trades_total{kind}`, `rimlink_silver_moved_total`, `rimlink_parcels_pending`, `rimlink_economy_errors_total{code}`; raids: `rimlink_raids_total{outcome}`, `rimlink_raids_active`, `rimlink_visits_total`, `rimlink_shop_sales_total`). Logs go to the console
 and `logs/server-<date>.log`.
 
 ## 9. Limits (built in)

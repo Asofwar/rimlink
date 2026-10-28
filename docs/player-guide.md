@@ -76,7 +76,28 @@ If the server does not answer a transfer (connection lost, trading paused), the 
 the request waits in `Saves/Rimlink/<server>_<player>/outbox.json` and is sent again, as the same request, at your
 next login or reconnect. A request the server then refuses comes back to your colony by drop pod.
 
-## 5. When something goes wrong
+## 5. Raids and visits
+
+Nobody needs to be online at the same time: a raid waits on the server until its target next plays, a visit loads a
+copy of the host's colony.
+
+- **Raid**: take a caravan to another player's settlement (or launch transport pods at it) and choose **Raid**.
+  Pick the raiders, then **Real** (they leave your colony; survivors come back as a parcel with their wounds, the
+  captured stay with the defender) or **Copies** (nothing leaves, half the loot), and **Warned** (the target gets a
+  letter and a day of their play to prepare) or **Instant** (half the loot). The raiders fight as a normal raid in the
+  target's game; what they steal arrives in your mailbox, capped by the target's wealth and the server's limit.
+- **Being raided**: a letter announces the raid; captured raiders are yours, what they carry away is gone. The
+  **Raids** tab of the Rimlink window lists raids coming at you and your own.
+- **Peaceful mode** (Raids tab): nobody can raid you and you cannot raid; switching it off takes a day. New or poor
+  colonies are protected by the server anyway.
+- **Visit**: with a caravan (or pods) at another player's settlement choose **Visit**. Your own colony is saved and
+  uploaded, then a copy of the host's colony loads with copies of your pawns walking in. Nothing taken there goes
+  home; things the host marked **For sale** show a **Buy** button, paid from your wallet and delivered to your colony
+  by drop pod after the visit. **End visit** brings your own colony back. Tick **Do not receive visitors** to opt out.
+- **Selling**: in your colony select an item and use **For sale...**; the shelf is published with your next save and
+  sold things are collected from your stockpiles at your next login.
+
+## 6. When something goes wrong
 
 | What you see | What it means / what to do |
 |---|---|
@@ -93,6 +114,10 @@ next login or reconnect. A request the server then refuses comes back to your co
 | `Transfer refused: def 'X' is not in the server modpack` | That item comes from a mod the server does not allow; it was put back. |
 | `The server did not answer (…). The transfer is kept …` | The outcome is unknown; nothing is lost. Log in again later and the transfer is settled. |
 | `A refused transfer is coming back by drop pod` | A kept transfer was refused when retried (recipient gone, not in the modpack…); its contents are back. |
+| `Raid refused: …` (cooldown, protected, peaceful, already under way) | Nothing left your colony; try later or another target. |
+| `The raid by X is over: …` | Your colony reported the outcome; the attacker gets their parcels. |
+| `The visit could not start: …` | The host closed visits, has no colony yet, or their save could not load on your side (missing mods); your own colony is reloaded. |
+| `Purchase refused: …` | Sold out meanwhile or not enough silver; nothing was paid. |
 | `A parcel could not be unpacked` | A mod needed by that item is missing or broken on your side; the parcel stays in your mailbox for later. |
 | `The server refused this settlement` | The tile was taken meanwhile or you already have a settlement. Choose another tile. |
 | Save upload failed (message in the log) | The upload is retried at your next login; do not delete `Saves/Rimlink/`. |

@@ -17,7 +17,7 @@ namespace Rimlink.Client.UI.Economy;
 /// </summary>
 public sealed class Dialog_Economy : Window
 {
-    private enum Tab { Market, MyLots, Send, Wallet, Mailbox }
+    private enum Tab { Market, MyLots, Send, Wallet, Mailbox, Raids, Shops }
 
     private readonly Map? map;
     private readonly Caravan? caravan;
@@ -34,6 +34,9 @@ public sealed class Dialog_Economy : Window
     private string sendSilverBuffer = "0", lotPriceBuffer = "100", depositBuffer = "100", withdrawBuffer = "100";
     private readonly List<WalletEntryMsg> history = [];
     private bool busy;
+    private Vector2 raidsScroll, shopScroll;
+    private PlayerRef? shopHost;
+    private ShopList? shopList;
 
     public Dialog_Economy(Map map)
     {
@@ -83,8 +86,17 @@ public sealed class Dialog_Economy : Window
                 var wallet = await economy.Wallet(CancellationToken.None);
                 var pending = await economy.Pending(CancellationToken.None);
                 var entries = await economy.History(CancellationToken.None);
+                var raids = RimlinkSession.Raids;
+                RaidList? incoming = null, own = null;
+                PlayerFlags? flags = null;
+                if (raids is not null)
+                {
+                    try { incoming = await raids.Pending(CancellationToken.None); own = await raids.Mine(CancellationToken.None); flags = await raids.Flags(CancellationToken.None); }
+                    catch (RpcException ex) { RimlinkLog.Instance.Warn("raids not loaded: " + EconomyClient.MessageOf(ex)); }
+                }
                 MainThread.Post(() =>
                 {
+                    if (incoming is not null && own is not null && flags is not null) RimlinkSession.State.Raids.Load(incoming, own, flags);
                     marketLots.Clear();
                     marketLots.AddRange(lots.Lots);
                     marketTotal = lots.Total;
@@ -115,12 +127,12 @@ public sealed class Dialog_Economy : Window
             float x = 0f;
             foreach (Tab t in Enum.GetValues(typeof(Tab)))
             {
-                var r = new Rect(x, 36f, 140f, 28f);
+                var r = new Rect(x, 36f, 94f, 28f);
                 if (tab == t) Widgets.DrawHighlightSelected(r);
                 if (Widgets.ButtonText(r, ("Rimlink.Economy.Tab." + t).Translate())) tab = t;
-                x += 146f;
+                x += 98f;
             }
-            if (Widgets.ButtonText(new Rect(inRect.width - 90f, 36f, 90f, 28f), "Rimlink.Economy.Refresh".Translate())) Refresh();
+            if (Widgets.ButtonText(new Rect(inRect.width - 70f, 36f, 70f, 28f), "Rimlink.Economy.Refresh".Translate())) Refresh();
         }
 
         var body = new Rect(0f, 72f, inRect.width, inRect.height - 100f);
@@ -131,6 +143,8 @@ public sealed class Dialog_Economy : Window
             case Tab.Send: DrawSend(body); break;
             case Tab.Wallet: DrawWallet(body); break;
             case Tab.Mailbox: DrawMailbox(body); break;
+            case Tab.Raids: DrawRaids(body); break;
+            case Tab.Shops: DrawShops(body); break;
         }
 
         GUI.color = status.Length > 0 ? Color.yellow : Color.gray;
@@ -295,6 +309,111 @@ public sealed class Dialog_Economy : Window
             y += 30f;
         }
         Widgets.EndScrollView();
+    }
+
+    private void DrawRaids(Rect rect)
+    {
+        var raids = RimlinkSession.State.Raids;
+        bool peaceful = raids.Flags.Peaceful, closed = raids.Flags.VisitsClosed;
+        bool wantPeaceful = peaceful, wantClosed = closed;
+        Widgets.CheckboxLabeled(new Rect(0f, rect.y, 300f, 26f), "Rimlink.Raids.Peaceful".Translate(), ref wantPeaceful);
+        Widgets.CheckboxLabeled(new Rect(320f, rect.y, 300f, 26f), "Rimlink.Raids.CloseVisits".Translate(), ref wantClosed);
+        if (wantPeaceful != peaceful) SetFlag(c => c.SetPeaceful(wantPeaceful, CancellationToken.None));
+        if (wantClosed != closed) SetFlag(c => c.SetVisitsClosed(wantClosed, CancellationToken.None));
+        if (raids.Flags.PeacefulOffAt is { } until)
+            Widgets.Label(new Rect(0f, rect.y + 28f, rect.width, 22f), "Rimlink.Raids.PeacefulOffAt".Translate(until.ToDateTime().ToLocalTime().ToString("g")));
+
+        var list = new Rect(0f, rect.y + 56f, rect.width, rect.height - 56f);
+        int rows = raids.Incoming.Count + raids.Mine.Count + 4;
+        Widgets.BeginScrollView(list, ref raidsScroll, new Rect(0f, 0f, list.width - 16f, Math.Max(list.height, rows * 28f)));
+        float y = 0f, w = list.width - 16f;
+        Widgets.Label(new Rect(0f, y, w, 26f), "Rimlink.Raids.Incoming".Translate(raids.Incoming.Count));
+        y += 28f;
+        if (raids.Incoming.Count == 0) { Widgets.Label(new Rect(16f, y, w, 26f), "Rimlink.Raids.None".Translate()); y += 28f; }
+        foreach (var r in raids.Incoming)
+        {
+            string when = r.State == RaidState.RaidAnnounced ? "Rimlink.Raids.LandsAt".Translate(((int)Math.Max(0, r.LandAtTick - Find.TickManager.TicksGame)).ToStringTicksToPeriod()).ToString() : StateLabel(r.State);
+            Widgets.Label(new Rect(16f, y, w, 26f), $"{r.Attacker?.Name ?? "?"}: {r.Pawns.Pawns.Count} {("Rimlink.Raids.Raiders").Translate()}, {when}");
+            y += 28f;
+        }
+        y += 8f;
+        Widgets.Label(new Rect(0f, y, w, 26f), "Rimlink.Raids.Mine".Translate(raids.Mine.Count));
+        y += 28f;
+        if (raids.Mine.Count == 0) { Widgets.Label(new Rect(16f, y, w, 26f), "Rimlink.Raids.None".Translate()); y += 28f; }
+        foreach (var r in raids.Mine)
+        {
+            string summary = r.Summary is { } s && r.State == RaidState.RaidResolved
+                ? " " + "Rimlink.Raids.Summary".Translate(s.Dead, s.Captured, s.Fled + s.Alive, s.LootValue)
+                : "";
+            Widgets.Label(new Rect(16f, y, w, 26f), $"→ {r.Target?.Name ?? "?"}: {r.Pawns.Pawns.Count} {("Rimlink.Raids.Raiders").Translate()}, {StateLabel(r.State)}{summary}");
+            y += 28f;
+        }
+        Widgets.EndScrollView();
+    }
+
+    private static string StateLabel(RaidState state) => ("Rimlink.Raids.State." + state).Translate();
+
+    private void SetFlag(Func<Rimlink.Client.Raids.RaidClient, Task<PlayerFlags>> call)
+    {
+        var raids = RimlinkSession.Raids;
+        if (raids is null || busy) return;
+        busy = true;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var flags = await call(raids);
+                MainThread.Post(() => { RimlinkSession.State.Raids.Apply(new ServerEvent { PlayerFlagsChanged = new PlayerFlagsChanged { Flags = flags } }); busy = false; });
+            }
+            catch (Exception ex)
+            {
+                string reason = ex is RpcException rpc ? EconomyClient.MessageOf(rpc) : ex.Message;
+                MainThread.Post(() => { status = reason; busy = false; });
+            }
+        });
+    }
+
+    private void DrawShops(Rect rect)
+    {
+        if (Widgets.ButtonText(new Rect(0f, rect.y, 240f, 26f), shopHost?.Name ?? "Rimlink.Shops.Pick".Translate().ToString()))
+        {
+            var options = KnownPlayers().Select(p => new FloatMenuOption(p.Name, () => LoadShop(p))).ToList();
+            if (options.Count > 0) Find.WindowStack.Add(new FloatMenu(options));
+        }
+        Widgets.Label(new Rect(250f, rect.y, rect.width - 250f, 26f), "Rimlink.Shops.Hint".Translate());
+        var list = new Rect(0f, rect.y + 32f, rect.width, rect.height - 32f);
+        int count = shopList?.Items.Count ?? 0;
+        Widgets.BeginScrollView(list, ref shopScroll, new Rect(0f, 0f, list.width - 16f, Math.Max(list.height, (count + 1) * 28f)));
+        float y = 0f;
+        if (shopHost is not null && count == 0) Widgets.Label(new Rect(0f, y, list.width - 16f, 26f), "Rimlink.Shops.Empty".Translate(shopHost.Name));
+        foreach (var item in shopList?.Items ?? [])
+        {
+            Widgets.Label(new Rect(0f, y, list.width - 16f, 26f), "Rimlink.Shops.Item".Translate(item.Label, item.Count, item.Price));
+            y += 28f;
+        }
+        Widgets.EndScrollView();
+    }
+
+    private void LoadShop(PlayerRef host)
+    {
+        var shop = RimlinkSession.Shop;
+        if (shop is null) return;
+        shopHost = host;
+        shopList = null;
+        busy = true;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var list = await shop.Of(host.PlayerId, CancellationToken.None);
+                MainThread.Post(() => { shopList = list; busy = false; });
+            }
+            catch (Exception ex)
+            {
+                string reason = ex is RpcException rpc ? EconomyClient.MessageOf(rpc) : ex.Message;
+                MainThread.Post(() => { status = reason; busy = false; });
+            }
+        });
     }
 
     private void Call(Func<EconomyClient, Task<Parcel>> call, string success)
