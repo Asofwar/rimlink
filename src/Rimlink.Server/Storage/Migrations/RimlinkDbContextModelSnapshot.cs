@@ -261,7 +261,7 @@ namespace Rimlink.Server.Storage.Migrations
                     b.ToTable("save_versions", (string)null);
                 });
 
-            modelBuilder.Entity("Rimlink.Server.Storage.Entities.Session", b =>
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.SessionLog", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()

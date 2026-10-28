@@ -1,0 +1,82 @@
+using Grpc.Core;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Rimlink.Protocol.V1;
+using Rimlink.Server.Application.Sessions;
+using Rimlink.Server.Hosting;
+using Rimlink.Server.Storage;
+using Rimlink.Server.Storage.Entities;
+
+namespace Rimlink.Server.Application.Auth;
+
+public sealed class AuthService(
+    RimlinkDbContext db,
+    SessionRegistry sessions,
+    IOptions<AuthOptions> authOptions,
+    ILogger<AuthService> log)
+{
+    public async Task<LoginResult> Register(string login, string password, string playerName, LoginContext ctx)
+    {
+        if (!authOptions.Value.AllowPassword)
+            return LoginResult.Failed(StatusCode.PermissionDenied, ErrorCode.Unspecified, "password accounts are disabled on this server");
+        if (!Names.IsValid(login))
+            return LoginResult.Failed(StatusCode.InvalidArgument, ErrorCode.NameInvalid, "login is not a valid name");
+        if (!Names.IsValid(playerName))
+            return LoginResult.Failed(StatusCode.InvalidArgument, ErrorCode.NameInvalid, "player name is not a valid name");
+        if (string.IsNullOrEmpty(password))
+            return LoginResult.Failed(StatusCode.InvalidArgument, ErrorCode.Unspecified, "password is empty");
+        if (await db.Accounts.AnyAsync(a => a.Login == login))
+            return LoginResult.Failed(StatusCode.AlreadyExists, ErrorCode.Unspecified, "login already taken");
+
+        var account = new Account
+        {
+            Login = login,
+            PasswordHash = PasswordHasher.Hash(password),
+            Role = authOptions.Value.AdminLogins.Contains(login, StringComparer.OrdinalIgnoreCase) ? Storage.Entities.Role.Admin : Storage.Entities.Role.Player,
+            CreatedAt = DateTime.UtcNow,
+        };
+        account.Player = new Player { Account = account, Name = playerName, FactionName = playerName };
+        db.Accounts.Add(account);
+        await db.SaveChangesAsync();
+        log.LogInformation("Registered account {Login} ({AccountId})", login, account.Id);
+
+        return await Complete(account, ctx);
+    }
+
+    public async Task<LoginResult> LoginWithPassword(string login, string password, LoginContext ctx)
+    {
+        if (!authOptions.Value.AllowPassword)
+            return LoginResult.Failed(StatusCode.PermissionDenied, ErrorCode.Unspecified, "password accounts are disabled on this server");
+
+        var account = await db.Accounts.Include(a => a.Player).FirstOrDefaultAsync(a => a.Login == login);
+        if (account?.PasswordHash is null || !PasswordHasher.Verify(password, account.PasswordHash))
+            return LoginResult.Failed(StatusCode.Unauthenticated, ErrorCode.Unspecified, "login details are invalid");
+
+        return await Complete(account, ctx);
+    }
+
+    public void Logout(Session session)
+    {
+        sessions.End(session.Token);
+        log.LogInformation("Logout {Player} ({AccountId})", session.PlayerName, session.AccountId);
+    }
+
+    /// <summary>Shared tail of every credential path: gate checks, session start, bookkeeping.</summary>
+    private async Task<LoginResult> Complete(Account account, LoginContext ctx)
+    {
+        if (ctx.ProtocolVersion != Protocol.ProtocolVersion.Current)
+            return LoginResult.Failed(StatusCode.FailedPrecondition, ErrorCode.ProtocolVersion,
+                $"server speaks protocol {Protocol.ProtocolVersion.Current}, client sent {ctx.ProtocolVersion}");
+
+        var player = account.Player ?? await db.Players.FirstAsync(p => p.AccountId == account.Id);
+        var session = sessions.Start(account, player, ctx.Ip, out _);
+
+        account.LastSeenAt = DateTime.UtcNow;
+        player.LastIp = ctx.Ip;
+        db.Sessions.Add(new SessionLog { AccountId = account.Id, Ip = ctx.Ip, StartedAt = session.StartedAt });
+        await db.SaveChangesAsync();
+
+        log.LogInformation("Login {Player} ({AccountId}) from {Ip}", player.Name, account.Id, ctx.Ip);
+        return new LoginResult.Success(session, account, player);
+    }
+}

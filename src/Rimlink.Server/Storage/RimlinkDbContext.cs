@@ -7,7 +7,7 @@ public sealed class RimlinkDbContext(DbContextOptions<RimlinkDbContext> options)
 {
     public DbSet<Account> Accounts => Set<Account>();
     public DbSet<Player> Players => Set<Player>();
-    public DbSet<Session> Sessions => Set<Session>();
+    public DbSet<SessionLog> Sessions => Set<SessionLog>();
     public DbSet<Ban> Bans => Set<Ban>();
     public DbSet<World> World => Set<World>();
     public DbSet<WorldObject> WorldObjects => Set<WorldObject>();
@@ -32,7 +32,7 @@ public sealed class RimlinkDbContext(DbContextOptions<RimlinkDbContext> options)
             e.HasIndex(p => p.AccountId).IsUnique();
             e.HasIndex(p => p.Name);
         });
-        model.Entity<Session>(e => e.ToTable("sessions"));
+        model.Entity<SessionLog>(e => e.ToTable("sessions"));
         model.Entity<Ban>(e =>
         {
             e.ToTable("bans");

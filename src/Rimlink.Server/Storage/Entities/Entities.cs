@@ -37,7 +37,7 @@ public sealed class Player
     public DateTime? MutedUntil { get; set; }
 }
 
-public sealed class Session
+public sealed class SessionLog
 {
     public long Id { get; set; }
     public long AccountId { get; set; }
