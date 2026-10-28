@@ -110,6 +110,8 @@ message WithdrawRequest {
   int64 silver = 2;
 }
 
+message ParcelRef { int64 parcel_id = 1; }
+
 message DeliverRequest {
   int64 parcel_id = 1;
   int64 game_tick = 2;
@@ -149,7 +151,9 @@ service Wallet {
 
 service Mailbox {
   // Undelivered parcels plus delivered ones the player's current save does not contain yet (redeliver = true).
+  // Descriptors only (no blob bytes); Get returns one parcel with its blobs.
   rpc List (Empty) returns (ParcelList);
+  rpc Get (ParcelRef) returns (Parcel);
   rpc Deliver (DeliverRequest) returns (Empty);
 }
 

@@ -15,6 +15,15 @@ public sealed class WalletService(RimlinkDbContext db, EventBus events)
 {
     public const long BankPlayerId = 0;
 
+    private readonly List<(long PlayerId, ServerEvent Event)> pendingEvents = [];
+
+    /// <summary>Sends the WalletChanged events of this scope; call after the transaction committed (never inside it).</summary>
+    public void FlushEvents()
+    {
+        foreach (var (playerId, ev) in pendingEvents) events.SendTo(playerId, ev);
+        pendingEvents.Clear();
+    }
+
     public async Task<long> Balance(long playerId) =>
         (await db.Wallets.AsNoTracking().FirstOrDefaultAsync(w => w.PlayerId == playerId))?.Balance ?? 0;
 
@@ -40,7 +49,7 @@ public sealed class WalletService(RimlinkDbContext db, EventBus events)
         await db.SaveChangesAsync();
 
         if (playerId != BankPlayerId)
-            events.SendTo(playerId, new ServerEvent { WalletChanged = new WalletChanged { Balance = wallet.Balance, Delta = delta, Kind = kind } });
+            pendingEvents.Add((playerId, new ServerEvent { WalletChanged = new WalletChanged { Balance = wallet.Balance, Delta = delta, Kind = kind } }));
         return entry;
     }
 
@@ -57,6 +66,7 @@ public sealed class WalletService(RimlinkDbContext db, EventBus events)
         db.Transfers.Add(new Transfer { FromPlayerId = playerId, Kind = "deposit", GameTick = request.GameTick, Summary = $"{request.Silver} silver", At = DateTime.UtcNow, ClientRequestId = string.IsNullOrEmpty(request.ClientRequestId) ? null : request.ClientRequestId });
         await db.SaveChangesAsync();
         await tx.CommitAsync();
+        FlushEvents();
         EconomyMetrics.Trade("deposit", request.Silver);
         return await Balance(playerId);
     }
@@ -80,6 +90,7 @@ public sealed class WalletService(RimlinkDbContext db, EventBus events)
         db.Transfers.Add(new Transfer { FromPlayerId = playerId, Kind = "withdraw", GameTick = 0, Summary = $"{request.Silver} silver", At = DateTime.UtcNow });
         await db.SaveChangesAsync();
         await tx.CommitAsync();
+        FlushEvents();
         EconomyMetrics.Trade("withdraw", request.Silver);
         await mailbox.Announce(parcel);
         return parcel;

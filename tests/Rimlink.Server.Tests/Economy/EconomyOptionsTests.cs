@@ -16,7 +16,7 @@ public class EconomyOptionsTests
         var o = fixture.Services.GetRequiredService<IOptions<EconomyOptions>>().Value;
 
         Assert.True(o.Enabled);
-        Assert.Equal(4 * 1024 * 1024, o.MaxParcelBytes);
+        Assert.Equal(900 * 1024, o.MaxParcelBytes); // below the 1 MB gRPC message limit
         Assert.Equal(200, o.MaxItemsPerParcel);
         Assert.Equal(10, o.MaxPawnsPerParcel);
         Assert.Equal(20, o.MaxLotsPerPlayer);

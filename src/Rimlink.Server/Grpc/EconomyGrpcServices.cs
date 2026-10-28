@@ -40,9 +40,12 @@ public sealed class MailboxGrpcService(MailboxService mailbox) : Protocol.V1.Mai
     {
         var list = new ParcelList();
         foreach (var (parcel, redeliver) in await mailbox.Pending(context.GetSession().PlayerId))
-            list.Parcels.Add(await mailbox.ToProto(parcel, redeliver));
+            list.Parcels.Add(await mailbox.ToProto(parcel, redeliver, includeBlobs: false));
         return list;
     }
+
+    public override async Task<Parcel> Get(ParcelRef request, ServerCallContext context) =>
+        await mailbox.ToProto(await mailbox.Get(context.GetSession().PlayerId, request.ParcelId));
 
     public override async Task<Empty> Deliver(DeliverRequest request, ServerCallContext context)
     {

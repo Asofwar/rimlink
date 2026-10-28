@@ -75,7 +75,7 @@ rimlink-tools modpack defs --mods-dir "<RimWorld>/Data" "<RimWorld>/Mods" "<stea
 ## 5a. Economy
 
 Market board with escrow, server-side silver wallets, mailbox for offline recipients and direct transfers. Settings
-under `Economy` (defaults): `Enabled` true, `MaxParcelBytes` 4194304, `MaxItemsPerParcel` 200, `MaxPawnsPerParcel` 10,
+under `Economy` (defaults): `Enabled` true, `MaxParcelBytes` 921600 (900 KB, below the 1 MB gRPC message limit), `MaxItemsPerParcel` 200, `MaxPawnsPerParcel` 10,
 `MaxLotsPerPlayer` 20, `MaxPendingParcels` 50, `LotLifetimeDays` 30, `MarketFeePercent` 0 (fee goes to the bank account,
 player id 0), `SendCooldownSeconds` 5. A save uploaded with a game tick older than the player's last transfer is refused
 (`SAVE_STALE`): that file would bring back what was given away. An admin rollback behind a transfer is allowed and

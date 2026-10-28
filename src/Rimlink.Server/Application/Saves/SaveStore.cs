@@ -137,6 +137,9 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, EventBus 
             if (File.Exists(path)) File.Move(path, Path.Combine(archiveDir, Path.GetFileName(path)), overwrite: true);
             db.SaveVersions.Remove(version);
         }
+        // A fresh colony starts at tick 0: the transfer stamp and the redelivery marks of the old one must not follow it.
+        await db.Players.Where(p => p.Id == playerId).ExecuteUpdateAsync(s => s.SetProperty(p => p.LastOutgoingTick, 0L));
+        await db.Parcels.Where(p => p.ToPlayerId == playerId && p.DeliveredAt != null).ExecuteUpdateAsync(s => s.SetProperty(p => p.DeliveredTick, 0L));
         await db.SaveChangesAsync();
     }
 

@@ -14,7 +14,8 @@ public static class Limits
     public const string NameRegex = @"^[\p{L}\p{N} _\-.']{2,32}$";
 
     // Economy: the client pre-checks these before taking anything off the map; the server enforces them.
-    public const int EconomyMaxParcelBytes = 4 * 1024 * 1024;
+    // Below MaxMessageBytes: a parcel travels inside one gRPC message (Send/Buy/Get replies).
+    public const int EconomyMaxParcelBytes = 900 * 1024;
     public const int EconomyMaxItemsPerParcel = 200;
     public const int EconomyMaxPawnsPerParcel = 10;
 }

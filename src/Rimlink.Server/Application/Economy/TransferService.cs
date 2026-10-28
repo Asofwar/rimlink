@@ -42,6 +42,7 @@ public sealed class TransferService(RimlinkDbContext db, WalletService wallet, M
         });
         await db.SaveChangesAsync();
         await tx.CommitAsync();
+        wallet.FlushEvents();
 
         await mailbox.Announce(parcel);
         EconomyMetrics.Trade("send", request.Silver);

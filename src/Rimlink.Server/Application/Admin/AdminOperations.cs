@@ -41,7 +41,12 @@ public sealed class AdminOperations(
     {
         actor.Require(Role.Admin);
         var player = await FindPlayer(playerId);
-        await wallet.Apply(playerId, delta, "admin", 0);
+        await using (var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable))
+        {
+            await wallet.Apply(playerId, delta, "admin", 0);
+            await tx.CommitAsync();
+        }
+        wallet.FlushEvents();
         await Audit(actor, "wallet", player.AccountId, $"{delta:+#;-#;0} silver: {reason}");
         return await wallet.Balance(playerId);
     }
@@ -72,7 +77,7 @@ public sealed class AdminOperations(
         actor.Require(Role.Admin);
         var lot = await db.Lots.AsNoTracking().FirstOrDefaultAsync(l => l.Id == lotId && l.Status == LotStatusDb.Open);
         if (lot is null) return false;
-        await market.Withdraw(lot.SellerPlayerId, lotId);
+        await market.Withdraw(lot.SellerPlayerId, lotId, bypassGate: true);
         await Audit(actor, "refund-lot", null, $"lot {lotId} returned to player {lot.SellerPlayerId}");
         return true;
     }
@@ -83,18 +88,34 @@ public sealed class AdminOperations(
         actor.Require(Role.Admin);
         await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
         var parcel = await db.Parcels.FirstOrDefaultAsync(p => p.Id == parcelId && p.DeliveredAt == null);
-        if (parcel is null || parcel.FromPlayerId is not { } sender) return false;
+        if (parcel is null) return false;
+        // Only what can be undone cleanly: a gift goes back to its sender, a withdrawal back into the wallet.
+        // A purchase or lot return has a paid counterpart; reversing it is wallet work for the admin.
+        Parcel? back = null;
+        long target;
+        switch (parcel.Kind)
+        {
+            case ParcelKindDb.Gift when parcel.FromPlayerId is { } sender:
+                target = sender;
+                back = await mailbox.Create(sender, null, ParcelKindDb.Admin, ItemList.Parser.ParseFrom(parcel.Items), PawnList.Parser.ParseFrom(parcel.Pawns), 0, null, ignoreMailboxLimit: true);
+                if (parcel.Silver > 0) await wallet.Apply(sender, parcel.Silver, "refund", parcel.Id);
+                break;
+            case ParcelKindDb.Withdraw:
+                target = parcel.ToPlayerId;
+                await wallet.Apply(parcel.ToPlayerId, parcel.Silver, "refund", parcel.Id);
+                break;
+            default:
+                return false;
+        }
         // Marked delivered at tick 0 so no save can be "older" than it: it never drops again.
         parcel.DeliveredAt = DateTime.UtcNow;
         parcel.DeliveredTick = 0;
-        var back = await mailbox.Create(sender, null, ParcelKindDb.Admin, ItemList.Parser.ParseFrom(parcel.Items), PawnList.Parser.ParseFrom(parcel.Pawns), 0, null, ignoreMailboxLimit: true);
-        if (parcel.Silver > 0 && parcel.Kind != ParcelKindDb.Withdraw) await wallet.Apply(sender, parcel.Silver, "refund", parcel.Id);
-        if (parcel.Kind == ParcelKindDb.Withdraw) await wallet.Apply(sender, parcel.Silver, "refund", parcel.Id);
-        db.Transfers.Add(new Transfer { FromPlayerId = parcel.ToPlayerId, ToPlayerId = sender, Kind = "refund", GameTick = 0, Summary = $"parcel {parcel.Id}", At = DateTime.UtcNow });
+        db.Transfers.Add(new Transfer { FromPlayerId = parcel.ToPlayerId, ToPlayerId = target, Kind = "refund", GameTick = 0, Summary = $"parcel {parcel.Id}", At = DateTime.UtcNow });
         await db.SaveChangesAsync();
         await tx.CommitAsync();
-        await mailbox.Announce(back);
-        await Audit(actor, "refund-parcel", null, $"parcel {parcelId} returned to player {sender}");
+        wallet.FlushEvents();
+        if (back is not null) await mailbox.Announce(back);
+        await Audit(actor, "refund-parcel", null, $"parcel {parcelId} refunded to player {target}");
         return true;
     }
 

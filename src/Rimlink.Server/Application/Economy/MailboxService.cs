@@ -46,11 +46,16 @@ public sealed class MailboxService(RimlinkDbContext db, EventBus events, WalletS
         return parcel;
     }
 
-    /// <summary>After the transaction committed: tell the recipient's live session, if any.</summary>
+    /// <summary>After the transaction committed: tell the recipient's live session, if any (descriptor only; the blob comes with Get).</summary>
     public async Task Announce(Parcel parcel)
     {
-        events.SendTo(parcel.ToPlayerId, new ServerEvent { ParcelArrived = new ParcelArrived { Parcel = await ToProto(parcel) } });
+        events.SendTo(parcel.ToPlayerId, new ServerEvent { ParcelArrived = new ParcelArrived { Parcel = await ToProto(parcel, includeBlobs: false) } });
     }
+
+    /// <summary>One parcel of the player with its blobs.</summary>
+    public async Task<Parcel> Get(long playerId, long parcelId) =>
+        await db.Parcels.AsNoTracking().FirstOrDefaultAsync(p => p.Id == parcelId && p.ToPlayerId == playerId)
+        ?? throw new RpcException(new Status(StatusCode.NotFound, "no such parcel in your mailbox"));
 
     /// <summary>Undelivered parcels, plus delivered ones the player's current save predates (flagged for redelivery).</summary>
     public async Task<List<(Parcel Parcel, bool Redeliver)>> Pending(long playerId)
@@ -77,6 +82,9 @@ public sealed class MailboxService(RimlinkDbContext db, EventBus events, WalletS
             EconomyMetrics.Trade("deliver");
             db.Transfers.Add(new Transfer { FromPlayerId = playerId, ToPlayerId = null, Kind = "deliver", GameTick = gameTick, Summary = $"parcel {parcel.Id}", At = DateTime.UtcNow });
             await db.SaveChangesAsync();
+            await tx.CommitAsync();
+            wallet.FlushEvents();
+            return;
         }
         else
         {
@@ -87,14 +95,35 @@ public sealed class MailboxService(RimlinkDbContext db, EventBus events, WalletS
         await tx.CommitAsync();
     }
 
-    public async Task<Protocol.V1.Parcel> ToProto(Parcel p, bool redeliver = false)
+    /// <summary>Lists and events carry descriptors only: blobs of a full mailbox would exceed the gRPC message size.</summary>
+    public static ItemList StripBlobs(ItemList items, bool includeBlobs)
+    {
+        if (includeBlobs) return items;
+        foreach (var i in items.Items) i.ScribeXmlZstd = ByteString.Empty;
+        return items;
+    }
+
+    public static PawnList StripBlobs(PawnList pawns, bool includeBlobs)
+    {
+        if (includeBlobs) return pawns;
+        foreach (var p in pawns.Pawns) p.ScribeXmlZstd = ByteString.Empty;
+        return pawns;
+    }
+
+    public static PawnBlob StripBlobs(PawnBlob pawn, bool includeBlobs)
+    {
+        if (!includeBlobs) pawn.ScribeXmlZstd = ByteString.Empty;
+        return pawn;
+    }
+
+    public async Task<Protocol.V1.Parcel> ToProto(Parcel p, bool redeliver = false, bool includeBlobs = true)
     {
         var proto = new Protocol.V1.Parcel
         {
             Id = p.Id,
             Kind = (ParcelKind)p.Kind,
-            Items = ItemList.Parser.ParseFrom(p.Items),
-            Pawns = PawnList.Parser.ParseFrom(p.Pawns),
+            Items = StripBlobs(ItemList.Parser.ParseFrom(p.Items), includeBlobs),
+            Pawns = StripBlobs(PawnList.Parser.ParseFrom(p.Pawns), includeBlobs),
             Silver = p.Silver,
             CreatedAt = Timestamp.FromDateTime(DateTime.SpecifyKind(p.CreatedAt, DateTimeKind.Utc)),
             Redeliver = redeliver,

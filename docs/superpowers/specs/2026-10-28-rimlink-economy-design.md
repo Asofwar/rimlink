@@ -79,7 +79,7 @@ ItemList   { repeated ItemBlob items; }     PawnList { repeated PawnBlob pawns; 
 Коды ошибок (расширение `ErrorCode`): `WALLET_INSUFFICIENT`, `LOT_GONE`, `PARCEL_TOO_BIG`, `DEF_NOT_IN_MODPACK`,
 `SAVE_STALE`, `RECIPIENT_UNKNOWN`, `ECONOMY_FROZEN`, `SELF_TRADE`.
 
-Лимиты (конфиг `Economy:*`, значения по умолчанию): `MaxParcelBytes` 4 МБ, `MaxItemsPerParcel` 200,
+Лимиты (конфиг `Economy:*`, значения по умолчанию): `MaxParcelBytes` 900 КБ (921600; посылка должна помещаться в одно gRPC-сообщение ≤ 1 МБ), `MaxItemsPerParcel` 200,
 `MaxPawnsPerParcel` 10, `MaxLotsPerPlayer` 20, `MaxPendingParcels` 50, `LotLifetimeDays` 30,
 `MarketFeePercent` 0, `SendCooldownSeconds` 5, `Enabled` true.
 

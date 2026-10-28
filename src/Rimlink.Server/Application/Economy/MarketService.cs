@@ -68,7 +68,7 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
         var all = await lots.OrderByDescending(l => l.Id).ToListAsync();
         var sellers = await db.Players.AsNoTracking().Where(p => all.Select(l => l.SellerPlayerId).Contains(p.Id)).ToDictionaryAsync(p => p.Id);
 
-        var protos = all.Select(l => ToProto(l, sellers.GetValueOrDefault(l.SellerPlayerId)));
+        var protos = all.Select(l => ToProto(l, sellers.GetValueOrDefault(l.SellerPlayerId), includeBlobs: false));
         if (!string.IsNullOrWhiteSpace(query.Text))
         {
             string text = query.Text.Trim();
@@ -83,9 +83,9 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
         return result;
     }
 
-    public async Task<Parcel> Withdraw(long sellerId, long lotId)
+    public async Task<Parcel> Withdraw(long sellerId, long lotId, bool bypassGate = false)
     {
-        gate.RequireOpen();
+        if (!bypassGate) gate.RequireOpen();
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         var lot = await db.Lots.FirstOrDefaultAsync(l => l.Id == lotId && l.SellerPlayerId == sellerId && l.Status == LotStatusDb.Open)
             ?? throw RpcErrors.Failed(ErrorCode.LotGone, "this lot is no longer open");
@@ -123,6 +123,7 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
             db.Transfers.Add(new Transfer { FromPlayerId = buyerId, ToPlayerId = lot.SellerPlayerId, Kind = "buy", GameTick = 0, Summary = summary, At = DateTime.UtcNow });
             await db.SaveChangesAsync();
             await tx.CommitAsync();
+            wallet.FlushEvents();
 
             var buyer = await db.Players.AsNoTracking().FirstAsync(p => p.Id == buyerId);
             sold = new LotSold { LotId = lot.Id, Buyer = buyer.ToRef(), Price = lot.Price, Proceeds = lot.Price - fee };
@@ -174,12 +175,12 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
         return parcel;
     }
 
-    public static Protocol.V1.Lot ToProto(Lot l, Player? seller) => new()
+    public static Protocol.V1.Lot ToProto(Lot l, Player? seller, bool includeBlobs = true) => new()
     {
         Id = l.Id,
         Seller = seller?.ToRef(),
-        Items = ItemList.Parser.ParseFrom(l.Items),
-        Pawn = l.Pawn is null ? null : PawnBlob.Parser.ParseFrom(l.Pawn),
+        Items = MailboxService.StripBlobs(ItemList.Parser.ParseFrom(l.Items), includeBlobs),
+        Pawn = l.Pawn is null ? null : MailboxService.StripBlobs(PawnBlob.Parser.ParseFrom(l.Pawn), includeBlobs),
         Price = l.Price,
         CreatedAt = Timestamp.FromDateTime(DateTime.SpecifyKind(l.CreatedAt, DateTimeKind.Utc)),
         ExpiresAt = Timestamp.FromDateTime(DateTime.SpecifyKind(l.ExpiresAt, DateTimeKind.Utc)),
