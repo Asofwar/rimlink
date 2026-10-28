@@ -76,13 +76,18 @@ public static class ThingBlobs
     /// <summary>New thing IDs for the object and everything it holds (apparel, equipment, inventory, carried), new hediff IDs for pawns.</summary>
     private static void RegenerateIds(Thing root)
     {
-        var all = new List<Thing> { root };
-        if (root is IThingHolder holder) ThingOwnerUtility.GetAllThingsRecursively(holder, all);
-        foreach (var t in all.Distinct())
+        var held = new List<Thing>();
+        if (root is IThingHolder holder) ThingOwnerUtility.GetAllThingsRecursively(holder, held); // clears the list first
+        foreach (var t in held.Prepend(root).Distinct())
         {
             if (t.def.HasThingIDNumber) t.thingIDNumber = Find.UniqueIDsManager.GetNextThingID();
-            if (t is Pawn p && p.health?.hediffSet?.hediffs is { } hediffs)
+            if (t is not Pawn p) continue;
+            if (p.health?.hediffSet?.hediffs is { } hediffs)
                 foreach (var h in hediffs) h.loadID = Find.UniqueIDsManager.GetNextHediffID();
+            if (p.genes?.GenesListForReading is { } genes)
+                foreach (var g in genes) g.loadID = Find.UniqueIDsManager.GetNextGeneID();
+            if (p.abilities?.abilities is { } abilities)
+                foreach (var a in abilities) a.Id = Find.UniqueIDsManager.GetNextAbilityID();
         }
     }
 
