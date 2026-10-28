@@ -1,0 +1,28 @@
+# Build output
+bin/
+obj/
+/build/
+/artifacts/
+*.user
+*.suo
+.vs/
+.idea/
+
+# Test results and coverage
+TestResults/
+*.trx
+coverage*/
+
+# Server runtime data (never commit a live data directory)
+/data/
+*.db
+*.db-wal
+*.db-shm
+
+# Local configuration with secrets
+appsettings.Local.json
+*.local.json
+.env
+
+# Packaged mod
+/mod/Assemblies/
