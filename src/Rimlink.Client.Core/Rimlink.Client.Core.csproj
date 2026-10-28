@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Game-independent half of the client: network and shared-state layers. Built and tested in CI without RimWorld. -->
+  <PropertyGroup>
+    <RootNamespace>Rimlink.Client</RootNamespace>
+    <AssemblyName>Rimlink.Client.Core</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Grpc.Net.Client" />
+    <PackageReference Include="ZstdSharp.Port" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Rimlink.Protocol\Rimlink.Protocol.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Rimlink.Client.Tests" />
+  </ItemGroup>
+</Project>

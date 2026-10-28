@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The RimWorld mod assembly. Needs an installed RimWorld 1.7: pass -p:RimWorldDir=<folder> (default below).
+    Not part of Rimlink.sln on purpose: CI has no game. Build with scripts/Build-ClientMod.ps1.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Rimlink.Client</RootNamespace>
+    <AssemblyName>Rimlink.Client</AssemblyName>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <RimWorldDir Condition="'$(RimWorldDir)' == ''">D:\SteamLibrary\steamapps\common\RimWorld</RimWorldDir>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Harmony is provided by the Harmony mod at runtime; only compile against it. -->
+    <PackageReference Include="Lib.Harmony" ExcludeAssets="runtime" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Rimlink.Client.Core\Rimlink.Client.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp"><HintPath>$(RimWorldDir)\Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityStubs"><HintPath>$(RimWorldDir)\UnityStubs.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="com.rlabrecque.steamworks.net"><HintPath>$(RimWorldDir)\com.rlabrecque.steamworks.net.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+  <Target Name="CheckRimWorld" BeforeTargets="ResolveAssemblyReferences" Condition="!Exists('$(RimWorldDir)\Assembly-CSharp.dll')">
+    <Error Text="RimWorld not found at '$(RimWorldDir)'. Pass -p:RimWorldDir=&lt;RimWorld 1.7 folder&gt;." />
+  </Target>
+</Project>

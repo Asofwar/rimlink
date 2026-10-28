@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>Rimlink.Client.Tests</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Rimlink.Client.Core\Rimlink.Client.Core.csproj" />
+    <!-- In-process server for connection tests (ServerFixture and friends). -->
+    <ProjectReference Include="..\Rimlink.Server.Tests\Rimlink.Server.Tests.csproj" />
+  </ItemGroup>
+</Project>
