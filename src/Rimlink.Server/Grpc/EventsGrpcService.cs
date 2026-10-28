@@ -1,9 +1,10 @@
 using Grpc.Core;
 using Rimlink.Protocol.V1;
+using Rimlink.Server.Application.Sessions;
 
 namespace Rimlink.Server.Grpc;
 
-public sealed class EventsGrpcService(ILogger<EventsGrpcService> log) : Protocol.V1.Events.EventsBase
+public sealed class EventsGrpcService(SessionRegistry sessions, ILogger<EventsGrpcService> log) : Protocol.V1.Events.EventsBase
 {
     public override async Task Subscribe(Empty request, IServerStreamWriter<ServerEvent> responseStream, ServerCallContext context)
     {
@@ -20,7 +21,13 @@ public sealed class EventsGrpcService(ILogger<EventsGrpcService> log) : Protocol
         }
         catch (OperationCanceledException)
         {
-            return; // client went away
+            // The client went away without logging out: the event stream is the connection's heartbeat.
+            if (sessions.TryGet(session.Token, out _))
+            {
+                log.LogInformation("{Player} disconnected", session.PlayerName);
+                sessions.End(session.Token);
+            }
+            return;
         }
 
         log.LogDebug("Event stream of {Player} ended: session closed", session.PlayerName);

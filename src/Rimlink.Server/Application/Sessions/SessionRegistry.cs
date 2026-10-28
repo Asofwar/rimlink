@@ -14,6 +14,9 @@ public sealed class SessionRegistry
 
     public IReadOnlyCollection<Session> All => byToken.Values.ToArray();
 
+    public event Action<Session>? SessionStarted;
+    public event Action<Session>? SessionEnded;
+
     public Session Start(Account account, Player player, string ip, out Session? replaced)
     {
         lock (startLock)
@@ -35,6 +38,7 @@ public sealed class SessionRegistry
                 PlayerName = player.Name,
             };
             byToken[session.Token] = session;
+            SessionStarted?.Invoke(session);
             return session;
         }
     }
@@ -51,5 +55,6 @@ public sealed class SessionRegistry
         if (!byToken.TryRemove(token, out var session)) return;
         session.Events.Complete();
         session.Cts.Cancel();
+        SessionEnded?.Invoke(session);
     }
 }

@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package rimlink.v1;
+option csharp_namespace = "Rimlink.Protocol.V1";
+
+import "google/protobuf/timestamp.proto";
+import "common.proto";
+
+service Chat {
+  // to_player_id = 0 sends to the public channel. Lines starting with "/" are commands (see admin.proto).
+  rpc Send (SendRequest) returns (Empty);
+  // The last 50 public messages plus direct messages involving the caller.
+  rpc History (Empty) returns (ChatHistory);
+}
+
+enum MessageKind {
+  PLAYER = 0;
+  SYSTEM = 1;
+}
+
+message SendRequest {
+  string text = 1;
+  int64 to_player_id = 2;
+}
+
+// Event body (ServerEvent 20).
+message ChatMessageEvent {
+  int64 id = 1;
+  PlayerRef from = 2;
+  int64 to_player_id = 3;
+  string text = 4;
+  MessageKind kind = 5;
+  google.protobuf.Timestamp at = 6;
+}
+
+message ChatHistory {
+  repeated ChatMessageEvent messages = 1;
+}

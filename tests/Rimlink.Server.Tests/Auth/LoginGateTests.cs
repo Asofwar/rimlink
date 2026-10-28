@@ -61,7 +61,7 @@ public class LoginGateTests
             await (await BanServiceOf(fixture, scope)).Ban(new BanRequest(AccountId: await fixture.AccountIdOf("nova"), Reason: "cheating", Duration: TimeSpan.FromDays(1), IssuedBy: 0));
         }
 
-        var streamEx = await Assert.ThrowsAsync<RpcException>(() => stream.ResponseStream.MoveNext(CancellationToken.None));
+        var streamEx = await Assert.ThrowsAsync<RpcException>(() => DrainUntilClosed(stream));
         Assert.Equal(StatusCode.Unavailable, streamEx.StatusCode);
         var callEx = await Assert.ThrowsAsync<RpcException>(() => new Protocol.V1.Auth.AuthClient(channel).LogoutAsync(new Empty(), Bearer(reply.SessionToken)).ResponseAsync);
         Assert.Equal(StatusCode.Unauthenticated, callEx.StatusCode);
@@ -122,11 +122,25 @@ public class LoginGateTests
 
         var second = await new Protocol.V1.Auth.AuthClient(channel).LoginAsync(PasswordLogin("nova", "pw"));
 
-        Assert.True(await firstStream.ResponseStream.MoveNext(CancellationToken.None));
-        Assert.Equal(ServerEvent.BodyOneofCase.SessionReplaced, firstStream.ResponseStream.Current.BodyCase);
+        Assert.True(await ReadUntil(firstStream, ServerEvent.BodyOneofCase.SessionReplaced));
         var ex = await Assert.ThrowsAsync<RpcException>(() => new Protocol.V1.Auth.AuthClient(channel).LogoutAsync(new Empty(), Bearer(first.SessionToken)).ResponseAsync);
         Assert.Equal(StatusCode.Unauthenticated, ex.StatusCode);
         await new Protocol.V1.Auth.AuthClient(channel).LogoutAsync(new Empty(), Bearer(second.SessionToken));
+    }
+
+    /// <summary>Reads (and ignores) queued events until the server closes the stream; returns normally only on a clean end.</summary>
+    private static async Task DrainUntilClosed(AsyncServerStreamingCall<ServerEvent> call)
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        while (await call.ResponseStream.MoveNext(cts.Token)) { }
+    }
+
+    private static async Task<bool> ReadUntil(AsyncServerStreamingCall<ServerEvent> call, ServerEvent.BodyOneofCase body)
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        while (await call.ResponseStream.MoveNext(cts.Token))
+            if (call.ResponseStream.Current.BodyCase == body) return true;
+        return false;
     }
 
     [Fact]

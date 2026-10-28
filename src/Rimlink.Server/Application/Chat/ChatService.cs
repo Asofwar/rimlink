@@ -1,0 +1,101 @@
+using Google.Protobuf.WellKnownTypes;
+using Grpc.Core;
+using Microsoft.EntityFrameworkCore;
+using Rimlink.Protocol;
+using Rimlink.Protocol.V1;
+using Rimlink.Server.Application.Events;
+using Rimlink.Server.Application.Sessions;
+using Rimlink.Server.Grpc;
+using Rimlink.Server.Storage;
+using Rimlink.Server.Storage.Entities;
+
+namespace Rimlink.Server.Application.Chat;
+
+public sealed class ChatService(RimlinkDbContext db, EventBus events, ILogger<ChatService> log)
+{
+    public async Task Send(Session sender, string text, long toPlayerId)
+    {
+        text = text.Trim();
+        if (text.Length == 0) throw new RpcException(new Status(StatusCode.InvalidArgument, "message is empty"));
+        if (text.Length > Limits.ChatMaxLength) throw new RpcException(new Status(StatusCode.InvalidArgument, $"message longer than {Limits.ChatMaxLength} characters"));
+        if (text.Any(c => char.IsControl(c) && c != '\n')) throw new RpcException(new Status(StatusCode.InvalidArgument, "message contains control characters"));
+
+        var from = await db.Players.AsNoTracking().FirstAsync(p => p.Id == sender.PlayerId);
+        if (from.MutedUntil is { } until && until > DateTime.UtcNow)
+            throw RpcErrors.Failed(ErrorCode.Muted, $"you are muted until {until:u}");
+        if (toPlayerId != 0 && !await db.Players.AnyAsync(p => p.Id == toPlayerId))
+            throw new RpcException(new Status(StatusCode.NotFound, "no such player"));
+
+        var message = new ChatMessage { FromPlayerId = from.Id, ToPlayerId = toPlayerId == 0 ? null : toPlayerId, Text = text, Kind = Storage.Entities.MessageKind.Player, SentAt = DateTime.UtcNow };
+        await Persist(message);
+
+        var ev = new ServerEvent { Chat = ToEvent(message, from.ToRef()) };
+        if (toPlayerId == 0)
+        {
+            events.Broadcast(ev);
+        }
+        else
+        {
+            events.SendTo(toPlayerId, ev);
+            if (toPlayerId != sender.PlayerId) events.SendTo(sender.PlayerId, ev);
+        }
+    }
+
+    public async Task<List<ChatMessageEvent>> History(Session reader)
+    {
+        // Last 50 public lines plus the reader's last 50 direct messages, merged in order.
+        var publicRows = await db.ChatMessages.AsNoTracking()
+            .Where(m => m.ToPlayerId == null)
+            .OrderByDescending(m => m.Id).Take(Limits.ChatOnLogin).ToListAsync();
+        var directRows = await db.ChatMessages.AsNoTracking()
+            .Where(m => m.ToPlayerId != null && (m.ToPlayerId == reader.PlayerId || m.FromPlayerId == reader.PlayerId))
+            .OrderByDescending(m => m.Id).Take(Limits.ChatOnLogin).ToListAsync();
+        var rows = publicRows.Concat(directRows).OrderBy(m => m.Id).ToList();
+
+        var senderIds = rows.Where(m => m.FromPlayerId != null).Select(m => m.FromPlayerId!.Value).Distinct().ToList();
+        var senders = await db.Players.AsNoTracking().Where(p => senderIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id);
+        return rows.Select(m => ToEvent(m, m.FromPlayerId is { } id && senders.TryGetValue(id, out var p) ? p.ToRef() : null)).ToList();
+    }
+
+    /// <summary>Server-generated line for everyone (join, leave, announcements).</summary>
+    public async Task System(string text)
+    {
+        var message = new ChatMessage { Text = text, Kind = Storage.Entities.MessageKind.System, SentAt = DateTime.UtcNow };
+        await Persist(message);
+        events.Broadcast(new ServerEvent { Chat = ToEvent(message, null) });
+    }
+
+    public async Task Mute(long playerId, TimeSpan duration)
+    {
+        var player = await db.Players.FindAsync(playerId) ?? throw new RpcException(new Status(StatusCode.NotFound, "no such player"));
+        player.MutedUntil = DateTime.UtcNow + duration;
+        await db.SaveChangesAsync();
+        log.LogInformation("Player {Name} muted until {Until}", player.Name, player.MutedUntil);
+    }
+
+    public async Task Unmute(long playerId)
+    {
+        var player = await db.Players.FindAsync(playerId) ?? throw new RpcException(new Status(StatusCode.NotFound, "no such player"));
+        player.MutedUntil = null;
+        await db.SaveChangesAsync();
+    }
+
+    private async Task Persist(ChatMessage message)
+    {
+        db.ChatMessages.Add(message);
+        await db.SaveChangesAsync();
+        // Keep the table at ChatStored rows.
+        long? cutoff = await db.ChatMessages.OrderByDescending(m => m.Id).Skip(Limits.ChatStored).Select(m => (long?)m.Id).FirstOrDefaultAsync();
+        if (cutoff is { } c) await db.ChatMessages.Where(m => m.Id <= c).ExecuteDeleteAsync();
+    }
+
+    private static ChatMessageEvent ToEvent(ChatMessage m, PlayerRef? from) => new()
+    {
+        Id = m.Id,
+        From = from,
+        ToPlayerId = m.ToPlayerId ?? 0,
+        Text = m.Text,
+        Kind = m.Kind == Storage.Entities.MessageKind.System ? Protocol.V1.MessageKind.System : Protocol.V1.MessageKind.Player,
+        At = Timestamp.FromDateTime(DateTime.SpecifyKind(m.SentAt, DateTimeKind.Utc)),
+    };
+}
