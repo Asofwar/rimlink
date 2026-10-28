@@ -156,5 +156,33 @@
   <Rimlink.Raid.LandedLabel>Raid: {0}</Rimlink.Raid.LandedLabel>
   <Rimlink.Raid.Landed>{1} raiders sent by {0} have arrived. Captured raiders are yours to keep; what they steal is gone.</Rimlink.Raid.Landed>
   <Rimlink.Raid.Resolved>The raid by {0} is over: {1} dead, {2} captured, {3} got away with loot worth {4} silver.</Rimlink.Raid.Resolved>
+  <Rimlink.Visit.CaravanVisit>Visit {0}'s colony...</Rimlink.Visit.CaravanVisit>
+  <Rimlink.Visit.CaravanVisitGizmo>Visit</Rimlink.Visit.CaravanVisitGizmo>
+  <Rimlink.Visit.PodVisit>Visit {0}'s colony (pods)...</Rimlink.Visit.PodVisit>
+  <Rimlink.Visit.NoPawns>Nobody to send visiting.</Rimlink.Visit.NoPawns>
+  <Rimlink.Visit.Preparing>Arranging a visit to {0}...</Rimlink.Visit.Preparing>
+  <Rimlink.Visit.Downloading>Loading {0}'s colony...</Rimlink.Visit.Downloading>
+  <Rimlink.Visit.Arrived>You are visiting {0}. Nothing taken here goes home; buy from the shelves and end the visit when done.</Rimlink.Visit.Arrived>
+  <Rimlink.Visit.Failed>The visit could not start: {0}.</Rimlink.Visit.Failed>
+  <Rimlink.Visit.NoSaving>A visited colony cannot be saved.</Rimlink.Visit.NoSaving>
+  <Rimlink.Visit.Hud>Visiting {0}</Rimlink.Visit.Hud>
+  <Rimlink.Visit.End>End visit</Rimlink.Visit.End>
+  <Rimlink.Shop.SellGizmo>For sale...</Rimlink.Shop.SellGizmo>
+  <Rimlink.Shop.ForSaleGizmo>For sale: {0}</Rimlink.Shop.ForSaleGizmo>
+  <Rimlink.Shop.SellDesc>Put this on your shelf for visiting players. The price is per unit; 0 takes it off.</Rimlink.Shop.SellDesc>
+  <Rimlink.Shop.SetPrice>{0} ×{1}: price per unit (0 = not for sale).</Rimlink.Shop.SetPrice>
+  <Rimlink.Shop.PriceEach>Price each</Rimlink.Shop.PriceEach>
+  <Rimlink.Shop.Apply>Apply</Rimlink.Shop.Apply>
+  <Rimlink.Shop.Listed>{0} is for sale at {1} each (published with your next save).</Rimlink.Shop.Listed>
+  <Rimlink.Shop.Unlisted>{0} is no longer for sale.</Rimlink.Shop.Unlisted>
+  <Rimlink.Shop.BuyGizmo>Buy ({0})</Rimlink.Shop.BuyGizmo>
+  <Rimlink.Shop.BuyDesc>{0} sells this at {1} each. It is paid from your wallet and arrives at your colony by drop pod.</Rimlink.Shop.BuyDesc>
+  <Rimlink.Shop.BuyIntro>{0} from {1} at {2} each (up to {3}).</Rimlink.Shop.BuyIntro>
+  <Rimlink.Shop.Count>Count</Rimlink.Shop.Count>
+  <Rimlink.Shop.Total>Total {0} silver (wallet: {1}).</Rimlink.Shop.Total>
+  <Rimlink.Shop.Buy>Buy</Rimlink.Shop.Buy>
+  <Rimlink.Shop.Bought>Bought {0}× {1} for {2} silver; it will drop at your colony.</Rimlink.Shop.Bought>
+  <Rimlink.Shop.Refused>Purchase refused: {0}.</Rimlink.Shop.Refused>
+  <Rimlink.Shop.Removed>{0} sold item(s) were collected from your stockpiles.</Rimlink.Shop.Removed>
   <Rimlink.Raid.Failed>A raid could not be unpacked ({0}); it will try again at your next login.</Rimlink.Raid.Failed>
 </LanguageData>

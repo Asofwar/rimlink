@@ -20,7 +20,7 @@ public static class Patch_GameDataSaveLoader_LoadGame
 {
     public static void Prefix(string saveFileName)
     {
-        if (!RimlinkSession.Active || saveFileName == SaveSync.SaveFileName) return;
+        if (!RimlinkSession.Active || saveFileName == SaveSync.SaveFileName || Visits.VisitSession.IsVisitSave(saveFileName)) return;
         RimlinkLog.Instance.Info($"loading '{saveFileName}' outside the session: ending it");
         SaveSync.SaveLocallyForLater("another save is being loaded");
         RimlinkGameComponent.EndSession();
@@ -34,7 +34,7 @@ public static class Patch_Autosaver_DoAutosave
     public static bool Prefix()
     {
         if (!RimlinkSession.Active) return true;
-        SaveSync.TriggerSave("autosave");
+        if (!Visits.VisitSession.Active) SaveSync.TriggerSave("autosave");
         return false;
     }
 }

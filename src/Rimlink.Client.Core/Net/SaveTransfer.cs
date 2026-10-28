@@ -7,7 +7,7 @@ using ZstdSharp;
 
 namespace Rimlink.Client.Net;
 
-public sealed record SaveMeta(string WorldSeed, string FactionName, long GameTick);
+public sealed record SaveMeta(string WorldSeed, string FactionName, long GameTick, long WealthTotal = 0, long WealthItems = 0);
 
 /// <summary>Moves .rws files to and from the server: zstd in 1 MB chunks, hashed, atomically written on download.</summary>
 public sealed class SaveTransfer(RimlinkConnection connection)
@@ -31,6 +31,8 @@ public sealed class SaveTransfer(RimlinkConnection connection)
                 GameTick = meta.GameTick,
                 WorldSeed = meta.WorldSeed,
                 FactionName = meta.FactionName,
+                WealthTotal = meta.WealthTotal,
+                WealthItems = meta.WealthItems,
                 TotalSize = compressed.Length,
                 Sha256 = ByteString.CopyFrom(SHA256.HashData(compressed)),
             },

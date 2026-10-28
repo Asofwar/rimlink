@@ -1,6 +1,7 @@
 using RimWorld.Planet;
 using Rimlink.Client.Game.Economy;
 using Rimlink.Client.Game.Raids;
+using Rimlink.Client.Game.Visits;
 using UnityEngine;
 using Verse;
 
@@ -46,6 +47,14 @@ public sealed class PlayerSettlement : WorldObject
         {
             yield return option;
         }
+        foreach (var option in CaravanArrivalActionUtility.GetFloatMenuOptions(
+                     () => CaravanArrivalAction_RimlinkVisit.CanVisit(this),
+                     () => new CaravanArrivalAction_RimlinkVisit(this),
+                     "Rimlink.Visit.CaravanVisit".Translate(OwnerName),
+                     caravan, Tile, this))
+        {
+            yield return option;
+        }
     }
 
     /// <summary>Transport pods aimed here: the pawns inside raid the settlement on arrival.</summary>
@@ -56,6 +65,14 @@ public sealed class PlayerSettlement : WorldObject
                      () => TransportersArrivalAction_RimlinkRaid.CanRaid(pods, this),
                      () => new TransportersArrivalAction_RimlinkRaid(this),
                      "Rimlink.Raid.PodRaid".Translate(OwnerName),
+                     launchAction, Tile))
+        {
+            yield return option;
+        }
+        foreach (var option in TransportersArrivalActionUtility.GetFloatMenuOptions(
+                     () => CaravanArrivalAction_RimlinkVisit.CanVisit(this),
+                     () => new TransportersArrivalAction_RimlinkVisit(this),
+                     "Rimlink.Visit.PodVisit".Translate(OwnerName),
                      launchAction, Tile))
         {
             yield return option;
@@ -74,6 +91,16 @@ public sealed class PlayerSettlement : WorldObject
                 defaultDesc = "Rimlink.Raid.CaravanRaid".Translate(OwnerName),
                 icon = ContentFinder<Texture2D>.Get("UI/Commands/Attack", reportFailure: false),
                 action = () => CaravanArrivalAction_RimlinkRaid.Open(caravan, this),
+            };
+        }
+        if (caravan.Tile == Tile && CaravanArrivalAction_RimlinkVisit.CanVisit(this))
+        {
+            yield return new Command_Action
+            {
+                defaultLabel = "Rimlink.Visit.CaravanVisitGizmo".Translate(),
+                defaultDesc = "Rimlink.Visit.CaravanVisit".Translate(OwnerName),
+                icon = ContentFinder<Texture2D>.Get("UI/Commands/Install", reportFailure: false),
+                action = () => VisitSession.Begin(RimlinkSession.State.Objects.TryGet(ObjectId)!.Owner, caravan.PawnsListForReading.ToList()),
             };
         }
         if (caravan.Tile != Tile || !CaravanArrivalAction_RimlinkTransfer.CanTransfer(caravan, this)) yield break;

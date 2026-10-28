@@ -58,8 +58,10 @@ public static class SaveSync
     /// <summary>Called from the SaveGame postfix on the main thread; the upload runs in the background.</summary>
     public static void OnSaved(string fileName)
     {
-        if (!IsOurs(fileName) || Find.World == null) return;
-        var meta = new SaveMeta(Find.World.info.seedString, Faction.OfPlayer.Name, Find.TickManager.TicksGame);
+        if (!IsOurs(fileName) || Find.World == null || Visits.VisitSession.Active) return;
+        var home = Find.AnyPlayerHomeMap;
+        var meta = new SaveMeta(Find.World.info.seedString, Faction.OfPlayer.Name, Find.TickManager.TicksGame,
+            (long)(home?.wealthWatcher.WealthTotal ?? 0f), (long)(home?.wealthWatcher.WealthItems ?? 0f));
         var connection = RimlinkSession.Connection!;
         // Captured now: the session (and with it Endpoint/MyPlayerId) may be over by the time the upload finishes.
         string path = SaveFilePath;
@@ -75,6 +77,7 @@ public static class SaveSync
                 LastUploadUtc = DateTime.UtcNow;
                 LastError = null;
                 RimlinkLog.Instance.Info($"save uploaded as v{info.Version}");
+                UI.MainThread.Post(() => Shop.ShopSync.Publish(meta.GameTick));
             }
             catch (Grpc.Core.RpcException ex) when (Rimlink.Client.Economy.EconomyClient.CodeOf(ex) == Rimlink.Protocol.V1.ErrorCode.SaveStale)
             {

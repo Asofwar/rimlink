@@ -155,6 +155,34 @@
   <Rimlink.Raid.LandedLabel>Рейд: {0}</Rimlink.Raid.LandedLabel>
   <Rimlink.Raid.Landed>Прибыли рейдеры от {0} ({1}). Пленённые останутся у вас; украденное — пропало.</Rimlink.Raid.Landed>
   <Rimlink.Raid.Resolved>Рейд от {0} окончен: погибло {1}, пленено {2}, ушло {3} с добычей на {4} серебра.</Rimlink.Raid.Resolved>
+  <Rimlink.Visit.CaravanVisit>Посетить колонию {0}...</Rimlink.Visit.CaravanVisit>
+  <Rimlink.Visit.CaravanVisitGizmo>Визит</Rimlink.Visit.CaravanVisitGizmo>
+  <Rimlink.Visit.PodVisit>Посетить колонию {0} (капсулы)...</Rimlink.Visit.PodVisit>
+  <Rimlink.Visit.NoPawns>Некого отправить в гости.</Rimlink.Visit.NoPawns>
+  <Rimlink.Visit.Preparing>Готовим визит к {0}...</Rimlink.Visit.Preparing>
+  <Rimlink.Visit.Downloading>Загружаем колонию {0}...</Rimlink.Visit.Downloading>
+  <Rimlink.Visit.Arrived>Вы в гостях у {0}. Отсюда ничего не уносится; покупайте с полок и завершите визит, когда закончите.</Rimlink.Visit.Arrived>
+  <Rimlink.Visit.Failed>Визит не удался: {0}.</Rimlink.Visit.Failed>
+  <Rimlink.Visit.NoSaving>Чужую колонию нельзя сохранить.</Rimlink.Visit.NoSaving>
+  <Rimlink.Visit.Hud>В гостях у {0}</Rimlink.Visit.Hud>
+  <Rimlink.Visit.End>Закончить визит</Rimlink.Visit.End>
+  <Rimlink.Shop.SellGizmo>Продаётся...</Rimlink.Shop.SellGizmo>
+  <Rimlink.Shop.ForSaleGizmo>Продаётся: {0}</Rimlink.Shop.ForSaleGizmo>
+  <Rimlink.Shop.SellDesc>Выставить на полку для гостей. Цена за единицу; 0 снимает с продажи.</Rimlink.Shop.SellDesc>
+  <Rimlink.Shop.SetPrice>{0} ×{1}: цена за единицу (0 = не продаётся).</Rimlink.Shop.SetPrice>
+  <Rimlink.Shop.PriceEach>Цена за шт.</Rimlink.Shop.PriceEach>
+  <Rimlink.Shop.Apply>Применить</Rimlink.Shop.Apply>
+  <Rimlink.Shop.Listed>{0} продаётся по {1} за шт. (появится в магазине после следующего сохранения).</Rimlink.Shop.Listed>
+  <Rimlink.Shop.Unlisted>{0} больше не продаётся.</Rimlink.Shop.Unlisted>
+  <Rimlink.Shop.BuyGizmo>Купить ({0})</Rimlink.Shop.BuyGizmo>
+  <Rimlink.Shop.BuyDesc>{0} продаёт это по {1} за шт. Оплата из кошелька, посылка прилетит в вашу колонию капсулой.</Rimlink.Shop.BuyDesc>
+  <Rimlink.Shop.BuyIntro>{0} у {1} по {2} за шт. (не больше {3}).</Rimlink.Shop.BuyIntro>
+  <Rimlink.Shop.Count>Количество</Rimlink.Shop.Count>
+  <Rimlink.Shop.Total>Итого {0} серебра (в кошельке: {1}).</Rimlink.Shop.Total>
+  <Rimlink.Shop.Buy>Купить</Rimlink.Shop.Buy>
+  <Rimlink.Shop.Bought>Куплено {0}× {1} за {2} серебра; посылка прилетит в вашу колонию.</Rimlink.Shop.Bought>
+  <Rimlink.Shop.Refused>Покупка отклонена: {0}.</Rimlink.Shop.Refused>
+  <Rimlink.Shop.Removed>Проданное ({0}) забрано со складов.</Rimlink.Shop.Removed>
   <Rimlink.Raid.Failed>Рейд не удалось распаковать ({0}); попытка повторится при следующем входе.</Rimlink.Raid.Failed>
   <Rimlink.Economy.CaravanTransferGizmo>Передать</Rimlink.Economy.CaravanTransferGizmo>
 </LanguageData>

@@ -13,6 +13,13 @@ public static class Overlay
         if (!RimlinkSession.Active || Current.ProgramState != ProgramState.Playing) return;
         float x = Verse.UI.screenWidth - 230f;
         float y = 60f;
+        if (Game.Visits.VisitSession.Active)
+        {
+            Text.Font = GameFont.Small;
+            Widgets.Label(new Rect(x, y, 220f, 24f), "Rimlink.Visit.Hud".Translate(Game.Visits.VisitSession.HostName));
+            if (Widgets.ButtonText(new Rect(x, y + 26f, 220f, 26f), "Rimlink.Visit.End".Translate())) Game.Visits.VisitSession.End();
+            y += 56f;
+        }
         Text.Font = GameFont.Tiny;
         string status = RimlinkSession.LastState switch
         {

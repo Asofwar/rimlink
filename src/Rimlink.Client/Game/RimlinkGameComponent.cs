@@ -27,6 +27,7 @@ public sealed class RimlinkGameComponent : GameComponent
         if (!RimlinkSession.Active) return;
         ForeignSettlements.Subscribe();
         ForeignSettlements.RebuildFromState();
+        Shop.ShopSync.ApplyRemovals();
     }
 
     public override void GameComponentOnGUI() => UI.Overlay.Draw();
@@ -153,6 +154,7 @@ public sealed class RimlinkGameComponent : GameComponent
         ForeignSettlements.Clear();
         Economy.Incoming.Reset();
         Raids.RaidIncoming.Reset();
+        Visits.VisitSession.Reset();
         if (connection is not null) _ = connection.DisposeAsync();
     }
 }
