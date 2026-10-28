@@ -44,6 +44,7 @@ public sealed class TransferService(RimlinkDbContext db, WalletService wallet, M
         await tx.CommitAsync();
 
         await mailbox.Announce(parcel);
+        EconomyMetrics.Trade("send", request.Silver);
         log.LogInformation("Player {From} sent parcel {Parcel} to player {To}: {Summary}", fromPlayerId, parcel.Id, request.ToPlayerId, Summary(request.Items, request.Pawns, request.Silver));
         return parcel;
     }

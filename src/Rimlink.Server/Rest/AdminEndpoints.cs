@@ -23,6 +23,9 @@ public static class AdminEndpoints
     public sealed record ShutdownBody(int InSeconds, string? Reason);
     public sealed record ModpackEntryBody(int Position, string PackageId, string? Version, ulong WorkshopId, string? Url, [property: JsonConverter(typeof(JsonStringEnumConverter))] EntryKind Kind);
     public sealed record ModpackBody(List<ModpackEntryBody> Entries);
+    public sealed record DefsBody(List<string> DefNames);
+    public sealed record WalletBody(long Delta, string? Reason);
+    public sealed record FreezeBody(bool Frozen, string? Reason);
 
     public static void MapAdminApi(this WebApplication app)
     {
@@ -54,6 +57,27 @@ public static class AdminEndpoints
         group.MapGet("/actions", async (AdminOperations ops, [FromQuery] int limit = 100) => (await ops.ListActions(Actor.Api, limit)).Select(a => new { a.Id, a.At, a.ActorAccountId, a.Action, a.TargetAccountId, a.Details }));
 
         group.MapGet("/modpack", async (ModpackService modpack) => new ModpackBody((await modpack.Get()).Select(e => new ModpackEntryBody(e.Position, e.PackageId, e.Version, e.WorkshopId, e.Url, e.Kind)).ToList()));
+        group.MapPut("/modpack/defs", async (DefsBody body, ModpackService modpack, ModpackDefs defs) =>
+        {
+            await modpack.SetDefs(body.DefNames, Role.Admin, "api", defs);
+            return Results.Ok(new { count = defs.Count });
+        });
+
+        group.MapPost("/economy/wallet/{id:long}", async (long id, WalletBody body, AdminOperations ops) =>
+            Results.Ok(new { balance = await ops.AdjustWallet(Actor.Api, id, body.Delta, body.Reason ?? "admin adjustment") }));
+        group.MapGet("/economy/parcels/{id:long}", async (long id, AdminOperations ops) =>
+            (await ops.ListParcels(Actor.Api, id)).Select(p => new { p.Id, Kind = p.Kind.ToString(), p.FromPlayerId, p.Silver, p.SizeBytes, p.CreatedAt, p.DeliveredAt, p.DeliveredTick }));
+        group.MapGet("/economy/lots", async (AdminOperations ops, [FromQuery] long? playerId = null) =>
+            (await ops.ListLots(Actor.Api, playerId)).Select(l => new { l.Id, l.SellerPlayerId, l.Price, l.CreatedAt, l.ExpiresAt, Status = l.Status.ToString() }));
+        group.MapPost("/economy/refund/lot/{id:long}", async (long id, AdminOperations ops) => await ops.RefundLot(Actor.Api, id) ? Results.Ok() : Results.NotFound());
+        group.MapPost("/economy/refund/parcel/{id:long}", async (long id, AdminOperations ops) => await ops.RefundParcel(Actor.Api, id) ? Results.Ok() : Results.NotFound());
+        group.MapPost("/economy/freeze", async (FreezeBody body, AdminOperations ops) => { await ops.SetEconomyFrozen(Actor.Api, body.Frozen, body.Reason); return Results.Ok(); });
+        group.MapGet("/economy/stats", async (AdminOperations ops) =>
+        {
+            var s = await ops.EconomyStats(Actor.Api);
+            return new { silverInWallets = s.SilverInWallets, openLots = s.OpenLots, pendingParcels = s.PendingParcels, tradesToday = s.TradesToday, frozen = s.Frozen, freezeReason = s.FreezeReason };
+        });
+
         group.MapPut("/modpack", async (ModpackBody body, ModpackService modpack) =>
         {
             await modpack.Set(body.Entries.Select(e => new ModpackEntry { Position = e.Position, PackageId = e.PackageId, Version = e.Version ?? "", WorkshopId = e.WorkshopId, Url = e.Url ?? "", Kind = e.Kind }).ToList(), Role.Admin, "api");

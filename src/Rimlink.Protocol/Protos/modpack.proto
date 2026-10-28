@@ -9,6 +9,12 @@ service Modpack {
   rpc Get (Empty) returns (ModpackList);
   // Admin only. An empty list disables the check.
   rpc Set (ModpackList) returns (Empty);
+  // Admin only. ThingDef/PawnKindDef names the modpack contains; blobs with other defs are refused. Empty = check off.
+  rpc SetDefs (DefList) returns (Empty);
+}
+
+message DefList {
+  repeated string def_names = 1;
 }
 
 enum EntryKind {

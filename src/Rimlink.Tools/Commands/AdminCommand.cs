@@ -10,7 +10,7 @@ public static class AdminCommand
         var server = new Option<string>("--server") { Description = "Server base URL, e.g. https://host:25560", Required = true };
         var token = new Option<string>("--token") { Description = "Admin:ApiToken", Required = true };
         var insecure = new Option<bool>("--insecure") { Description = "Accept a self-signed server certificate" };
-        var name = new Argument<string>("command") { Description = "online | kick <playerId> [reason] | ban <playerId> [days] [reason] | pardon <banId> | bans | mute <playerId> <minutes> | unmute <playerId> | saves <playerId> | rollback <playerId> <version> | reset <playerId> | broadcast <text> | shutdown <seconds> [reason] | recreateworld | modpack | actions" };
+        var name = new Argument<string>("command") { Description = "online | kick <playerId> [reason] | ban <playerId> [days] [reason] | pardon <banId> | bans | mute <playerId> <minutes> | unmute <playerId> | saves <playerId> | rollback <playerId> <version> | reset <playerId> | broadcast <text> | shutdown <seconds> [reason] | recreateworld | modpack | actions | wallet <playerId> [+n|-n] [reason] | parcels <playerId> | lots [playerId] | refund lot <id> | refund parcel <id> | economy freeze [reason]|unfreeze|stats" };
         var args = new Argument<string[]>("args") { Arity = ArgumentArity.ZeroOrMore };
 
         var command = new Command("admin", "Run an admin operation on a running server") { server, token, insecure, name, args };
@@ -38,6 +38,17 @@ public static class AdminCommand
                 "recreateworld" => await rest.Post("world/recreate", null),
                 "modpack" => await rest.Get("modpack"),
                 "actions" => await rest.Get("actions"),
+                "wallet" => await rest.Post($"economy/wallet/{a[0]}", new { delta = long.Parse(a[1], System.Globalization.CultureInfo.InvariantCulture), reason = string.Join(' ', a.Skip(2)) }),
+                "parcels" => await rest.Get($"economy/parcels/{a[0]}"),
+                "lots" => await rest.Get(a.Length > 0 ? $"economy/lots?playerId={a[0]}" : "economy/lots"),
+                "refund" => await rest.Post($"economy/refund/{a[0]}/{a[1]}", null),
+                "economy" => a[0] switch
+                {
+                    "freeze" => await rest.Post("economy/freeze", new { frozen = true, reason = rest1 }),
+                    "unfreeze" => await rest.Post("economy/freeze", new { frozen = false, reason = (string?)null }),
+                    "stats" => await rest.Get("economy/stats"),
+                    _ => throw new InvalidOperationException("economy freeze [reason] | unfreeze | stats"),
+                },
                 var other => throw new InvalidOperationException($"unknown command '{other}'"),
             };
             Console.WriteLine(result);

@@ -74,6 +74,7 @@ public sealed class MailboxService(RimlinkDbContext db, EventBus events, WalletS
             parcel.DeliveredTick = gameTick;
             if (parcel.Silver > 0 && parcel.Kind != ParcelKindDb.Withdraw)
                 await wallet.Apply(playerId, parcel.Silver, "receive", parcel.Id);
+            EconomyMetrics.Trade("deliver");
             db.Transfers.Add(new Transfer { FromPlayerId = playerId, ToPlayerId = null, Kind = "deliver", GameTick = gameTick, Summary = $"parcel {parcel.Id}", At = DateTime.UtcNow });
             await db.SaveChangesAsync();
         }

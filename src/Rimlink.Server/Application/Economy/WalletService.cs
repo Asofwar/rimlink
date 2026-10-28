@@ -57,6 +57,7 @@ public sealed class WalletService(RimlinkDbContext db, EventBus events)
         db.Transfers.Add(new Transfer { FromPlayerId = playerId, Kind = "deposit", GameTick = request.GameTick, Summary = $"{request.Silver} silver", At = DateTime.UtcNow, ClientRequestId = string.IsNullOrEmpty(request.ClientRequestId) ? null : request.ClientRequestId });
         await db.SaveChangesAsync();
         await tx.CommitAsync();
+        EconomyMetrics.Trade("deposit", request.Silver);
         return await Balance(playerId);
     }
 
@@ -79,6 +80,7 @@ public sealed class WalletService(RimlinkDbContext db, EventBus events)
         db.Transfers.Add(new Transfer { FromPlayerId = playerId, Kind = "withdraw", GameTick = 0, Summary = $"{request.Silver} silver", At = DateTime.UtcNow });
         await db.SaveChangesAsync();
         await tx.CommitAsync();
+        EconomyMetrics.Trade("withdraw", request.Silver);
         await mailbox.Announce(parcel);
         return parcel;
     }

@@ -36,6 +36,29 @@ public sealed class ModpackService(RimlinkDbContext db, ILogger<ModpackService> 
         log.LogInformation("Modpack set by {Actor}: {Count} entries", actorName, rows.Count);
     }
 
+    /// <summary>Replaces the def-name list (table + in-memory set). Admin only.</summary>
+    public async Task SetDefs(IReadOnlyCollection<string> defNames, Storage.Entities.Role actorRole, string actorName, ModpackDefs defs)
+    {
+        if (actorRole < Storage.Entities.Role.Admin) throw Grpc.RpcErrors.PermissionDenied("admin only");
+        var clean = defNames.Select(d => d.Trim()).Where(d => d.Length > 0 && d.Length <= 200).Distinct(StringComparer.Ordinal).ToList();
+        await using var tx = await db.Database.BeginTransactionAsync();
+        await db.ModpackDefs.ExecuteDeleteAsync();
+        db.ModpackDefs.AddRange(clean.Select(d => new Storage.Entities.ModpackDef { DefName = d }));
+        await db.SaveChangesAsync();
+        await tx.CommitAsync();
+        defs.Replace(clean);
+        log.LogInformation("Modpack defs set by {Actor}: {Count} names{Off}", actorName, clean.Count, clean.Count == 0 ? " (blob def check off)" : "");
+    }
+
+    /// <summary>Startup: the in-memory set mirrors the table.</summary>
+    public static void LoadDefs(IServiceProvider services)
+    {
+        using var scope = services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<RimlinkDbContext>();
+        var defs = scope.ServiceProvider.GetRequiredService<ModpackDefs>();
+        defs.Replace(db.ModpackDefs.Select(d => d.DefName).ToList());
+    }
+
     public static Protocol.V1.ModpackEntry ToProto(Storage.Entities.ModpackEntry e) => new()
     {
         Position = e.Position,

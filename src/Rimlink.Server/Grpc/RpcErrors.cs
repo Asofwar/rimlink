@@ -12,6 +12,7 @@ public static class RpcErrors
 
     public static RpcException With(StatusCode status, ErrorCode code, string message)
     {
+        if (code >= ErrorCode.WalletInsufficient) Application.Economy.EconomyMetrics.Error(code);
         var trailers = new Metadata { { DetailTrailer, new ErrorDetail { Code = code, Message = message }.ToByteArray() } };
         return new RpcException(new Status(status, message), trailers);
     }

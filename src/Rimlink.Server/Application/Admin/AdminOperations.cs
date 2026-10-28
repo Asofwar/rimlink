@@ -3,6 +3,10 @@ using Microsoft.EntityFrameworkCore;
 using Rimlink.Protocol.V1;
 using Rimlink.Server.Application.Auth;
 using Rimlink.Server.Application.Chat;
+using Rimlink.Server.Application.Economy;
+using Lot = Rimlink.Server.Storage.Entities.Lot;
+using Parcel = Rimlink.Server.Storage.Entities.Parcel;
+using Transfer = Rimlink.Server.Storage.Entities.Transfer;
 using Rimlink.Server.Application.Events;
 using Rimlink.Server.Application.Saves;
 using Rimlink.Server.Application.Sessions;
@@ -25,8 +29,98 @@ public sealed class AdminOperations(
     SaveStore saves,
     DataDirectory data,
     IHostApplicationLifetime lifetime,
+    WalletService wallet,
+    MailboxService mailbox,
+    MarketService market,
+    FreezeState freeze,
     ILogger<AdminOperations> log)
 {
+    public sealed record EconomyStatsResult(long SilverInWallets, int OpenLots, int PendingParcels, int TradesToday, bool Frozen, string? FreezeReason);
+
+    public async Task<long> AdjustWallet(Actor actor, long playerId, long delta, string reason)
+    {
+        actor.Require(Role.Admin);
+        var player = await FindPlayer(playerId);
+        await wallet.Apply(playerId, delta, "admin", 0);
+        await Audit(actor, "wallet", player.AccountId, $"{delta:+#;-#;0} silver: {reason}");
+        return await wallet.Balance(playerId);
+    }
+
+    public async Task<long> WalletBalance(Actor actor, long playerId)
+    {
+        actor.Require(Role.Moderator);
+        return await wallet.Balance(playerId);
+    }
+
+    public async Task<List<Parcel>> ListParcels(Actor actor, long playerId)
+    {
+        actor.Require(Role.Moderator);
+        return await db.Parcels.AsNoTracking().Where(p => p.ToPlayerId == playerId).OrderByDescending(p => p.Id).Take(200).ToListAsync();
+    }
+
+    public async Task<List<Lot>> ListLots(Actor actor, long? playerId)
+    {
+        actor.Require(Role.Moderator);
+        var lots = db.Lots.AsNoTracking().Where(l => l.Status == LotStatusDb.Open);
+        if (playerId is { } id) lots = lots.Where(l => l.SellerPlayerId == id);
+        return await lots.OrderByDescending(l => l.Id).Take(200).ToListAsync();
+    }
+
+    /// <summary>An open lot goes back to its seller as if withdrawn.</summary>
+    public async Task<bool> RefundLot(Actor actor, long lotId)
+    {
+        actor.Require(Role.Admin);
+        var lot = await db.Lots.AsNoTracking().FirstOrDefaultAsync(l => l.Id == lotId && l.Status == LotStatusDb.Open);
+        if (lot is null) return false;
+        await market.Withdraw(lot.SellerPlayerId, lotId);
+        await Audit(actor, "refund-lot", null, $"lot {lotId} returned to player {lot.SellerPlayerId}");
+        return true;
+    }
+
+    /// <summary>An undelivered gift goes back to its sender: items/pawns as a new parcel, silver to the wallet.</summary>
+    public async Task<bool> RefundParcel(Actor actor, long parcelId)
+    {
+        actor.Require(Role.Admin);
+        await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+        var parcel = await db.Parcels.FirstOrDefaultAsync(p => p.Id == parcelId && p.DeliveredAt == null);
+        if (parcel is null || parcel.FromPlayerId is not { } sender) return false;
+        // Marked delivered at tick 0 so no save can be "older" than it: it never drops again.
+        parcel.DeliveredAt = DateTime.UtcNow;
+        parcel.DeliveredTick = 0;
+        var back = await mailbox.Create(sender, null, ParcelKindDb.Admin, ItemList.Parser.ParseFrom(parcel.Items), PawnList.Parser.ParseFrom(parcel.Pawns), 0, null, ignoreMailboxLimit: true);
+        if (parcel.Silver > 0 && parcel.Kind != ParcelKindDb.Withdraw) await wallet.Apply(sender, parcel.Silver, "refund", parcel.Id);
+        if (parcel.Kind == ParcelKindDb.Withdraw) await wallet.Apply(sender, parcel.Silver, "refund", parcel.Id);
+        db.Transfers.Add(new Transfer { FromPlayerId = parcel.ToPlayerId, ToPlayerId = sender, Kind = "refund", GameTick = 0, Summary = $"parcel {parcel.Id}", At = DateTime.UtcNow });
+        await db.SaveChangesAsync();
+        await tx.CommitAsync();
+        await mailbox.Announce(back);
+        await Audit(actor, "refund-parcel", null, $"parcel {parcelId} returned to player {sender}");
+        return true;
+    }
+
+    public async Task SetEconomyFrozen(Actor actor, bool frozen, string? reason)
+    {
+        actor.Require(Role.Admin);
+        freeze.Frozen = frozen;
+        freeze.Reason = frozen ? reason : null;
+        await Audit(actor, frozen ? "economy-freeze" : "economy-unfreeze", null, reason ?? "");
+        if (frozen) events.Broadcast(new ServerEvent { Notice = new Notice { Text = "Trading is paused: " + (reason ?? "maintenance") } });
+        else events.Broadcast(new ServerEvent { Notice = new Notice { Text = "Trading is open again" } });
+    }
+
+    public async Task<EconomyStatsResult> EconomyStats(Actor actor)
+    {
+        actor.Require(Role.Moderator);
+        var since = DateTime.UtcNow.Date;
+        return new EconomyStatsResult(
+            await db.Wallets.Where(w => w.PlayerId != WalletService.BankPlayerId).SumAsync(w => w.Balance),
+            await db.Lots.CountAsync(l => l.Status == LotStatusDb.Open),
+            await db.Parcels.CountAsync(p => p.DeliveredAt == null),
+            await db.Transfers.CountAsync(t => t.At >= since && (t.Kind == "send" || t.Kind == "buy" || t.Kind == "post")),
+            freeze.Frozen,
+            freeze.Reason);
+    }
+
     public Task<List<OnlinePlayer>> ListOnline(Actor actor)
     {
         actor.Require(Role.Moderator);

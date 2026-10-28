@@ -30,7 +30,7 @@ public static class ModpackCommand
             Console.WriteLine(await rest.Put("modpack", new { entries }));
         });
 
-        return new Command("modpack", "Server modpack management") { import };
+        return new Command("modpack", "Server modpack management") { import, ModpackDefsCommand.Build() };
     }
 
     public static List<Entry> Collect(string modsConfigPath, string[] modsDirs)

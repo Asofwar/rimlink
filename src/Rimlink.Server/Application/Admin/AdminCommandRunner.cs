@@ -13,7 +13,9 @@ public sealed class AdminCommandRunner(AdminOperations ops, ModpackService modpa
         Commands: online | kick <player> [reason] | ban <player> [days] [reason] | pardon <banId> | bans |
         mute <player> <minutes> | unmute <player> | saves <player> | rollback <player> <version> | reset <player> |
         broadcast <text> | role <player> <player|moderator|admin> | rename <name> [faction] | saveall |
-        shutdown <seconds> [reason] | recreateworld | modpack | actions | help
+        shutdown <seconds> [reason] | recreateworld | modpack | actions | help |
+        wallet <player> [+n|-n] [reason] | parcels <player> | lots [player] | refund lot <id> | refund parcel <id> |
+        economy freeze [reason] | economy unfreeze | economy stats
         """;
 
     public async Task<string> Execute(Actor actor, AdminCommand command)
@@ -80,6 +82,45 @@ public sealed class AdminCommandRunner(AdminOperations ops, ModpackService modpa
             case "modpack":
                 var entries = await modpack.Get();
                 return entries.Count == 0 ? "modpack check is off (empty list)" : string.Join('\n', entries.Select(e => $"{e.Position}. {e.PackageId} {e.Version} {e.Kind.ToString().ToLowerInvariant()}"));
+            case "wallet":
+            {
+                long id = await PlayerId(Arg(0));
+                if (args.Count < 2) return $"{Arg(0)}: {await ops.WalletBalance(actor, id)} silver";
+                long delta = long.Parse(Arg(1), CultureInfo.InvariantCulture);
+                long balance = await ops.AdjustWallet(actor, id, delta, args.Count > 2 ? Rest(2) : "admin adjustment");
+                return $"{Arg(0)}: {balance} silver";
+            }
+            case "parcels":
+            {
+                var parcels = await ops.ListParcels(actor, await PlayerId(Arg(0)));
+                return parcels.Count == 0 ? "no parcels" : string.Join('\n', parcels.Select(p => $"#{p.Id} {p.Kind} from {p.FromPlayerId?.ToString() ?? "-"} silver {p.Silver} {p.SizeBytes} B {(p.DeliveredAt is null ? "pending" : $"delivered {p.DeliveredAt:u}")}"));
+            }
+            case "lots":
+            {
+                var lots = await ops.ListLots(actor, args.Count > 0 ? await PlayerId(Arg(0)) : null);
+                return lots.Count == 0 ? "no open lots" : string.Join('\n', lots.Select(l => $"#{l.Id} seller {l.SellerPlayerId} price {l.Price} expires {l.ExpiresAt:u}"));
+            }
+            case "refund":
+            {
+                long id = long.Parse(Arg(1), CultureInfo.InvariantCulture);
+                bool ok = Arg(0) switch
+                {
+                    "lot" => await ops.RefundLot(actor, id),
+                    "parcel" => await ops.RefundParcel(actor, id),
+                    _ => throw new RpcException(new Status(StatusCode.InvalidArgument, "refund lot <id> | refund parcel <id>")),
+                };
+                return ok ? $"{Arg(0)} {id} refunded" : $"{Arg(0)} {id} not found or not refundable";
+            }
+            case "economy":
+                switch (Arg(0))
+                {
+                    case "freeze": await ops.SetEconomyFrozen(actor, true, args.Count > 1 ? Rest(1) : "maintenance"); return "trading paused";
+                    case "unfreeze": await ops.SetEconomyFrozen(actor, false, null); return "trading open";
+                    case "stats":
+                        var s = await ops.EconomyStats(actor);
+                        return $"silver in wallets {s.SilverInWallets}, open lots {s.OpenLots}, pending parcels {s.PendingParcels}, trades today {s.TradesToday}{(s.Frozen ? $", FROZEN: {s.FreezeReason}" : "")}";
+                    default: throw new RpcException(new Status(StatusCode.InvalidArgument, "economy freeze [reason] | unfreeze | stats"));
+                }
             case "actions":
                 var actions = await ops.ListActions(actor, 30);
                 return actions.Count == 0 ? "no actions yet" : string.Join('\n', actions.Select(a => $"{a.At:u} #{a.ActorAccountId} {a.Action} {a.TargetAccountId} {a.Details}"));

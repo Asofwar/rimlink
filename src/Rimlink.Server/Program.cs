@@ -77,6 +77,7 @@ builder.Services.AddHttpClient<ISteamTicketVerifier, SteamWebApiTicketVerifier>(
 
 var app = builder.Build();
 app.Services.MigrateRimlinkStorage();
+ModpackService.LoadDefs(app.Services);
 app.Services.GetRequiredService<PresenceNotifier>(); // subscribes to session events
 
 app.UseSerilogRequestLogging();

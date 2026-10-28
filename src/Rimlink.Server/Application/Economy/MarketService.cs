@@ -57,6 +57,7 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
         db.Transfers.Add(new Transfer { FromPlayerId = sellerId, Kind = "post", GameTick = request.GameTick, Summary = TransferService.Summary(hasItems ? request.Items : null, pawns, 0) + $" @ {request.Price}", At = now });
         await db.SaveChangesAsync();
         await tx.CommitAsync();
+        EconomyMetrics.Trade("post");
         return lot;
     }
 
@@ -127,6 +128,7 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
             sold = new LotSold { LotId = lot.Id, Buyer = buyer.ToRef(), Price = lot.Price, Proceeds = lot.Price - fee };
             log.LogInformation("Lot {Lot} sold by player {Seller} to player {Buyer} for {Price}", lot.Id, lot.SellerPlayerId, buyerId, lot.Price);
         }
+        EconomyMetrics.Trade("buy", sold.Price);
         events.SendTo(sellerId, new ServerEvent { LotSold = sold });
         await mailbox.Announce(parcel);
         return parcel;
@@ -135,6 +137,7 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
     /// <summary>Returns every lot past its expiry to its seller's mailbox; safe when the seller was reset.</summary>
     public async Task<int> ExpireDue(DateTime now)
     {
+        EconomyMetrics.ParcelsPending.Set(await db.Parcels.CountAsync(p => p.DeliveredAt == null));
         var due = await db.Lots.Where(l => l.Status == LotStatusDb.Open && l.ExpiresAt <= now).ToListAsync();
         var announcements = new List<(Parcel Parcel, long Seller, long LotId)>();
         foreach (var lot in due)
