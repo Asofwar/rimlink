@@ -17,7 +17,7 @@ namespace Rimlink.Server.Tests.Support;
 /// </summary>
 public class ServerFixture : WebApplicationFactory<Program>
 {
-    private readonly Dictionary<string, string?> settings = new() { ["RateLimit:Disabled"] = "true" };
+    private readonly Dictionary<string, string?> settings = new() { ["RateLimit:Disabled"] = "true", ["Backup:IntervalHours"] = "0" };
     private bool seedWorld = true;
 
     public const string WorldSeed = "Rimlink";

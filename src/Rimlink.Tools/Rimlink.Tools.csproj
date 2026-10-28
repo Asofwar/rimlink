@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>rimlink-tools</AssemblyName>
+    <RootNamespace>Rimlink.Tools</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Rimlink.Server\Rimlink.Server.csproj" />
+  </ItemGroup>
+</Project>

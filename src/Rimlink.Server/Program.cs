@@ -8,6 +8,7 @@ using Rimlink.Server.Application.Modpack;
 using Rimlink.Server.Application.Saves;
 using Rimlink.Server.Application.Sessions;
 using Rimlink.Server.Application.World;
+using Rimlink.Server.Backup;
 using Rimlink.Server.Grpc;
 using Rimlink.Server.Hosting;
 using Rimlink.Server.Rest;
@@ -31,6 +32,7 @@ builder.Services.Configure<ServerOptions>(builder.Configuration.GetSection(Serve
 builder.Services.Configure<TlsOptions>(builder.Configuration.GetSection(TlsOptions.Section));
 builder.Services.Configure<AuthOptions>(builder.Configuration.GetSection(AuthOptions.Section));
 builder.Services.Configure<AdminOptions>(builder.Configuration.GetSection(AdminOptions.Section));
+builder.Services.Configure<BackupOptions>(builder.Configuration.GetSection(BackupOptions.Section));
 
 builder.WebHost.ConfigureKestrel(kestrel => KestrelSetup.Configure(kestrel, serverOptions, tlsOptions));
 
@@ -44,6 +46,8 @@ builder.Services.AddGrpc(options =>
 });
 builder.Services.AddHealthChecks();
 builder.Services.AddHostedService<TlsStartupCheck>();
+builder.Services.AddHostedService<ServerLock>();
+builder.Services.AddHostedService<BackupScheduler>();
 
 builder.Services.AddSingleton<SessionRegistry>();
 builder.Services.AddSingleton<EventBus>();
