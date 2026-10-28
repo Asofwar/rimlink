@@ -45,7 +45,14 @@ public sealed class SaveTransfer(RimlinkConnection connection)
     }
 
     /// <summary>Downloads the current server save to <paramref name="targetPath"/> (temp file + rename). Null when the server has none.</summary>
-    public async Task<string?> DownloadAsync(string targetPath, CancellationToken cancellationToken)
+    public Task<string?> DownloadAsync(string targetPath, CancellationToken cancellationToken) =>
+        Receive(connection.Saves.Download(new Empty(), cancellationToken: cancellationToken), targetPath, cancellationToken);
+
+    /// <summary>Another player's current save, allowed while visiting them. Null when they have none.</summary>
+    public Task<string?> DownloadOfAsync(long playerId, string targetPath, CancellationToken cancellationToken) =>
+        Receive(connection.Saves.DownloadOf(new PlayerRef { PlayerId = playerId }, cancellationToken: cancellationToken), targetPath, cancellationToken);
+
+    private static async Task<string?> Receive(AsyncServerStreamingCall<SaveChunk> call, string targetPath, CancellationToken cancellationToken)
     {
         string targetDir = Path.GetDirectoryName(Path.GetFullPath(targetPath))!;
         Directory.CreateDirectory(targetDir);
@@ -53,7 +60,7 @@ public sealed class SaveTransfer(RimlinkConnection connection)
         string temp = Path.Combine(targetDir, $"download-{Guid.NewGuid():N}.tmp");
         try
         {
-            using var call = connection.Saves.Download(new Empty(), cancellationToken: cancellationToken);
+            using var _ = call;
             using var compressed = new MemoryStream();
             try
             {

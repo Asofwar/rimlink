@@ -7,7 +7,10 @@ using Rimlink.Protocol.V1;
 
 namespace Rimlink.Client.Economy;
 
-public enum OutboxKind { Send, Post, Deposit, Deliver }
+public enum OutboxKind { Send, Post, Deposit, Deliver, Launch, Land, Report, Buy, AckRemoval }
+
+/// <summary>The typed clients a replay needs; a null client leaves entries of its kinds waiting.</summary>
+public sealed record OutboxClients(EconomyClient Economy, Raids.RaidClient? Raids, Visits.ShopClient? Shop);
 
 /// <summary>One request whose answer has not been seen yet. The payload is the request itself, so it can be replayed or its contents returned.</summary>
 public sealed class OutboxEntry
@@ -54,6 +57,11 @@ public sealed class TransferOutbox
         PostRequest => Add(OutboxKind.Post, request),
         DepositRequest => Add(OutboxKind.Deposit, request),
         DeliverRequest => Add(OutboxKind.Deliver, request),
+        LaunchRequest => Add(OutboxKind.Launch, request),
+        RaidTick => Add(OutboxKind.Land, request),
+        RaidReport => Add(OutboxKind.Report, request),
+        BuyRequest => Add(OutboxKind.Buy, request),
+        RemovalAck => Add(OutboxKind.AckRemoval, request),
         _ => throw new ArgumentException("not an outbox request: " + request.GetType().Name),
     };
 
@@ -97,6 +105,11 @@ public sealed class TransferOutbox
         OutboxKind.Post => PostRequest.Parser.ParseFrom(entry.Payload),
         OutboxKind.Deposit => DepositRequest.Parser.ParseFrom(entry.Payload),
         OutboxKind.Deliver => DeliverRequest.Parser.ParseFrom(entry.Payload),
+        OutboxKind.Launch => LaunchRequest.Parser.ParseFrom(entry.Payload),
+        OutboxKind.Land => RaidTick.Parser.ParseFrom(entry.Payload),
+        OutboxKind.Report => RaidReport.Parser.ParseFrom(entry.Payload),
+        OutboxKind.Buy => BuyRequest.Parser.ParseFrom(entry.Payload),
+        OutboxKind.AckRemoval => RemovalAck.Parser.ParseFrom(entry.Payload),
         _ => throw new InvalidDataException("unknown outbox entry kind " + entry.Kind),
     };
 
@@ -117,17 +130,20 @@ public sealed class TransferOutbox
     /// Sends every unanswered entry again (two attempts, a pause between them). Replies and deliver refusals remove the
     /// entry; a refused send, post or deposit stays with its reason for the game layer to return the contents.
     /// </summary>
-    public async Task<ReplayReport> Replay(EconomyClient economy, CancellationToken ct)
+    public Task<ReplayReport> Replay(EconomyClient economy, CancellationToken ct) => Replay(new OutboxClients(economy, null, null), ct);
+
+    public async Task<ReplayReport> Replay(OutboxClients clients, CancellationToken ct)
     {
         int completed = 0, refused = 0, pending = 0;
         foreach (var entry in Entries)
         {
             if (entry.Refusal is not null) { refused++; continue; }
-            var outcome = await Attempt(economy, entry, ct);
+            if (!CanReplay(clients, entry.Kind)) { pending++; continue; }
+            var outcome = await Attempt(clients, entry, ct);
             if (outcome is null)
             {
                 await Task.Delay(TimeSpan.FromSeconds(2), ct);
-                outcome = await Attempt(economy, entry, ct);
+                outcome = await Attempt(clients, entry, ct);
             }
             switch (outcome)
             {
@@ -148,8 +164,19 @@ public sealed class TransferOutbox
     }
 
     /// <summary>True: answered. False: refused for good (entry marked, or removed for a deliver). Null: still unknown.</summary>
-    private async Task<bool?> Attempt(EconomyClient economy, OutboxEntry entry, CancellationToken ct)
+    private static bool CanReplay(OutboxClients clients, OutboxKind kind) => kind switch
     {
+        OutboxKind.Launch or OutboxKind.Land or OutboxKind.Report => clients.Raids is not null,
+        OutboxKind.Buy or OutboxKind.AckRemoval => clients.Shop is not null,
+        _ => true,
+    };
+
+    /// <summary>Kinds whose refusal leaves nothing to return: the entry is simply dropped.</summary>
+    private static bool NothingToReturn(OutboxKind kind) => kind is OutboxKind.Deliver or OutboxKind.Land or OutboxKind.Report or OutboxKind.Buy or OutboxKind.AckRemoval;
+
+    private async Task<bool?> Attempt(OutboxClients clients, OutboxEntry entry, CancellationToken ct)
+    {
+        var economy = clients.Economy;
         try
         {
             switch (entry.Kind)
@@ -161,6 +188,14 @@ public sealed class TransferOutbox
                     var deliver = DeliverRequest.Parser.ParseFrom(entry.Payload);
                     await economy.Deliver(deliver.ParcelId, deliver.GameTick, ct);
                     break;
+                case OutboxKind.Launch: await clients.Raids!.Launch(LaunchRequest.Parser.ParseFrom(entry.Payload), ct); break;
+                case OutboxKind.Land:
+                    var land = RaidTick.Parser.ParseFrom(entry.Payload);
+                    await clients.Raids!.Land(land.RaidId, land.GameTick, ct);
+                    break;
+                case OutboxKind.Report: await clients.Raids!.Report(RaidReport.Parser.ParseFrom(entry.Payload), ct); break;
+                case OutboxKind.Buy: await clients.Shop!.Buy(BuyRequest.Parser.ParseFrom(entry.Payload), ct); break;
+                case OutboxKind.AckRemoval: await clients.Shop!.AckRemoval(RemovalAck.Parser.ParseFrom(entry.Payload), ct); break;
             }
             log.Info($"outbox: {entry.Kind} {entry.Id} answered on replay");
             return true;
@@ -168,10 +203,10 @@ public sealed class TransferOutbox
         catch (RpcException ex) when (IsDefinitive(ex))
         {
             string reason = EconomyClient.MessageOf(ex);
-            if (entry.Kind == OutboxKind.Deliver)
+            if (NothingToReturn(entry.Kind))
             {
-                // The pod already dropped; a parcel the server no longer offers needs nothing from us.
-                log.Warn($"outbox: deliver {entry.Id} refused ({reason}); dropped");
+                // Nothing of ours is in escrow for these (the pod already dropped, the raid is on the map, the shop copy is discarded).
+                log.Warn($"outbox: {entry.Kind} {entry.Id} refused ({reason}); dropped");
                 Remove(entry.Id);
             }
             else
