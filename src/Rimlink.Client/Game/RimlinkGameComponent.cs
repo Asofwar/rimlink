@@ -10,7 +10,17 @@ public sealed class RimlinkGameComponent : GameComponent
 {
     private ConnectionState shownState = ConnectionState.Connected;
 
+    /// <summary>Raids landed on this colony and not yet reported; saved with the game so a reload still resolves them.</summary>
+    public List<Raids.ActiveRaid> ActiveRaids = [];
+
     public RimlinkGameComponent(Verse.Game game) { }
+
+    public override void ExposeData()
+    {
+        base.ExposeData();
+        Scribe_Collections.Look(ref ActiveRaids, "rimlinkActiveRaids", LookMode.Deep);
+        ActiveRaids ??= [];
+    }
 
     public override void FinalizeInit()
     {
@@ -29,6 +39,7 @@ public sealed class RimlinkGameComponent : GameComponent
         HandleConnectionState();
         HandleNotices();
         Economy.Incoming.Tick();
+        Raids.RaidIncoming.Tick();
         HandleStaleSave();
     }
 
@@ -140,6 +151,7 @@ public sealed class RimlinkGameComponent : GameComponent
         RimlinkSession.End();
         ForeignSettlements.Clear();
         Economy.Incoming.Reset();
+        Raids.RaidIncoming.Reset();
         if (connection is not null) _ = connection.DisposeAsync();
     }
 }

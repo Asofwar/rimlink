@@ -128,5 +128,32 @@
   <Rimlink.Economy.CaravanTransfer>Передать игроку {0}...</Rimlink.Economy.CaravanTransfer>
   <Rimlink.Save.Stale>Этот сейв старше вашей последней передачи; сервер его не примет (отправленное уже у другого игрока). Выйдите в меню и войдите снова, чтобы получить копию с сервера, или играйте дальше без выгрузки.</Rimlink.Save.Stale>
   <Rimlink.Save.KeepPlaying>Играть дальше (без выгрузки)</Rimlink.Save.KeepPlaying>
+  <Rimlink.Raid.CaravanRaid>Напасть на колонию {0}...</Rimlink.Raid.CaravanRaid>
+  <Rimlink.Raid.CaravanRaidGizmo>Рейд</Rimlink.Raid.CaravanRaidGizmo>
+  <Rimlink.Raid.PodRaid>Напасть на колонию {0} (капсулы)...</Rimlink.Raid.PodRaid>
+  <Rimlink.Raid.PodsOnlyPawns>В рейд летят только пешки; сначала выгрузите груз.</Rimlink.Raid.PodsOnlyPawns>
+  <Rimlink.Raid.YouArePeaceful>У вас включён мирный режим.</Rimlink.Raid.YouArePeaceful>
+  <Rimlink.Raid.Title>Рейд на {0}</Rimlink.Raid.Title>
+  <Rimlink.Raid.Intro>Отметьте рейдеров. Бой пройдёт в игре другого игрока, когда он в следующий раз будет играть; исход вернётся посылками.</Rimlink.Raid.Intro>
+  <Rimlink.Raid.PodsIntro>Идут все, кто в капсулах. Капсульный рейд отправляет самих пешек; выжившие вернутся посылкой.</Rimlink.Raid.PodsIntro>
+  <Rimlink.Raid.Mode>Пешки</Rimlink.Raid.Mode>
+  <Rimlink.Raid.ModeReal>Настоящие (уходят; выжившие вернутся)</Rimlink.Raid.ModeReal>
+  <Rimlink.Raid.ModeSnapshot>Копии (без риска, половина добычи)</Rimlink.Raid.ModeSnapshot>
+  <Rimlink.Raid.Timing>Время</Rimlink.Raid.Timing>
+  <Rimlink.Raid.TimingWarned>С предупреждением (день их игры)</Rimlink.Raid.TimingWarned>
+  <Rimlink.Raid.TimingInstant>Сразу (половина добычи)</Rimlink.Raid.TimingInstant>
+  <Rimlink.Raid.LootNote>Добыча ограничена богатством цели и лимитом сервера; копии и мгновенный рейд уменьшают её вдвое. Пленённых рейдеров защитник оставляет себе.</Rimlink.Raid.LootNote>
+  <Rimlink.Raid.Launch>Начать рейд</Rimlink.Raid.Launch>
+  <Rimlink.Raid.Cancel>Отмена</Rimlink.Raid.Cancel>
+  <Rimlink.Raid.ConfirmReal>{0} покинут колонию и будут сражаться в игре другого игрока. Погибшие и пленённые потеряны навсегда. Продолжить?</Rimlink.Raid.ConfirmReal>
+  <Rimlink.Raid.NoPawns>Выберите хотя бы одного рейдера.</Rimlink.Raid.NoPawns>
+  <Rimlink.Raid.Launched>Рейд на {0} отправлен. О результате сообщим.</Rimlink.Raid.Launched>
+  <Rimlink.Raid.Refused>Рейд отклонён: {0}.</Rimlink.Raid.Refused>
+  <Rimlink.Raid.PodsReturned>Капсулы летят домой.</Rimlink.Raid.PodsReturned>
+  <Rimlink.Raid.WarningLabel>Идёт рейд: {0}</Rimlink.Raid.WarningLabel>
+  <Rimlink.Raid.Warning>{0} отправил на вашу колонию рейдеров ({1}). Они прибудут примерно через день.</Rimlink.Raid.Warning>
+  <Rimlink.Raid.LandedLabel>Рейд: {0}</Rimlink.Raid.LandedLabel>
+  <Rimlink.Raid.Landed>Прибыли рейдеры от {0} ({1}). Пленённые останутся у вас; украденное — пропало.</Rimlink.Raid.Landed>
+  <Rimlink.Raid.Failed>Рейд не удалось распаковать ({0}); попытка повторится при следующем входе.</Rimlink.Raid.Failed>
   <Rimlink.Economy.CaravanTransferGizmo>Передать</Rimlink.Economy.CaravanTransferGizmo>
 </LanguageData>

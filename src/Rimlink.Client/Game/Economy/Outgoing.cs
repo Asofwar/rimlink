@@ -33,7 +33,7 @@ public static class Outgoing
         if (taken is null) return;
         Run(taken, "Rimlink.Economy.Sent".Translate(toName),
             (items, pawnList, tick) => new TransferRequest { ClientRequestId = EconomyClient.NewRequestId(), ToPlayerId = toPlayerId, Items = items, Pawns = pawnList, Silver = silver, GameTick = tick },
-            (economy, request) => economy.Send((TransferRequest)request, CancellationToken.None));
+            request => RimlinkSession.Economy!.Send((TransferRequest)request, CancellationToken.None));
     }
 
     public static void PostLot(Map map, IReadOnlyList<Pick> picks, Pawn? pawn, long price)
@@ -49,9 +49,9 @@ public static class Outgoing
                 if (pawnList.Pawns.Count > 0) request.Pawn = pawnList.Pawns[0]; else request.Items = items;
                 return request;
             },
-            async (economy, request) =>
+            async request =>
             {
-                var lot = await economy.Post((PostRequest)request, CancellationToken.None);
+                var lot = await RimlinkSession.Economy!.Post((PostRequest)request, CancellationToken.None);
                 MainThread.Post(() => RimlinkSession.State.Economy.MyLots.Add(lot));
             });
     }
@@ -76,9 +76,9 @@ public static class Outgoing
         if (taken is null) return;
         Run(taken, "Rimlink.Economy.Deposited".Translate(silver),
             (_, _, tick) => new DepositRequest { ClientRequestId = EconomyClient.NewRequestId(), Silver = silver, GameTick = tick },
-            async (economy, request) =>
+            async request =>
             {
-                var state = await economy.Deposit((DepositRequest)request, CancellationToken.None);
+                var state = await RimlinkSession.Economy!.Deposit((DepositRequest)request, CancellationToken.None);
                 MainThread.Post(() => RimlinkSession.State.Economy.Apply(new ServerEvent { WalletChanged = new WalletChanged { Balance = state.Balance, Delta = silver, Kind = "deposit" } }));
             });
     }
@@ -119,7 +119,56 @@ public static class Outgoing
         }
         Run(taken, "Rimlink.Economy.Sent".Translate(toName),
             (items, pawnList, tick) => new TransferRequest { ClientRequestId = EconomyClient.NewRequestId(), ToPlayerId = toPlayerId, Items = items, Pawns = pawnList, Silver = 0, GameTick = tick },
-            (economy, request) => economy.Send((TransferRequest)request, CancellationToken.None));
+            request => RimlinkSession.Economy!.Send((TransferRequest)request, CancellationToken.None));
+    }
+
+    /// <summary>Raids: pawns (and what they wear and carry) leave a caravan standing on the target's tile.</summary>
+    public static void RunWithCaravanPawns(Caravan caravan, IReadOnlyList<Pawn> pawns, string successMessage, Func<PawnList, long, IMessage> build, Func<IMessage, Task> call)
+    {
+        var taken = new List<Taken>();
+        try
+        {
+            foreach (var pawn in pawns)
+            {
+                caravan.RemovePawn(pawn);
+                taken.Add(new Taken(null, ThingBlobs.SerializePawn(pawn), p => caravan.AddPawn((Pawn)p, addCarriedPawnToWorldPawnsIfAny: true)));
+                pawn.Destroy(DestroyMode.Vanish);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error("[Rimlink] could not take pawns from the caravan: " + ex);
+            Restore(taken);
+            Messages.Message("Rimlink.Economy.Failed".Translate(ex.Message), MessageTypeDefOf.RejectInput, historical: false);
+            return;
+        }
+        Run(taken, successMessage, (_, pawnList, tick) => build(pawnList, tick), call);
+    }
+
+    /// <summary>Raids by pod: the pawns are already out of their pods (unspawned); a refusal sends them home by pod.</summary>
+    public static void RunWithPodPawns(IReadOnlyList<Pawn> pawns, string successMessage, Func<PawnList, long, IMessage> build, Func<IMessage, Task> call)
+    {
+        var taken = new List<Taken>();
+        try
+        {
+            foreach (var pawn in pawns)
+            {
+                taken.Add(new Taken(null, ThingBlobs.SerializePawn(pawn), p =>
+                {
+                    var home = Find.AnyPlayerHomeMap;
+                    if (home is not null) DropPodUtility.DropThingsNear(DropCellFinder.TradeDropSpot(home), home, [p], openDelay: 110, canInstaDropDuringInit: false, leaveSlag: false, canRoofPunch: false, forbid: false);
+                }));
+                pawn.Destroy(DestroyMode.Vanish);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error("[Rimlink] could not take pawns from the pods: " + ex);
+            Restore(taken);
+            Messages.Message("Rimlink.Economy.Failed".Translate(ex.Message), MessageTypeDefOf.RejectInput, historical: false);
+            return;
+        }
+        Run(taken, successMessage, (_, pawnList, tick) => build(pawnList, tick), call);
     }
 
     public static string? CheckLimits(int items, int pawns)
@@ -177,6 +226,9 @@ public static class Outgoing
             case DepositRequest deposit:
                 things.AddRange(Incoming.SilverStacks(deposit.Silver));
                 break;
+            case LaunchRequest launch:
+                things.AddRange(Raids.RaidOutgoing.Contents(launch));
+                break;
         }
         return things;
     }
@@ -212,9 +264,9 @@ public static class Outgoing
         }
     }
 
-    private static void Run(List<Taken> taken, string successMessage, Func<ItemList, PawnList, long, IMessage> build, Func<EconomyClient, IMessage, Task> call)
+    private static void Run(List<Taken> taken, string successMessage, Func<ItemList, PawnList, long, IMessage> build, Func<IMessage, Task> call)
     {
-        if (!RimlinkSession.Active || RimlinkSession.Economy is not { } economy) { Restore(taken); return; }
+        if (!RimlinkSession.Active || RimlinkSession.Economy is null) { Restore(taken); return; }
         var items = new ItemList();
         var pawnList = new PawnList();
         foreach (var t in taken)
@@ -254,7 +306,7 @@ public static class Outgoing
             {
                 try
                 {
-                    await call(economy, request);
+                    await call(request);
                     if (entry is not null) outbox!.Remove(entry.Id);
                     MainThread.Post(() => Messages.Message(successMessage, MessageTypeDefOf.PositiveEvent, historical: false));
                 }

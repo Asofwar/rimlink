@@ -184,10 +184,12 @@ public static class LoginFlow
     public static async Task LoadEconomy(RimlinkConnection connection, Rimlink.Client.Economy.TransferOutbox? outbox, long me, CancellationToken ct)
     {
         var economy = new Rimlink.Client.Economy.EconomyClient(connection);
+        var raids = new Rimlink.Client.Raids.RaidClient(connection);
         try
         {
-            if (outbox is not null) await outbox.Replay(economy, ct);
+            if (outbox is not null) await outbox.Replay(new Rimlink.Client.Economy.OutboxClients(economy, raids, new Rimlink.Client.Visits.ShopClient(connection)), ct);
             RimlinkSession.State.Economy.Load(await economy.Wallet(ct), await economy.Pending(ct), await economy.Lots(new MarketQuery { SellerPlayerId = me }, ct));
+            RimlinkSession.State.Raids.Load(await raids.Pending(ct), await raids.Mine(ct), await raids.Flags(ct));
         }
         catch (RpcException ex)
         {

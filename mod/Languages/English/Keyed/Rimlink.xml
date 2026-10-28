@@ -129,4 +129,31 @@
   <Rimlink.Save.Stale>This save is older than your last transfer; the server will not take it (what you sent is already with another player). Go back to the menu and log in again to get the server copy, or keep playing without uploads.</Rimlink.Save.Stale>
   <Rimlink.Save.KeepPlaying>Keep playing (no uploads)</Rimlink.Save.KeepPlaying>
   <Rimlink.Economy.CaravanTransferGizmo>Hand over</Rimlink.Economy.CaravanTransferGizmo>
+  <Rimlink.Raid.CaravanRaid>Raid {0}'s colony...</Rimlink.Raid.CaravanRaid>
+  <Rimlink.Raid.CaravanRaidGizmo>Raid</Rimlink.Raid.CaravanRaidGizmo>
+  <Rimlink.Raid.PodRaid>Raid {0}'s colony (pods)...</Rimlink.Raid.PodRaid>
+  <Rimlink.Raid.PodsOnlyPawns>Only pawns can raid; unload the cargo first.</Rimlink.Raid.PodsOnlyPawns>
+  <Rimlink.Raid.YouArePeaceful>You are in peaceful mode.</Rimlink.Raid.YouArePeaceful>
+  <Rimlink.Raid.Title>Raid {0}</Rimlink.Raid.Title>
+  <Rimlink.Raid.Intro>Tick the raiders. They fight in the other player's game whenever they next play; the outcome comes back as parcels.</Rimlink.Raid.Intro>
+  <Rimlink.Raid.PodsIntro>Everyone in the pods goes. Pod raids send the pawns themselves; survivors come back by parcel.</Rimlink.Raid.PodsIntro>
+  <Rimlink.Raid.Mode>Pawns</Rimlink.Raid.Mode>
+  <Rimlink.Raid.ModeReal>Real (they leave; survivors return)</Rimlink.Raid.ModeReal>
+  <Rimlink.Raid.ModeSnapshot>Copies (no risk, half the loot)</Rimlink.Raid.ModeSnapshot>
+  <Rimlink.Raid.Timing>Timing</Rimlink.Raid.Timing>
+  <Rimlink.Raid.TimingWarned>Warned (one day of their play)</Rimlink.Raid.TimingWarned>
+  <Rimlink.Raid.TimingInstant>Instant (half the loot)</Rimlink.Raid.TimingInstant>
+  <Rimlink.Raid.LootNote>Loot is capped by the target's wealth and the server's limit; copies and instant raids halve it. The defender keeps captured raiders.</Rimlink.Raid.LootNote>
+  <Rimlink.Raid.Launch>Launch raid</Rimlink.Raid.Launch>
+  <Rimlink.Raid.Cancel>Cancel</Rimlink.Raid.Cancel>
+  <Rimlink.Raid.ConfirmReal>{0} will leave your colony and fight in another player's game. Those who die or are captured are gone for good. Continue?</Rimlink.Raid.ConfirmReal>
+  <Rimlink.Raid.NoPawns>Pick at least one raider.</Rimlink.Raid.NoPawns>
+  <Rimlink.Raid.Launched>Raid launched at {0}. You will hear how it went.</Rimlink.Raid.Launched>
+  <Rimlink.Raid.Refused>Raid refused: {0}.</Rimlink.Raid.Refused>
+  <Rimlink.Raid.PodsReturned>The pods are flying back home.</Rimlink.Raid.PodsReturned>
+  <Rimlink.Raid.WarningLabel>Raid coming: {0}</Rimlink.Raid.WarningLabel>
+  <Rimlink.Raid.Warning>{0} has sent {1} raiders against your colony. They arrive in about a day.</Rimlink.Raid.Warning>
+  <Rimlink.Raid.LandedLabel>Raid: {0}</Rimlink.Raid.LandedLabel>
+  <Rimlink.Raid.Landed>{1} raiders sent by {0} have arrived. Captured raiders are yours to keep; what they steal is gone.</Rimlink.Raid.Landed>
+  <Rimlink.Raid.Failed>A raid could not be unpacked ({0}); it will try again at your next login.</Rimlink.Raid.Failed>
 </LanguageData>

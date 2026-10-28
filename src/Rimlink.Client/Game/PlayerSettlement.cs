@@ -1,5 +1,6 @@
 using RimWorld.Planet;
 using Rimlink.Client.Game.Economy;
+using Rimlink.Client.Game.Raids;
 using UnityEngine;
 using Verse;
 
@@ -37,12 +38,44 @@ public sealed class PlayerSettlement : WorldObject
         {
             yield return option;
         }
+        foreach (var option in CaravanArrivalActionUtility.GetFloatMenuOptions(
+                     () => CaravanArrivalAction_RimlinkRaid.CanRaid(caravan, this),
+                     () => new CaravanArrivalAction_RimlinkRaid(this),
+                     "Rimlink.Raid.CaravanRaid".Translate(OwnerName),
+                     caravan, Tile, this))
+        {
+            yield return option;
+        }
+    }
+
+    /// <summary>Transport pods aimed here: the pawns inside raid the settlement on arrival.</summary>
+    public override IEnumerable<FloatMenuOption> GetTransportersFloatMenuOptions(IEnumerable<IThingHolder> pods, Action<PlanetTile, TransportersArrivalAction> launchAction)
+    {
+        foreach (var option in base.GetTransportersFloatMenuOptions(pods, launchAction)) yield return option;
+        foreach (var option in TransportersArrivalActionUtility.GetFloatMenuOptions(
+                     () => TransportersArrivalAction_RimlinkRaid.CanRaid(pods, this),
+                     () => new TransportersArrivalAction_RimlinkRaid(this),
+                     "Rimlink.Raid.PodRaid".Translate(OwnerName),
+                     launchAction, Tile))
+        {
+            yield return option;
+        }
     }
 
     /// <summary>A caravan already standing here can open the transfer window again.</summary>
     public override IEnumerable<Gizmo> GetCaravanGizmos(Caravan caravan)
     {
         foreach (var gizmo in base.GetCaravanGizmos(caravan)) yield return gizmo;
+        if (caravan.Tile == Tile && CaravanArrivalAction_RimlinkRaid.CanRaid(caravan, this))
+        {
+            yield return new Command_Action
+            {
+                defaultLabel = "Rimlink.Raid.CaravanRaidGizmo".Translate(),
+                defaultDesc = "Rimlink.Raid.CaravanRaid".Translate(OwnerName),
+                icon = ContentFinder<Texture2D>.Get("UI/Commands/Attack", reportFailure: false),
+                action = () => CaravanArrivalAction_RimlinkRaid.Open(caravan, this),
+            };
+        }
         if (caravan.Tile != Tile || !CaravanArrivalAction_RimlinkTransfer.CanTransfer(caravan, this)) yield break;
         yield return new Command_Action
         {
