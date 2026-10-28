@@ -124,4 +124,5 @@
   <Rimlink.Economy.CaravanTransfer>Передать игроку {0}...</Rimlink.Economy.CaravanTransfer>
   <Rimlink.Save.Stale>Этот сейв старше вашей последней передачи; сервер его не примет (отправленное уже у другого игрока). Выйдите в меню и войдите снова, чтобы получить копию с сервера, или играйте дальше без выгрузки.</Rimlink.Save.Stale>
   <Rimlink.Save.KeepPlaying>Играть дальше (без выгрузки)</Rimlink.Save.KeepPlaying>
+  <Rimlink.Economy.CaravanTransferGizmo>Передать</Rimlink.Economy.CaravanTransferGizmo>
 </LanguageData>

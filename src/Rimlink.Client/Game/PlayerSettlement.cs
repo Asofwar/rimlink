@@ -1,4 +1,5 @@
 using RimWorld.Planet;
+using Rimlink.Client.Game.Economy;
 using UnityEngine;
 using Verse;
 
@@ -23,4 +24,32 @@ public sealed class PlayerSettlement : WorldObject
     public override string GetInspectString() => "Rimlink.Settlement.Inspect".Translate(OwnerName);
 
     public override bool SelectableNow => true;
+
+    /// <summary>Right-click with a caravan selected: travel here and hand things over on arrival.</summary>
+    public override IEnumerable<FloatMenuOption> GetFloatMenuOptions(Caravan caravan)
+    {
+        foreach (var option in base.GetFloatMenuOptions(caravan)) yield return option;
+        foreach (var option in CaravanArrivalActionUtility.GetFloatMenuOptions(
+                     () => CaravanArrivalAction_RimlinkTransfer.CanTransfer(caravan, this),
+                     () => new CaravanArrivalAction_RimlinkTransfer(this),
+                     "Rimlink.Economy.CaravanTransfer".Translate(OwnerName),
+                     caravan, Tile, this))
+        {
+            yield return option;
+        }
+    }
+
+    /// <summary>A caravan already standing here can open the transfer window again.</summary>
+    public override IEnumerable<Gizmo> GetCaravanGizmos(Caravan caravan)
+    {
+        foreach (var gizmo in base.GetCaravanGizmos(caravan)) yield return gizmo;
+        if (caravan.Tile != Tile || !CaravanArrivalAction_RimlinkTransfer.CanTransfer(caravan, this)) yield break;
+        yield return new Command_Action
+        {
+            defaultLabel = "Rimlink.Economy.CaravanTransferGizmo".Translate(),
+            defaultDesc = "Rimlink.Economy.CaravanTransfer".Translate(OwnerName),
+            icon = ContentFinder<Texture2D>.Get("UI/Commands/Trade", reportFailure: false),
+            action = () => CaravanArrivalAction_RimlinkTransfer.Open(caravan, this),
+        };
+    }
 }
