@@ -77,6 +77,8 @@ builder.Services.AddHostedService<LotExpiryService>();
 builder.Services.AddScoped<Rimlink.Server.Application.Raids.RaidGate>();
 builder.Services.AddScoped<Rimlink.Server.Application.Raids.RaidRules>();
 builder.Services.AddScoped<Rimlink.Server.Application.Raids.RaidService>();
+builder.Services.AddScoped<Rimlink.Server.Application.Raids.RaidReportValidator>();
+builder.Services.AddHostedService<Rimlink.Server.Application.Raids.RaidExpiryService>();
 builder.Services.AddSingleton<PresenceNotifier>();
 builder.Services.AddHttpClient<ISteamTicketVerifier, SteamWebApiTicketVerifier>(client => client.Timeout = TimeSpan.FromSeconds(10));
 

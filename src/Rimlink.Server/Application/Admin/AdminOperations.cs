@@ -8,6 +8,8 @@ using Lot = Rimlink.Server.Storage.Entities.Lot;
 using Parcel = Rimlink.Server.Storage.Entities.Parcel;
 using Transfer = Rimlink.Server.Storage.Entities.Transfer;
 using Rimlink.Server.Application.Events;
+using Rimlink.Server.Application.Raids;
+using Raid = Rimlink.Server.Storage.Entities.Raid;
 using Rimlink.Server.Application.Saves;
 using Rimlink.Server.Application.Sessions;
 using Rimlink.Server.Grpc;
@@ -33,8 +35,62 @@ public sealed class AdminOperations(
     MailboxService mailbox,
     MarketService market,
     FreezeState freeze,
+    RaidService raids,
+    RaidFreezeState raidFreeze,
     ILogger<AdminOperations> log)
 {
+    public sealed record RaidStatsResult(int Queued, int Announced, int Landed, int ResolvedToday, int Expired, int Cancelled, bool Frozen, string? FreezeReason);
+
+    public Task<List<Raid>> ListRaids(Actor actor, long? playerId)
+    {
+        actor.Require(Role.Moderator);
+        var query = db.Raids.AsNoTracking();
+        if (playerId is { } id) query = query.Where(r => r.TargetPlayerId == id || r.AttackerPlayerId == id);
+        return query.OrderByDescending(r => r.Id).Take(200).ToListAsync();
+    }
+
+    public async Task<bool> CancelRaid(Actor actor, long raidId, string reason)
+    {
+        actor.Require(Role.Admin);
+        if (!await raids.Cancel(raidId, reason)) return false;
+        await Audit(actor, "raid-cancel", null, $"raid {raidId}: {reason}");
+        return true;
+    }
+
+    public async Task SetRaidsFrozen(Actor actor, bool frozen, string? reason)
+    {
+        actor.Require(Role.Admin);
+        raidFreeze.Frozen = frozen;
+        raidFreeze.Reason = frozen ? reason : null;
+        await Audit(actor, frozen ? "raids-freeze" : "raids-unfreeze", null, reason ?? "");
+    }
+
+    public async Task<RaidStatsResult> RaidStats(Actor actor)
+    {
+        actor.Require(Role.Moderator);
+        var today = DateTime.UtcNow.Date;
+        return new RaidStatsResult(
+            await db.Raids.CountAsync(r => r.State == RaidStateDb.Queued),
+            await db.Raids.CountAsync(r => r.State == RaidStateDb.Announced),
+            await db.Raids.CountAsync(r => r.State == RaidStateDb.Landed),
+            await db.Raids.CountAsync(r => r.State == RaidStateDb.Resolved && r.ResolvedAt >= today),
+            await db.Raids.CountAsync(r => r.State == RaidStateDb.Expired),
+            await db.Raids.CountAsync(r => r.State == RaidStateDb.Cancelled),
+            raidFreeze.Frozen, raidFreeze.Reason);
+    }
+
+    /// <summary>Admin switch of peaceful mode without the player-side delay.</summary>
+    public async Task SetPeaceful(Actor actor, long playerId, bool peaceful)
+    {
+        actor.Require(Role.Admin);
+        var player = await FindPlayer(playerId);
+        player.Peaceful = peaceful;
+        player.PeacefulOffAt = null;
+        await db.SaveChangesAsync();
+        events.SendTo(playerId, new ServerEvent { PlayerFlagsChanged = new PlayerFlagsChanged { Flags = RaidService.FlagsOf(player) } });
+        await Audit(actor, "peaceful", player.AccountId, peaceful ? "on" : "off");
+    }
+
     public sealed record EconomyStatsResult(long SilverInWallets, int OpenLots, int PendingParcels, int TradesToday, bool Frozen, string? FreezeReason);
 
     public async Task<long> AdjustWallet(Actor actor, long playerId, long delta, string reason)
@@ -248,6 +304,7 @@ public sealed class AdminOperations(
         string archive = Path.Combine(data.Archive, $"{playerId}-{DateTime.UtcNow:yyyyMMdd-HHmmss}");
         await saves.Archive(playerId, archive);
         await RemoveObjectsOf(playerId);
+        await raids.CancelAllOf(playerId, "colony reset");
         await Audit(actor, "reset", player.AccountId, archive);
         log.LogInformation("Player {Name} reset by {Actor}", player.Name, actor.Name);
     }
@@ -319,7 +376,10 @@ public sealed class AdminOperations(
             sessions.End(session.Token);
         }
         foreach (long playerId in await db.SaveVersions.Select(v => v.PlayerId).Distinct().ToListAsync())
+        {
             await saves.Archive(playerId, Path.Combine(archive, playerId.ToString()));
+            await raids.CancelAllOf(playerId, "world recreated");
+        }
         await db.WorldObjects.ExecuteDeleteAsync();
         await db.World.ExecuteDeleteAsync();
         await Audit(actor, "recreateworld", null, archive);

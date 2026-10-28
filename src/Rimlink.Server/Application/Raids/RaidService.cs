@@ -11,6 +11,7 @@ using Rimlink.Server.Hosting;
 using Rimlink.Server.Storage;
 using Rimlink.Server.Storage.Entities;
 using Raid = Rimlink.Server.Storage.Entities.Raid;
+using Parcel = Rimlink.Server.Storage.Entities.Parcel;
 using Transfer = Rimlink.Server.Storage.Entities.Transfer;
 
 namespace Rimlink.Server.Application.Raids;
@@ -19,9 +20,10 @@ namespace Rimlink.Server.Application.Raids;
 /// Raid state machine (spec §2). Pawns of a Real raid live here in escrow until the target's game reports what
 /// became of them; the server only validates and moves parcels.
 /// </summary>
-public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, RaidGate gate, RaidRules rules, EventBus events,
-    IOptions<RaidOptions> options, ILogger<RaidService> log)
+public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, RaidReportValidator reports, MailboxService mailbox, RaidGate gate, RaidRules rules,
+    EventBus events, IOptions<RaidOptions> options, ILogger<RaidService> log)
 {
+    private static readonly RaidStateDb[] FinalStates = [RaidStateDb.Resolved, RaidStateDb.Expired, RaidStateDb.Cancelled];
     private static readonly RaidStateDb[] PendingStates = [RaidStateDb.Queued, RaidStateDb.Announced];
 
     public async Task<Raid> Launch(long attackerId, LaunchRequest r)
@@ -67,6 +69,7 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
         await db.SaveChangesAsync();
         await tx.CommitAsync();
 
+        RaidMetrics.Outcome("launched");
         events.SendTo(target.Id, new ServerEvent { RaidQueued = new RaidQueued { Raid = ToProto(raid, attacker, target, includeBlobs: false) } });
         log.LogInformation("Player {Attacker} launched raid {Raid} at player {Target}: {Count} pawns, {Mode}/{Timing}/{Arrival}", attackerId, raid.Id, target.Id, r.Pawns.Pawns.Count, r.PawnMode, r.Timing, r.Arrival);
         return raid;
@@ -114,17 +117,127 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
         await db.SaveChangesAsync();
         await tx.CommitAsync();
 
+        RaidMetrics.Outcome("landed");
         events.SendTo(raid.AttackerPlayerId, new ServerEvent { RaidLanded = new RaidLanded { RaidId = raid.Id, Target = target.ToRef() } });
         log.LogInformation("Raid {Raid} landed at player {Target} at tick {Tick}", raid.Id, targetId, gameTick);
     }
 
-    /// <summary>A raid of the target in a state the client may still act on; gone (cancelled, expired, resolved, missing) is RAID_GONE.</summary>
-    private async Task<Raid> TargetRaid(long targetId, long raidId)
+    /// <summary>A raid of the target in a state the client may still act on; someone else's raid is NOT_FOUND, an over one is RAID_GONE.</summary>
+    private async Task<Raid> TargetRaid(long targetId, long raidId, bool allowResolved = false)
     {
-        var raid = await db.Raids.FirstOrDefaultAsync(r => r.Id == raidId && r.TargetPlayerId == targetId);
-        if (raid is null || raid.State is RaidStateDb.Cancelled or RaidStateDb.Expired or RaidStateDb.Resolved)
+        var raid = await db.Raids.FirstOrDefaultAsync(r => r.Id == raidId) ?? throw RpcErrors.Failed(ErrorCode.RaidGone, "that raid is over");
+        if (raid.TargetPlayerId != targetId) throw new RpcException(new Status(StatusCode.NotFound, "no such raid"));
+        if (raid.State is RaidStateDb.Cancelled or RaidStateDb.Expired || (raid.State == RaidStateDb.Resolved && !allowResolved))
             throw RpcErrors.Failed(ErrorCode.RaidGone, "that raid is over");
         return raid;
+    }
+
+    /// <summary>The defender's game is done with the raid: survivors, loot and captives become parcels for the attacker.</summary>
+    public async Task Report(long targetId, RaidReport r)
+    {
+        var parcels = new List<Parcel>();
+        RaidSummary summary;
+        long attackerId;
+        await using (var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable))
+        {
+            var raid = await TargetRaid(targetId, r.RaidId, allowResolved: true);
+            if (raid.State == RaidStateDb.Resolved) return;
+            if (raid.State != RaidStateDb.Landed) throw new RpcException(new Status(StatusCode.FailedPrecondition, "the raid has not landed"));
+            long lootValue = reports.Validate(raid, r);
+
+            summary = new RaidSummary { LootValue = lootValue, Captives = r.Captives?.Pawns.Count ?? 0 };
+            var survivors = new PawnList();
+            foreach (var o in r.Outcomes)
+            {
+                db.RaidOutcomes.Add(new RaidOutcome { RaidId = raid.Id, Index = o.Index, Outcome = (int)o.Outcome });
+                switch (o.Outcome)
+                {
+                    case PawnOutcome.OutcomeDead: summary.Dead++; break;
+                    case PawnOutcome.OutcomeCaptured: summary.Captured++; break;
+                    case PawnOutcome.OutcomeFled: summary.Fled++; if (raid.PawnMode == (int)PawnMode.PawnReal) survivors.Pawns.Add(o.Blob); break;
+                    case PawnOutcome.OutcomeAlive: summary.Alive++; if (raid.PawnMode == (int)PawnMode.PawnReal) survivors.Pawns.Add(o.Blob); break;
+                }
+            }
+            raid.State = RaidStateDb.Resolved;
+            raid.ResolvedAt = DateTime.UtcNow;
+            raid.SummaryJson = JsonFormatter.Default.Format(summary);
+            attackerId = raid.AttackerPlayerId;
+
+            if (r.Loot is { Items.Count: > 0 })
+                parcels.Add(await mailbox.Create(attackerId, targetId, ParcelKindDb.Loot, r.Loot, null, 0, null, ignoreMailboxLimit: true));
+            if (survivors.Pawns.Count > 0)
+                parcels.Add(await mailbox.Create(attackerId, null, ParcelKindDb.RaidReturn, null, survivors, 0, null, ignoreMailboxLimit: true));
+            if (r.Captives is { Pawns.Count: > 0 })
+                parcels.Add(await mailbox.Create(attackerId, targetId, ParcelKindDb.Captive, null, r.Captives, 0, null, ignoreMailboxLimit: true));
+
+            // Loot and survivors left the defender's game: a save older than this one would bring them back.
+            var target = await db.Players.FirstAsync(p => p.Id == targetId);
+            if (r.GameTick > target.LastOutgoingTick) target.LastOutgoingTick = r.GameTick;
+            db.Transfers.Add(new Transfer { FromPlayerId = targetId, ToPlayerId = attackerId, Kind = "raid-report", GameTick = r.GameTick, Summary = $"raid {raid.Id}: {summary}", At = DateTime.UtcNow });
+            await db.SaveChangesAsync();
+            await tx.CommitAsync();
+            log.LogInformation("Raid {Raid} resolved by player {Target}: {Summary}", raid.Id, targetId, summary);
+        }
+        RaidMetrics.Outcome("resolved");
+        events.SendTo(attackerId, new ServerEvent { RaidResolved = new RaidResolved { RaidId = r.RaidId, Summary = summary } });
+        foreach (var parcel in parcels) await mailbox.Announce(parcel);
+    }
+
+    /// <summary>Queued or announced raids past their expiry go back to the attacker (Real pawns as a parcel).</summary>
+    public async Task<int> ExpireDue(DateTime now)
+    {
+        var due = await db.Raids.Where(r => PendingStates.Contains(r.State) && r.ExpiresAt <= now).ToListAsync();
+        int n = 0;
+        foreach (var raid in due)
+        {
+            try
+            {
+                await Close(raid, RaidStateDb.Expired, returnPawns: true, "expired");
+                n++;
+            }
+            catch (Exception ex)
+            {
+                log.LogWarning(ex, "Could not expire raid {Raid}", raid.Id);
+            }
+        }
+        RaidMetrics.Active.Set(await db.Raids.CountAsync(r => !FinalStates.Contains(r.State)));
+        return n;
+    }
+
+    /// <summary>Admin cancellation. Pawns still in escrow (not landed) go back; a landed raid stays with the defender's map.</summary>
+    public async Task<bool> Cancel(long raidId, string reason)
+    {
+        var raid = await db.Raids.FirstOrDefaultAsync(r => r.Id == raidId);
+        if (raid is null || FinalStates.Contains(raid.State)) return false;
+        await Close(raid, RaidStateDb.Cancelled, returnPawns: raid.State != RaidStateDb.Landed, reason);
+        return true;
+    }
+
+    /// <summary>The player's colony is gone (reset): raids at them give the pawns back, their own raids are dropped.</summary>
+    public async Task CancelAllOf(long playerId, string reason)
+    {
+        foreach (var raid in await db.Raids.Where(r => (r.TargetPlayerId == playerId || r.AttackerPlayerId == playerId) && !FinalStates.Contains(r.State)).ToListAsync())
+            await Close(raid, RaidStateDb.Cancelled, returnPawns: raid.TargetPlayerId == playerId, reason);
+    }
+
+    private async Task Close(Raid raid, RaidStateDb state, bool returnPawns, string reason)
+    {
+        Parcel? back = null;
+        await using (var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable))
+        {
+            raid.State = state;
+            raid.ResolvedAt = DateTime.UtcNow;
+            if (returnPawns && raid.PawnMode == (int)PawnMode.PawnReal)
+                back = await mailbox.Create(raid.AttackerPlayerId, null, ParcelKindDb.RaidReturn, null, PawnList.Parser.ParseFrom(raid.Pawns), 0, null, ignoreMailboxLimit: true);
+            db.Transfers.Add(new Transfer { FromPlayerId = raid.AttackerPlayerId, ToPlayerId = raid.TargetPlayerId, Kind = "raid-" + state.ToString().ToLowerInvariant(), GameTick = 0, Summary = $"raid {raid.Id}: {reason}", At = DateTime.UtcNow });
+            await db.SaveChangesAsync();
+            await tx.CommitAsync();
+        }
+        RaidMetrics.Outcome(state.ToString().ToLowerInvariant());
+        if (state == RaidStateDb.Expired) events.SendTo(raid.AttackerPlayerId, new ServerEvent { RaidExpired = new RaidExpired { RaidId = raid.Id } });
+        else events.SendTo(raid.AttackerPlayerId, new ServerEvent { Notice = new Notice { Text = $"Your raid was cancelled: {reason}" } });
+        if (back is not null) await mailbox.Announce(back);
+        log.LogInformation("Raid {Raid} {State}: {Reason}", raid.Id, state, reason);
     }
 
     public async Task<PlayerFlags> Flags(long playerId) => FlagsOf(await db.Players.AsNoTracking().FirstAsync(p => p.Id == playerId));

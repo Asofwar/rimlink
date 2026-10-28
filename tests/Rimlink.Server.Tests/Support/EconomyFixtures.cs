@@ -23,11 +23,11 @@ public static class EconomyFixtures
             new Protocol.V1.Market.MarketClient(channel), new Protocol.V1.Transfer.TransferClient(channel), GrpcTestExtensions.Bearer(token));
     }
 
-    public static ItemBlob Item(string def, int count, int blobBytes = 32)
+    public static ItemBlob Item(string def, int count, int blobBytes = 32, long marketValueX100 = 0)
     {
         byte[] blob = new byte[blobBytes];
         Random.NextBytes(blob);
-        return new ItemBlob { DefName = def, Count = count, Quality = -1, Label = def, ScribeXmlZstd = ByteString.CopyFrom(blob) };
+        return new ItemBlob { DefName = def, Count = count, Quality = -1, Label = def, MarketValueX100 = marketValueX100, ScribeXmlZstd = ByteString.CopyFrom(blob) };
     }
 
     public static ItemList Items(params (string def, int count)[] items)

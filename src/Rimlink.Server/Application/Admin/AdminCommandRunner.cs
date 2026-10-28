@@ -121,6 +121,23 @@ public sealed class AdminCommandRunner(AdminOperations ops, ModpackService modpa
                         return $"silver in wallets {s.SilverInWallets}, open lots {s.OpenLots}, pending parcels {s.PendingParcels}, trades today {s.TradesToday}{(s.Frozen ? $", FROZEN: {s.FreezeReason}" : "")}";
                     default: throw new RpcException(new Status(StatusCode.InvalidArgument, "economy freeze [reason] | unfreeze | stats"));
                 }
+            case "raids":
+                switch (Arg(0))
+                {
+                    case "list":
+                        var list = await ops.ListRaids(actor, args.Count > 1 ? await PlayerId(Arg(1)) : null);
+                        return list.Count == 0 ? "no raids" : string.Join("\n", list.Select(r => $"#{r.Id} {r.AttackerPlayerId}->{r.TargetPlayerId} {r.State} {(PawnMode)r.PawnMode}/{(RaidTiming)r.Timing} created {r.CreatedAt:u}"));
+                    case "cancel": return await ops.CancelRaid(actor, long.Parse(Arg(1)), args.Count > 2 ? Rest(2) : "cancelled by admin") ? "raid cancelled" : "no such active raid";
+                    case "freeze": await ops.SetRaidsFrozen(actor, true, args.Count > 1 ? Rest(1) : "maintenance"); return "raids paused";
+                    case "unfreeze": await ops.SetRaidsFrozen(actor, false, null); return "raids open";
+                    case "stats":
+                        var rs = await ops.RaidStats(actor);
+                        return $"queued {rs.Queued}, announced {rs.Announced}, landed {rs.Landed}, resolved today {rs.ResolvedToday}, expired {rs.Expired}, cancelled {rs.Cancelled}{(rs.Frozen ? $", FROZEN: {rs.FreezeReason}" : "")}";
+                    default: throw new RpcException(new Status(StatusCode.InvalidArgument, "raids list [player] | cancel <id> [reason] | freeze [reason] | unfreeze | stats"));
+                }
+            case "peaceful":
+                await ops.SetPeaceful(actor, await PlayerId(Arg(0)), Arg(1) == "on");
+                return $"peaceful mode {Arg(1)} for {Arg(0)}";
             case "actions":
                 var actions = await ops.ListActions(actor, 30);
                 return actions.Count == 0 ? "no actions yet" : string.Join('\n', actions.Select(a => $"{a.At:u} #{a.ActorAccountId} {a.Action} {a.TargetAccountId} {a.Details}"));

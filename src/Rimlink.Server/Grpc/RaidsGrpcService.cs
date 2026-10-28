@@ -27,6 +27,12 @@ public sealed class RaidsGrpcService(RaidService raids) : Protocol.V1.Raids.Raid
         return new Empty();
     }
 
+    public override async Task<Empty> Report(RaidReport request, ServerCallContext context)
+    {
+        await raids.Report(context.GetSession().PlayerId, request);
+        return new Empty();
+    }
+
     public override Task<PlayerFlags> Flags(Empty request, ServerCallContext context) => raids.Flags(context.GetSession().PlayerId);
 
     public override Task<PlayerFlags> SetPeaceful(PeacefulRequest request, ServerCallContext context) => raids.SetPeaceful(context.GetSession().PlayerId, request.Peaceful);
