@@ -50,16 +50,31 @@ public class BackupArchiveTests : IDisposable
     }
 
     [Fact]
-    public void RestoreRefusesWhenServerLockPresent()
+    public void RestoreRefusesWhileServerHoldsTheLock()
     {
         string source = MakeDataDir("source", "alpha");
         string archive = Path.Combine(root, "backup.tar.zst");
         BackupArchive.Create(source, archive);
         string target = MakeDataDir("target", "beta");
-        File.WriteAllText(Path.Combine(target, "server.lock"), "12345");
+        using var held = new FileStream(Path.Combine(target, "server.lock"), FileMode.Create, FileAccess.Write, FileShare.None);
 
         Assert.Throws<InvalidOperationException>(() => BackupArchive.Restore(archive, target));
         Assert.Equal("beta", ReadMarker(target));
+    }
+
+    [Fact]
+    public void RestoreProceedsOverAStaleLockFile()
+    {
+        string source = MakeDataDir("source", "alpha");
+        string archive = Path.Combine(root, "backup.tar.zst");
+        BackupArchive.Create(source, archive);
+        string target = MakeDataDir("target", "beta");
+        File.WriteAllText(Path.Combine(target, "server.lock"), "12345"); // left behind by a killed server
+
+        BackupArchive.Restore(archive, target);
+
+        Assert.Equal("alpha", ReadMarker(target));
+        Assert.False(File.Exists(Path.Combine(target, "server.lock")));
     }
 
     [Fact]

@@ -30,7 +30,8 @@ public sealed class RimlinkDbContext(DbContextOptions<RimlinkDbContext> options)
         {
             e.ToTable("players");
             e.HasIndex(p => p.AccountId).IsUnique();
-            e.HasIndex(p => p.Name);
+            e.Property(p => p.Name).UseCollation("NOCASE");
+            e.HasIndex(p => p.Name).IsUnique();
         });
         model.Entity<SessionLog>(e => e.ToTable("sessions"));
         model.Entity<Ban>(e =>

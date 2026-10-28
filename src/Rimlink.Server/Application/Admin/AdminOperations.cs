@@ -160,6 +160,8 @@ public sealed class AdminOperations(
         if (factionName is not null && !Names.IsValid(factionName)) throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.NameInvalid, "faction name is not a valid name");
 
         var player = await FindPlayer(playerId);
+        if (await db.Players.AnyAsync(p => p.Name == name && p.Id != playerId))
+            throw new RpcException(new Status(StatusCode.AlreadyExists, $"the name '{name}' is already taken"));
         player.Name = name;
         if (factionName is not null) player.FactionName = factionName;
         await db.SaveChangesAsync();

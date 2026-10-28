@@ -29,6 +29,14 @@ public class SaveValidatorTests : IDisposable
         Assert.Null(error);
     }
 
+    [Fact]
+    public void AcceptsTribeStartFaction()
+    {
+        string path = Write(SaveFixtures.MakeSave("Seed1", "Tribe", factionDef: "PlayerTribe"));
+
+        Assert.Null(SaveValidator.Validate(path, "Seed1", "Tribe"));
+    }
+
     [Theory]
     [InlineData("Seed1", "Nova", "Seed2", "Nova")]
     [InlineData("Seed1", "Nova", "Seed1", "Bob")]

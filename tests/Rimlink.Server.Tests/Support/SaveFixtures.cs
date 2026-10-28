@@ -11,7 +11,7 @@ namespace Rimlink.Server.Tests.Support;
 public static class SaveFixtures
 {
     /// <summary>A minimal RimWorld-shaped save (.rws XML), zstd-compressed.</summary>
-    public static byte[] MakeSave(string seed, string faction, long tick = 1000, int paddingBytes = 0)
+    public static byte[] MakeSave(string seed, string faction, long tick = 1000, int paddingBytes = 0, string factionDef = "PlayerColony")
     {
         string xml = $"""
             <?xml version="1.0" encoding="utf-8"?>
@@ -24,7 +24,7 @@ public static class SaveFixtures
                   <factionManager>
                     <allFactions>
                       <li><def>Pirate</def><name>Raiders</name></li>
-                      <li><def>PlayerColony</def><name>{faction}</name></li>
+                      <li><def>{factionDef}</def><name>{faction}</name></li>
                     </allFactions>
                   </factionManager>
                 </world>

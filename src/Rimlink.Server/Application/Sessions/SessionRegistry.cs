@@ -14,7 +14,9 @@ public sealed class SessionRegistry
 
     public IReadOnlyCollection<Session> All => byToken.Values.ToArray();
 
+    /// <summary>Raised for genuinely new presence (not when a session merely replaces the account's previous one).</summary>
     public event Action<Session>? SessionStarted;
+    /// <summary>Raised when a player really leaves (not when their session is replaced by a new login).</summary>
     public event Action<Session>? SessionEnded;
 
     public Session Start(Account account, Player player, string ip, out Session? replaced)
@@ -25,7 +27,7 @@ public sealed class SessionRegistry
             if (replaced is not null)
             {
                 replaced.Events.TryWrite(new ServerEvent { SessionReplaced = new SessionReplaced() });
-                End(replaced.Token);
+                End(replaced.Token, announce: false);
             }
 
             var session = new Session
@@ -38,7 +40,7 @@ public sealed class SessionRegistry
                 PlayerName = player.Name,
             };
             byToken[session.Token] = session;
-            SessionStarted?.Invoke(session);
+            if (replaced is null) SessionStarted?.Invoke(session);
             return session;
         }
     }
@@ -50,11 +52,13 @@ public sealed class SessionRegistry
     public Session? ByPlayer(long playerId) => byToken.Values.FirstOrDefault(s => s.PlayerId == playerId);
 
     /// <summary>Removes the session; queued events are still delivered, then the stream ends. Later calls with the token are unauthenticated.</summary>
-    public void End(string token)
+    public void End(string token) => End(token, announce: true);
+
+    private void End(string token, bool announce)
     {
         if (!byToken.TryRemove(token, out var session)) return;
         session.Events.Complete();
         session.Cts.Cancel();
-        SessionEnded?.Invoke(session);
+        if (announce) SessionEnded?.Invoke(session);
     }
 }

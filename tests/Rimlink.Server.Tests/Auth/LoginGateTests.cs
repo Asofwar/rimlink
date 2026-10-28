@@ -144,6 +144,30 @@ public class LoginGateTests
     }
 
     [Fact]
+    public async Task ReplacedSessionIsNotAnnouncedAsLeaveOrSecondJoin()
+    {
+        using var fixture = PasswordServer();
+        var alice = await fixture.RegisterAndLogin("alice");
+        var channel = fixture.CreateChannel();
+        using var aliceStream = new Protocol.V1.Events.EventsClient(channel).Subscribe(new Empty(), Bearer(alice.SessionToken));
+
+        await fixture.RegisterAndLogin("bob", playerName: "Bob");
+        await fixture.RegisterAndLogin("bob"); // replaces the first session
+        await Task.Delay(300); // let fire-and-forget announcements land
+        fixture.Services.GetRequiredService<Server.Application.Events.EventBus>().Broadcast(new ServerEvent { Notice = new Notice { Text = "fence" } });
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var seen = new List<ServerEvent>();
+        while (await aliceStream.ResponseStream.MoveNext(cts.Token))
+        {
+            seen.Add(aliceStream.ResponseStream.Current);
+            if (seen[^1].BodyCase == ServerEvent.BodyOneofCase.Notice && seen[^1].Notice.Text == "fence") break;
+        }
+        Assert.Equal(1, seen.Count(e => e.BodyCase == ServerEvent.BodyOneofCase.PlayerJoined && e.PlayerJoined.Player.Name == "Bob"));
+        Assert.DoesNotContain(seen, e => e.BodyCase == ServerEvent.BodyOneofCase.PlayerLeft && e.PlayerLeft.Player.Name == "Bob");
+    }
+
+    [Fact]
     public async Task IpBanBlocksLogin()
     {
         using var fixture = PasswordServer();

@@ -21,7 +21,7 @@ public static class UnauthenticatedConnectionLimiter
 
     public static void Install(ListenOptions listen) => listen.Use(next => async connection =>
     {
-        string ip = connection.RemoteEndPoint?.ToString()?.Split(':')[0] ?? "unknown";
+        string ip = ClientAddress.Normalize(connection.RemoteEndPoint);
         if (PendingPerIp.AddOrUpdate(ip, 1, (_, n) => n + 1) > MaxPerIp)
         {
             PendingPerIp.AddOrUpdate(ip, 0, (_, n) => n - 1);

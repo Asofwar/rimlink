@@ -56,8 +56,20 @@ public static class BackupArchive
     public static void Restore(string archiveFile, string dataDir)
     {
         dataDir = Path.GetFullPath(dataDir);
-        if (File.Exists(Path.Combine(dataDir, LockFile)))
-            throw new InvalidOperationException($"'{dataDir}' has a {LockFile}: stop the server before restoring");
+        string lockPath = Path.Combine(dataDir, LockFile);
+        if (File.Exists(lockPath))
+        {
+            // A running server holds the file exclusively; a leftover from a killed server opens fine and is removed.
+            try
+            {
+                using (new FileStream(lockPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None)) { }
+                File.Delete(lockPath);
+            }
+            catch (IOException)
+            {
+                throw new InvalidOperationException($"a server is running in '{dataDir}' ({LockFile} is held): stop it before restoring");
+            }
+        }
 
         Directory.CreateDirectory(dataDir);
         SqliteConnection.ClearAllPools(); // pooled handles of a stopped server in this process would block the delete

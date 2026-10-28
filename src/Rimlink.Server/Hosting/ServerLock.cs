@@ -13,7 +13,7 @@ public sealed class ServerLock(DataDirectory data, ILogger<ServerLock> log) : IH
         string path = Path.Combine(data.Root, BackupArchive.LockFile);
         try
         {
-            handle = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read, 1, FileOptions.DeleteOnClose);
+            handle = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None, 1, FileOptions.DeleteOnClose);
             using var writer = new StreamWriter(handle, leaveOpen: true);
             writer.Write(Environment.ProcessId);
             writer.Flush();

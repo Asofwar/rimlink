@@ -29,6 +29,8 @@ public sealed class AuthService(
             return LoginResult.Failed(StatusCode.InvalidArgument, ErrorCode.Unspecified, "password is empty");
         if (await db.Accounts.AnyAsync(a => a.Login == login))
             return LoginResult.Failed(StatusCode.AlreadyExists, ErrorCode.Unspecified, "login already taken");
+        if (await db.Players.AnyAsync(p => p.Name == playerName))
+            return LoginResult.Failed(StatusCode.AlreadyExists, ErrorCode.Unspecified, "player name already taken");
 
         var account = new Account
         {
@@ -72,7 +74,7 @@ public sealed class AuthService(
                 Role = authOptions.Value.AdminSteamIds.Contains(identity.SteamId) ? Storage.Entities.Role.Admin : Storage.Entities.Role.Player,
                 CreatedAt = DateTime.UtcNow,
             };
-            string name = "Player" + identity.SteamId.ToString()[^4..];
+            string name = await FreeName("Player" + identity.SteamId.ToString()[^4..]);
             account.Player = new Player { Account = account, Name = name, FactionName = name };
             db.Accounts.Add(account);
             log.LogInformation("Registered Steam account {SteamId} ({Name})", identity.SteamId, name);
@@ -81,6 +83,14 @@ public sealed class AuthService(
         await db.SaveChangesAsync();
 
         return await Complete(account, ctx, identity);
+    }
+
+    /// <summary>Player names are unique (case-insensitive); the generated Steam name gets a suffix when taken.</summary>
+    private async Task<string> FreeName(string wanted)
+    {
+        string candidate = wanted;
+        for (int i = 2; await db.Players.AnyAsync(p => p.Name == candidate); i++) candidate = $"{wanted}-{i}";
+        return candidate;
     }
 
     public void Logout(Session session)

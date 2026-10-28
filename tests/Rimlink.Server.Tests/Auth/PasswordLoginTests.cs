@@ -78,6 +78,24 @@ public class PasswordLoginTests
     }
 
     [Fact]
+    public async Task TakenPlayerNameIsAlreadyExistsOnRegisterAndRename()
+    {
+        using var fixture = PasswordServer();
+        await fixture.RegisterAndLogin("bob", playerName: "Bob");
+        var auth = new Protocol.V1.Auth.AuthClient(fixture.CreateChannel());
+
+        var register = await Assert.ThrowsAsync<RpcException>(() =>
+            auth.RegisterAsync(new RegisterRequest { Login = "mallory", Password = "pw", PlayerName = "bob" }).ResponseAsync);
+        Assert.Equal(StatusCode.AlreadyExists, register.StatusCode);
+
+        var nova = await fixture.RegisterAndLogin("nova", playerName: "Nova");
+        var command = new AdminCommand { Name = "rename" };
+        command.Args.Add("BOB");
+        var rename = await Assert.ThrowsAsync<RpcException>(() => new Protocol.V1.Admin.AdminClient(fixture.CreateChannel()).ExecuteAsync(command, Bearer(nova.SessionToken)).ResponseAsync);
+        Assert.Equal(StatusCode.AlreadyExists, rename.StatusCode);
+    }
+
+    [Fact]
     public async Task CallWithoutTokenIsUnauthenticated()
     {
         using var fixture = PasswordServer();

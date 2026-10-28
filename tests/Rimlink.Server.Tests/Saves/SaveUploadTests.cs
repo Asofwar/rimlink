@@ -156,6 +156,42 @@ public class SaveUploadTests
     }
 
     [Fact]
+    public async Task UploadSucceedsWhenAnOrphanFileOfThatNumberExists()
+    {
+        using var fixture = Server();
+        var nova = await fixture.RegisterAndLogin("nova", playerName: "Nova");
+        var saves = new Protocol.V1.Saves.SavesClient(fixture.CreateChannel());
+        // A crash between File.Move and the DB row would leave this behind.
+        string dir = Path.Combine(fixture.DataDir, "saves", nova.Player.PlayerId.ToString());
+        Directory.CreateDirectory(dir);
+        File.WriteAllBytes(Path.Combine(dir, "1.rws.zst"), [1, 2, 3]);
+        byte[] save = MakeSave(ServerFixture.WorldSeed, "Nova", tick: 9);
+
+        var info = await Upload(saves, nova.SessionToken, save, HeaderFor(save, ServerFixture.WorldSeed, "Nova", tick: 9));
+
+        Assert.Equal(1, info.Version);
+        Assert.Equal(save, (await Download(saves, nova.SessionToken)).data);
+    }
+
+    [Fact]
+    public async Task RollbackToTheCurrentVersionKeepsItCurrent()
+    {
+        using var fixture = Server();
+        var nova = await fixture.RegisterAndLogin("nova", playerName: "Nova");
+        var saves = new Protocol.V1.Saves.SavesClient(fixture.CreateChannel());
+        byte[] save = MakeSave(ServerFixture.WorldSeed, "Nova", tick: 1);
+        await Upload(saves, nova.SessionToken, save, HeaderFor(save, ServerFixture.WorldSeed, "Nova", tick: 1));
+
+        using (var scope = fixture.Services.CreateScope())
+        {
+            Assert.True(await scope.ServiceProvider.GetRequiredService<SaveStore>().Rollback(nova.Player.PlayerId, 1));
+        }
+
+        Assert.True(Assert.Single((await saves.ListAsync(new Empty(), Bearer(nova.SessionToken))).Versions).IsCurrent);
+        Assert.True((await fixture.RegisterAndLogin("nova")).HasSave);
+    }
+
+    [Fact]
     public async Task SecondUploadWithinThirtySecondsIsResourceExhausted()
     {
         using var fixture = Server().WithRateLimits();

@@ -48,15 +48,16 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, EventBus 
 
             if (SaveValidator.Validate(temp, world.Seed, player.FactionName) is { } reason) throw new SaveRejected(reason);
 
-            await PerStoreLock.WaitAsync(cancellationToken);
+            // From here on the upload is complete: finish without the call token, so a client that drops right
+            // after its last chunk does not leave a file without a row (or a row without a file).
+            await PerStoreLock.WaitAsync(CancellationToken.None);
             try
             {
-                int number = (await db.SaveVersions.Where(v => v.PlayerId == playerId).MaxAsync(v => (int?)v.Number, cancellationToken) ?? 0) + 1;
+                int number = (await db.SaveVersions.Where(v => v.PlayerId == playerId).MaxAsync(v => (int?)v.Number) ?? 0) + 1;
                 string final = Path.Combine(dir, $"{number}.rws.zst");
-                File.Move(temp, final, overwrite: false);
 
-                await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
-                await db.SaveVersions.Where(v => v.PlayerId == playerId && v.IsCurrent).ExecuteUpdateAsync(s => s.SetProperty(v => v.IsCurrent, false), cancellationToken);
+                await using var tx = await db.Database.BeginTransactionAsync();
+                await db.SaveVersions.Where(v => v.PlayerId == playerId && v.IsCurrent).ExecuteUpdateAsync(s => s.SetProperty(v => v.IsCurrent, false));
                 var version = new SaveVersion
                 {
                     PlayerId = playerId,
@@ -68,8 +69,10 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, EventBus 
                     IsCurrent = true,
                 };
                 db.SaveVersions.Add(version);
-                await db.SaveChangesAsync(cancellationToken);
-                await tx.CommitAsync(cancellationToken);
+                await db.SaveChangesAsync();
+                // An orphan file of this number (crash between move and commit in an older run) is overwritten.
+                File.Move(temp, final, overwrite: true);
+                await tx.CommitAsync();
 
                 await ApplyRetention(playerId);
                 log.LogInformation("Stored save v{Version} for player {PlayerId}: {Size} bytes, tick {Tick}", number, playerId, written, header.GameTick);
@@ -105,7 +108,7 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, EventBus 
         if (target is null || !File.Exists(PathOf(target))) return false;
 
         await using var tx = await db.Database.BeginTransactionAsync();
-        await db.SaveVersions.Where(v => v.PlayerId == playerId && v.IsCurrent).ExecuteUpdateAsync(s => s.SetProperty(v => v.IsCurrent, false));
+        await db.SaveVersions.Where(v => v.PlayerId == playerId && v.IsCurrent && v.Id != target.Id).ExecuteUpdateAsync(s => s.SetProperty(v => v.IsCurrent, false));
         target.IsCurrent = true;
         await db.SaveChangesAsync();
         await tx.CommitAsync();

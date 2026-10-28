@@ -6,7 +6,7 @@ namespace Rimlink.Server.Application.Saves;
 
 /// <summary>
 /// Checks that a zstd-compressed upload is a RimWorld save for this world and this player:
-/// root &lt;savegame&gt;, the first &lt;seedString&gt; equals the world seed, and the PlayerColony faction's &lt;name&gt; equals the player's faction.
+/// root &lt;savegame&gt;, the first &lt;seedString&gt; equals the world seed, and the player faction's (PlayerColony or PlayerTribe) &lt;name&gt; equals the player's faction.
 /// Reads at most <see cref="Limits.MaxSaveBytes"/> of decompressed data. Returns null when valid, otherwise the reason.
 /// </summary>
 public static class SaveValidator
@@ -52,7 +52,7 @@ public static class SaveValidator
                         pendingDef = reader.ReadElementContentAsString();
                         advance = false;
                         break;
-                    case "name" when playerFaction is null && pendingDef == "PlayerColony":
+                    case "name" when playerFaction is null && pendingDef is "PlayerColony" or "PlayerTribe":
                         playerFaction = reader.ReadElementContentAsString();
                         advance = false;
                         if (playerFaction != factionName) return $"save belongs to another faction ('{playerFaction}')";

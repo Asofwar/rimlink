@@ -160,7 +160,7 @@ namespace Rimlink.Server.Storage.Migrations
                     Id = table.Column<long>(type: "INTEGER", nullable: false)
                         .Annotation("Sqlite:Autoincrement", true),
                     AccountId = table.Column<long>(type: "INTEGER", nullable: false),
-                    Name = table.Column<string>(type: "TEXT", nullable: false),
+                    Name = table.Column<string>(type: "TEXT", nullable: false, collation: "NOCASE"),
                     FactionName = table.Column<string>(type: "TEXT", nullable: false),
                     ColorArgb = table.Column<uint>(type: "INTEGER", nullable: false),
                     LastIp = table.Column<string>(type: "TEXT", nullable: true),
@@ -248,7 +248,8 @@ namespace Rimlink.Server.Storage.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_players_Name",
                 table: "players",
-                column: "Name");
+                column: "Name",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_save_versions_PlayerId_Number",

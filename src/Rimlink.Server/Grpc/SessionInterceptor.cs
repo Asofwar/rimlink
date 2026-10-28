@@ -55,5 +55,5 @@ public static class ServerCallContextExtensions
         context.GetHttpContext().Items[SessionInterceptor.ItemKey] as Session ?? throw RpcErrors.Unauthenticated();
 
     public static string ClientIp(this ServerCallContext context) =>
-        context.GetHttpContext().Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        Hosting.ClientAddress.Normalize(context.GetHttpContext().Connection.RemoteIpAddress);
 }

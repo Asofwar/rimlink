@@ -11,7 +11,7 @@ using Rimlink.Server.Storage;
 namespace Rimlink.Server.Storage.Migrations
 {
     [DbContext(typeof(RimlinkDbContext))]
-    [Migration("20261028152507_Initial")]
+    [Migration("20261028161527_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -216,14 +216,16 @@ namespace Rimlink.Server.Storage.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("TEXT")
+                        .UseCollation("NOCASE");
 
                     b.HasKey("Id");
 
                     b.HasIndex("AccountId")
                         .IsUnique();
 
-                    b.HasIndex("Name");
+                    b.HasIndex("Name")
+                        .IsUnique();
 
                     b.ToTable("players", (string)null);
                 });
