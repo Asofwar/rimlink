@@ -18,7 +18,8 @@ public static class Patch_GenScene_GoToMainMenu
     {
         if (!RimlinkSession.Active || leaving) return true;
         leaving = true;
-        if (Current.Game != null && Current.ProgramState == ProgramState.Playing)
+        // In a visit the loaded game is the host's copy: nothing to save, the own colony was uploaded when the visit began.
+        if (Current.Game != null && Current.ProgramState == ProgramState.Playing && !Visits.VisitSession.InVisit)
         {
             try { GameDataSaveLoader.SaveGame(SaveSync.SaveFileName); } // the SaveGame postfix starts the upload
             catch (Exception ex) { Log.Error("[Rimlink] save before leaving failed: " + ex); }
