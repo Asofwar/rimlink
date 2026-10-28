@@ -105,4 +105,4 @@ and `logs/server-<date>.log`.
 ## 9. Limits (built in)
 
 Player limit `Server:MaxPlayers`, one settlement per player (`Server:MaxSettlementsPerPlayer`), 5 chat messages per
-5 s, 1 save upload per 30 s, saves up to 64 MB compressed, 5 unauthenticated connections per IP, 30 s to log in.
+5 s, 3 save uploads per 30 s, saves up to 64 MB compressed, 5 unauthenticated connections per IP, 30 s to log in.

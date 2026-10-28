@@ -23,9 +23,12 @@ public static class Patch_GenScene_GoToMainMenu
             try { GameDataSaveLoader.SaveGame(SaveSync.SaveFileName); } // the SaveGame postfix starts the upload
             catch (Exception ex) { Log.Error("[Rimlink] save before leaving failed: " + ex); }
         }
-        LongEventHandler.QueueLongEvent(() => SaveSync.WaitForUpload(TimeSpan.FromSeconds(60)), "Rimlink.Flow.Uploading",
+        bool uploaded = false;
+        LongEventHandler.QueueLongEvent(() => uploaded = SaveSync.WaitForUpload(TimeSpan.FromSeconds(60)), "Rimlink.Flow.Uploading",
             doAsynchronously: true, null, showExtraUIInfo: false, callback: () =>
             {
+                // An upload that did not finish in time is not trusted: the local file is flagged and sent at the next login.
+                if (!uploaded) SaveSync.Pending.Set();
                 RimlinkGameComponent.EndSession();
                 leaving = false;
                 GenScene.GoToMainMenu();

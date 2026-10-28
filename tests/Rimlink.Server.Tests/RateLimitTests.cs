@@ -13,7 +13,7 @@ public class RateLimitTests
     public void PolicyTableMatchesSpec()
     {
         Assert.Equal((5, TimeSpan.FromSeconds(5)), RateLimitPolicy.For("/rimlink.v1.Chat/Send"));
-        Assert.Equal((1, TimeSpan.FromSeconds(30)), RateLimitPolicy.For("/rimlink.v1.Saves/Upload"));
+        Assert.Equal((3, TimeSpan.FromSeconds(30)), RateLimitPolicy.For("/rimlink.v1.Saves/Upload")); // transfer + delivery + leave within half a minute
         Assert.Equal((1, TimeSpan.FromSeconds(10)), RateLimitPolicy.For("/rimlink.v1.World/Settle"));
         Assert.Equal((10, TimeSpan.FromSeconds(60)), RateLimitPolicy.For("/rimlink.v1.Auth/Login"));
         Assert.Equal((30, TimeSpan.FromSeconds(10)), RateLimitPolicy.For("/rimlink.v1.Anything/Else"));
@@ -31,6 +31,21 @@ public class RateLimitTests
         var ex = await Assert.ThrowsAsync<RpcException>(() => auth.LoginAsync(PasswordLogin("nova", "pw")).ResponseAsync);
 
         Assert.Equal(StatusCode.ResourceExhausted, ex.StatusCode);
+    }
+
+    [Fact]
+    public async Task ThreeSaveUploadsInARowAreAccepted()
+    {
+        using var fixture = new ServerFixture().WithRateLimits().WithSetting("Auth:AllowPassword", "true");
+        var nova = await fixture.RegisterAndLogin("nova", playerName: "Nova");
+        var saves = new Protocol.V1.Saves.SavesClient(fixture.CreateChannel());
+
+        for (int tick = 1; tick <= 3; tick++)
+        {
+            byte[] save = SaveFixtures.MakeSave(ServerFixture.WorldSeed, "Nova", tick: tick * 100);
+            var info = await SaveFixtures.Upload(saves, nova.SessionToken, save, SaveFixtures.HeaderFor(save, ServerFixture.WorldSeed, "Nova", tick: tick * 100));
+            Assert.Equal(tick, info.Version);
+        }
     }
 
     [Fact]

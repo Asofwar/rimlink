@@ -66,9 +66,11 @@ public static class SaveSync
         var pending = Pending;
         upload = Task.Run(async () =>
         {
+            // Bounded: a stream the server already refused can leave a write hanging, and callers wait on this task.
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(90));
             try
             {
-                var info = await new SaveTransfer(connection).UploadAsync(path, meta, CancellationToken.None);
+                var info = await new SaveTransfer(connection).UploadAsync(path, meta, timeout.Token);
                 pending.Clear();
                 LastUploadUtc = DateTime.UtcNow;
                 LastError = null;

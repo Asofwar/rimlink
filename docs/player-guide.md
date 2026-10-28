@@ -72,6 +72,10 @@ Every transfer first saves your game and uploads the save (a short "Sending your
 fails, nothing is sent and the goods are put back. After a transfer the server refuses any **older** save from you:
 the goods are already in someone else's mailbox, so an older file would duplicate them.
 
+If the server does not answer a transfer (connection lost, trading paused), the goods are neither sent nor put back:
+the request waits in `Saves/Rimlink/<server>_<player>/outbox.json` and is sent again, as the same request, at your
+next login or reconnect. A request the server then refuses comes back to your colony by drop pod.
+
 ## 5. When something goes wrong
 
 | What you see | What it means / what to do |
@@ -87,6 +91,8 @@ the goods are already in someone else's mailbox, so an older file would duplicat
 | `This save is older than your last transfer` | You loaded a save from before something you sent. Go back to the menu and log in to get the server copy, or keep playing without uploads. The refused file is kept as `*.stale-<date>.rws`. |
 | `Transfer refused: not enough silver` / `lot was already sold` | Wallet too low, or someone bought the lot first; nothing left your colony. |
 | `Transfer refused: def 'X' is not in the server modpack` | That item comes from a mod the server does not allow; it was put back. |
+| `The server did not answer (…). The transfer is kept …` | The outcome is unknown; nothing is lost. Log in again later and the transfer is settled. |
+| `A refused transfer is coming back by drop pod` | A kept transfer was refused when retried (recipient gone, not in the modpack…); its contents are back. |
 | `A parcel could not be unpacked` | A mod needed by that item is missing or broken on your side; the parcel stays in your mailbox for later. |
 | `The server refused this settlement` | The tile was taken meanwhile or you already have a settlement. Choose another tile. |
 | Save upload failed (message in the log) | The upload is retried at your next login; do not delete `Saves/Rimlink/`. |

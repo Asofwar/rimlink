@@ -8,7 +8,7 @@ public static class RateLimitPolicy
     private static readonly Dictionary<string, (int, TimeSpan)> Table = new()
     {
         ["/rimlink.v1.Chat/Send"] = (5, TimeSpan.FromSeconds(5)),
-        ["/rimlink.v1.Saves/Upload"] = (1, TimeSpan.FromSeconds(30)),
+        ["/rimlink.v1.Saves/Upload"] = (3, TimeSpan.FromSeconds(30)), // a transfer, a delivery and a leave can each save within half a minute
         ["/rimlink.v1.World/Settle"] = (1, TimeSpan.FromSeconds(10)),
         ["/rimlink.v1.Auth/Login"] = (10, TimeSpan.FromSeconds(60)),
         ["/rimlink.v1.Auth/Register"] = (5, TimeSpan.FromSeconds(60)),

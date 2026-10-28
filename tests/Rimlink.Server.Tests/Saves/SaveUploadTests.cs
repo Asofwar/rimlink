@@ -206,13 +206,13 @@ public class SaveUploadTests
     }
 
     [Fact]
-    public async Task SecondUploadWithinThirtySecondsIsResourceExhausted()
+    public async Task FourthUploadWithinThirtySecondsIsResourceExhausted()
     {
         using var fixture = Server().WithRateLimits();
         var nova = await fixture.RegisterAndLogin("nova", playerName: "Nova");
         var saves = new Protocol.V1.Saves.SavesClient(fixture.CreateChannel());
         byte[] save = MakeSave(ServerFixture.WorldSeed, "Nova");
-        await Upload(saves, nova.SessionToken, save, HeaderFor(save, ServerFixture.WorldSeed, "Nova"));
+        for (int i = 0; i < 3; i++) await Upload(saves, nova.SessionToken, save, HeaderFor(save, ServerFixture.WorldSeed, "Nova"));
 
         var ex = await Assert.ThrowsAsync<RpcException>(() => Upload(saves, nova.SessionToken, save, HeaderFor(save, ServerFixture.WorldSeed, "Nova")));
 
