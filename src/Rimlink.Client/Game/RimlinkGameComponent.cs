@@ -27,7 +27,8 @@ public sealed class RimlinkGameComponent : GameComponent
         if (!RimlinkSession.Active) return;
         ForeignSettlements.Subscribe();
         ForeignSettlements.RebuildFromState();
-        Shop.ShopSync.ApplyRemovals();
+        // A visit's game is the host's colony: removing "sold" things there would strip the guest's copy, not the home map.
+        if (!Visits.VisitSession.InVisit) Shop.ShopSync.ApplyRemovals();
     }
 
     public override void GameComponentOnGUI() => UI.Overlay.Draw();
@@ -150,11 +151,11 @@ public sealed class RimlinkGameComponent : GameComponent
     public static void EndSession()
     {
         var connection = RimlinkSession.Connection;
+        Visits.VisitSession.Reset(); // first: it still needs the connection to close an open ticket
         RimlinkSession.End();
         ForeignSettlements.Clear();
         Economy.Incoming.Reset();
         Raids.RaidIncoming.Reset();
-        Visits.VisitSession.Reset();
         if (connection is not null) _ = connection.DisposeAsync();
     }
 }

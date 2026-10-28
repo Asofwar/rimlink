@@ -34,7 +34,7 @@ public static class Patch_Autosaver_DoAutosave
     public static bool Prefix()
     {
         if (!RimlinkSession.Active) return true;
-        if (!Visits.VisitSession.Active) SaveSync.TriggerSave("autosave");
+        if (!Visits.VisitSession.InVisit) SaveSync.TriggerSave("autosave");
         return false;
     }
 }

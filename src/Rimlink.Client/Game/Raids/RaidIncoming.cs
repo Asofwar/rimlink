@@ -34,7 +34,7 @@ public static class RaidIncoming
     {
         if (DateTime.UtcNow - lastAttempt < TimeSpan.FromSeconds(5)) return;
         lastAttempt = DateTime.UtcNow;
-        if (!RimlinkSession.Active || RimlinkSession.Raids is not { } raids || Current.ProgramState != ProgramState.Playing) return;
+        if (!RimlinkSession.Active || Visits.VisitSession.InVisit || RimlinkSession.Raids is not { } raids || Current.ProgramState != ProgramState.Playing) return;
         var map = Find.CurrentMap;
         if (map is null || !map.IsPlayerHome) return;
         var component = Current.Game.GetComponent<RimlinkGameComponent>();
@@ -112,9 +112,17 @@ public static class RaidIncoming
     {
         long id = raid.Id;
         busy.Remove(id);
-        if (!RimlinkSession.Active || Current.ProgramState != ProgramState.Playing || !Find.Maps.Contains(map) || landedThisSession.Contains(id)) return;
+        if (!RimlinkSession.Active || Visits.VisitSession.InVisit || Current.ProgramState != ProgramState.Playing || !Find.Maps.Contains(map) || landedThisSession.Contains(id)) return;
         var component = Current.Game.GetComponent<RimlinkGameComponent>();
         if (component.ActiveRaids.Any(a => a.RaidId == id)) return;
+        if (raid.State is not (RaidState.RaidAnnounced or RaidState.RaidQueued))
+        {
+            // Already landed (an earlier landing never reached a save) or over: the server will not take a second landing, so no second spawn.
+            RimlinkLog.Instance.Warn($"raid {id} is {raid.State} on the server; not spawning it again");
+            landedThisSession.Add(id);
+            RimlinkSession.State.Raids.MarkLanded(id);
+            return;
+        }
 
         List<Pawn> pawns;
         Faction faction;

@@ -53,18 +53,31 @@ public static class RaidOutgoing
             request => RimlinkSession.Raids!.Launch((LaunchRequest)request, CancellationToken.None));
     }
 
-    /// <summary>From transport pods that landed on the target's tile: the pawns are already out of the pods and unspawned. Real mode only.</summary>
-    public static void LaunchFromPods(List<Pawn> pawns, PlayerRef target, RaidTiming timing)
+    /// <summary>From transport pods that landed on the target's tile: everyone in the holding caravan goes, by pod, Real mode only.</summary>
+    public static void LaunchFromPods(Caravan caravan, PlayerRef target, RaidTiming timing)
     {
+        var pawns = caravan.PawnsListForReading.ToList();
         if (CheckLimits(pawns.Count) is { } limit)
         {
             Messages.Message(limit, MessageTypeDefOf.RejectInput, historical: false);
-            ReturnPodPawnsHome(pawns);
+            ReturnPodPawnsHome(caravan);
             return;
         }
-        Outgoing.RunWithPodPawns(pawns, "Rimlink.Raid.Launched".Translate(target.Name),
+        Outgoing.RunWithPodPawns(Disband(caravan), "Rimlink.Raid.Launched".Translate(target.Name),
             (pawnList, tick) => Build(target, PawnMode.PawnReal, timing, RaidArrival.ArrivalPods, pawnList, tick),
             request => RimlinkSession.Raids!.Launch((LaunchRequest)request, CancellationToken.None));
+    }
+
+    /// <summary>The holding caravan of a pod raid that will not happen after all: everyone flies back home.</summary>
+    public static void ReturnPodPawnsHome(Caravan caravan) => ReturnPodPawnsHome(Disband(caravan));
+
+    /// <summary>Takes every pawn out of the caravan (unspawned, with their inventory) and removes the empty caravan from the world.</summary>
+    private static List<Pawn> Disband(Caravan caravan)
+    {
+        var pawns = caravan.PawnsListForReading.ToList();
+        foreach (var pawn in pawns) caravan.RemovePawn(pawn);
+        if (!caravan.Destroyed) caravan.Destroy();
+        return pawns;
     }
 
     /// <summary>Pawns taken out of pods that will not raid after all come back home by pod.</summary>

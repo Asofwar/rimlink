@@ -13,13 +13,13 @@ public static class Patch_Game_FinalizeInit_Visit
     public static void Postfix() => VisitSession.OnGameLoaded();
 }
 
-/// <summary>Nothing of a visited colony is ever saved: a manual save in visit mode does nothing.</summary>
+/// <summary>Nothing of a visited colony is ever saved (not even while it is still loading): a save in visit mode does nothing.</summary>
 [HarmonyPatch(typeof(GameDataSaveLoader), nameof(GameDataSaveLoader.SaveGame))]
 public static class Patch_GameDataSaveLoader_SaveGame_Visit
 {
     public static bool Prefix()
     {
-        if (!VisitSession.Active) return true;
+        if (!VisitSession.InVisit) return true;
         Messages.Message("Rimlink.Visit.NoSaving".Translate(), MessageTypeDefOf.RejectInput, historical: false);
         return false;
     }

@@ -121,7 +121,7 @@ public static class ShopSync
     /// <summary>At login and map load: sold things leave the map, the removal is acknowledged through the outbox.</summary>
     public static void ApplyRemovals()
     {
-        if (!RimlinkSession.Active || VisitSession.Active || RimlinkSession.Shop is not { } shop) return;
+        if (!RimlinkSession.Active || VisitSession.InVisit || RimlinkSession.Shop is not { } shop) return;
         _ = Task.Run(async () =>
         {
             RemovalList removals;
@@ -134,7 +134,7 @@ public static class ShopSync
 
     private static void Remove(RemovalList removals, Rimlink.Client.Visits.ShopClient shop)
     {
-        if (!RimlinkSession.Active || Current.ProgramState != ProgramState.Playing) return;
+        if (!RimlinkSession.Active || VisitSession.InVisit || Current.ProgramState != ProgramState.Playing || Find.AnyPlayerHomeMap is null) return;
         var ack = new RemovalAck();
         foreach (var removal in removals.Removals)
         {

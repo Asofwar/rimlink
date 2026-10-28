@@ -131,6 +131,29 @@ public class RaidClientTests : IDisposable
     }
 
     [Fact]
+    public async Task ARefusedReportKeepsItsLootForReturn()
+    {
+        using var fixture = RaidServer();
+        await using var nova = await ClientFixtures.Connected(fixture, "nova");
+        await using var bob = await ClientFixtures.Connected(fixture, "bob");
+        await MakeTargetRaidable(fixture, bob.Login!.Player.PlayerId);
+        var raid = await new RaidClient(nova).Launch(Launch(bob.Login.Player.PlayerId, pawns: 1), CancellationToken.None);
+        var outbox = Outbox();
+        var report = new RaidReport { RaidId = raid.Id, GameTick = 80000, Loot = new ItemList(), Captives = new PawnList() };
+        report.Outcomes.Add(new PawnOutcomeMsg { Index = 0, Outcome = PawnOutcome.OutcomeDead });
+        report.Loot.Items.Add(Server.Tests.Support.EconomyFixtures.Item("Steel", 5, marketValueX100: 190));
+        var entry = outbox.Add(report); // the raid was never announced: the server refuses the report for good
+
+        var result = await outbox.Replay(ClientsOf(bob), CancellationToken.None);
+
+        Assert.Equal(1, result.Refused);
+        var kept = Assert.Single(Outbox().Entries);
+        Assert.Equal(entry.Id, kept.Id);
+        Assert.NotNull(kept.Refusal);
+        Assert.Equal(5, Assert.Single(Assert.IsType<RaidReport>(TransferOutbox.Decode(kept)).Loot.Items).Count);
+    }
+
+    [Fact]
     public async Task ShopClientPublishesAndReads()
     {
         using var fixture = RaidServer();

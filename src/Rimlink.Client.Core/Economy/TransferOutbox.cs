@@ -128,7 +128,7 @@ public sealed class TransferOutbox
 
     /// <summary>
     /// Sends every unanswered entry again (two attempts, a pause between them). Replies and deliver refusals remove the
-    /// entry; a refused send, post or deposit stays with its reason for the game layer to return the contents.
+    /// entry; a refused send, post, deposit, launch or report stays with its reason for the game layer to return the contents.
     /// </summary>
     public Task<ReplayReport> Replay(EconomyClient economy, CancellationToken ct) => Replay(new OutboxClients(economy, null, null), ct);
 
@@ -171,8 +171,11 @@ public sealed class TransferOutbox
         _ => true,
     };
 
-    /// <summary>Kinds whose refusal leaves nothing to return: the entry is simply dropped.</summary>
-    private static bool NothingToReturn(OutboxKind kind) => kind is OutboxKind.Deliver or OutboxKind.Land or OutboxKind.Report or OutboxKind.Buy or OutboxKind.AckRemoval;
+    /// <summary>
+    /// Kinds whose refusal leaves nothing to return: the entry is simply dropped. A refused report keeps its loot (it is
+    /// the defender's again) for the game layer to put back; the raiders go home at the server's expiry.
+    /// </summary>
+    private static bool NothingToReturn(OutboxKind kind) => kind is OutboxKind.Deliver or OutboxKind.Land or OutboxKind.Buy or OutboxKind.AckRemoval;
 
     private async Task<bool?> Attempt(OutboxClients clients, OutboxEntry entry, CancellationToken ct)
     {

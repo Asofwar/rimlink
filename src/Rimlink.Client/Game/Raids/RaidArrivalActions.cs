@@ -79,25 +79,28 @@ public sealed class TransportersArrivalAction_RimlinkRaid : TransportersArrivalA
         if (settlement is null) return;
         PlayerRef? owner = RimlinkSession.State.Objects.TryGet(settlement.ObjectId)?.Owner;
         var pawns = new List<Pawn>();
+        var cargo = new List<Thing>();
         foreach (var pod in transporters)
         {
             foreach (var thing in pod.innerContainer.ToList())
             {
-                if (thing is Pawn pawn)
-                {
-                    pod.innerContainer.Remove(pawn);
-                    pawns.Add(pawn);
-                }
+                pod.innerContainer.Remove(thing);
+                if (thing is Pawn pawn) pawns.Add(pawn); else cargo.Add(thing);
             }
         }
+        if (pawns.Count == 0) return;
+        // A caravan on the tile holds the pawns (and the cargo) while the window is open: a save, a crash or a lost
+        // connection in between leaves them a caravan to walk home with, not pawns that exist nowhere.
+        var caravan = CaravanMaker.MakeCaravan(pawns, Faction.OfPlayer, tile, addToWorldPawnsIfNotAlready: true);
+        foreach (var thing in cargo) CaravanInventoryUtility.GiveThing(caravan, thing);
         if (owner is null || !RimlinkSession.Active)
         {
-            RaidOutgoing.ReturnPodPawnsHome(pawns);
+            RaidOutgoing.ReturnPodPawnsHome(caravan);
             return;
         }
         Find.WindowStack.Add(new Dialog_Raid(owner, pawns, fromPods: true,
-            (selected, _, timing) => RaidOutgoing.LaunchFromPods(selected.ToList(), owner, timing),
-            onCancel: () => RaidOutgoing.ReturnPodPawnsHome(pawns)));
+            (_, _, timing) => RaidOutgoing.LaunchFromPods(caravan, owner, timing),
+            onCancel: () => RaidOutgoing.ReturnPodPawnsHome(caravan)));
     }
 
     public override void ExposeData()

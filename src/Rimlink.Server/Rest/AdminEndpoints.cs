@@ -27,6 +27,7 @@ public static class AdminEndpoints
     public sealed record WalletBody(long Delta, string? Reason);
     public sealed record FreezeBody(bool Frozen, string? Reason);
     public sealed record ReasonBody(string? Reason);
+    public sealed record CancelRaidBody(string? Reason, bool ReturnPawns = false);
     public sealed record PeacefulBody(bool Peaceful);
 
     public static void MapAdminApi(this WebApplication app)
@@ -82,8 +83,8 @@ public static class AdminEndpoints
 
         group.MapGet("/raids", async (AdminOperations ops, [FromQuery] long? playerId = null) =>
             (await ops.ListRaids(Actor.Api, playerId)).Select(r => new { r.Id, r.AttackerPlayerId, r.TargetPlayerId, State = r.State.ToString(), PawnMode = ((PawnMode)r.PawnMode).ToString(), Timing = ((RaidTiming)r.Timing).ToString(), r.LootCap, r.CreatedAt, r.LandAtTick, r.LandedTick, r.ResolvedAt, r.ExpiresAt }));
-        group.MapPost("/raids/{id:long}/cancel", async (long id, ReasonBody body, AdminOperations ops) =>
-            await ops.CancelRaid(Actor.Api, id, body.Reason ?? "cancelled by admin") ? Results.Ok() : Results.NotFound());
+        group.MapPost("/raids/{id:long}/cancel", async (long id, CancelRaidBody body, AdminOperations ops) =>
+            await ops.CancelRaid(Actor.Api, id, body.Reason ?? "cancelled by admin", body.ReturnPawns) ? Results.Ok() : Results.NotFound());
         group.MapPost("/raids/freeze", async (FreezeBody body, AdminOperations ops) => { await ops.SetRaidsFrozen(Actor.Api, body.Frozen, body.Reason); return Results.Ok(); });
         group.MapGet("/raids/stats", async (AdminOperations ops) =>
         {

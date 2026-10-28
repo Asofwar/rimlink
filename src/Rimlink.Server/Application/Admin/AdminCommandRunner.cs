@@ -127,7 +127,13 @@ public sealed class AdminCommandRunner(AdminOperations ops, ModpackService modpa
                     case "list":
                         var list = await ops.ListRaids(actor, args.Count > 1 ? await PlayerId(Arg(1)) : null);
                         return list.Count == 0 ? "no raids" : string.Join("\n", list.Select(r => $"#{r.Id} {r.AttackerPlayerId}->{r.TargetPlayerId} {r.State} {(PawnMode)r.PawnMode}/{(RaidTiming)r.Timing} created {r.CreatedAt:u}"));
-                    case "cancel": return await ops.CancelRaid(actor, long.Parse(Arg(1)), args.Count > 2 ? Rest(2) : "cancelled by admin") ? "raid cancelled" : "no such active raid";
+                    case "cancel":
+                    {
+                        // raids cancel <id> [--return] [reason]: --return also sends a landed raid's pawns home.
+                        bool returnPawns = args.Count > 2 && args[2] == "--return";
+                        int reasonAt = returnPawns ? 3 : 2;
+                        return await ops.CancelRaid(actor, long.Parse(Arg(1)), args.Count > reasonAt ? Rest(reasonAt) : "cancelled by admin", returnPawns) ? "raid cancelled" : "no such active raid";
+                    }
                     case "freeze": await ops.SetRaidsFrozen(actor, true, args.Count > 1 ? Rest(1) : "maintenance"); return "raids paused";
                     case "unfreeze": await ops.SetRaidsFrozen(actor, false, null); return "raids open";
                     case "stats":

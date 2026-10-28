@@ -41,7 +41,7 @@ public static class SaveSync
     /// </summary>
     public static void SaveLocallyForLater(string reason)
     {
-        if (!RimlinkSession.Active || Current.Game == null || Current.ProgramState != ProgramState.Playing) return;
+        if (!RimlinkSession.Active || Current.Game == null || Current.ProgramState != ProgramState.Playing || Visits.VisitSession.InVisit) return; // a visit's game is the host's copy; the own colony is already uploaded
         var pending = Pending;
         try
         {
@@ -99,7 +99,7 @@ public static class SaveSync
     /// <summary>Saves the multiplayer file (triggers the upload via the patch). False when nothing was queued.</summary>
     public static bool TriggerSave(string reason)
     {
-        if (!RimlinkSession.Active || Current.Game == null || IsSaving) return false;
+        if (!RimlinkSession.Active || Current.Game == null || IsSaving || Visits.VisitSession.InVisit) return false;
         IsSaving = true;
         upload = null; // a save that fails leaves nothing to wait for
         LongEventHandler.QueueLongEvent(() =>

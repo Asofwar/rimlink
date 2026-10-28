@@ -29,6 +29,7 @@ public static class Incoming
     public static void Tick()
     {
         if (DateTime.UtcNow - lastAttempt < TimeSpan.FromSeconds(5)) return;
+        if (Visits.VisitSession.InVisit) { lastAttempt = DateTime.UtcNow; return; } // the loaded game is the host's colony, not ours
         if (RimlinkSession.State.Economy.Pending.Count > 0) DeliverPending();
         else lastAttempt = DateTime.UtcNow;
         if (Current.ProgramState == ProgramState.Playing && Find.CurrentMap is { IsPlayerHome: true } map) Outgoing.ReturnRefused(map);
@@ -37,7 +38,7 @@ public static class Incoming
     public static void DeliverPending()
     {
         lastAttempt = DateTime.UtcNow;
-        if (!RimlinkSession.Active || RimlinkSession.Economy is not { } economy || Current.ProgramState != ProgramState.Playing) return;
+        if (!RimlinkSession.Active || Visits.VisitSession.InVisit || RimlinkSession.Economy is not { } economy || Current.ProgramState != ProgramState.Playing) return;
         var map = Find.CurrentMap;
         if (map is null || !map.IsPlayerHome) return;
         var outbox = RimlinkSession.Outbox;

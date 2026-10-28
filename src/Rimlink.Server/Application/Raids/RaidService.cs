@@ -81,9 +81,14 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
     public Task<List<Raid>> Mine(long attackerId) =>
         db.Raids.AsNoTracking().Where(r => r.AttackerPlayerId == attackerId).OrderByDescending(r => r.Id).Take(50).ToListAsync();
 
-    public async Task<Raid> Get(long playerId, long raidId) =>
-        await db.Raids.AsNoTracking().FirstOrDefaultAsync(r => r.Id == raidId && (r.AttackerPlayerId == playerId || r.TargetPlayerId == playerId))
-        ?? throw new RpcException(new Status(StatusCode.NotFound, "no such raid"));
+    /// <summary>The attacker may look at any of their raids; the target only gets one it can still act on (an over raid must not land).</summary>
+    public async Task<Raid> Get(long playerId, long raidId)
+    {
+        var raid = await db.Raids.AsNoTracking().FirstOrDefaultAsync(r => r.Id == raidId && (r.AttackerPlayerId == playerId || r.TargetPlayerId == playerId))
+            ?? throw new RpcException(new Status(StatusCode.NotFound, "no such raid"));
+        if (raid.AttackerPlayerId != playerId && FinalStates.Contains(raid.State)) throw RpcErrors.Failed(ErrorCode.RaidGone, "that raid is over");
+        return raid;
+    }
 
     /// <summary>The target's game has the raid: Warned raids land one game day of the target's play later, Instant ones now.</summary>
     public async Task<Raid> Announce(long targetId, long raidId, long gameTick)
@@ -112,6 +117,8 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
         if (raid.State != RaidStateDb.Announced) throw new RpcException(new Status(StatusCode.FailedPrecondition, "the raid has not been announced"));
         raid.State = RaidStateDb.Landed;
         raid.LandedTick = gameTick;
+        // The defender now has the full window to report; a landed raid nobody reports expires like a queued one.
+        raid.ExpiresAt = DateTime.UtcNow + TimeSpan.FromDays(options.Value.ExpireRealDays);
         var target = await db.Players.FirstAsync(p => p.Id == targetId);
         if (gameTick > target.LastOutgoingTick) target.LastOutgoingTick = gameTick;
         await db.SaveChangesAsync();
@@ -183,17 +190,19 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
         foreach (var parcel in parcels) await mailbox.Announce(parcel);
     }
 
-    /// <summary>Queued or announced raids past their expiry go back to the attacker (Real pawns as a parcel).</summary>
+    /// <summary>
+    /// Raids past their expiry go back to the attacker (Real pawns as a parcel): queued and announced ones the defender never
+    /// played, landed ones the defender never reported (the copies on their map stay there; the originals come home).
+    /// </summary>
     public async Task<int> ExpireDue(DateTime now)
     {
-        var due = await db.Raids.Where(r => PendingStates.Contains(r.State) && r.ExpiresAt <= now).ToListAsync();
+        var due = await db.Raids.Where(r => !FinalStates.Contains(r.State) && r.ExpiresAt <= now).ToListAsync();
         int n = 0;
         foreach (var raid in due)
         {
             try
             {
-                await Close(raid, RaidStateDb.Expired, returnPawns: true, "expired");
-                n++;
+                if (await Close(raid, RaidStateDb.Expired, returnPawns: true, "expired")) n++;
             }
             catch (Exception ex)
             {
@@ -204,13 +213,15 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
         return n;
     }
 
-    /// <summary>Admin cancellation. Pawns still in escrow (not landed) go back; a landed raid stays with the defender's map.</summary>
-    public async Task<bool> Cancel(long raidId, string reason)
+    /// <summary>
+    /// Admin cancellation. Pawns still in escrow (not landed) go back; a landed raid's copies stay with the defender's map
+    /// unless <paramref name="returnPawns"/> says the originals go home too (a raid stuck on a map nobody plays).
+    /// </summary>
+    public async Task<bool> Cancel(long raidId, string reason, bool returnPawns = false)
     {
         var raid = await db.Raids.FirstOrDefaultAsync(r => r.Id == raidId);
         if (raid is null || FinalStates.Contains(raid.State)) return false;
-        await Close(raid, RaidStateDb.Cancelled, returnPawns: raid.State != RaidStateDb.Landed, reason);
-        return true;
+        return await Close(raid, RaidStateDb.Cancelled, returnPawns: returnPawns || raid.State != RaidStateDb.Landed, reason);
     }
 
     /// <summary>The player's colony is gone (reset): raids at them give the pawns back, their own raids are dropped.</summary>
@@ -220,11 +231,14 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
             await Close(raid, RaidStateDb.Cancelled, returnPawns: raid.TargetPlayerId == playerId, reason);
     }
 
-    private async Task Close(Raid raid, RaidStateDb state, bool returnPawns, string reason)
+    /// <summary>False when the raid reached a final state between the caller's read and this transaction (a report that came in meanwhile).</summary>
+    private async Task<bool> Close(Raid raid, RaidStateDb state, bool returnPawns, string reason)
     {
         Parcel? back = null;
         await using (var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable))
         {
+            await db.Entry(raid).ReloadAsync();
+            if (FinalStates.Contains(raid.State)) return false;
             raid.State = state;
             raid.ResolvedAt = DateTime.UtcNow;
             if (returnPawns && raid.PawnMode == (int)PawnMode.PawnReal)
@@ -238,6 +252,7 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
         else events.SendTo(raid.AttackerPlayerId, new ServerEvent { Notice = new Notice { Text = $"Your raid was cancelled: {reason}" } });
         if (back is not null) await mailbox.Announce(back);
         log.LogInformation("Raid {Raid} {State}: {Reason}", raid.Id, state, reason);
+        return true;
     }
 
     public async Task<PlayerFlags> Flags(long playerId) => FlagsOf(await db.Players.AsNoTracking().FirstAsync(p => p.Id == playerId));

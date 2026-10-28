@@ -45,7 +45,7 @@ public static class AdminCommand
                 "raids" => a[0] switch
                 {
                     "list" => await rest.Get(a.Length > 1 ? $"raids?playerId={a[1]}" : "raids"),
-                    "cancel" => await rest.Post($"raids/{a[1]}/cancel", new { reason = string.Join(' ', a.Skip(2)) }),
+                    "cancel" => await rest.Post($"raids/{a[1]}/cancel", new { reason = string.Join(' ', a.Skip(2).Where(x => x != "--return")), returnPawns = a.Contains("--return") }),
                     "freeze" => await rest.Post("raids/freeze", new { frozen = true, reason = rest1 }),
                     "unfreeze" => await rest.Post("raids/freeze", new { frozen = false, reason = (string?)null }),
                     "stats" => await rest.Get("raids/stats"),

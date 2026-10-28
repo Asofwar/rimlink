@@ -69,6 +69,8 @@ public sealed class RaidOptions
     public int TimeoutDays { get; set; } = 3;
     public int ExpireRealDays { get; set; } = 7;
     public int PeacefulOffDelayHours { get; set; } = 24;
+    /// <summary>A visit ticket nobody ended (the visitor's game crashed) stops working after this many real hours.</summary>
+    public int VisitHours { get; set; } = 12;
 }
 
 public sealed class AdminOptions

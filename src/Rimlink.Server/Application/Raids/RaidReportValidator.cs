@@ -38,8 +38,9 @@ public sealed class RaidReportValidator(IOptions<RaidOptions> options, ParcelVal
         if (parcels.Validate(report.Loot, report.Captives) is { } reason) throw RpcErrors.Failed(ParcelValidator.CodeFor(reason), reason);
         if (survivors.Pawns.Count > 0 && parcels.Validate(null, survivors) is { } survivorReason) throw RpcErrors.Failed(ParcelValidator.CodeFor(survivorReason), survivorReason);
 
-        long lootValue = (report.Loot?.Items.Sum(i => i.MarketValueX100 * i.Count) ?? 0) / 100;
-        if (lootValue > raid.LootCap) throw RpcErrors.Failed(ErrorCode.LootOverCap, $"loot worth {lootValue} silver exceeds this raid's cap of {raid.LootCap}");
-        return lootValue;
+        // Hundredths of silver on both sides, the same integer formula the client trims with: no stack slips under the cap by rounding.
+        long lootX100 = report.Loot?.Items.Sum(i => i.MarketValueX100 * i.Count) ?? 0;
+        if (lootX100 > raid.LootCap * 100) throw RpcErrors.Failed(ErrorCode.LootOverCap, $"loot worth {lootX100 / 100.0:0.##} silver exceeds this raid's cap of {raid.LootCap}");
+        return lootX100 / 100;
     }
 }

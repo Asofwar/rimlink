@@ -65,11 +65,12 @@ public sealed class AdminOperations(
         return query.OrderByDescending(r => r.Id).Take(200).ToListAsync();
     }
 
-    public async Task<bool> CancelRaid(Actor actor, long raidId, string reason)
+    /// <param name="returnPawns">Also give a landed raid's pawns back to the attacker (they are otherwise left to the defender's map).</param>
+    public async Task<bool> CancelRaid(Actor actor, long raidId, string reason, bool returnPawns = false)
     {
         actor.Require(Role.Admin);
-        if (!await raids.Cancel(raidId, reason)) return false;
-        await Audit(actor, "raid-cancel", null, $"raid {raidId}: {reason}");
+        if (!await raids.Cancel(raidId, reason, returnPawns)) return false;
+        await Audit(actor, "raid-cancel", null, $"raid {raidId}: {reason}{(returnPawns ? " (pawns returned)" : "")}");
         return true;
     }
 

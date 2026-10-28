@@ -87,11 +87,14 @@ Asynchronous raids: an attacker's pawns wait on the server until the target next
 and the outcome comes back as parcels. Settings under `Raids` (defaults): `Enabled` true, `MaxRaiders` 10,
 `MaxActiveRaidsPerAttacker` 1, `TargetCooldownHours` 8, `PairCooldownHours` 24, `NewbieProtectionDays` 3,
 `MinColonyWealth` 20000, `LootCapPercent` 10, `LootCapSilver` 5000, `AllowKidnap` false, `WarnTicks` 60000,
-`TimeoutDays` 3, `ExpireRealDays` 7, `PeacefulOffDelayHours` 24. Wealth and the colony's age come from the save
-header: players who last saved before this version count as wealth 0 (protected) until their next save, and their
-oldest save counts as their first. Raids are refused while frozen (`/raids freeze`); visits and the shop keep working.
-Visits download the host's current save to the visitor (only while a visit is open); the shop lists what a host
-priced in their colony and sells it from the visitor's copy, the host's game removes the sold things at its next login.
+`TimeoutDays` 3, `ExpireRealDays` 7, `PeacefulOffDelayHours` 24, `VisitHours` 12. Wealth and the colony's age come
+from the save header: players who last saved before this version count as wealth 0 (protected) until their next save,
+and their oldest save counts as their first. A raid expires after `ExpireRealDays` real days without a landing, and a
+landed raid gets the same window again for the report; either way the attacker's Real pawns come home as a parcel.
+Raids are refused while frozen (`/raids freeze`); visits and the shop keep working. Visits download the host's current
+save to the visitor (only while a visit is open; a ticket nobody ended stops working after `VisitHours`); the shop lists
+what a host priced in their colony and sells it from the visitor's copy, the host's game removes the sold things at its
+next login.
 
 ## 6. Administration
 
@@ -101,10 +104,12 @@ priced in their colony and sells it from the visitor's copy, the host's game rem
 - Economy: chat `/wallet <player> [+n|-n] [reason]`, `/parcels <player>`, `/lots [player]`, `/refund lot <id>`,
   `/refund parcel <id>` (undelivered gift back to its sender), `/economy freeze [reason]|unfreeze|stats`; the same via
   `rimlink-tools admin wallet|parcels|lots|refund|economy …` and REST `/api/admin/economy/*`.
-- Raids: chat `/raids list [player]|cancel <id> [reason]|freeze [reason]|unfreeze|stats`, `/peaceful <player> on|off`
-  (no delay), `/shop <player>`, `/removals <player>`; the same via `rimlink-tools admin raids|peaceful|shop|removals …`
-  and REST `/api/admin/raids/*`, `/api/admin/players/{id}/peaceful`, `/api/admin/shop/{id}[/removals]`. Cancelling a
-  raid that has not landed returns the pawns to the attacker; a landed one stays with the defender's map.
+- Raids: chat `/raids list [player]|cancel <id> [--return] [reason]|freeze [reason]|unfreeze|stats`,
+  `/peaceful <player> on|off` (no delay), `/shop <player>`, `/removals <player>`; the same via
+  `rimlink-tools admin raids|peaceful|shop|removals …` and REST `/api/admin/raids/*` (cancel body
+  `{"reason": "...", "returnPawns": true}`), `/api/admin/players/{id}/peaceful`, `/api/admin/shop/{id}[/removals]`.
+  Cancelling a raid that has not landed returns the pawns to the attacker; a landed one stays with the defender's map
+  unless `--return` sends the attacker's originals home as well (the copies on the defender's map are not touched).
 - Every admin action is logged (`/actions`).
 
 ## 7. Backups

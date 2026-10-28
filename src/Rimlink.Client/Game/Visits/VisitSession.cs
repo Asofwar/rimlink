@@ -20,6 +20,11 @@ public static class VisitSession
 {
     public static VisitPending? Pending { get; private set; }
     public static bool Active { get; private set; }
+    /// <summary>
+    /// True from the moment the host's save starts loading until the visit is over: the loaded game is not this
+    /// player's colony, so nothing that acts on "the home map" (deliveries, raids, shop removals, saves) may run.
+    /// </summary>
+    public static bool InVisit => Active || Pending is not null;
     public static long VisitId { get; private set; }
     public static long HostId { get; private set; }
     public static string HostName { get; private set; } = "";
@@ -120,6 +125,7 @@ public static class VisitSession
         Pending = null;
         try
         {
+            if (Find.Maps.Count == 0) throw new InvalidOperationException("the host's save loaded without a map");
             VisitLoader.Apply(pending);
             Active = true;
             VisitId = pending.VisitId;
@@ -156,6 +162,14 @@ public static class VisitSession
         Active = false;
         HostShop.Clear();
         if (RimlinkSession.Visits is { } visits) _ = visits.End(visitId, CancellationToken.None);
+        DeleteVisitFile(hostId);
+        if (!RimlinkSession.Active) { GenScene.GoToMainMenu(); return; }
+        RimlinkLog.Instance.Info("visit over, loading the own colony");
+        GameDataSaveLoader.LoadGame(SaveSync.SaveFileName);
+    }
+
+    private static void DeleteVisitFile(long hostId)
+    {
         try
         {
             string path = GenFilePaths.FilePathForSavedGame(SaveName(hostId));
@@ -165,17 +179,24 @@ public static class VisitSession
         {
             RimlinkLog.Instance.Warn("could not delete the visit file: " + ex.Message);
         }
-        if (!RimlinkSession.Active) { GenScene.GoToMainMenu(); return; }
-        RimlinkLog.Instance.Info("visit over, loading the own colony");
-        GameDataSaveLoader.LoadGame(SaveSync.SaveFileName);
     }
 
-    /// <summary>The session ended (lost connection, menu): a visit cannot continue without its ticket.</summary>
+    /// <summary>
+    /// The session is ending (lost connection, menu, a load error on the host's copy): a visit cannot continue without
+    /// its ticket. The ticket is closed on a best-effort basis while the connection still exists (the server closes a
+    /// forgotten one after Raids:VisitHours anyway) and the host's copy is deleted; the caller takes the game to the menu.
+    /// </summary>
     public static void Reset()
     {
+        long visitId = Active ? VisitId : Pending?.VisitId ?? 0;
+        long hostId = Active ? HostId : Pending?.HostId ?? 0;
         Active = false;
         Pending = null;
         HostShop.Clear();
+        if (visitId == 0) return;
+        RimlinkLog.Instance.Info($"visit {visitId} ends with the session");
+        if (RimlinkSession.Visits is { } visits) _ = visits.End(visitId, CancellationToken.None);
+        DeleteVisitFile(hostId);
     }
 }
 
