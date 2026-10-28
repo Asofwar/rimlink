@@ -181,6 +181,8 @@ public sealed class Transfer
     public long GameTick { get; set; }
     public string Summary { get; set; } = "";
     public DateTime At { get; set; }
+    /// <summary>Set for client-initiated operations without a parcel or lot of their own (deposits), to make repeats no-ops.</summary>
+    public string? ClientRequestId { get; set; }
 }
 
 /// <summary>ThingDef/PawnKindDef names of the server modpack; empty table = blob def check off.</summary>

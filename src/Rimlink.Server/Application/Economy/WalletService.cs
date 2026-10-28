@@ -5,6 +5,8 @@ using Rimlink.Server.Grpc;
 using Rimlink.Server.Storage;
 using Rimlink.Server.Storage.Entities;
 using Wallet = Rimlink.Server.Storage.Entities.Wallet;
+using Parcel = Rimlink.Server.Storage.Entities.Parcel;
+using Transfer = Rimlink.Server.Storage.Entities.Transfer;
 
 namespace Rimlink.Server.Application.Economy;
 
@@ -40,6 +42,45 @@ public sealed class WalletService(RimlinkDbContext db, EventBus events)
         if (playerId != BankPlayerId)
             events.SendTo(playerId, new ServerEvent { WalletChanged = new WalletChanged { Balance = wallet.Balance, Delta = delta, Kind = kind } });
         return entry;
+    }
+
+    /// <summary>Silver taken off the map goes into the wallet; the save tick is stamped like any outgoing transfer.</summary>
+    public async Task<long> Deposit(long playerId, DepositRequest request, TransferService transfers, EconomyGate gate)
+    {
+        gate.RequireOpen();
+        if (request.Silver < 1) throw RpcErrors.Failed(ErrorCode.Unspecified, "silver must be at least 1");
+        await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+        if (!string.IsNullOrEmpty(request.ClientRequestId) && await db.Transfers.AnyAsync(t => t.ClientRequestId == request.ClientRequestId))
+            return await Balance(playerId);
+        await Apply(playerId, request.Silver, "deposit", 0);
+        await transfers.StampOutgoing(playerId, request.GameTick);
+        db.Transfers.Add(new Transfer { FromPlayerId = playerId, Kind = "deposit", GameTick = request.GameTick, Summary = $"{request.Silver} silver", At = DateTime.UtcNow, ClientRequestId = string.IsNullOrEmpty(request.ClientRequestId) ? null : request.ClientRequestId });
+        await db.SaveChangesAsync();
+        await tx.CommitAsync();
+        return await Balance(playerId);
+    }
+
+    /// <summary>Silver leaves the wallet now and arrives as a physical stack in a parcel; delivery credits nothing.</summary>
+    public async Task<Parcel> Withdraw(long playerId, WithdrawRequest request, MailboxService mailbox, EconomyGate gate)
+    {
+        gate.RequireOpen();
+        if (request.Silver < 1) throw RpcErrors.Failed(ErrorCode.Unspecified, "silver must be at least 1");
+        await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+        if (!string.IsNullOrEmpty(request.ClientRequestId))
+        {
+            var existing = await db.Parcels.AsNoTracking().FirstOrDefaultAsync(p => p.ClientRequestId == request.ClientRequestId);
+            if (existing is not null) return existing;
+        }
+        long balance = await Balance(playerId);
+        if (balance < request.Silver)
+            throw RpcErrors.Failed(ErrorCode.WalletInsufficient, $"not enough silver: balance {balance}, needed {request.Silver}");
+        var parcel = await mailbox.Create(playerId, null, ParcelKindDb.Withdraw, null, null, request.Silver, string.IsNullOrEmpty(request.ClientRequestId) ? null : request.ClientRequestId);
+        await Apply(playerId, -request.Silver, "withdraw", parcel.Id);
+        db.Transfers.Add(new Transfer { FromPlayerId = playerId, Kind = "withdraw", GameTick = 0, Summary = $"{request.Silver} silver", At = DateTime.UtcNow });
+        await db.SaveChangesAsync();
+        await tx.CommitAsync();
+        await mailbox.Announce(parcel);
+        return parcel;
     }
 
     public Task<List<WalletEntry>> History(long playerId, int limit = 200) =>

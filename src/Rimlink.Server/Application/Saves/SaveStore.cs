@@ -47,6 +47,9 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, EventBus 
             }
 
             if (SaveValidator.Validate(temp, world.Seed, out string? factionName) is { } reason) throw new SaveRejected(reason);
+            // Items given away after this save's tick are already in another player's mailbox: this file would bring them back.
+            if (header.GameTick < player.LastOutgoingTick)
+                throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.SaveStale, $"save tick {header.GameTick} is older than your last transfer at tick {player.LastOutgoingTick}");
 
             // From here on the upload is complete: finish without the call token, so a client that drops right
             // after its last chunk does not leave a file without a row (or a row without a file).
@@ -113,6 +116,9 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, EventBus 
         await using var tx = await db.Database.BeginTransactionAsync();
         await db.SaveVersions.Where(v => v.PlayerId == playerId && v.IsCurrent && v.Id != target.Id).ExecuteUpdateAsync(s => s.SetProperty(v => v.IsCurrent, false));
         target.IsCurrent = true;
+        // An admin rolling back behind a transfer knowingly returns what was given away; the stale-save guard moves with it.
+        var player = await db.Players.FirstAsync(p => p.Id == playerId);
+        if (player.LastOutgoingTick > target.GameTick) player.LastOutgoingTick = target.GameTick;
         await db.SaveChangesAsync();
         await tx.CommitAsync();
 

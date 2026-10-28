@@ -101,6 +101,7 @@ public sealed class RimlinkDbContext(DbContextOptions<RimlinkDbContext> options)
         {
             e.ToTable("transfers");
             e.HasIndex(t => t.FromPlayerId);
+            e.HasIndex(t => t.ClientRequestId).IsUnique().HasFilter("\"ClientRequestId\" IS NOT NULL");
         });
         model.Entity<ModpackDef>(e =>
         {

@@ -411,6 +411,9 @@ namespace Rimlink.Server.Storage.Migrations
                     b.Property<DateTime>("At")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("ClientRequestId")
+                        .HasColumnType("TEXT");
+
                     b.Property<long>("FromPlayerId")
                         .HasColumnType("INTEGER");
 
@@ -429,6 +432,10 @@ namespace Rimlink.Server.Storage.Migrations
                         .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ClientRequestId")
+                        .IsUnique()
+                        .HasFilter("\"ClientRequestId\" IS NOT NULL");
 
                     b.HasIndex("FromPlayerId");
 

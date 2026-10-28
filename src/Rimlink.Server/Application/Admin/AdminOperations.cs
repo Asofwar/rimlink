@@ -112,8 +112,10 @@ public sealed class AdminOperations(
     {
         actor.Require(Role.Admin);
         var player = await FindPlayer(playerId);
+        long targetTick = await db.SaveVersions.AsNoTracking().Where(v => v.PlayerId == playerId && v.Number == version).Select(v => v.GameTick).FirstOrDefaultAsync();
+        bool returnsGivenAway = targetTick < player.LastOutgoingTick;
         bool ok = await saves.Rollback(playerId, version);
-        if (ok) await Audit(actor, "rollback", player.AccountId, $"to v{version}");
+        if (ok) await Audit(actor, "rollback", player.AccountId, $"to v{version}" + (returnsGivenAway ? $" (returns items given away after tick {targetTick})" : ""));
         return ok;
     }
 

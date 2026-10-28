@@ -4,8 +4,14 @@ using Rimlink.Server.Application.Economy;
 
 namespace Rimlink.Server.Grpc;
 
-public sealed class WalletGrpcService(WalletService wallet, EconomyGate gate) : Protocol.V1.Wallet.WalletBase
+public sealed class WalletGrpcService(WalletService wallet, EconomyGate gate, TransferService transfers, MailboxService mailbox) : Protocol.V1.Wallet.WalletBase
 {
+    public override async Task<WalletState> Deposit(DepositRequest request, ServerCallContext context) =>
+        new() { Balance = await wallet.Deposit(context.GetSession().PlayerId, request, transfers, gate) };
+
+    public override async Task<Parcel> Withdraw(WithdrawRequest request, ServerCallContext context) =>
+        await mailbox.ToProto(await wallet.Withdraw(context.GetSession().PlayerId, request, mailbox, gate));
+
     public override async Task<WalletState> Get(Empty request, ServerCallContext context)
     {
         gate.RequireOpen();

@@ -85,7 +85,8 @@ namespace Rimlink.Server.Storage.Migrations
                     Kind = table.Column<string>(type: "TEXT", nullable: false),
                     GameTick = table.Column<long>(type: "INTEGER", nullable: false),
                     Summary = table.Column<string>(type: "TEXT", nullable: false),
-                    At = table.Column<DateTime>(type: "TEXT", nullable: false)
+                    At = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    ClientRequestId = table.Column<string>(type: "TEXT", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -151,6 +152,13 @@ namespace Rimlink.Server.Storage.Migrations
                 name: "IX_parcels_ToPlayerId_DeliveredAt",
                 table: "parcels",
                 columns: new[] { "ToPlayerId", "DeliveredAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_transfers_ClientRequestId",
+                table: "transfers",
+                column: "ClientRequestId",
+                unique: true,
+                filter: "\"ClientRequestId\" IS NOT NULL");
 
             migrationBuilder.CreateIndex(
                 name: "IX_transfers_FromPlayerId",

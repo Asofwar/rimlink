@@ -11,7 +11,7 @@ using Rimlink.Server.Storage;
 namespace Rimlink.Server.Storage.Migrations
 {
     [DbContext(typeof(RimlinkDbContext))]
-    [Migration("20261028182643_Economy")]
+    [Migration("20261028183811_Economy")]
     partial class Economy
     {
         /// <inheritdoc />
@@ -414,6 +414,9 @@ namespace Rimlink.Server.Storage.Migrations
                     b.Property<DateTime>("At")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("ClientRequestId")
+                        .HasColumnType("TEXT");
+
                     b.Property<long>("FromPlayerId")
                         .HasColumnType("INTEGER");
 
@@ -432,6 +435,10 @@ namespace Rimlink.Server.Storage.Migrations
                         .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ClientRequestId")
+                        .IsUnique()
+                        .HasFilter("\"ClientRequestId\" IS NOT NULL");
 
                     b.HasIndex("FromPlayerId");
 
