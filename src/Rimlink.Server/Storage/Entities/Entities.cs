@@ -35,6 +35,8 @@ public sealed class Player
     public uint ColorArgb { get; set; } = 0xFF4A90D9;
     public string? LastIp { get; set; }
     public DateTime? MutedUntil { get; set; }
+    /// <summary>Tick of the save that accompanied the last outgoing transfer; older saves are refused (they would restore what was given away).</summary>
+    public long LastOutgoingTick { get; set; }
 }
 
 public sealed class SessionLog
@@ -113,6 +115,78 @@ public sealed class SaveVersion
     public byte[] Sha256 { get; set; } = [];
     public DateTime CreatedAt { get; set; }
     public bool IsCurrent { get; set; }
+}
+
+public enum ParcelKindDb { Gift = 0, Purchase = 1, LotReturn = 2, Withdraw = 3, Admin = 4 }
+
+public enum LotStatusDb { Open = 0, Sold = 1, Withdrawn = 2, Expired = 3 }
+
+/// <summary>Silver balance per player; the bank (fees) is player 0. Always equals the sum of the player's <see cref="WalletEntry"/> rows.</summary>
+public sealed class Wallet
+{
+    public long PlayerId { get; set; }
+    public long Balance { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}
+
+public sealed class WalletEntry
+{
+    public long Id { get; set; }
+    public long PlayerId { get; set; }
+    public long Delta { get; set; }
+    public string Kind { get; set; } = "";
+    public long RefId { get; set; }
+    public DateTime At { get; set; }
+}
+
+/// <summary>Items, pawns and silver waiting for a player; delivered when their game spawns them.</summary>
+public sealed class Parcel
+{
+    public long Id { get; set; }
+    public long ToPlayerId { get; set; }
+    public long? FromPlayerId { get; set; }
+    public ParcelKindDb Kind { get; set; }
+    public byte[] Items { get; set; } = [];
+    public byte[] Pawns { get; set; } = [];
+    public long Silver { get; set; }
+    public int SizeBytes { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? DeliveredAt { get; set; }
+    public long? DeliveredTick { get; set; }
+    public string? ClientRequestId { get; set; }
+}
+
+public sealed class Lot
+{
+    public long Id { get; set; }
+    public long SellerPlayerId { get; set; }
+    public byte[] Items { get; set; } = [];
+    public byte[]? Pawn { get; set; }
+    public long Price { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime ExpiresAt { get; set; }
+    public LotStatusDb Status { get; set; }
+    public long? BuyerPlayerId { get; set; }
+    public DateTime? ClosedAt { get; set; }
+    public string? ClientRequestId { get; set; }
+}
+
+/// <summary>Ledger of everything that moved between players, with the sender's save tick.</summary>
+public sealed class Transfer
+{
+    public long Id { get; set; }
+    public long FromPlayerId { get; set; }
+    public long? ToPlayerId { get; set; }
+    public string Kind { get; set; } = "";
+    public long GameTick { get; set; }
+    public string Summary { get; set; } = "";
+    public DateTime At { get; set; }
+}
+
+/// <summary>ThingDef/PawnKindDef names of the server modpack; empty table = blob def check off.</summary>
+public sealed class ModpackDef
+{
+    public string DefName { get; set; } = "";
 }
 
 public sealed class AdminAction

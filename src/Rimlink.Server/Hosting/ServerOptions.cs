@@ -34,6 +34,22 @@ public sealed class AuthOptions
     public string[] AdminLogins { get; set; } = [];
 }
 
+/// <summary>Economy limits (sub-project 2 spec §3); mirrored for the client in <c>Rimlink.Protocol.Limits.Economy*</c>.</summary>
+public sealed class EconomyOptions
+{
+    public const string Section = "Economy";
+
+    public bool Enabled { get; set; } = true;
+    public int MaxParcelBytes { get; set; } = Protocol.Limits.EconomyMaxParcelBytes;
+    public int MaxItemsPerParcel { get; set; } = Protocol.Limits.EconomyMaxItemsPerParcel;
+    public int MaxPawnsPerParcel { get; set; } = Protocol.Limits.EconomyMaxPawnsPerParcel;
+    public int MaxLotsPerPlayer { get; set; } = 20;
+    public int MaxPendingParcels { get; set; } = 50;
+    public int LotLifetimeDays { get; set; } = 30;
+    public int MarketFeePercent { get; set; } = 0;
+    public int SendCooldownSeconds { get; set; } = 5;
+}
+
 public sealed class AdminOptions
 {
     public const string Section = "Admin";

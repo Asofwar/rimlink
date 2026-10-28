@@ -37,6 +37,30 @@ public class SchemaTests : IDisposable
     }
 
     [Fact]
+    public void EconomyTablesExist()
+    {
+        using var db = CreateContext();
+
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = "SELECT name FROM sqlite_master WHERE type = 'table'";
+        var tables = new List<string>();
+        using (var reader = cmd.ExecuteReader()) while (reader.Read()) tables.Add(reader.GetString(0));
+
+        foreach (string table in new[] { "wallets", "wallet_entries", "parcels", "lots", "transfers", "modpack_defs" }) Assert.Contains(table, tables);
+        Assert.Equal(0L, db.Players.Select(p => p.LastOutgoingTick).FirstOrDefault());
+    }
+
+    [Fact]
+    public void NegativeWalletBalanceIsRejected()
+    {
+        using var db = CreateContext();
+        db.Wallets.Add(new Wallet { PlayerId = 1, Balance = -1, UpdatedAt = DateTime.UtcNow });
+
+        var ex = Assert.Throws<DbUpdateException>(() => db.SaveChanges());
+        Assert.Equal(19, Assert.IsType<SqliteException>(ex.InnerException).SqliteErrorCode);
+    }
+
+    [Fact]
     public void SecondSettlementOnSameTileIsRejected()
     {
         using var db = CreateContext();

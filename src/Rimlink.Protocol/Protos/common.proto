@@ -18,6 +18,15 @@ enum ErrorCode {
   NAME_INVALID = 9;
   SAVE_INVALID = 10;
   MUTED = 11;
+  // Economy (sub-project 2).
+  WALLET_INSUFFICIENT = 12;
+  LOT_GONE = 13;
+  PARCEL_TOO_BIG = 14;
+  DEF_NOT_IN_MODPACK = 15;
+  SAVE_STALE = 16;
+  RECIPIENT_UNKNOWN = 17;
+  ECONOMY_FROZEN = 18;
+  SELF_TRADE = 19;
 }
 
 // Attached to failed calls as the "rimlink-error-bin" trailer.

@@ -1,0 +1,171 @@
+syntax = "proto3";
+
+package rimlink.v1;
+option csharp_namespace = "Rimlink.Protocol.V1";
+
+import "google/protobuf/timestamp.proto";
+import "common.proto";
+
+// Economy (sub-project 2): wallet, mailbox, market board and direct transfers.
+// Items and pawns travel as opaque Scribe XML blobs; the server reads only the descriptor fields.
+
+message SkillBrief {
+  string skill_def = 1;
+  int32 level = 2;
+}
+
+message ItemBlob {
+  string def_name = 1;
+  string stuff_def = 2;
+  int32 count = 3;
+  int32 quality = 4;       // -1 when the thing has no quality
+  int32 hit_points = 5;
+  int32 max_hit_points = 6;
+  int64 market_value_x100 = 7;
+  string label = 8;
+  bytes scribe_xml_zstd = 9;
+}
+
+message PawnBlob {
+  string kind_def = 1;
+  string name = 2;
+  bool humanlike = 3;
+  int32 age_years = 4;
+  string label = 5;
+  repeated SkillBrief skills = 6;
+  bytes scribe_xml_zstd = 7;
+}
+
+message ItemList { repeated ItemBlob items = 1; }
+message PawnList { repeated PawnBlob pawns = 1; }
+
+enum ParcelKind {
+  PARCEL_GIFT = 0;
+  PARCEL_PURCHASE = 1;
+  PARCEL_LOT_RETURN = 2;
+  PARCEL_WITHDRAW = 3;
+  PARCEL_ADMIN = 4;
+}
+
+message Parcel {
+  int64 id = 1;
+  PlayerRef from = 2;          // unset for market returns, withdrawals and admin parcels
+  ParcelKind kind = 3;
+  ItemList items = 4;
+  PawnList pawns = 5;
+  int64 silver = 6;
+  google.protobuf.Timestamp created_at = 7;
+  // The client already delivered this parcel but saved before that: it must drop again.
+  bool redeliver = 8;
+  int64 delivered_tick = 9;
+  int32 size_bytes = 10;
+}
+
+message ParcelList { repeated Parcel parcels = 1; }
+
+enum LotStatus {
+  LOT_OPEN = 0;
+  LOT_SOLD = 1;
+  LOT_WITHDRAWN = 2;
+  LOT_EXPIRED = 3;
+}
+
+message Lot {
+  int64 id = 1;
+  PlayerRef seller = 2;
+  ItemList items = 3;
+  PawnBlob pawn = 4;
+  int64 price = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp expires_at = 7;
+  LotStatus status = 8;
+}
+
+message LotList {
+  repeated Lot lots = 1;
+  int32 total = 2;
+}
+
+message WalletState { int64 balance = 1; }
+
+message WalletEntryMsg {
+  int64 id = 1;
+  int64 delta = 2;
+  string kind = 3;
+  int64 ref_id = 4;
+  google.protobuf.Timestamp at = 5;
+}
+
+message WalletHistory { repeated WalletEntryMsg entries = 1; }
+
+// client_request_id (a client GUID) makes the call idempotent: a repeat returns the first result.
+message DepositRequest {
+  string client_request_id = 1;
+  int64 silver = 2;
+  int64 game_tick = 3;
+}
+
+message WithdrawRequest {
+  string client_request_id = 1;
+  int64 silver = 2;
+}
+
+message DeliverRequest {
+  int64 parcel_id = 1;
+  int64 game_tick = 2;
+}
+
+message MarketQuery {
+  int64 seller_player_id = 1;
+  string text = 2;
+  int32 page = 3;
+}
+
+message PostRequest {
+  string client_request_id = 1;
+  ItemList items = 2;
+  PawnBlob pawn = 3;
+  int64 price = 4;
+  int64 game_tick = 5;
+}
+
+message LotRef { int64 lot_id = 1; }
+
+message TransferRequest {
+  string client_request_id = 1;
+  int64 to_player_id = 2;
+  ItemList items = 3;
+  PawnList pawns = 4;
+  int64 silver = 5;
+  int64 game_tick = 6;
+}
+
+service Wallet {
+  rpc Get (Empty) returns (WalletState);
+  rpc Deposit (DepositRequest) returns (WalletState);
+  rpc Withdraw (WithdrawRequest) returns (Parcel);
+  rpc History (Empty) returns (WalletHistory);
+}
+
+service Mailbox {
+  // Undelivered parcels plus delivered ones the player's current save does not contain yet (redeliver = true).
+  rpc List (Empty) returns (ParcelList);
+  rpc Deliver (DeliverRequest) returns (Empty);
+}
+
+service Market {
+  rpc List (MarketQuery) returns (LotList);
+  rpc Post (PostRequest) returns (Lot);
+  rpc Withdraw (LotRef) returns (Parcel);
+  rpc Buy (LotRef) returns (Parcel);
+}
+
+service Transfer {
+  rpc Send (TransferRequest) returns (Parcel);
+}
+
+// Events carried by ServerEvent.
+message ParcelArrived { Parcel parcel = 1; }
+message LotSold { int64 lot_id = 1; PlayerRef buyer = 2; int64 price = 3; int64 proceeds = 4; }
+message LotClosed { int64 lot_id = 1; string reason = 2; }
+message WalletChanged { int64 balance = 1; int64 delta = 2; string kind = 3; }

@@ -155,6 +155,66 @@ namespace Rimlink.Server.Storage.Migrations
                     b.ToTable("chat_messages", (string)null);
                 });
 
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.Lot", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("BuyerPlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ClientRequestId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("Items")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<byte[]>("Pawn")
+                        .HasColumnType("BLOB");
+
+                    b.Property<long>("Price")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("SellerPlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientRequestId")
+                        .IsUnique()
+                        .HasFilter("\"ClientRequestId\" IS NOT NULL");
+
+                    b.HasIndex("SellerPlayerId");
+
+                    b.HasIndex("Status", "ExpiresAt");
+
+                    b.ToTable("lots", (string)null);
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.ModpackDef", b =>
+                {
+                    b.Property<string>("DefName")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("DefName");
+
+                    b.ToTable("modpack_defs", (string)null);
+                });
+
             modelBuilder.Entity("Rimlink.Server.Storage.Entities.ModpackEntry", b =>
                 {
                     b.Property<long>("Id")
@@ -189,6 +249,58 @@ namespace Rimlink.Server.Storage.Migrations
                     b.ToTable("modpack_entries", (string)null);
                 });
 
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.Parcel", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ClientRequestId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeliveredAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("DeliveredTick")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("FromPlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<byte[]>("Items")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<byte[]>("Pawns")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<long>("Silver")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("SizeBytes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("ToPlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientRequestId")
+                        .IsUnique()
+                        .HasFilter("\"ClientRequestId\" IS NOT NULL");
+
+                    b.HasIndex("ToPlayerId", "DeliveredAt");
+
+                    b.ToTable("parcels", (string)null);
+                });
+
             modelBuilder.Entity("Rimlink.Server.Storage.Entities.Player", b =>
                 {
                     b.Property<long>("Id")
@@ -207,6 +319,9 @@ namespace Rimlink.Server.Storage.Migrations
 
                     b.Property<string>("LastIp")
                         .HasColumnType("TEXT");
+
+                    b.Property<long>("LastOutgoingTick")
+                        .HasColumnType("INTEGER");
 
                     b.Property<DateTime?>("MutedUntil")
                         .HasColumnType("TEXT");
@@ -285,6 +400,87 @@ namespace Rimlink.Server.Storage.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("sessions", (string)null);
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.Transfer", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("At")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("FromPlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("GameTick")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("ToPlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FromPlayerId");
+
+                    b.ToTable("transfers", (string)null);
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.Wallet", b =>
+                {
+                    b.Property<long>("PlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("Balance")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("PlayerId");
+
+                    b.ToTable("wallets", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_wallets_balance", "\"Balance\" >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.WalletEntry", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("At")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("Delta")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("PlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("RefId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlayerId");
+
+                    b.ToTable("wallet_entries", (string)null);
                 });
 
             modelBuilder.Entity("Rimlink.Server.Storage.Entities.World", b =>

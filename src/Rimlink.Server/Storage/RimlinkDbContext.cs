@@ -15,6 +15,12 @@ public sealed class RimlinkDbContext(DbContextOptions<RimlinkDbContext> options)
     public DbSet<ModpackEntry> ModpackEntries => Set<ModpackEntry>();
     public DbSet<SaveVersion> SaveVersions => Set<SaveVersion>();
     public DbSet<AdminAction> AdminActions => Set<AdminAction>();
+    public DbSet<Wallet> Wallets => Set<Wallet>();
+    public DbSet<WalletEntry> WalletEntries => Set<WalletEntry>();
+    public DbSet<Parcel> Parcels => Set<Parcel>();
+    public DbSet<Lot> Lots => Set<Lot>();
+    public DbSet<Transfer> Transfers => Set<Transfer>();
+    public DbSet<ModpackDef> ModpackDefs => Set<ModpackDef>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -66,5 +72,40 @@ public sealed class RimlinkDbContext(DbContextOptions<RimlinkDbContext> options)
             e.HasIndex(s => new { s.PlayerId, s.Number }).IsUnique();
         });
         model.Entity<AdminAction>(e => e.ToTable("admin_actions"));
+
+        model.Entity<Wallet>(e =>
+        {
+            e.ToTable("wallets", t => t.HasCheckConstraint("CK_wallets_balance", "\"Balance\" >= 0"));
+            e.HasKey(w => w.PlayerId);
+            e.Property(w => w.PlayerId).ValueGeneratedNever();
+        });
+        model.Entity<WalletEntry>(e =>
+        {
+            e.ToTable("wallet_entries");
+            e.HasIndex(w => w.PlayerId);
+        });
+        model.Entity<Parcel>(e =>
+        {
+            e.ToTable("parcels");
+            e.HasIndex(p => new { p.ToPlayerId, p.DeliveredAt });
+            e.HasIndex(p => p.ClientRequestId).IsUnique().HasFilter("\"ClientRequestId\" IS NOT NULL");
+        });
+        model.Entity<Lot>(e =>
+        {
+            e.ToTable("lots");
+            e.HasIndex(l => new { l.Status, l.ExpiresAt });
+            e.HasIndex(l => l.SellerPlayerId);
+            e.HasIndex(l => l.ClientRequestId).IsUnique().HasFilter("\"ClientRequestId\" IS NOT NULL");
+        });
+        model.Entity<Transfer>(e =>
+        {
+            e.ToTable("transfers");
+            e.HasIndex(t => t.FromPlayerId);
+        });
+        model.Entity<ModpackDef>(e =>
+        {
+            e.ToTable("modpack_defs");
+            e.HasKey(d => d.DefName);
+        });
     }
 }

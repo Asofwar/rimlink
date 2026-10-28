@@ -8,6 +8,7 @@ import "common.proto";
 import "world.proto";
 import "saves.proto";
 import "chat.proto";
+import "economy.proto";
 
 // One server-push stream per session; everything that changes arrives here.
 service Events {
@@ -27,6 +28,10 @@ message ServerEvent {
     Notice notice = 40;
     ServerShutdown shutdown = 41;
     SaveRolledBack save_rolled_back = 42;
+    ParcelArrived parcel_arrived = 50;
+    LotSold lot_sold = 51;
+    LotClosed lot_closed = 52;
+    WalletChanged wallet_changed = 53;
   }
 }
 

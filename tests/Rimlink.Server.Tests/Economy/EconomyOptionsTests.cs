@@ -1,0 +1,39 @@
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using Rimlink.Server.Hosting;
+using Rimlink.Server.Tests.Support;
+using Xunit;
+
+namespace Rimlink.Server.Tests.Economy;
+
+public class EconomyOptionsTests
+{
+    [Fact]
+    public void DefaultsMatchTheSpec()
+    {
+        using var fixture = new ServerFixture();
+
+        var o = fixture.Services.GetRequiredService<IOptions<EconomyOptions>>().Value;
+
+        Assert.True(o.Enabled);
+        Assert.Equal(4 * 1024 * 1024, o.MaxParcelBytes);
+        Assert.Equal(200, o.MaxItemsPerParcel);
+        Assert.Equal(10, o.MaxPawnsPerParcel);
+        Assert.Equal(20, o.MaxLotsPerPlayer);
+        Assert.Equal(50, o.MaxPendingParcels);
+        Assert.Equal(30, o.LotLifetimeDays);
+        Assert.Equal(0, o.MarketFeePercent);
+        Assert.Equal(5, o.SendCooldownSeconds);
+    }
+
+    [Fact]
+    public void SettingsOverrideDefaults()
+    {
+        using var fixture = new ServerFixture().WithSetting("Economy:MarketFeePercent", "10").WithSetting("Economy:Enabled", "false");
+
+        var o = fixture.Services.GetRequiredService<IOptions<EconomyOptions>>().Value;
+
+        Assert.Equal(10, o.MarketFeePercent);
+        Assert.False(o.Enabled);
+    }
+}

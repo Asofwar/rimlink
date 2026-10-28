@@ -33,6 +33,7 @@ builder.Services.Configure<TlsOptions>(builder.Configuration.GetSection(TlsOptio
 builder.Services.Configure<AuthOptions>(builder.Configuration.GetSection(AuthOptions.Section));
 builder.Services.Configure<AdminOptions>(builder.Configuration.GetSection(AdminOptions.Section));
 builder.Services.Configure<BackupOptions>(builder.Configuration.GetSection(BackupOptions.Section));
+builder.Services.Configure<EconomyOptions>(builder.Configuration.GetSection(EconomyOptions.Section));
 
 builder.WebHost.ConfigureKestrel(kestrel => KestrelSetup.Configure(kestrel, serverOptions, tlsOptions));
 
