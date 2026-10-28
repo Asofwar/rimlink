@@ -20,7 +20,7 @@ public sealed class TransferService(RimlinkDbContext db, WalletService wallet, M
         if (request.Items.Items.Count == 0 && request.Pawns.Pawns.Count == 0 && request.Silver == 0)
             throw RpcErrors.Failed(ErrorCode.Unspecified, "nothing to send");
 
-        await using var tx = await db.Database.BeginTransactionAsync();
+        await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
         if (!string.IsNullOrEmpty(request.ClientRequestId))
         {
             var existing = await db.Parcels.AsNoTracking().FirstOrDefaultAsync(p => p.ClientRequestId == request.ClientRequestId);

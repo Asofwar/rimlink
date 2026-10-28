@@ -18,12 +18,13 @@ namespace Rimlink.Server.Application.Economy;
 public sealed class MailboxService(RimlinkDbContext db, EventBus events, WalletService wallet, IOptions<EconomyOptions> options)
 {
     /// <summary>Creates a parcel inside the caller's transaction and announces it; the caller saves.</summary>
-    public async Task<Parcel> Create(long toPlayerId, long? fromPlayerId, ParcelKindDb kind, ItemList? items, PawnList? pawns, long silver, string? clientRequestId)
+    public async Task<Parcel> Create(long toPlayerId, long? fromPlayerId, ParcelKindDb kind, ItemList? items, PawnList? pawns, long silver, string? clientRequestId, bool ignoreMailboxLimit = false)
     {
         if (!await db.Players.AnyAsync(p => p.Id == toPlayerId))
             throw RpcErrors.With(StatusCode.NotFound, ErrorCode.RecipientUnknown, $"no player with id {toPlayerId}");
         int pending = await db.Parcels.CountAsync(p => p.ToPlayerId == toPlayerId && p.DeliveredAt == null);
-        if (pending >= options.Value.MaxPendingParcels)
+        // Returns of escrowed goods (lot withdrawn/expired) always land: refusing them would lose the seller's items.
+        if (!ignoreMailboxLimit && pending >= options.Value.MaxPendingParcels)
             throw RpcErrors.Failed(ErrorCode.Unspecified, "recipient's mailbox is full");
 
         items ??= new ItemList();

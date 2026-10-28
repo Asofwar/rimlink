@@ -70,6 +70,8 @@ builder.Services.AddScoped<ParcelValidator>();
 builder.Services.AddScoped<WalletService>();
 builder.Services.AddScoped<MailboxService>();
 builder.Services.AddScoped<TransferService>();
+builder.Services.AddScoped<MarketService>();
+builder.Services.AddHostedService<LotExpiryService>();
 builder.Services.AddSingleton<PresenceNotifier>();
 builder.Services.AddHttpClient<ISteamTicketVerifier, SteamWebApiTicketVerifier>(client => client.Timeout = TimeSpan.FromSeconds(10));
 
@@ -91,6 +93,7 @@ app.MapGrpcService<AdminGrpcService>();
 app.MapGrpcService<WalletGrpcService>();
 app.MapGrpcService<MailboxGrpcService>();
 app.MapGrpcService<TransferGrpcService>();
+app.MapGrpcService<MarketGrpcService>();
 app.MapAdminApi();
 
 app.Run();
