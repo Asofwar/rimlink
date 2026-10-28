@@ -9,6 +9,8 @@ import "world.proto";
 import "saves.proto";
 import "chat.proto";
 import "economy.proto";
+import "raids.proto";
+import "visits.proto";
 
 // One server-push stream per session; everything that changes arrives here.
 service Events {
@@ -32,6 +34,13 @@ message ServerEvent {
     LotSold lot_sold = 51;
     LotClosed lot_closed = 52;
     WalletChanged wallet_changed = 53;
+    RaidQueued raid_queued = 60;
+    RaidLanded raid_landed = 61;
+    RaidResolved raid_resolved = 62;
+    RaidExpired raid_expired = 63;
+    ItemSold item_sold = 64;
+    VisitStarted visit_started = 65;
+    PlayerFlagsChanged player_flags_changed = 66;
   }
 }
 

@@ -13,6 +13,8 @@ service Saves {
   // Current version: header first, then data chunks. NOT_FOUND when the player has no save.
   rpc Download (Empty) returns (stream SaveChunk);
   rpc List (Empty) returns (SaveVersions);
+  // Another player's current save, only while visiting them (Visits.Begin). PERMISSION_DENIED otherwise.
+  rpc DownloadOf (PlayerRef) returns (stream SaveChunk);
 }
 
 message SaveChunk {
@@ -29,6 +31,9 @@ message SaveHeader {
   // Size and SHA-256 of the compressed payload that follows.
   int64 total_size = 4;
   bytes sha256 = 5;
+  // Colony wealth (WealthWatcher) at save time; raid protection and loot caps read them.
+  int64 wealth_total = 6;
+  int64 wealth_items = 7;
 }
 
 message SaveInfo {

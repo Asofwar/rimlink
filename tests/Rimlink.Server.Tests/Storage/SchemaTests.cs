@@ -51,6 +51,27 @@ public class SchemaTests : IDisposable
     }
 
     [Fact]
+    public void RaidsMigrationCreatesTheTables()
+    {
+        using var db = CreateContext();
+
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = "SELECT name FROM sqlite_master WHERE type = 'table'";
+        var tables = new List<string>();
+        using (var reader = cmd.ExecuteReader()) while (reader.Read()) tables.Add(reader.GetString(0));
+        foreach (string table in new[] { "raids", "raid_outcomes", "visits", "shop_items", "pending_removals" }) Assert.Contains(table, tables);
+
+        cmd.CommandText = "SELECT name FROM pragma_table_info('players')";
+        var columns = new List<string>();
+        using (var reader = cmd.ExecuteReader()) while (reader.Read()) columns.Add(reader.GetString(0));
+        foreach (string column in new[] { "Peaceful", "PeacefulOffAt", "VisitsClosed", "FirstSaveAt", "WealthTotal", "WealthItems" }) Assert.Contains(column, columns);
+
+        cmd.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND tbl_name = 'shop_items' AND sql LIKE '%UNIQUE%HostPlayerId%ThingId%'";
+        Assert.Equal(1L, (long)cmd.ExecuteScalar()!);
+        Assert.False(db.Players.Select(p => p.Peaceful).FirstOrDefault());
+    }
+
+    [Fact]
     public void NegativeWalletBalanceIsRejected()
     {
         using var db = CreateContext();

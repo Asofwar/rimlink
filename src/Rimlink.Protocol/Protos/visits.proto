@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package rimlink.v1;
+option csharp_namespace = "Rimlink.Protocol.V1";
+
+import "common.proto";
+import "economy.proto";
+
+// Visits (sub-project 3a): a guest loads a copy of the host's save; the shop sells things the host marked.
+
+message VisitRequest { int64 target_player_id = 1; int64 game_tick = 2; }
+message VisitTicket { int64 visit_id = 1; PlayerRef host = 2; }
+message VisitRef { int64 visit_id = 1; }
+
+message ShopItem {
+  int64 thing_id = 1;
+  string def_name = 2;
+  string stuff_def = 3;
+  int32 count = 4;
+  int32 quality = 5;
+  int32 hit_points = 6;
+  int64 price = 7;
+  int64 save_tick = 8;
+  string label = 9;
+}
+
+message ShopList {
+  PlayerRef host = 1;
+  repeated ShopItem items = 2;
+}
+
+message BuyRequest {
+  string client_request_id = 1;
+  int64 host_player_id = 2;
+  int64 thing_id = 3;
+  int32 count = 4;
+  // Serialised from the visitor's copy of the host's map; its descriptor must match the shop entry.
+  ItemBlob blob = 5;
+}
+
+message Removal { int64 id = 1; int64 thing_id = 2; int32 count = 3; }
+message RemovalList { repeated Removal removals = 1; }
+message RemovalAck { repeated int64 ids = 1; int64 game_tick = 2; }
+
+service Visits {
+  rpc Begin (VisitRequest) returns (VisitTicket);
+  rpc End (VisitRef) returns (Empty);
+}
+
+service Shop {
+  rpc Publish (ShopList) returns (Empty);
+  rpc Of (PlayerRef) returns (ShopList);
+  rpc Buy (BuyRequest) returns (Parcel);
+  rpc PendingRemovals (Empty) returns (RemovalList);
+  rpc AckRemoval (RemovalAck) returns (Empty);
+}
+
+// Event bodies (ServerEvent 64, 65).
+message ItemSold { int64 thing_id = 1; int32 count = 2; int64 price = 3; PlayerRef buyer = 4; }
+message VisitStarted { PlayerRef visitor = 1; }

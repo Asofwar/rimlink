@@ -21,6 +21,11 @@ public sealed class RimlinkDbContext(DbContextOptions<RimlinkDbContext> options)
     public DbSet<Lot> Lots => Set<Lot>();
     public DbSet<Transfer> Transfers => Set<Transfer>();
     public DbSet<ModpackDef> ModpackDefs => Set<ModpackDef>();
+    public DbSet<Raid> Raids => Set<Raid>();
+    public DbSet<RaidOutcome> RaidOutcomes => Set<RaidOutcome>();
+    public DbSet<Visit> Visits => Set<Visit>();
+    public DbSet<ShopItem> ShopItems => Set<ShopItem>();
+    public DbSet<PendingRemoval> PendingRemovals => Set<PendingRemoval>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -107,6 +112,34 @@ public sealed class RimlinkDbContext(DbContextOptions<RimlinkDbContext> options)
         {
             e.ToTable("modpack_defs");
             e.HasKey(d => d.DefName);
+        });
+
+        model.Entity<Raid>(e =>
+        {
+            e.ToTable("raids");
+            e.HasIndex(r => new { r.TargetPlayerId, r.State });
+            e.HasIndex(r => new { r.AttackerPlayerId, r.State });
+            e.HasIndex(r => new { r.AttackerPlayerId, r.ClientRequestId }).IsUnique().HasFilter("\"ClientRequestId\" IS NOT NULL");
+        });
+        model.Entity<RaidOutcome>(e =>
+        {
+            e.ToTable("raid_outcomes");
+            e.HasIndex(o => o.RaidId);
+        });
+        model.Entity<Visit>(e =>
+        {
+            e.ToTable("visits");
+            e.HasIndex(v => new { v.VisitorPlayerId, v.EndedAt });
+        });
+        model.Entity<ShopItem>(e =>
+        {
+            e.ToTable("shop_items", t => t.HasCheckConstraint("CK_shop_items_count", "\"Count\" >= 0"));
+            e.HasIndex(s => new { s.HostPlayerId, s.ThingId }).IsUnique();
+        });
+        model.Entity<PendingRemoval>(e =>
+        {
+            e.ToTable("pending_removals");
+            e.HasIndex(r => new { r.HostPlayerId, r.AckedAt });
         });
     }
 }

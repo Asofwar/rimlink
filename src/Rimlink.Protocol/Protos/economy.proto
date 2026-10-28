@@ -45,6 +45,10 @@ enum ParcelKind {
   PARCEL_LOT_RETURN = 2;
   PARCEL_WITHDRAW = 3;
   PARCEL_ADMIN = 4;
+  // Raids (sub-project 3a): stolen goods, surviving raiders, kidnapped colonists.
+  PARCEL_LOOT = 5;
+  PARCEL_RAID_RETURN = 6;
+  PARCEL_CAPTIVE = 7;
 }
 
 message Parcel {

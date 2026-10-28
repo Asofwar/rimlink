@@ -50,6 +50,27 @@ public sealed class EconomyOptions
     public int SendCooldownSeconds { get; set; } = 5;
 }
 
+/// <summary>Raid rules (sub-project 3a spec §3).</summary>
+public sealed class RaidOptions
+{
+    public const string Section = "Raids";
+
+    public bool Enabled { get; set; } = true;
+    public int MaxRaiders { get; set; } = 10;
+    public int MaxActiveRaidsPerAttacker { get; set; } = 1;
+    public int TargetCooldownHours { get; set; } = 8;
+    public int PairCooldownHours { get; set; } = 24;
+    public int NewbieProtectionDays { get; set; } = 3;
+    public long MinColonyWealth { get; set; } = 20000;
+    public int LootCapPercent { get; set; } = 10;
+    public long LootCapSilver { get; set; } = 5000;
+    public bool AllowKidnap { get; set; }
+    public int WarnTicks { get; set; } = 60000;
+    public int TimeoutDays { get; set; } = 3;
+    public int ExpireRealDays { get; set; } = 7;
+    public int PeacefulOffDelayHours { get; set; } = 24;
+}
+
 public sealed class AdminOptions
 {
     public const string Section = "Admin";

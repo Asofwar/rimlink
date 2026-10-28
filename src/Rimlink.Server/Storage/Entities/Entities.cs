@@ -37,6 +37,14 @@ public sealed class Player
     public DateTime? MutedUntil { get; set; }
     /// <summary>Tick of the save that accompanied the last outgoing transfer; older saves are refused (they would restore what was given away).</summary>
     public long LastOutgoingTick { get; set; }
+    // Raids and visits (sub-project 3a).
+    public bool Peaceful { get; set; }
+    /// <summary>While set and in the future the player still counts as peaceful (switching off is delayed).</summary>
+    public DateTime? PeacefulOffAt { get; set; }
+    public bool VisitsClosed { get; set; }
+    public DateTime? FirstSaveAt { get; set; }
+    public long WealthTotal { get; set; }
+    public long WealthItems { get; set; }
 }
 
 public sealed class SessionLog
@@ -117,7 +125,7 @@ public sealed class SaveVersion
     public bool IsCurrent { get; set; }
 }
 
-public enum ParcelKindDb { Gift = 0, Purchase = 1, LotReturn = 2, Withdraw = 3, Admin = 4 }
+public enum ParcelKindDb { Gift = 0, Purchase = 1, LotReturn = 2, Withdraw = 3, Admin = 4, Loot = 5, RaidReturn = 6, Captive = 7 }
 
 public enum LotStatusDb { Open = 0, Sold = 1, Withdrawn = 2, Expired = 3 }
 
@@ -189,6 +197,76 @@ public sealed class Transfer
 public sealed class ModpackDef
 {
     public string DefName { get; set; } = "";
+}
+
+public enum RaidStateDb { Queued = 0, Announced = 1, Landed = 2, Resolved = 3, Expired = 4, Cancelled = 5 }
+
+/// <summary>A raid waiting for, landed in or finished by the target's game; <see cref="Pawns"/> is the escrowed PawnList.</summary>
+public sealed class Raid
+{
+    public long Id { get; set; }
+    public long AttackerPlayerId { get; set; }
+    public long TargetPlayerId { get; set; }
+    public int PawnMode { get; set; }
+    public int Timing { get; set; }
+    public int Arrival { get; set; }
+    public int Controller { get; set; }
+    public RaidStateDb State { get; set; }
+    public byte[] Pawns { get; set; } = [];
+    public long LootCap { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public long? AnnouncedTick { get; set; }
+    public long? LandAtTick { get; set; }
+    public long? LandedTick { get; set; }
+    public DateTime? ResolvedAt { get; set; }
+    public DateTime ExpiresAt { get; set; }
+    public string? SummaryJson { get; set; }
+    public string? ClientRequestId { get; set; }
+}
+
+public sealed class RaidOutcome
+{
+    public long Id { get; set; }
+    public long RaidId { get; set; }
+    public int Index { get; set; }
+    public int Outcome { get; set; }
+}
+
+public sealed class Visit
+{
+    public long Id { get; set; }
+    public long VisitorPlayerId { get; set; }
+    public long HostPlayerId { get; set; }
+    public DateTime StartedAt { get; set; }
+    public DateTime? EndedAt { get; set; }
+}
+
+/// <summary>A thing the host marked for sale; published from the host's save, sold from a visitor's copy of it.</summary>
+public sealed class ShopItem
+{
+    public long Id { get; set; }
+    public long HostPlayerId { get; set; }
+    public long ThingId { get; set; }
+    public string DefName { get; set; } = "";
+    public string StuffDef { get; set; } = "";
+    public int Count { get; set; }
+    public int Quality { get; set; }
+    public int HitPoints { get; set; }
+    public long Price { get; set; }
+    public long SaveTick { get; set; }
+    public string Label { get; set; } = "";
+    public DateTime? SoldAt { get; set; }
+}
+
+/// <summary>Sold things the host's game still has to take off its map.</summary>
+public sealed class PendingRemoval
+{
+    public long Id { get; set; }
+    public long HostPlayerId { get; set; }
+    public long ThingId { get; set; }
+    public int Count { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? AckedAt { get; set; }
 }
 
 public sealed class AdminAction

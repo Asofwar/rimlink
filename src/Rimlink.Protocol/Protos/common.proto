@@ -27,6 +27,15 @@ enum ErrorCode {
   RECIPIENT_UNKNOWN = 17;
   ECONOMY_FROZEN = 18;
   SELF_TRADE = 19;
+  // Raids and visits (sub-project 3a).
+  RAID_COOLDOWN = 20;
+  TARGET_PROTECTED = 21;
+  PEACEFUL_MODE = 22;
+  RAID_ACTIVE = 23;
+  RAID_GONE = 24;
+  LOOT_OVER_CAP = 25;
+  VISITS_CLOSED = 26;
+  ITEM_SOLD = 27;
 }
 
 // Attached to failed calls as the "rimlink-error-bin" trailer.

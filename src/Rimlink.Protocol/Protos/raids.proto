@@ -1,0 +1,115 @@
+syntax = "proto3";
+
+package rimlink.v1;
+option csharp_namespace = "Rimlink.Protocol.V1";
+
+import "google/protobuf/timestamp.proto";
+import "common.proto";
+import "economy.proto";
+
+// Raids (sub-project 3a): an attacker's pawns wait on the server in escrow until the target's game
+// fights them as a vanilla raid; the target's client reports the outcome. The server never simulates.
+
+enum PawnMode { PAWN_REAL = 0; PAWN_SNAPSHOT = 1; }
+enum RaidTiming { TIMING_WARNED = 0; TIMING_INSTANT = 1; }
+enum RaidArrival { ARRIVAL_EDGE = 0; ARRIVAL_PODS = 1; }
+enum RaidController { CONTROLLER_AI = 0; CONTROLLER_LIVE = 1; }
+enum RaidState { RAID_QUEUED = 0; RAID_ANNOUNCED = 1; RAID_LANDED = 2; RAID_RESOLVED = 3; RAID_EXPIRED = 4; RAID_CANCELLED = 5; }
+enum PawnOutcome { OUTCOME_DEAD = 0; OUTCOME_CAPTURED = 1; OUTCOME_FLED = 2; OUTCOME_ALIVE = 3; }
+
+message LaunchRequest {
+  string client_request_id = 1;
+  int64 target_player_id = 2;
+  PawnMode pawn_mode = 3;
+  RaidTiming timing = 4;
+  RaidArrival arrival = 5;
+  PawnList pawns = 6;
+  // Tick of the attacker's save uploaded just before (PAWN_REAL): older saves are refused afterwards.
+  int64 game_tick = 7;
+}
+
+message Raid {
+  int64 id = 1;
+  PlayerRef attacker = 2;
+  PlayerRef target = 3;
+  PawnMode pawn_mode = 4;
+  RaidTiming timing = 5;
+  RaidArrival arrival = 6;
+  RaidController controller = 7;
+  RaidState state = 8;
+  // Blobs only from Get; lists carry descriptors.
+  PawnList pawns = 9;
+  // Loot limit in silver (market value), multipliers applied.
+  int64 loot_cap = 10;
+  google.protobuf.Timestamp created_at = 11;
+  int64 announced_tick = 12;
+  int64 land_at_tick = 13;
+  int64 landed_tick = 14;
+  google.protobuf.Timestamp expires_at = 15;
+  RaidSummary summary = 16;
+  // Server option Raids:AllowKidnap, so the defender's lord knows whether to kidnap.
+  bool allow_kidnap = 17;
+}
+
+message RaidSummary {
+  int32 dead = 1;
+  int32 captured = 2;
+  int32 fled = 3;
+  int32 alive = 4;
+  int64 loot_value = 5;
+  int32 captives = 6;
+}
+
+message RaidList { repeated Raid raids = 1; }
+message RaidRef { int64 raid_id = 1; }
+message RaidTick { int64 raid_id = 1; int64 game_tick = 2; }
+
+message PawnOutcomeMsg {
+  // Index into the raid's pawn list.
+  int32 index = 1;
+  PawnOutcome outcome = 2;
+  // State after the fight for FLED/ALIVE pawns of a PAWN_REAL raid.
+  PawnBlob blob = 3;
+}
+
+message RaidReport {
+  int64 raid_id = 1;
+  // Tick of the defender's save uploaded just before: loot and survivors are gone from it.
+  int64 game_tick = 2;
+  repeated PawnOutcomeMsg outcomes = 3;
+  ItemList loot = 4;
+  // Kidnapped colonists of the defender (at most one, only when allow_kidnap).
+  PawnList captives = 5;
+}
+
+message PeacefulRequest { bool peaceful = 1; }
+message VisitsClosedRequest { bool closed = 1; }
+
+message PlayerFlags {
+  bool peaceful = 1;
+  // Set while a peaceful-off request is pending; the player counts as peaceful until then.
+  google.protobuf.Timestamp peaceful_off_at = 2;
+  bool visits_closed = 3;
+}
+
+service Raids {
+  rpc Launch (LaunchRequest) returns (Raid);
+  // Target: raids in QUEUED or ANNOUNCED aimed at me, descriptors only.
+  rpc Pending (Empty) returns (RaidList);
+  rpc Get (RaidRef) returns (Raid);
+  rpc Announce (RaidTick) returns (Raid);
+  rpc Land (RaidTick) returns (Empty);
+  rpc Report (RaidReport) returns (Empty);
+  // Attacker: my raids with their state.
+  rpc Mine (Empty) returns (RaidList);
+  rpc Flags (Empty) returns (PlayerFlags);
+  rpc SetPeaceful (PeacefulRequest) returns (PlayerFlags);
+  rpc SetVisitsClosed (VisitsClosedRequest) returns (PlayerFlags);
+}
+
+// Event bodies (ServerEvent 60-63, 66).
+message RaidQueued { Raid raid = 1; }
+message RaidLanded { int64 raid_id = 1; PlayerRef target = 2; }
+message RaidResolved { int64 raid_id = 1; RaidSummary summary = 2; }
+message RaidExpired { int64 raid_id = 1; }
+message PlayerFlagsChanged { PlayerFlags flags = 1; }

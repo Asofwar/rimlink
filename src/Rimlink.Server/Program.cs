@@ -35,6 +35,7 @@ builder.Services.Configure<AuthOptions>(builder.Configuration.GetSection(AuthOpt
 builder.Services.Configure<AdminOptions>(builder.Configuration.GetSection(AdminOptions.Section));
 builder.Services.Configure<BackupOptions>(builder.Configuration.GetSection(BackupOptions.Section));
 builder.Services.Configure<EconomyOptions>(builder.Configuration.GetSection(EconomyOptions.Section));
+builder.Services.Configure<RaidOptions>(builder.Configuration.GetSection(RaidOptions.Section));
 
 builder.WebHost.ConfigureKestrel(kestrel => KestrelSetup.Configure(kestrel, serverOptions, tlsOptions));
 
@@ -64,6 +65,7 @@ builder.Services.AddScoped<ChatService>();
 builder.Services.AddScoped<AdminOperations>();
 builder.Services.AddScoped<AdminCommandRunner>();
 builder.Services.AddSingleton<FreezeState>();
+builder.Services.AddSingleton<Rimlink.Server.Application.Raids.RaidFreezeState>();
 builder.Services.AddSingleton<ModpackDefs>();
 builder.Services.AddScoped<EconomyGate>();
 builder.Services.AddScoped<ParcelValidator>();

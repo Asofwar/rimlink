@@ -301,6 +301,34 @@ namespace Rimlink.Server.Storage.Migrations
                     b.ToTable("parcels", (string)null);
                 });
 
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.PendingRemoval", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("AckedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Count")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("HostPlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("ThingId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HostPlayerId", "AckedAt");
+
+                    b.ToTable("pending_removals", (string)null);
+                });
+
             modelBuilder.Entity("Rimlink.Server.Storage.Entities.Player", b =>
                 {
                     b.Property<long>("Id")
@@ -317,6 +345,9 @@ namespace Rimlink.Server.Storage.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTime?>("FirstSaveAt")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("LastIp")
                         .HasColumnType("TEXT");
 
@@ -331,6 +362,21 @@ namespace Rimlink.Server.Storage.Migrations
                         .HasColumnType("TEXT")
                         .UseCollation("NOCASE");
 
+                    b.Property<bool>("Peaceful")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("PeacefulOffAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("VisitsClosed")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("WealthItems")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("WealthTotal")
+                        .HasColumnType("INTEGER");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AccountId")
@@ -340,6 +386,99 @@ namespace Rimlink.Server.Storage.Migrations
                         .IsUnique();
 
                     b.ToTable("players", (string)null);
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.Raid", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("AnnouncedTick")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Arrival")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("AttackerPlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ClientRequestId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Controller")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("LandAtTick")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("LandedTick")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("LootCap")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("PawnMode")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<byte[]>("Pawns")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("State")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("SummaryJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("TargetPlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Timing")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AttackerPlayerId", "ClientRequestId")
+                        .IsUnique()
+                        .HasFilter("\"ClientRequestId\" IS NOT NULL");
+
+                    b.HasIndex("AttackerPlayerId", "State");
+
+                    b.HasIndex("TargetPlayerId", "State");
+
+                    b.ToTable("raids", (string)null);
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.RaidOutcome", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Index")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Outcome")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("RaidId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RaidId");
+
+                    b.ToTable("raid_outcomes", (string)null);
                 });
 
             modelBuilder.Entity("Rimlink.Server.Storage.Entities.SaveVersion", b =>
@@ -402,6 +541,59 @@ namespace Rimlink.Server.Storage.Migrations
                     b.ToTable("sessions", (string)null);
                 });
 
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.ShopItem", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Count")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("DefName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("HitPoints")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("HostPlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("Price")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Quality")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("SaveTick")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("SoldAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("StuffDef")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("ThingId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HostPlayerId", "ThingId")
+                        .IsUnique();
+
+                    b.ToTable("shop_items", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_shop_items_count", "\"Count\" >= 0");
+                        });
+                });
+
             modelBuilder.Entity("Rimlink.Server.Storage.Entities.Transfer", b =>
                 {
                     b.Property<long>("Id")
@@ -440,6 +632,31 @@ namespace Rimlink.Server.Storage.Migrations
                     b.HasIndex("FromPlayerId");
 
                     b.ToTable("transfers", (string)null);
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.Visit", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("EndedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("HostPlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("VisitorPlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VisitorPlayerId", "EndedAt");
+
+                    b.ToTable("visits", (string)null);
                 });
 
             modelBuilder.Entity("Rimlink.Server.Storage.Entities.Wallet", b =>
