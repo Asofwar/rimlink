@@ -74,6 +74,9 @@ builder.Services.AddScoped<MailboxService>();
 builder.Services.AddScoped<TransferService>();
 builder.Services.AddScoped<MarketService>();
 builder.Services.AddHostedService<LotExpiryService>();
+builder.Services.AddScoped<Rimlink.Server.Application.Raids.RaidGate>();
+builder.Services.AddScoped<Rimlink.Server.Application.Raids.RaidRules>();
+builder.Services.AddScoped<Rimlink.Server.Application.Raids.RaidService>();
 builder.Services.AddSingleton<PresenceNotifier>();
 builder.Services.AddHttpClient<ISteamTicketVerifier, SteamWebApiTicketVerifier>(client => client.Timeout = TimeSpan.FromSeconds(10));
 
@@ -97,6 +100,7 @@ app.MapGrpcService<WalletGrpcService>();
 app.MapGrpcService<MailboxGrpcService>();
 app.MapGrpcService<TransferGrpcService>();
 app.MapGrpcService<MarketGrpcService>();
+app.MapGrpcService<RaidsGrpcService>();
 app.MapAdminApi();
 
 app.Run();
