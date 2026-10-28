@@ -1,5 +1,6 @@
 using Prometheus;
 using Rimlink.Protocol;
+using Rimlink.Server.Application.Admin;
 using Rimlink.Server.Application.Auth;
 using Rimlink.Server.Application.Chat;
 using Rimlink.Server.Application.Events;
@@ -9,6 +10,7 @@ using Rimlink.Server.Application.Sessions;
 using Rimlink.Server.Application.World;
 using Rimlink.Server.Grpc;
 using Rimlink.Server.Hosting;
+using Rimlink.Server.Rest;
 using Rimlink.Server.Storage;
 using Serilog;
 
@@ -53,6 +55,8 @@ builder.Services.AddScoped<WorldService>();
 builder.Services.AddScoped<SaveStore>();
 builder.Services.AddScoped<ModpackService>();
 builder.Services.AddScoped<ChatService>();
+builder.Services.AddScoped<AdminOperations>();
+builder.Services.AddScoped<AdminCommandRunner>();
 builder.Services.AddSingleton<PresenceNotifier>();
 builder.Services.AddHttpClient<ISteamTicketVerifier, SteamWebApiTicketVerifier>(client => client.Timeout = TimeSpan.FromSeconds(10));
 
@@ -70,6 +74,8 @@ app.MapGrpcService<WorldGrpcService>();
 app.MapGrpcService<SavesGrpcService>();
 app.MapGrpcService<ModpackGrpcService>();
 app.MapGrpcService<ChatGrpcService>();
+app.MapGrpcService<AdminGrpcService>();
+app.MapAdminApi();
 
 app.Run();
 

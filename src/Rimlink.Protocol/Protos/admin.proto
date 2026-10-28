@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package rimlink.v1;
+option csharp_namespace = "Rimlink.Protocol.V1";
+
+// One entry point for in-game "/" commands and the client's admin window. The server checks the caller's role.
+// Commands: online, kick <player> [reason], ban <player> [days] [reason], pardon <banId>, bans, mute <player> <minutes>,
+// unmute <player>, saves <player>, rollback <player> <version>, reset <player>, broadcast <text>, role <player> <player|moderator|admin>,
+// rename <name> [faction], saveall, shutdown <seconds> [reason], recreateworld, help.
+service Admin {
+  rpc Execute (AdminCommand) returns (AdminReply);
+}
+
+message AdminCommand {
+  string name = 1;
+  repeated string args = 2;
+}
+
+message AdminReply {
+  string text = 1;
+}

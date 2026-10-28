@@ -11,7 +11,7 @@ using Rimlink.Server.Storage.Entities;
 
 namespace Rimlink.Server.Application.Chat;
 
-public sealed class ChatService(RimlinkDbContext db, EventBus events, ILogger<ChatService> log)
+public sealed class ChatService(RimlinkDbContext db, EventBus events, IServiceProvider services, ILogger<ChatService> log)
 {
     public async Task Send(Session sender, string text, long toPlayerId)
     {
@@ -19,6 +19,15 @@ public sealed class ChatService(RimlinkDbContext db, EventBus events, ILogger<Ch
         if (text.Length == 0) throw new RpcException(new Status(StatusCode.InvalidArgument, "message is empty"));
         if (text.Length > Limits.ChatMaxLength) throw new RpcException(new Status(StatusCode.InvalidArgument, $"message longer than {Limits.ChatMaxLength} characters"));
         if (text.Any(c => char.IsControl(c) && c != '\n')) throw new RpcException(new Status(StatusCode.InvalidArgument, "message contains control characters"));
+
+        if (Admin.ChatCommandParser.Parse(text) is { } command)
+        {
+            // "/kick Nova ..." runs with the sender's role; the answer goes back only to the sender.
+            var runner = services.GetRequiredService<Admin.AdminCommandRunner>();
+            string answer = await runner.Execute(Admin.Actor.From(sender), command);
+            events.SendTo(sender.PlayerId, new ServerEvent { Chat = new ChatMessageEvent { ToPlayerId = sender.PlayerId, Text = answer, Kind = Protocol.V1.MessageKind.System, At = Timestamp.FromDateTime(DateTime.UtcNow) } });
+            return;
+        }
 
         var from = await db.Players.AsNoTracking().FirstAsync(p => p.Id == sender.PlayerId);
         if (from.MutedUntil is { } until && until > DateTime.UtcNow)

@@ -15,7 +15,8 @@ public sealed class ModpackGrpcService(ModpackService modpack) : Protocol.V1.Mod
 
     public override async Task<Empty> Set(ModpackList request, ServerCallContext context)
     {
-        await modpack.Set(request.Entries, context.GetSession());
+        var session = context.GetSession();
+        await modpack.Set(request.Entries, session.Role, session.PlayerName);
         return new Empty();
     }
 }

@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Rimlink.Protocol.V1;
-using Rimlink.Server.Application.Sessions;
 using Rimlink.Server.Grpc;
 using Rimlink.Server.Storage;
 using Rimlink.Server.Storage.Entities;
@@ -12,9 +11,9 @@ public sealed class ModpackService(RimlinkDbContext db, ILogger<ModpackService> 
     public async Task<List<Protocol.V1.ModpackEntry>> Get() =>
         (await db.ModpackEntries.AsNoTracking().OrderBy(e => e.Position).ToListAsync()).Select(ToProto).ToList();
 
-    public async Task Set(IReadOnlyList<Protocol.V1.ModpackEntry> entries, Session actor)
+    public async Task Set(IReadOnlyList<Protocol.V1.ModpackEntry> entries, Storage.Entities.Role actorRole, string actorName)
     {
-        if (actor.Role != Storage.Entities.Role.Admin) throw RpcErrors.PermissionDenied("only an admin can change the modpack");
+        if (actorRole != Storage.Entities.Role.Admin) throw RpcErrors.PermissionDenied("only an admin can change the modpack");
 
         var rows = entries
             .Select((e, i) => new Storage.Entities.ModpackEntry
@@ -34,7 +33,7 @@ public sealed class ModpackService(RimlinkDbContext db, ILogger<ModpackService> 
         db.ModpackEntries.AddRange(rows);
         await db.SaveChangesAsync();
         await tx.CommitAsync();
-        log.LogInformation("Modpack set by {Player}: {Count} entries", actor.PlayerName, rows.Count);
+        log.LogInformation("Modpack set by {Actor}: {Count} entries", actorName, rows.Count);
     }
 
     public static Protocol.V1.ModpackEntry ToProto(Storage.Entities.ModpackEntry e) => new()
