@@ -40,6 +40,8 @@ builder.Services.AddHostedService<TlsStartupCheck>();
 builder.Services.AddSingleton<SessionRegistry>();
 builder.Services.AddSingleton<EventBus>();
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<BanService>();
+builder.Services.AddScoped<LoginGate>();
 builder.Services.AddHttpClient<ISteamTicketVerifier, SteamWebApiTicketVerifier>(client => client.Timeout = TimeSpan.FromSeconds(10));
 
 var app = builder.Build();

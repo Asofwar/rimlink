@@ -1,6 +1,7 @@
 using System.Buffers.Text;
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
+using Rimlink.Protocol.V1;
 using Rimlink.Server.Storage.Entities;
 
 namespace Rimlink.Server.Application.Sessions;
@@ -18,7 +19,11 @@ public sealed class SessionRegistry
         lock (startLock)
         {
             replaced = ByAccount(account.Id);
-            if (replaced is not null) byToken.TryRemove(replaced.Token, out _);
+            if (replaced is not null)
+            {
+                replaced.Events.TryWrite(new ServerEvent { SessionReplaced = new SessionReplaced() });
+                End(replaced.Token);
+            }
 
             var session = new Session
             {
@@ -40,9 +45,11 @@ public sealed class SessionRegistry
 
     public Session? ByPlayer(long playerId) => byToken.Values.FirstOrDefault(s => s.PlayerId == playerId);
 
-    /// <summary>Removes the session and cancels its event stream; later calls with the token are unauthenticated.</summary>
+    /// <summary>Removes the session; queued events are still delivered, then the stream ends. Later calls with the token are unauthenticated.</summary>
     public void End(string token)
     {
-        if (byToken.TryRemove(token, out var session)) session.Cts.Cancel();
+        if (!byToken.TryRemove(token, out var session)) return;
+        session.Events.Complete();
+        session.Cts.Cancel();
     }
 }

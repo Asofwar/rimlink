@@ -2,6 +2,7 @@ using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using Rimlink.Protocol.V1;
 using Rimlink.Server.Application.Auth;
+using Rimlink.Server.Hosting;
 using Rimlink.Server.Storage;
 using Rimlink.Server.Storage.Entities;
 
@@ -18,13 +19,13 @@ public sealed class AuthGrpcService(AuthService auth, RimlinkDbContext db) : Pro
             LoginRequest.CredentialOneofCase.SteamTicket => await auth.LoginWithSteam(request.SteamTicket.ToByteArray(), ctx),
             _ => LoginResult.Failed(StatusCode.InvalidArgument, ErrorCode.Unspecified, "no supported credential in request"),
         };
-        return await ToReply(result);
+        return await ToReply(result, context);
     }
 
     public override async Task<LoginReply> Register(RegisterRequest request, ServerCallContext context)
     {
         var ctx = new LoginContext(Protocol.ProtocolVersion.Current, null, [], context.ClientIp());
-        return await ToReply(await auth.Register(request.Login, request.Password, request.PlayerName, ctx));
+        return await ToReply(await auth.Register(request.Login, request.Password, request.PlayerName, ctx), context);
     }
 
     public override Task<Empty> Logout(Empty request, ServerCallContext context)
@@ -33,13 +34,14 @@ public sealed class AuthGrpcService(AuthService auth, RimlinkDbContext db) : Pro
         return Task.FromResult(new Empty());
     }
 
-    private async Task<LoginReply> ToReply(LoginResult result)
+    private async Task<LoginReply> ToReply(LoginResult result, ServerCallContext context)
     {
         switch (result)
         {
             case LoginResult.Failure f:
                 throw RpcErrors.With(f.Status, f.Code, f.Message);
             case LoginResult.Success s:
+                UnauthenticatedConnectionLimiter.MarkAuthenticated(context.GetHttpContext());
                 return new LoginReply
                 {
                     SessionToken = s.Session.Token,

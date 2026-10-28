@@ -26,7 +26,11 @@ public class ServerFixture : WebApplicationFactory<Program>
         builder.UseSetting("Tls:Required", "false");
         builder.UseSetting("Server:DataDir", DataDir);
         foreach (var (key, value) in settings) builder.UseSetting(key, value);
-        builder.ConfigureTestServices(services => services.AddSingleton<ISteamTicketVerifier, FakeSteamVerifier>());
+        builder.ConfigureTestServices(services =>
+        {
+            services.AddSingleton<ISteamTicketVerifier, FakeSteamVerifier>();
+            services.AddTransient<IStartupFilter, LoopbackIpStartupFilter>();
+        });
     }
 
     public GrpcChannel CreateChannel() =>

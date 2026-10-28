@@ -8,23 +8,22 @@ public sealed class EventsGrpcService(ILogger<EventsGrpcService> log) : Protocol
     public override async Task Subscribe(Empty request, IServerStreamWriter<ServerEvent> responseStream, ServerCallContext context)
     {
         var session = context.GetSession();
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, session.Cts.Token);
 
         try
         {
-            await foreach (var ev in session.Events.ReadAll(linked.Token))
+            // Reading uses only the call token: when the session ends, its queue is completed and the
+            // events already queued (e.g. SessionReplaced) still reach the client before the stream closes.
+            await foreach (var ev in session.Events.ReadAll(context.CancellationToken))
             {
-                await responseStream.WriteAsync(ev, linked.Token);
+                await responseStream.WriteAsync(ev, context.CancellationToken);
             }
-        }
-        catch (OperationCanceledException) when (session.Cts.IsCancellationRequested && !context.CancellationToken.IsCancellationRequested)
-        {
-            log.LogDebug("Event stream of {Player} ended: session closed", session.PlayerName);
-            throw new RpcException(new Status(StatusCode.Unavailable, "session ended"));
         }
         catch (OperationCanceledException)
         {
-            // Client went away; nothing to report.
+            return; // client went away
         }
+
+        log.LogDebug("Event stream of {Player} ended: session closed", session.PlayerName);
+        throw new RpcException(new Status(StatusCode.Unavailable, "session ended"));
     }
 }

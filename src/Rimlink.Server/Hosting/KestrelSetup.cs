@@ -15,6 +15,7 @@ public static class KestrelSetup
         kestrel.ListenAnyIP(server.Port, listen =>
         {
             listen.Protocols = HttpProtocols.Http2;
+            UnauthenticatedConnectionLimiter.Install(listen);
             listen.UseHttps(certificate);
         });
     }

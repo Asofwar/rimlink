@@ -4,6 +4,9 @@
 
 ## Сервер
 
+- [ ] **Лимит неавторизованных соединений.** Открыть 6 раз `openssl s_client -connect 127.0.0.1:25560 -alpn h2` без данных:
+      шестое соединение закрывается сразу, первые пять закрываются через 30 с (`login timeout`).
+
 - [ ] **Steam-вход с настоящим билетом.** Нужен Web API key (https://steamcommunity.com/dev/apikey) в `Auth:SteamWebApiKey`.
       Клиент получает билет через `SteamUser.GetAuthSessionTicket` и вызывает `Auth.Login` — ожидается токен сессии.
       Если Steam отвечает `Invalid ticket` для ключа обычного (не издательского) аккаунта — записать это в `docs/server-setup.md`

@@ -1,4 +1,6 @@
 using Grpc.Core;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Rimlink.Protocol;
 using Rimlink.Protocol.V1;
 
@@ -19,6 +21,13 @@ public static class GrpcTestExtensions
         ProtocolVersion = protocolVersion,
         Password = new PasswordCredential { Login = login, Password = password },
     };
+
+    public static async Task<long> AccountIdOf(this ServerFixture fixture, string login)
+    {
+        using var scope = fixture.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<Server.Storage.RimlinkDbContext>();
+        return (await db.Accounts.SingleAsync(a => a.Login == login)).Id;
+    }
 
     /// <summary>Registers (if needed) and logs in a password account; returns the reply with its token.</summary>
     public static async Task<LoginReply> RegisterAndLogin(this ServerFixture fixture, string login, string password = "pw", string? playerName = null)

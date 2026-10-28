@@ -13,6 +13,7 @@ public sealed class AuthService(
     RimlinkDbContext db,
     SessionRegistry sessions,
     ISteamTicketVerifier steam,
+    LoginGate gate,
     IOptions<AuthOptions> authOptions,
     ILogger<AuthService> log)
 {
@@ -95,8 +96,11 @@ public sealed class AuthService(
             return LoginResult.Failed(StatusCode.FailedPrecondition, ErrorCode.ProtocolVersion,
                 $"server speaks protocol {Protocol.ProtocolVersion.Current}, client sent {ctx.ProtocolVersion}");
 
+        if (await gate.Check(account, steamIdentity, ctx) is { } refused) return refused;
+
         var player = account.Player ?? await db.Players.FirstAsync(p => p.AccountId == account.Id);
-        var session = sessions.Start(account, player, ctx.Ip, out _);
+        var session = sessions.Start(account, player, ctx.Ip, out var replaced);
+        if (replaced is not null) log.LogInformation("Session of {Player} replaced by a new login from {Ip}", player.Name, ctx.Ip);
 
         account.LastSeenAt = DateTime.UtcNow;
         player.LastIp = ctx.Ip;
