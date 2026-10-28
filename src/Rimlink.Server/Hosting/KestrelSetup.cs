@@ -5,7 +5,10 @@ namespace Rimlink.Server.Hosting;
 
 public static class KestrelSetup
 {
-    /// <summary>One HTTP/2-over-TLS endpoint on <see cref="ServerOptions.Port"/> with the spec's keep-alive timings.</summary>
+    /// <summary>
+    /// One TLS endpoint on <see cref="ServerOptions.Port"/> with the spec's keep-alive timings. ALPN gives gRPC clients
+    /// HTTP/2; HTTP/1.1 stays on for the admin REST API (CLI, curl, browsers) and the health check.
+    /// </summary>
     public static void Configure(KestrelServerOptions kestrel, ServerOptions server, TlsOptions tls)
     {
         X509Certificate2 certificate = LoadCertificate(server, tls);
@@ -14,7 +17,7 @@ public static class KestrelSetup
         kestrel.Limits.Http2.KeepAlivePingTimeout = TimeSpan.FromSeconds(10);
         kestrel.ListenAnyIP(server.Port, listen =>
         {
-            listen.Protocols = HttpProtocols.Http2;
+            listen.Protocols = HttpProtocols.Http1AndHttp2;
             UnauthenticatedConnectionLimiter.Install(listen);
             listen.UseHttps(certificate);
         });

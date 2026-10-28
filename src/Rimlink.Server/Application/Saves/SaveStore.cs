@@ -46,7 +46,7 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, EventBus 
                 if (!sha.GetHashAndReset().AsSpan().SequenceEqual(header.Sha256.Span)) throw new SaveRejected("SHA-256 does not match");
             }
 
-            if (SaveValidator.Validate(temp, world.Seed, player.FactionName) is { } reason) throw new SaveRejected(reason);
+            if (SaveValidator.Validate(temp, world.Seed, out string? factionName) is { } reason) throw new SaveRejected(reason);
 
             // From here on the upload is complete: finish without the call token, so a client that drops right
             // after its last chunk does not leave a file without a row (or a row without a file).
@@ -69,6 +69,9 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, EventBus 
                     IsCurrent = true,
                 };
                 db.SaveVersions.Add(version);
+                // The faction name the player chose in game is the one others should see on the map.
+                if (factionName is not null && factionName != player.FactionName && Names.IsValid(factionName))
+                    await db.Players.Where(p => p.Id == playerId).ExecuteUpdateAsync(s => s.SetProperty(p => p.FactionName, factionName));
                 await db.SaveChangesAsync();
                 // An orphan file of this number (crash between move and commit in an older run) is overwritten.
                 File.Move(temp, final, overwrite: true);

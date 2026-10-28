@@ -11,20 +11,23 @@ namespace Rimlink.Server.Tests.Support;
 public static class SaveFixtures
 {
     /// <summary>A minimal RimWorld-shaped save (.rws XML), zstd-compressed.</summary>
-    public static byte[] MakeSave(string seed, string faction, long tick = 1000, int paddingBytes = 0, string factionDef = "PlayerColony")
+    /// <param name="faction">The player faction's name; null for a faction the player has not named yet (no &lt;name&gt; element).</param>
+    /// <param name="scenarioFactionDef">When set, the scenario block names this player faction def (as modded starts do).</param>
+    public static byte[] MakeSave(string seed, string? faction, long tick = 1000, int paddingBytes = 0, string factionDef = "PlayerColony", string? scenarioFactionDef = null)
     {
         string xml = $"""
             <?xml version="1.0" encoding="utf-8"?>
             <savegame>
               <meta><gameVersion>1.7.4990 rev1069</gameVersion></meta>
               <game>
+                <scenario><name>Crashlanded</name>{(scenarioFactionDef is null ? "" : $"<playerFaction><def>PlayerFaction</def><factionDef>{scenarioFactionDef}</factionDef></playerFaction>")}</scenario>
                 <tickManager><ticksGame>{tick}</ticksGame></tickManager>
                 <world>
                   <info><seedString>{seed}</seedString><name>Planet</name></info>
                   <factionManager>
                     <allFactions>
                       <li><def>Pirate</def><name>Raiders</name></li>
-                      <li><def>{factionDef}</def><name>{faction}</name></li>
+                      <li><def>{factionDef}</def><loadID>16</loadID>{(faction is null ? "" : $"<name>{faction}</name>")}</li>
                     </allFactions>
                   </factionManager>
                 </world>

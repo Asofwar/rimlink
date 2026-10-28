@@ -35,6 +35,12 @@ public class KestrelTlsTests
             Assert.Equal(HttpVersion.Version20, response.Version);
             Assert.Equal("Healthy", await response.Content.ReadAsStringAsync());
             Assert.True(File.Exists(Path.Combine(dataDir, "tls", "server.pfx")));
+
+            // The admin CLI, curl and browsers speak HTTP/1.1; the same port must serve them (ALPN picks h2 for gRPC).
+            using var legacy = new HttpClient(handler) { DefaultRequestVersion = HttpVersion.Version11, DefaultVersionPolicy = HttpVersionPolicy.RequestVersionExact };
+            var legacyResponse = await legacy.GetAsync($"https://127.0.0.1:{port}/health");
+            Assert.Equal(HttpVersion.Version11, legacyResponse.Version);
+            Assert.Equal("Healthy", await legacyResponse.Content.ReadAsStringAsync());
         }
         finally
         {

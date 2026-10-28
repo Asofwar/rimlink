@@ -62,16 +62,30 @@ public class SaveUploadTests
     }
 
     [Fact]
-    public async Task UploadWithWrongFactionIsSaveInvalid()
+    public async Task UploadWithNamedFactionRenamesThePlayerFaction()
     {
         using var fixture = Server();
         var nova = await fixture.RegisterAndLogin("nova", playerName: "Nova");
         var saves = new Protocol.V1.Saves.SavesClient(fixture.CreateChannel());
-        byte[] save = MakeSave(ServerFixture.WorldSeed, "Somebody Else");
+        byte[] save = MakeSave(ServerFixture.WorldSeed, "Sheratan Supernova");
 
-        var ex = await Assert.ThrowsAsync<RpcException>(() => Upload(saves, nova.SessionToken, save, HeaderFor(save, ServerFixture.WorldSeed, "Somebody Else")));
+        await Upload(saves, nova.SessionToken, save, HeaderFor(save, ServerFixture.WorldSeed, "Sheratan Supernova"));
 
-        Assert.Equal(ErrorCode.SaveInvalid, ex.ErrorDetail()?.Code);
+        Assert.Equal("Sheratan Supernova", (await fixture.RegisterAndLogin("nova")).Player.FactionName);
+    }
+
+    [Fact]
+    public async Task UploadWithUnnamedFactionKeepsThePlayerFactionName()
+    {
+        using var fixture = Server();
+        var nova = await fixture.RegisterAndLogin("nova", playerName: "Nova");
+        var saves = new Protocol.V1.Saves.SavesClient(fixture.CreateChannel());
+        byte[] save = MakeSave(ServerFixture.WorldSeed, faction: null);
+
+        var info = await Upload(saves, nova.SessionToken, save, HeaderFor(save, ServerFixture.WorldSeed, ""));
+
+        Assert.Equal(1, info.Version);
+        Assert.Equal("Nova", (await fixture.RegisterAndLogin("nova")).Player.FactionName);
     }
 
     [Fact]
