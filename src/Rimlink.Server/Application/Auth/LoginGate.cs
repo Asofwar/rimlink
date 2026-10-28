@@ -2,13 +2,14 @@ using Grpc.Core;
 using Microsoft.Extensions.Options;
 using Rimlink.Protocol.V1;
 using Rimlink.Server.Application.Sessions;
+using Rimlink.Server.Application.World;
 using Rimlink.Server.Hosting;
 using Rimlink.Server.Storage.Entities;
 
 namespace Rimlink.Server.Application.Auth;
 
-/// <summary>Checks that apply after the credential is proven, in spec order: ban, (modpack), player limit, server password.</summary>
-public sealed class LoginGate(BanService bans, SessionRegistry sessions, IOptions<ServerOptions> server)
+/// <summary>Checks that apply after the credential is proven, in spec order: ban, (modpack), world exists, player limit, server password.</summary>
+public sealed class LoginGate(BanService bans, SessionRegistry sessions, WorldService worlds, IOptions<ServerOptions> server)
 {
     public async Task<LoginResult.Failure?> Check(Account account, SteamIdentity? steam, LoginContext ctx)
     {
@@ -18,6 +19,10 @@ public sealed class LoginGate(BanService bans, SessionRegistry sessions, IOption
             string until = ban.ExpiresAt is null ? "permanently" : $"until {ban.ExpiresAt:u}";
             return new LoginResult.Failure(StatusCode.FailedPrecondition, ErrorCode.Banned, $"banned {until}: {ban.Reason}");
         }
+
+        // Until an admin has created the world only admins may enter (they create it).
+        if (account.Role != Storage.Entities.Role.Admin && !await worlds.Exists())
+            return new LoginResult.Failure(StatusCode.FailedPrecondition, ErrorCode.WorldNotCreated, "the world has not been created yet; wait for an admin");
 
         // The account's own old session does not count: it is replaced, not added.
         int online = sessions.All.Count(s => s.AccountId != account.Id);

@@ -10,9 +10,12 @@ namespace Rimlink.Server.Grpc;
 public sealed class RateLimitInterceptor : Interceptor, IDisposable
 {
     private readonly PartitionedRateLimiter<(string Caller, string Method)> limiter;
+    private readonly bool disabled;
 
     public RateLimitInterceptor(IConfiguration configuration)
     {
+        // Tests switch the limiter off except when they test it.
+        disabled = configuration.GetValue<bool>("RateLimit:Disabled");
         // Tests shrink the default window to make the generic limit observable.
         int? testPermits = configuration.GetValue<int?>("RateLimit:Test");
         limiter = PartitionedRateLimiter.Create<(string Caller, string Method), (string, string)>(key =>
@@ -49,6 +52,8 @@ public sealed class RateLimitInterceptor : Interceptor, IDisposable
 
     private async Task Acquire(ServerCallContext context)
     {
+        if (disabled) return;
+
         // Anonymous calls (Login, Register) are keyed by IP, everything after login by account.
         string caller = context.GetHttpContext().Items[SessionInterceptor.ItemKey] is Session session
             ? "acct:" + session.AccountId

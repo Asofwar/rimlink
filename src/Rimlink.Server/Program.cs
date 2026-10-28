@@ -3,6 +3,7 @@ using Rimlink.Protocol;
 using Rimlink.Server.Application.Auth;
 using Rimlink.Server.Application.Events;
 using Rimlink.Server.Application.Sessions;
+using Rimlink.Server.Application.World;
 using Rimlink.Server.Grpc;
 using Rimlink.Server.Hosting;
 using Rimlink.Server.Storage;
@@ -44,6 +45,7 @@ builder.Services.AddSingleton<RateLimitInterceptor>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<BanService>();
 builder.Services.AddScoped<LoginGate>();
+builder.Services.AddScoped<WorldService>();
 builder.Services.AddHttpClient<ISteamTicketVerifier, SteamWebApiTicketVerifier>(client => client.Timeout = TimeSpan.FromSeconds(10));
 
 var app = builder.Build();
@@ -55,6 +57,7 @@ app.MapHealthChecks("/health");
 app.MapMetrics("/metrics");
 app.MapGrpcService<AuthGrpcService>();
 app.MapGrpcService<EventsGrpcService>();
+app.MapGrpcService<WorldGrpcService>();
 
 app.Run();
 

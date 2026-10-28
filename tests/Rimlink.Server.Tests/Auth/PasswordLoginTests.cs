@@ -24,7 +24,7 @@ public class PasswordLoginTests
         Assert.NotEqual(registered.SessionToken, loggedIn.SessionToken);
         Assert.Equal("Nova", loggedIn.Player.Name);
         Assert.Equal(Role.Player, loggedIn.Role);
-        Assert.False(loggedIn.WorldExists);
+        Assert.True(loggedIn.WorldExists); // the fixture seeds a world
     }
 
     [Fact]

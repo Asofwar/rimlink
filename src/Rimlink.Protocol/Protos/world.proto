@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package rimlink.v1;
+option csharp_namespace = "Rimlink.Protocol.V1";
+
+import "common.proto";
+
+service World {
+  // Admin only, once: the planet's generation parameters. Every client generates the same planet from them.
+  rpc Create (CreateWorldRequest) returns (WorldInfo);
+  rpc Get (Empty) returns (WorldInfo);
+  rpc ListObjects (Empty) returns (WorldObjects);
+  rpc Settle (SettleRequest) returns (WorldObject);
+  rpc Abandon (AbandonRequest) returns (Empty);
+}
+
+message WorldParams {
+  string seed = 1;
+  float planet_coverage = 2;
+  int32 rainfall = 3;
+  int32 temperature = 4;
+  int32 population = 5;
+  float pollution = 6;
+  string scenario_def = 7;
+  string storyteller_def = 8;
+  string difficulty_def = 9;
+}
+
+message CreateWorldRequest {
+  WorldParams params = 1;
+  // Tiles occupied by NPC settlements on the generating client; players may not settle there.
+  repeated int32 npc_tiles = 2;
+}
+
+message WorldInfo {
+  bool exists = 1;
+  WorldParams params = 2;
+  repeated int32 npc_tiles = 3;
+}
+
+message WorldObject {
+  int64 id = 1;
+  string type = 2;
+  PlayerRef owner = 3;
+  int32 tile = 4;
+  string name = 5;
+  bytes payload = 6;
+}
+
+message WorldObjects {
+  repeated WorldObject objects = 1;
+}
+
+message SettleRequest {
+  int32 tile = 1;
+  string name = 2;
+}
+
+message AbandonRequest {
+  int64 object_id = 1;
+}
+
+// Event bodies (ServerEvent 30/31).
+message WorldObjectAdded { WorldObject object = 1; }
+message WorldObjectRemoved { int64 object_id = 1; }

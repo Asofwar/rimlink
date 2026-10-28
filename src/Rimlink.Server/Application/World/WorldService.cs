@@ -1,0 +1,117 @@
+using Google.Protobuf;
+using Grpc.Core;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Rimlink.Protocol.V1;
+using Rimlink.Server.Application.Events;
+using Rimlink.Server.Application.Sessions;
+using Rimlink.Server.Grpc;
+using Rimlink.Server.Hosting;
+using Rimlink.Server.Storage;
+using Rimlink.Server.Storage.Entities;
+using WorldEntity = Rimlink.Server.Storage.Entities.World;
+
+namespace Rimlink.Server.Application.World;
+
+public sealed class WorldService(RimlinkDbContext db, EventBus events, IOptions<ServerOptions> server, ILogger<WorldService> log)
+{
+    private const int SqliteConstraint = 19;
+
+    public Task<WorldEntity?> Get() => db.World.AsNoTracking().FirstOrDefaultAsync();
+
+    public Task<bool> Exists() => db.World.AnyAsync();
+
+    public async Task<WorldEntity> Create(WorldParams parameters, IReadOnlyList<int> npcTiles, Session actor)
+    {
+        if (actor.Role != Storage.Entities.Role.Admin) throw RpcErrors.PermissionDenied("only an admin can create the world");
+        if (await db.World.AnyAsync()) throw RpcErrors.Failed(ErrorCode.Unspecified, "the world already exists; recreate it through the admin tools");
+        if (string.IsNullOrWhiteSpace(parameters.Seed)) throw new RpcException(new Status(StatusCode.InvalidArgument, "seed is empty"));
+
+        var world = new WorldEntity
+        {
+            Seed = parameters.Seed,
+            Params = parameters.ToByteArray(),
+            NpcTiles = string.Join(',', npcTiles.Distinct().Order()),
+            CreatedAt = DateTime.UtcNow,
+        };
+        db.World.Add(world);
+        await db.SaveChangesAsync();
+        log.LogInformation("World created by {Player}: seed {Seed}, {NpcTiles} NPC tiles", actor.PlayerName, world.Seed, npcTiles.Count);
+        return world;
+    }
+
+    public static WorldInfo ToInfo(WorldEntity? world)
+    {
+        if (world is null) return new WorldInfo { Exists = false };
+        var info = new WorldInfo { Exists = true, Params = WorldParams.Parser.ParseFrom(world.Params) };
+        info.NpcTiles.AddRange(ParseTiles(world.NpcTiles));
+        return info;
+    }
+
+    public async Task<List<Protocol.V1.WorldObject>> ListObjects() =>
+        (await db.WorldObjects.Include(o => o.Owner).AsNoTracking().OrderBy(o => o.Id).ToListAsync()).Select(ToProto).ToList();
+
+    public async Task<Protocol.V1.WorldObject> Settle(Session actor, int tile, string name)
+    {
+        var world = await db.World.AsNoTracking().FirstOrDefaultAsync() ?? throw RpcErrors.Failed(ErrorCode.WorldNotCreated, "the world has not been created yet");
+        if (!Names.IsValid(name)) throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.NameInvalid, "settlement name is not a valid name");
+        if (ParseTiles(world.NpcTiles).Contains(tile)) throw RpcErrors.Failed(ErrorCode.TileTaken, "an NPC settlement occupies this tile");
+
+        int owned = await db.WorldObjects.CountAsync(o => o.OwnerPlayerId == actor.PlayerId && o.Type == WorldObjectTypes.Settlement);
+        if (owned >= server.Value.MaxSettlementsPerPlayer)
+            throw RpcErrors.Failed(ErrorCode.SettlementLimit, $"you already have {owned} settlement(s); the limit is {server.Value.MaxSettlementsPerPlayer}");
+
+        var entity = new Storage.Entities.WorldObject
+        {
+            Type = WorldObjectTypes.Settlement,
+            OwnerPlayerId = actor.PlayerId,
+            Tile = tile,
+            Name = name,
+            CreatedAt = DateTime.UtcNow,
+        };
+        db.WorldObjects.Add(entity);
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is SqliteException { SqliteErrorCode: SqliteConstraint })
+        {
+            db.Entry(entity).State = EntityState.Detached;
+            throw RpcErrors.Failed(ErrorCode.TileTaken, "another player settled this tile first");
+        }
+
+        await db.Entry(entity).Reference(o => o.Owner).LoadAsync();
+        var proto = ToProto(entity);
+        events.BroadcastExcept(actor.PlayerId, new ServerEvent { WorldObjectAdded = new WorldObjectAdded { Object = proto } });
+        log.LogInformation("{Player} settled tile {Tile} as '{Name}'", actor.PlayerName, tile, name);
+        return proto;
+    }
+
+    public async Task Abandon(Session actor, long objectId)
+    {
+        var entity = await db.WorldObjects.FindAsync(objectId) ?? throw new RpcException(new Status(StatusCode.NotFound, "no such world object"));
+        if (entity.OwnerPlayerId != actor.PlayerId && actor.Role != Storage.Entities.Role.Admin) throw RpcErrors.PermissionDenied("not your world object");
+
+        db.WorldObjects.Remove(entity);
+        await db.SaveChangesAsync();
+        events.Broadcast(new ServerEvent { WorldObjectRemoved = new WorldObjectRemoved { ObjectId = objectId } });
+        log.LogInformation("{Player} abandoned world object {Id} on tile {Tile}", actor.PlayerName, objectId, entity.Tile);
+    }
+
+    public Task<bool> HasSettlement(long playerId) =>
+        db.WorldObjects.AnyAsync(o => o.OwnerPlayerId == playerId && o.Type == WorldObjectTypes.Settlement);
+
+    public static Protocol.V1.WorldObject ToProto(Storage.Entities.WorldObject o) => new()
+    {
+        Id = o.Id,
+        Type = o.Type,
+        Owner = o.Owner.ToRef(),
+        Tile = o.Tile,
+        Name = o.Name,
+        Payload = ByteString.CopyFrom(o.Payload),
+    };
+
+    private static IEnumerable<int> ParseTiles(string csv) =>
+        csv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(int.Parse);
+}

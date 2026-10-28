@@ -22,7 +22,7 @@ public class RateLimitTests
     [Fact]
     public async Task ExceedingTheLoginLimitIsResourceExhausted()
     {
-        using var fixture = new ServerFixture().WithSetting("Auth:AllowPassword", "true");
+        using var fixture = new ServerFixture().WithRateLimits().WithSetting("Auth:AllowPassword", "true");
         await fixture.RegisterAndLogin("nova");
         var auth = new Protocol.V1.Auth.AuthClient(fixture.CreateChannel());
 
@@ -36,7 +36,7 @@ public class RateLimitTests
     [Fact]
     public async Task LimitsAreIndependentPerAccount()
     {
-        using var fixture = new ServerFixture().WithSetting("Auth:AllowPassword", "true").WithSetting("RateLimit:Test", "2");
+        using var fixture = new ServerFixture().WithRateLimits().WithSetting("Auth:AllowPassword", "true").WithSetting("RateLimit:Test", "2");
         var auth = new Protocol.V1.Auth.AuthClient(fixture.CreateChannel());
 
         // Logout is a generic method; RateLimit:Test caps generic methods at 2 per window. Each login replaces the previous session.
