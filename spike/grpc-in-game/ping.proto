@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package rimlink.spike;
+option csharp_namespace = "Rimlink.Spike";
+
+service Ping {
+  rpc Echo (EchoRequest) returns (EchoReply);
+}
+
+message EchoRequest {
+  string text = 1;
+}
+
+message EchoReply {
+  string text = 1;
+  string server_time = 2;
+}

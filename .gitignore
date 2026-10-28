@@ -26,3 +26,4 @@ appsettings.Local.json
 
 # Packaged mod
 /mod/Assemblies/
+.superpowers/

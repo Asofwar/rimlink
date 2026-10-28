@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+  <name>Rimlink gRPC spike</name>
+  <author>Asofwar</author>
+  <packageId>asofwar.rimlinkspike</packageId>
+  <supportedVersions>
+    <li>1.7</li>
+  </supportedVersions>
+  <description>Throwaway: checks that a gRPC client works inside RimWorld 1.7. Writes rimlink-spike.txt into the save data folder.</description>
+</ModMetaData>
