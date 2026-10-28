@@ -18,6 +18,8 @@ public static class RimlinkSession
 
     public static bool Active => Connection is not null && Login is not null && Login.SessionToken.Length > 0;
     public static Rimlink.Client.Economy.EconomyClient? Economy => Connection is null ? null : new(Connection);
+    /// <summary>Economy requests whose answer has not been seen; replayed at login and after a reconnect.</summary>
+    public static Rimlink.Client.Economy.TransferOutbox? Outbox { get; private set; }
     public static long MyPlayerId => Login?.Player.PlayerId ?? 0;
     public static bool IsAdmin => Login?.Role == Role.Admin;
     public static bool IsModerator => Login?.Role is Role.Admin or Role.Moderator;
@@ -26,12 +28,14 @@ public static class RimlinkSession
     public static string DataDir => Path.Combine(GenFilePaths.SaveDataFolderPath, "Rimlink");
 
     public static string SaveDir(ServerEndpoint endpoint, long playerId) => Path.Combine(GenFilePaths.SavedGamesFolderPath, "Rimlink", $"{endpoint.Id}_{playerId}");
+    public static string OutboxPath(ServerEndpoint endpoint, long playerId) => Path.Combine(SaveDir(endpoint, playerId), "outbox.json");
 
     public static void Begin(ServerEndpoint endpoint, RimlinkConnection connection, LoginReply login)
     {
         Endpoint = endpoint;
         Connection = connection;
         Login = login;
+        Outbox = new(OutboxPath(endpoint, login.Player.PlayerId), RimlinkLog.Instance);
         State.Reset();
         Inbox.Clear();
         connection.EventReceived += Inbox.Enqueue;
@@ -45,6 +49,7 @@ public static class RimlinkSession
         if (Connection is { } c) c.EventReceived -= Inbox.Enqueue;
         Connection = null;
         Login = null;
+        Outbox = null;
         Endpoint = null;
         World = null;
         State.Reset();

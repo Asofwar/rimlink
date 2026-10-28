@@ -51,11 +51,18 @@ public static class ThingBlobs
         return blob;
     }
 
-    public static Thing DeserializeItem(ItemBlob b) => Load<Thing>(b.ScribeXmlZstd.ToByteArray());
+    /// <param name="newIds">True for an object from another game: its thing and hediff IDs may collide with ours.</param>
+    public static Thing DeserializeItem(ItemBlob b, bool newIds = false)
+    {
+        var thing = Load<Thing>(b.ScribeXmlZstd.ToByteArray());
+        if (newIds) RegenerateIds(thing);
+        return thing;
+    }
 
-    public static Pawn DeserializePawn(PawnBlob b)
+    public static Pawn DeserializePawn(PawnBlob b, bool newIds = false)
     {
         var pawn = Load<Pawn>(b.ScribeXmlZstd.ToByteArray());
+        if (newIds) RegenerateIds(pawn);
         if (pawn.Faction != Faction.OfPlayer) pawn.SetFaction(Faction.OfPlayer);
         if (pawn.RaceProps.Humanlike) PawnComponentsUtility.AddAndRemoveDynamicComponents(pawn);
         // References into the sender's game (their ideo, their policies) did not travel: point them at ours.
@@ -64,6 +71,19 @@ public static class ThingBlobs
         if (pawn.drugs is not null && pawn.drugs.CurrentPolicy is null) pawn.drugs.CurrentPolicy = Current.Game.drugPolicyDatabase.DefaultDrugPolicy();
         if (pawn.foodRestriction is not null && pawn.foodRestriction.CurrentFoodPolicy is null) pawn.foodRestriction.CurrentFoodPolicy = Current.Game.foodRestrictionDatabase.DefaultFoodRestriction();
         return pawn;
+    }
+
+    /// <summary>New thing IDs for the object and everything it holds (apparel, equipment, inventory, carried), new hediff IDs for pawns.</summary>
+    private static void RegenerateIds(Thing root)
+    {
+        var all = new List<Thing> { root };
+        if (root is IThingHolder holder) ThingOwnerUtility.GetAllThingsRecursively(holder, all);
+        foreach (var t in all.Distinct())
+        {
+            if (t.def.HasThingIDNumber) t.thingIDNumber = Find.UniqueIDsManager.GetNextThingID();
+            if (t is Pawn p && p.health?.hediffSet?.hediffs is { } hediffs)
+                foreach (var h in hediffs) h.loadID = Find.UniqueIDsManager.GetNextHediffID();
+        }
     }
 
     public static int SizeOf(ItemList? items, PawnList? pawns) =>

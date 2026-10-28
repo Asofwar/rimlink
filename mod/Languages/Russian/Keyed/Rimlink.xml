@@ -116,7 +116,11 @@
   <Rimlink.Economy.ConfirmPawn>{0} навсегда покинет вашу колонию. Продолжить?</Rimlink.Economy.ConfirmPawn>
   <Rimlink.Economy.TooManyItems>Не больше {0} стаков за одну передачу.</Rimlink.Economy.TooManyItems>
   <Rimlink.Economy.TooManyPawns>Не больше {0} пешек за одну передачу.</Rimlink.Economy.TooManyPawns>
-  <Rimlink.Economy.TooBig>Слишком много данных для одной передачи (лимит {0} МБ).</Rimlink.Economy.TooBig>
+  <Rimlink.Economy.TooBig>Слишком много данных для одной передачи (лимит {0} КБ).</Rimlink.Economy.TooBig>
+  <Rimlink.Economy.SaveBusy>Идёт другое сохранение, попробуйте через мгновение.</Rimlink.Economy.SaveBusy>
+  <Rimlink.Economy.Unanswered>Сервер не ответил ({0}). Передача сохранена и будет завершена при следующем входе.</Rimlink.Economy.Unanswered>
+  <Rimlink.Economy.Returned>Отклонённая передача возвращается капсулой: {0}.</Rimlink.Economy.Returned>
+  <Rimlink.Economy.KeepOneColonist>В караване должен остаться хотя бы один колонист.</Rimlink.Economy.KeepOneColonist>
   <Rimlink.Economy.UploadFailed>Передача отменена: сейв не удалось выгрузить ({0}). Всё возвращено на место.</Rimlink.Economy.UploadFailed>
   <Rimlink.Economy.Failed>Передача отклонена: {0}. Всё возвращено на место.</Rimlink.Economy.Failed>
   <Rimlink.Economy.ParcelFailed>Посылку не удалось распаковать ({0}); она остаётся в ящике.</Rimlink.Economy.ParcelFailed>

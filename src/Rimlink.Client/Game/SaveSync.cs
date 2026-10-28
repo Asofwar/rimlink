@@ -24,11 +24,15 @@ public static class SaveSync
 
     public static bool IsOurs(string fileName) => RimlinkSession.Active && fileName == SaveFileName;
 
-    /// <summary>Blocks until the upload started by the last save finishes (or the timeout passes); failures are already logged.</summary>
-    public static void WaitForUpload(TimeSpan timeout)
+    /// <summary>
+    /// Blocks until the upload started by the last save finishes. False when no upload started (the save failed) or the
+    /// timeout passed; a finished upload that failed is reported through <see cref="LastError"/>.
+    /// </summary>
+    public static bool WaitForUpload(TimeSpan timeout)
     {
-        try { upload?.Wait(timeout); }
-        catch (AggregateException) { }
+        if (upload is not { } task) return false;
+        try { return task.Wait(timeout); }
+        catch (AggregateException) { return true; }
     }
 
     /// <summary>
@@ -86,16 +90,18 @@ public static class SaveSync
         });
     }
 
-    /// <summary>Saves the multiplayer file (triggers the upload via the patch).</summary>
-    public static void TriggerSave(string reason)
+    /// <summary>Saves the multiplayer file (triggers the upload via the patch). False when nothing was queued.</summary>
+    public static bool TriggerSave(string reason)
     {
-        if (!RimlinkSession.Active || Current.Game == null || IsSaving) return;
+        if (!RimlinkSession.Active || Current.Game == null || IsSaving) return false;
         IsSaving = true;
+        upload = null; // a save that fails leaves nothing to wait for
         LongEventHandler.QueueLongEvent(() =>
         {
             try { GameDataSaveLoader.SaveGame(SaveFileName); }
             finally { IsSaving = false; }
         }, "Rimlink.Saving", doAsynchronously: false, ex => { IsSaving = false; Log.Error("[Rimlink] save failed: " + ex); });
         RimlinkLog.Instance.Info("saving (" + reason + ")");
+        return true;
     }
 }

@@ -42,7 +42,7 @@ public static class LoginFlow
                 RimlinkSession.World = world;
                 RimlinkSession.State.LoadSnapshot(objects, history, reply.Online.Count > 0 ? reply.Online : [reply.Player]);
                 ForeignSettlements.Subscribe();
-                await LoadEconomy(connection, reply.Player.PlayerId, cts.Token);
+                await LoadEconomy(connection, RimlinkSession.Outbox, reply.Player.PlayerId, cts.Token);
 
                 string savePath = SaveSync.SaveFilePath;
                 var pending = SaveSync.Pending;
@@ -177,17 +177,21 @@ public static class LoginFlow
         });
     }
 
-    /// <summary>Wallet, mailbox and own lots; a server with the economy off leaves the state empty.</summary>
-    private static async Task LoadEconomy(RimlinkConnection connection, long me, CancellationToken ct)
+    /// <summary>
+    /// Unanswered requests first (the server settles them with the same keys), then wallet, mailbox and own lots.
+    /// A server with the economy off or frozen, or any other refusal, leaves the state empty; the login goes on.
+    /// </summary>
+    public static async Task LoadEconomy(RimlinkConnection connection, Rimlink.Client.Economy.TransferOutbox? outbox, long me, CancellationToken ct)
     {
+        var economy = new Rimlink.Client.Economy.EconomyClient(connection);
         try
         {
-            var economy = new Rimlink.Client.Economy.EconomyClient(connection);
+            if (outbox is not null) await outbox.Replay(economy, ct);
             RimlinkSession.State.Economy.Load(await economy.Wallet(ct), await economy.Pending(ct), await economy.Lots(new MarketQuery { SellerPlayerId = me }, ct));
         }
-        catch (RpcException ex) when (Rimlink.Client.Economy.EconomyClient.CodeOf(ex) == ErrorCode.EconomyFrozen)
+        catch (RpcException ex)
         {
-            RimlinkLog.Instance.Info("economy is off or frozen on this server: " + ex.Status.Detail);
+            RimlinkLog.Instance.Warn("economy not loaded, it stays empty until the next reconnect: " + Rimlink.Client.Economy.EconomyClient.MessageOf(ex));
         }
     }
 

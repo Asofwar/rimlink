@@ -116,7 +116,11 @@
   <Rimlink.Economy.ConfirmPawn>{0} will leave your colony for good. Continue?</Rimlink.Economy.ConfirmPawn>
   <Rimlink.Economy.TooManyItems>At most {0} stacks per transfer.</Rimlink.Economy.TooManyItems>
   <Rimlink.Economy.TooManyPawns>At most {0} pawns per transfer.</Rimlink.Economy.TooManyPawns>
-  <Rimlink.Economy.TooBig>Too much data for one transfer (limit {0} MB).</Rimlink.Economy.TooBig>
+  <Rimlink.Economy.TooBig>Too much data for one transfer (limit {0} KB).</Rimlink.Economy.TooBig>
+  <Rimlink.Economy.SaveBusy>Another save is in progress; try again in a moment.</Rimlink.Economy.SaveBusy>
+  <Rimlink.Economy.Unanswered>The server did not answer ({0}). The transfer is kept and will be settled at the next login.</Rimlink.Economy.Unanswered>
+  <Rimlink.Economy.Returned>A refused transfer is coming back by drop pod: {0}.</Rimlink.Economy.Returned>
+  <Rimlink.Economy.KeepOneColonist>At least one colonist must stay with the caravan.</Rimlink.Economy.KeepOneColonist>
   <Rimlink.Economy.UploadFailed>Transfer cancelled: the save could not be uploaded ({0}). Everything was put back.</Rimlink.Economy.UploadFailed>
   <Rimlink.Economy.Failed>Transfer refused: {0}. Everything was put back.</Rimlink.Economy.Failed>
   <Rimlink.Economy.ParcelFailed>A parcel could not be unpacked ({0}); it stays in your mailbox.</Rimlink.Economy.ParcelFailed>

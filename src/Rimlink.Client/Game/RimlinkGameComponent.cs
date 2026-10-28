@@ -79,6 +79,7 @@ public sealed class RimlinkGameComponent : GameComponent
                     ForeignSettlements.RebuildFromState();
                     RimlinkLog.Instance.Info($"resynced after reconnect: {objects.Objects.Count} world objects, {online.Count} online");
                 });
+                await UI.LoginFlow.LoadEconomy(connection, RimlinkSession.Outbox, login.Player.PlayerId, CancellationToken.None);
             }
             catch (Exception ex)
             {

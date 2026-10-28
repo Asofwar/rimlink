@@ -1,3 +1,4 @@
+using Google.Protobuf;
 using Grpc.Core;
 using RimWorld;
 using RimWorld.Planet;
@@ -11,8 +12,10 @@ namespace Rimlink.Client.Game.Economy;
 
 /// <summary>
 /// Everything that leaves the colony: things and pawns are taken out of the game and serialised, the game is saved and
-/// uploaded (no upload, no transfer: the server refuses older saves afterwards), then the RPC runs. On any failure the
-/// objects come back exactly where they were. Main thread entry points; the RPC runs in the background.
+/// uploaded (no upload, no transfer: the server refuses older saves afterwards), then the RPC runs. A refusal puts the
+/// objects back exactly where they were. A call that got no answer is neither restored nor forgotten: it waits in the
+/// <see cref="TransferOutbox"/> and is replayed with the same key at the next login or reconnect. Main thread entry
+/// points; the RPC runs in the background.
 /// </summary>
 public static class Outgoing
 {
@@ -21,16 +24,16 @@ public static class Outgoing
 
     public sealed record Pick(Thing Thing, int Count);
 
+    private static DateTime lastReturn = DateTime.MinValue;
+
     public static void SendItems(Map map, long toPlayerId, string toName, IReadOnlyList<Pick> picks, IReadOnlyList<Pawn> pawns, long silver)
     {
         if (CheckLimits(picks.Count, pawns.Count) is { } limit) { Messages.Message(limit, MessageTypeDefOf.RejectInput, historical: false); return; }
         var taken = TakeFromMap(map, picks, pawns);
         if (taken is null) return;
-        Run(taken, "Rimlink.Economy.Sent".Translate(toName), (items, pawnList, tick) =>
-            RimlinkSession.Economy!.Send(new TransferRequest
-            {
-                ClientRequestId = EconomyClient.NewRequestId(), ToPlayerId = toPlayerId, Items = items, Pawns = pawnList, Silver = silver, GameTick = tick,
-            }, CancellationToken.None));
+        Run(taken, "Rimlink.Economy.Sent".Translate(toName),
+            (items, pawnList, tick) => new TransferRequest { ClientRequestId = EconomyClient.NewRequestId(), ToPlayerId = toPlayerId, Items = items, Pawns = pawnList, Silver = silver, GameTick = tick },
+            (economy, request) => economy.Send((TransferRequest)request, CancellationToken.None));
     }
 
     public static void PostLot(Map map, IReadOnlyList<Pick> picks, Pawn? pawn, long price)
@@ -39,13 +42,18 @@ public static class Outgoing
         if (CheckLimits(picks.Count, pawns.Count) is { } limit) { Messages.Message(limit, MessageTypeDefOf.RejectInput, historical: false); return; }
         var taken = TakeFromMap(map, picks, pawns);
         if (taken is null) return;
-        Run(taken, "Rimlink.Economy.Posted".Translate(price), async (items, pawnList, tick) =>
-        {
-            var request = new PostRequest { ClientRequestId = EconomyClient.NewRequestId(), Price = price, GameTick = tick };
-            if (pawnList.Pawns.Count > 0) request.Pawn = pawnList.Pawns[0]; else request.Items = items;
-            var lot = await RimlinkSession.Economy!.Post(request, CancellationToken.None);
-            MainThread.Post(() => RimlinkSession.State.Economy.MyLots.Add(lot));
-        });
+        Run(taken, "Rimlink.Economy.Posted".Translate(price),
+            (items, pawnList, tick) =>
+            {
+                var request = new PostRequest { ClientRequestId = EconomyClient.NewRequestId(), Price = price, GameTick = tick };
+                if (pawnList.Pawns.Count > 0) request.Pawn = pawnList.Pawns[0]; else request.Items = items;
+                return request;
+            },
+            async (economy, request) =>
+            {
+                var lot = await economy.Post((PostRequest)request, CancellationToken.None);
+                MainThread.Post(() => RimlinkSession.State.Economy.MyLots.Add(lot));
+            });
     }
 
     /// <summary>Silver under the beacons goes into the wallet.</summary>
@@ -66,32 +74,40 @@ public static class Outgoing
         if (left > 0) { Messages.Message("Rimlink.Economy.NotEnoughSilverOnMap".Translate(silver), MessageTypeDefOf.RejectInput, historical: false); return; }
         var taken = TakeFromMap(map, picks, []);
         if (taken is null) return;
-        Run(taken, "Rimlink.Economy.Deposited".Translate(silver), async (_, _, tick) =>
-        {
-            var state = await RimlinkSession.Economy!.Deposit(new DepositRequest { ClientRequestId = EconomyClient.NewRequestId(), Silver = silver, GameTick = tick }, CancellationToken.None);
-            MainThread.Post(() => RimlinkSession.State.Economy.Apply(new ServerEvent { WalletChanged = new WalletChanged { Balance = state.Balance, Delta = silver, Kind = "deposit" } }));
-        });
+        Run(taken, "Rimlink.Economy.Deposited".Translate(silver),
+            (_, _, tick) => new DepositRequest { ClientRequestId = EconomyClient.NewRequestId(), Silver = silver, GameTick = tick },
+            async (economy, request) =>
+            {
+                var state = await economy.Deposit((DepositRequest)request, CancellationToken.None);
+                MainThread.Post(() => RimlinkSession.State.Economy.Apply(new ServerEvent { WalletChanged = new WalletChanged { Balance = state.Balance, Delta = silver, Kind = "deposit" } }));
+            });
     }
 
-    /// <summary>From a caravan standing on another player's settlement: inventory items and members.</summary>
+    /// <summary>From a caravan standing on another player's settlement: inventory items and members. A colonist must stay to carry what remains.</summary>
     public static void SendFromCaravan(Caravan caravan, long toPlayerId, string toName, IReadOnlyList<Thing> things, IReadOnlyList<Pawn> pawns)
     {
         if (CheckLimits(things.Count, pawns.Count) is { } limit) { Messages.Message(limit, MessageTypeDefOf.RejectInput, historical: false); return; }
+        if (pawns.Count > 0 && !caravan.PawnsListForReading.Except(pawns).Any(caravan.IsOwner))
+        {
+            Messages.Message("Rimlink.Economy.KeepOneColonist".Translate(), MessageTypeDefOf.RejectInput, historical: false);
+            return;
+        }
         var taken = new List<Taken>();
         try
         {
+            // Pawns first: when things are put back, their carriers are already back in the caravan.
+            foreach (var pawn in pawns)
+            {
+                caravan.RemovePawn(pawn);
+                taken.Add(new Taken(null, ThingBlobs.SerializePawn(pawn), p => caravan.AddPawn((Pawn)p, addCarriedPawnToWorldPawnsIfAny: true)));
+                pawn.Destroy(DestroyMode.Vanish);
+            }
             foreach (var thing in things)
             {
                 var owner = CaravanInventoryUtility.GetOwnerOf(caravan, thing);
                 owner?.inventory.innerContainer.Remove(thing);
                 taken.Add(new Taken(ThingBlobs.SerializeItem(thing), null, t => (CaravanInventoryUtility.FindPawnToMoveInventoryTo(t, caravan.PawnsListForReading, null) ?? caravan.PawnsListForReading[0]).inventory.innerContainer.TryAdd(t)));
                 thing.Destroy(DestroyMode.Vanish);
-            }
-            foreach (var pawn in pawns)
-            {
-                caravan.RemovePawn(pawn);
-                taken.Add(new Taken(null, ThingBlobs.SerializePawn(pawn), p => caravan.AddPawn((Pawn)p, addCarriedPawnToWorldPawnsIfAny: true)));
-                pawn.Destroy(DestroyMode.Vanish);
             }
         }
         catch (Exception ex)
@@ -101,14 +117,9 @@ public static class Outgoing
             Messages.Message("Rimlink.Economy.Failed".Translate(ex.Message), MessageTypeDefOf.RejectInput, historical: false);
             return;
         }
-        Run(taken, "Rimlink.Economy.Sent".Translate(toName), async (items, pawnList, tick) =>
-        {
-            await RimlinkSession.Economy!.Send(new TransferRequest
-            {
-                ClientRequestId = EconomyClient.NewRequestId(), ToPlayerId = toPlayerId, Items = items, Pawns = pawnList, Silver = 0, GameTick = tick,
-            }, CancellationToken.None);
-            MainThread.Post(() => { if (!caravan.Destroyed && caravan.PawnsListForReading.Count == 0) caravan.Destroy(); });
-        });
+        Run(taken, "Rimlink.Economy.Sent".Translate(toName),
+            (items, pawnList, tick) => new TransferRequest { ClientRequestId = EconomyClient.NewRequestId(), ToPlayerId = toPlayerId, Items = items, Pawns = pawnList, Silver = 0, GameTick = tick },
+            (economy, request) => economy.Send((TransferRequest)request, CancellationToken.None));
     }
 
     public static string? CheckLimits(int items, int pawns)
@@ -116,6 +127,58 @@ public static class Outgoing
         if (items > Limits.EconomyMaxItemsPerParcel) return "Rimlink.Economy.TooManyItems".Translate(Limits.EconomyMaxItemsPerParcel);
         if (pawns > Limits.EconomyMaxPawnsPerParcel) return "Rimlink.Economy.TooManyPawns".Translate(Limits.EconomyMaxPawnsPerParcel);
         return null;
+    }
+
+    /// <summary>
+    /// Called every frame on the colony map: a request the server refused on replay (its contents were already gone
+    /// from the colony when the refusal came) comes back by drop pod.
+    /// </summary>
+    public static void ReturnRefused(Map map)
+    {
+        if (DateTime.UtcNow - lastReturn < TimeSpan.FromSeconds(5)) return;
+        lastReturn = DateTime.UtcNow;
+        var outbox = RimlinkSession.Outbox;
+        if (outbox is null) return;
+        foreach (var entry in outbox.Entries.Where(e => e.Refusal is not null))
+        {
+            List<Thing> things;
+            try
+            {
+                things = Contents(TransferOutbox.Decode(entry));
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"[Rimlink] refused transfer {entry.Id} could not be unpacked, its entry stays in the outbox: {ex}");
+                lastReturn = DateTime.UtcNow + TimeSpan.FromMinutes(5);
+                return;
+            }
+            var center = Incoming.DropCenter(map);
+            DropPodUtility.DropThingsNear(center, map, things, openDelay: 110, canInstaDropDuringInit: false, leaveSlag: false, canRoofPunch: true, forbid: false);
+            outbox.Remove(entry.Id);
+            Messages.Message("Rimlink.Economy.Returned".Translate(entry.Refusal), new LookTargets(center, map), MessageTypeDefOf.NegativeEvent, historical: false);
+            RimlinkLog.Instance.Info($"refused {entry.Kind} {entry.Id} returned by drop pod: {things.Count} things");
+            SaveSync.TriggerSave("transfer-restore");
+        }
+    }
+
+    private static List<Thing> Contents(IMessage request)
+    {
+        var things = new List<Thing>();
+        switch (request)
+        {
+            case TransferRequest send:
+                foreach (var i in send.Items.Items) things.Add(ThingBlobs.DeserializeItem(i));
+                foreach (var p in send.Pawns.Pawns) things.Add(ThingBlobs.DeserializePawn(p));
+                break;
+            case PostRequest post:
+                if (post.Items is not null) foreach (var i in post.Items.Items) things.Add(ThingBlobs.DeserializeItem(i));
+                if (post.Pawn is not null) things.Add(ThingBlobs.DeserializePawn(post.Pawn));
+                break;
+            case DepositRequest deposit:
+                things.AddRange(Incoming.SilverStacks(deposit.Silver));
+                break;
+        }
+        return things;
     }
 
     private static List<Taken>? TakeFromMap(Map map, IReadOnlyList<Pick> picks, IReadOnlyList<Pawn> pawns)
@@ -149,9 +212,9 @@ public static class Outgoing
         }
     }
 
-    private static void Run(List<Taken> taken, string successMessage, Func<ItemList, PawnList, long, Task> call)
+    private static void Run(List<Taken> taken, string successMessage, Func<ItemList, PawnList, long, IMessage> build, Func<EconomyClient, IMessage, Task> call)
     {
-        if (!RimlinkSession.Active || RimlinkSession.Economy is null) { Restore(taken); return; }
+        if (!RimlinkSession.Active || RimlinkSession.Economy is not { } economy) { Restore(taken); return; }
         var items = new ItemList();
         var pawnList = new PawnList();
         foreach (var t in taken)
@@ -162,37 +225,57 @@ public static class Outgoing
         if (ThingBlobs.SizeOf(items, pawnList) > Limits.EconomyMaxParcelBytes)
         {
             Restore(taken);
-            Messages.Message("Rimlink.Economy.TooBig".Translate(Limits.EconomyMaxParcelBytes / 1024 / 1024), MessageTypeDefOf.RejectInput, historical: false);
+            Messages.Message("Rimlink.Economy.TooBig".Translate(Limits.EconomyMaxParcelBytes / 1024), MessageTypeDefOf.RejectInput, historical: false);
             return;
         }
 
         // The save that no longer holds these things must reach the server before they can exist anywhere else.
-        SaveSync.TriggerSave("transfer");
-        LongEventHandler.QueueLongEvent(() => SaveSync.WaitForUpload(TimeSpan.FromSeconds(60)), "Rimlink.Flow.Uploading", doAsynchronously: true, null, showExtraUIInfo: false, callback: () =>
+        if (!SaveSync.TriggerSave("transfer"))
         {
-            if (SaveSync.LastError is not null)
+            Restore(taken);
+            Messages.Message("Rimlink.Economy.SaveBusy".Translate(), MessageTypeDefOf.RejectInput, historical: false);
+            return;
+        }
+        bool uploaded = false;
+        LongEventHandler.QueueLongEvent(() => uploaded = SaveSync.WaitForUpload(TimeSpan.FromSeconds(60)), "Rimlink.Flow.Uploading", doAsynchronously: true, null, showExtraUIInfo: false, callback: () =>
+        {
+            if (!uploaded || SaveSync.LastError is not null)
             {
                 Restore(taken);
-                Messages.Message("Rimlink.Economy.UploadFailed".Translate(SaveSync.LastError), MessageTypeDefOf.RejectInput, historical: false);
+                Messages.Message("Rimlink.Economy.UploadFailed".Translate(SaveSync.LastError ?? "timeout"), MessageTypeDefOf.RejectInput, historical: false);
+                SaveSync.TriggerSave("transfer-restore");
                 return;
             }
             long tick = Find.TickManager.TicksGame;
+            var request = build(items, pawnList, tick);
+            var outbox = RimlinkSession.Outbox;
+            var entry = outbox?.Add(request);
             _ = Task.Run(async () =>
             {
                 try
                 {
-                    await call(items, pawnList, tick);
+                    await call(economy, request);
+                    if (entry is not null) outbox!.Remove(entry.Id);
                     MainThread.Post(() => Messages.Message(successMessage, MessageTypeDefOf.PositiveEvent, historical: false));
                 }
-                catch (Exception ex)
+                catch (RpcException ex) when (TransferOutbox.IsDefinitive(ex))
                 {
-                    string reason = ex is RpcException rpc ? EconomyClient.MessageOf(rpc) : ex.Message;
+                    string reason = EconomyClient.MessageOf(ex);
                     RimlinkLog.Instance.Warn($"transfer refused: {reason}");
+                    if (entry is not null) outbox!.Remove(entry.Id);
                     MainThread.Post(() =>
                     {
                         Restore(taken);
                         Messages.Message("Rimlink.Economy.Failed".Translate(reason), MessageTypeDefOf.RejectInput, historical: false);
+                        SaveSync.TriggerSave("transfer-restore");
                     });
+                }
+                catch (Exception ex)
+                {
+                    // Unknown outcome: the entry stays in the outbox and is replayed with the same key; nothing is restored and nothing is lost.
+                    string reason = ex is RpcException rpc ? EconomyClient.MessageOf(rpc) : ex.Message;
+                    RimlinkLog.Instance.Warn($"transfer unanswered, kept in the outbox: {reason}");
+                    MainThread.Post(() => Messages.Message("Rimlink.Economy.Unanswered".Translate(reason), MessageTypeDefOf.NegativeEvent, historical: false));
                 }
             });
         });
