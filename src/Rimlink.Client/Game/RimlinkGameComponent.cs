@@ -18,6 +18,8 @@ public sealed class RimlinkGameComponent : GameComponent
         ForeignSettlements.RebuildFromState();
     }
 
+    public override void GameComponentOnGUI() => UI.Overlay.Draw();
+
     public override void GameComponentUpdate()
     {
         if (!RimlinkSession.Active) return;

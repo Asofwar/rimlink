@@ -51,7 +51,7 @@ public class SaveTransferTests : IDisposable
         string rws = WriteRws("current.rws", ServerFixture.WorldSeed, "Nova", tick: 777);
 
         var info = await transfer.UploadAsync(rws, new SaveMeta(ServerFixture.WorldSeed, "Nova", 777), CancellationToken.None);
-        string downloaded = await transfer.DownloadAsync(Path.Combine(dir, "restored"), CancellationToken.None);
+        string downloaded = await transfer.DownloadAsync(Path.Combine(dir, "restored", "current.rws"), CancellationToken.None);
 
         Assert.Equal(1, info.Version);
         Assert.Equal(777, info.GameTick);
@@ -81,7 +81,7 @@ public class SaveTransferTests : IDisposable
         using var fixture = new ServerFixture().WithSetting("Auth:AllowPassword", "true");
         await using var connection = await Connected(fixture);
 
-        Assert.Null(await new SaveTransfer(connection).DownloadAsync(Path.Combine(dir, "restored"), CancellationToken.None));
+        Assert.Null(await new SaveTransfer(connection).DownloadAsync(Path.Combine(dir, "restored", "current.rws"), CancellationToken.None));
     }
 
     [Fact]

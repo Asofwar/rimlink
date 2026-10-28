@@ -12,8 +12,6 @@ public sealed record SaveMeta(string WorldSeed, string FactionName, long GameTic
 /// <summary>Moves .rws files to and from the server: zstd in 1 MB chunks, hashed, atomically written on download.</summary>
 public sealed class SaveTransfer(RimlinkConnection connection)
 {
-    public const string CurrentFileName = "current.rws";
-
     /// <summary>Compresses the file into memory (saves are tens of MB at most), then streams it; the local file is never touched.</summary>
     public async Task<SaveInfo> UploadAsync(string rwsPath, SaveMeta meta, CancellationToken cancellationToken)
     {
@@ -46,11 +44,12 @@ public sealed class SaveTransfer(RimlinkConnection connection)
         return await call;
     }
 
-    /// <summary>Downloads the current server save into &lt;targetDir&gt;/current.rws (temp file + rename). Null when the server has none.</summary>
-    public async Task<string?> DownloadAsync(string targetDir, CancellationToken cancellationToken)
+    /// <summary>Downloads the current server save to <paramref name="targetPath"/> (temp file + rename). Null when the server has none.</summary>
+    public async Task<string?> DownloadAsync(string targetPath, CancellationToken cancellationToken)
     {
+        string targetDir = Path.GetDirectoryName(Path.GetFullPath(targetPath))!;
         Directory.CreateDirectory(targetDir);
-        string final = Path.Combine(targetDir, CurrentFileName);
+        string final = targetPath;
         string temp = Path.Combine(targetDir, $"download-{Guid.NewGuid():N}.tmp");
         try
         {

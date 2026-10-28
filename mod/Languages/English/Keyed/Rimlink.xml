@@ -13,4 +13,48 @@
   <Rimlink.Settle.Refused>The server refused this settlement: {0}</Rimlink.Settle.Refused>
   <Rimlink.World.Locked>World parameters are set by the server {0}.</Rimlink.World.Locked>
   <Rimlink.Saving>Saving to the Rimlink server...</Rimlink.Saving>
+  <Rimlink.Cancel>Cancel</Rimlink.Cancel>
+  <Rimlink.Servers.Title>Rimlink servers</Rimlink.Servers.Title>
+  <Rimlink.Servers.Connect>Connect</Rimlink.Servers.Connect>
+  <Rimlink.Servers.Remove>Remove</Rimlink.Servers.Remove>
+  <Rimlink.Servers.Empty>No servers yet. Add one below.</Rimlink.Servers.Empty>
+  <Rimlink.Servers.Name>Name</Rimlink.Servers.Name>
+  <Rimlink.Servers.Host>Host</Rimlink.Servers.Host>
+  <Rimlink.Servers.Add>Add server</Rimlink.Servers.Add>
+  <Rimlink.Servers.Invalid>Enter a host and a port between 1 and 65535.</Rimlink.Servers.Invalid>
+  <Rimlink.Pin.NewTitle>New server certificate</Rimlink.Pin.NewTitle>
+  <Rimlink.Pin.ChangedTitle>Server certificate CHANGED</Rimlink.Pin.ChangedTitle>
+  <Rimlink.Pin.NewBody>First connection to {0}.\n\nCertificate fingerprint (SHA-256):\n{1}\n\nIf the server admin published a fingerprint, compare it. Trust it to continue; it is remembered for this server.</Rimlink.Pin.NewBody>
+  <Rimlink.Pin.ChangedBody>The certificate of {0} is not the one you trusted before.\n\nKnown: {1}\nNow: {2}\n\nThis happens when the admin replaced the certificate - or when someone is intercepting the connection. Ask the admin before trusting it.</Rimlink.Pin.ChangedBody>
+  <Rimlink.Pin.Trust>Trust and continue</Rimlink.Pin.Trust>
+  <Rimlink.Login.Title>Rimlink account</Rimlink.Login.Title>
+  <Rimlink.Login.Login>Login</Rimlink.Login.Login>
+  <Rimlink.Login.Password>Password</Rimlink.Login.Password>
+  <Rimlink.Login.Register>Create a new account</Rimlink.Login.Register>
+  <Rimlink.Login.PlayerName>Player name</Rimlink.Login.PlayerName>
+  <Rimlink.Login.Ok>Log in</Rimlink.Login.Ok>
+  <Rimlink.Modpack.Title>Your mods do not match the server</Rimlink.Modpack.Title>
+  <Rimlink.Modpack.Missing>Missing ({0}):</Rimlink.Modpack.Missing>
+  <Rimlink.Modpack.WrongVersion>Wrong version ({0}):</Rimlink.Modpack.WrongVersion>
+  <Rimlink.Modpack.Extra>Not allowed on this server ({0}):</Rimlink.Modpack.Extra>
+  <Rimlink.Modpack.Subscribe>Subscribe in Steam</Rimlink.Modpack.Subscribe>
+  <Rimlink.Modpack.Subscribed>Subscribed to {0} Workshop items; wait for Steam to download them.</Rimlink.Modpack.Subscribed>
+  <Rimlink.Modpack.OpenLinks>Open download links</Rimlink.Modpack.OpenLinks>
+  <Rimlink.Modpack.Opened>Opened {0} links in the browser.</Rimlink.Modpack.Opened>
+  <Rimlink.Modpack.ApplyOrder>Use server mod order</Rimlink.Modpack.ApplyOrder>
+  <Rimlink.Modpack.OrderApplied>Mod list written (backup: ModsConfig.rimlink-backup.xml). Restart to apply.</Rimlink.Modpack.OrderApplied>
+  <Rimlink.Modpack.Restart>Restart game</Rimlink.Modpack.Restart>
+  <Rimlink.Chat.Public>To: everyone</Rimlink.Chat.Public>
+  <Rimlink.Chat.To>To: {0} (click for public)</Rimlink.Chat.To>
+  <Rimlink.Chat.Send>Send</Rimlink.Chat.Send>
+  <Rimlink.Players.Title>Players online: {0}</Rimlink.Players.Title>
+  <Rimlink.Players.Message>Message</Rimlink.Players.Message>
+  <Rimlink.Overlay.Online>Rimlink: {0} online</Rimlink.Overlay.Online>
+  <Rimlink.Overlay.Chat>Chat</Rimlink.Overlay.Chat>
+  <Rimlink.Overlay.Players>Players</Rimlink.Overlay.Players>
+  <Rimlink.Flow.Connecting>Connecting to {0}...</Rimlink.Flow.Connecting>
+  <Rimlink.Flow.LoadingWorld>Loading the shared world...</Rimlink.Flow.LoadingWorld>
+  <Rimlink.Flow.Downloading>Downloading your save from the server...</Rimlink.Flow.Downloading>
+  <Rimlink.Flow.Uploading>Sending your last save to the server...</Rimlink.Flow.Uploading>
+  <Rimlink.Flow.Error>Could not join: {0}</Rimlink.Flow.Error>
 </LanguageData>

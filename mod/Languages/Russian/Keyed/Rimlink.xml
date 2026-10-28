@@ -13,4 +13,48 @@
   <Rimlink.Settle.Refused>Сервер отклонил поселение: {0}</Rimlink.Settle.Refused>
   <Rimlink.World.Locked>Параметры мира заданы сервером {0}.</Rimlink.World.Locked>
   <Rimlink.Saving>Сохранение на сервер Rimlink...</Rimlink.Saving>
+  <Rimlink.Cancel>Отмена</Rimlink.Cancel>
+  <Rimlink.Servers.Title>Серверы Rimlink</Rimlink.Servers.Title>
+  <Rimlink.Servers.Connect>Подключиться</Rimlink.Servers.Connect>
+  <Rimlink.Servers.Remove>Удалить</Rimlink.Servers.Remove>
+  <Rimlink.Servers.Empty>Серверов пока нет. Добавьте ниже.</Rimlink.Servers.Empty>
+  <Rimlink.Servers.Name>Имя</Rimlink.Servers.Name>
+  <Rimlink.Servers.Host>Адрес</Rimlink.Servers.Host>
+  <Rimlink.Servers.Add>Добавить сервер</Rimlink.Servers.Add>
+  <Rimlink.Servers.Invalid>Укажите адрес и порт от 1 до 65535.</Rimlink.Servers.Invalid>
+  <Rimlink.Pin.NewTitle>Новый сертификат сервера</Rimlink.Pin.NewTitle>
+  <Rimlink.Pin.ChangedTitle>Сертификат сервера ИЗМЕНИЛСЯ</Rimlink.Pin.ChangedTitle>
+  <Rimlink.Pin.NewBody>Первое подключение к {0}.\n\nОтпечаток сертификата (SHA-256):\n{1}\n\nЕсли администратор опубликовал отпечаток, сверьте его. Доверить, чтобы продолжить; отпечаток запомнится для этого сервера.</Rimlink.Pin.NewBody>
+  <Rimlink.Pin.ChangedBody>Сертификат {0} не совпадает с тем, которому вы доверяли раньше.\n\nБыл: {1}\nСтал: {2}\n\nТак бывает, когда администратор заменил сертификат, или когда кто-то перехватывает соединение. Спросите администратора, прежде чем доверять.</Rimlink.Pin.ChangedBody>
+  <Rimlink.Pin.Trust>Доверить и продолжить</Rimlink.Pin.Trust>
+  <Rimlink.Login.Title>Аккаунт Rimlink</Rimlink.Login.Title>
+  <Rimlink.Login.Login>Логин</Rimlink.Login.Login>
+  <Rimlink.Login.Password>Пароль</Rimlink.Login.Password>
+  <Rimlink.Login.Register>Создать новый аккаунт</Rimlink.Login.Register>
+  <Rimlink.Login.PlayerName>Имя игрока</Rimlink.Login.PlayerName>
+  <Rimlink.Login.Ok>Войти</Rimlink.Login.Ok>
+  <Rimlink.Modpack.Title>Ваши моды не совпадают с сервером</Rimlink.Modpack.Title>
+  <Rimlink.Modpack.Missing>Не хватает ({0}):</Rimlink.Modpack.Missing>
+  <Rimlink.Modpack.WrongVersion>Не та версия ({0}):</Rimlink.Modpack.WrongVersion>
+  <Rimlink.Modpack.Extra>Не разрешены на этом сервере ({0}):</Rimlink.Modpack.Extra>
+  <Rimlink.Modpack.Subscribe>Подписаться в Steam</Rimlink.Modpack.Subscribe>
+  <Rimlink.Modpack.Subscribed>Подписка на {0} модов Workshop оформлена; дождитесь загрузки в Steam.</Rimlink.Modpack.Subscribed>
+  <Rimlink.Modpack.OpenLinks>Открыть ссылки для скачивания</Rimlink.Modpack.OpenLinks>
+  <Rimlink.Modpack.Opened>Открыто ссылок в браузере: {0}.</Rimlink.Modpack.Opened>
+  <Rimlink.Modpack.ApplyOrder>Порядок модов как на сервере</Rimlink.Modpack.ApplyOrder>
+  <Rimlink.Modpack.OrderApplied>Список модов записан (копия: ModsConfig.rimlink-backup.xml). Перезапустите игру.</Rimlink.Modpack.OrderApplied>
+  <Rimlink.Modpack.Restart>Перезапустить игру</Rimlink.Modpack.Restart>
+  <Rimlink.Chat.Public>Кому: всем</Rimlink.Chat.Public>
+  <Rimlink.Chat.To>Кому: {0} (нажмите, чтобы писать всем)</Rimlink.Chat.To>
+  <Rimlink.Chat.Send>Отправить</Rimlink.Chat.Send>
+  <Rimlink.Players.Title>Игроков онлайн: {0}</Rimlink.Players.Title>
+  <Rimlink.Players.Message>Написать</Rimlink.Players.Message>
+  <Rimlink.Overlay.Online>Rimlink: онлайн {0}</Rimlink.Overlay.Online>
+  <Rimlink.Overlay.Chat>Чат</Rimlink.Overlay.Chat>
+  <Rimlink.Overlay.Players>Игроки</Rimlink.Overlay.Players>
+  <Rimlink.Flow.Connecting>Подключение к {0}...</Rimlink.Flow.Connecting>
+  <Rimlink.Flow.LoadingWorld>Загрузка общего мира...</Rimlink.Flow.LoadingWorld>
+  <Rimlink.Flow.Downloading>Загрузка вашего сохранения с сервера...</Rimlink.Flow.Downloading>
+  <Rimlink.Flow.Uploading>Отправка последнего сохранения на сервер...</Rimlink.Flow.Uploading>
+  <Rimlink.Flow.Error>Не удалось подключиться: {0}</Rimlink.Flow.Error>
 </LanguageData>

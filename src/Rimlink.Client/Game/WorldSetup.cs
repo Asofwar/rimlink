@@ -10,9 +10,9 @@ namespace Rimlink.Client.Game;
 public static class WorldSetup
 {
     /// <summary>Parameters of the world currently loaded in this client (the admin's, right after creating it).</summary>
-    public static (WorldParams Params, List<int> NpcTiles) CollectParams()
+    public static (WorldParams Params, List<int> NpcTiles) CollectParams(RimWorld.Planet.World world)
     {
-        var info = Find.World.info;
+        var info = world.info;
         var parameters = new WorldParams
         {
             Seed = info.seedString,
@@ -28,7 +28,7 @@ public static class WorldSetup
         };
         if (info.factions != null) parameters.FactionDefs.AddRange(info.factions.Select(f => f.defName));
 
-        var npcTiles = Find.WorldObjects.Settlements
+        var npcTiles = world.worldObjects.Settlements
             .Where(s => s.Faction != null && !s.Faction.IsPlayer)
             .Select(s => (int)s.Tile)
             .Distinct()
