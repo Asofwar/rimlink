@@ -11,20 +11,27 @@ compatible with, and shares no code with, other RimWorld multiplayer mods.
 
 ## Status
 
-Core server implemented: accounts (Steam or password), world and settlements, versioned saves, chat, modpack
-check, admin API, CLI and Docker image. The RimWorld client mod is next. Design documents live in
-`docs/superpowers/specs/`, server operation in `docs/server-setup.md`.
+Core complete: dedicated server (accounts via Steam or password, shared world and settlements, versioned saves,
+chat, modpack check, admin API, CLI, Docker image) and the RimWorld 1.7 client mod (server list, certificate
+pinning, login, locked world creation, settlements, save sync, chat, players, reconnect). Next sub-projects:
+economy, then real-time sync.
 
-## Planned layout
+- Players: `docs/player-guide.md`
+- Server admins: `docs/server-setup.md`
+- Design: `docs/superpowers/specs/`
+
+## Layout
 
 | Path | Purpose |
 |---|---|
 | `src/Rimlink.Protocol` | gRPC/protobuf contracts shared by server and client |
 | `src/Rimlink.Server` | ASP.NET Core dedicated server (gRPC game API, REST admin API, SQLite) |
-| `src/Rimlink.Client` | RimWorld 1.7 mod (Harmony) — not started |
-| `src/Rimlink.Tools` | Admin CLI (backups, mod list, migrations) |
-| `tests/` | Server unit and integration tests |
-| `mod/` | Mod metadata, defs, languages, textures |
+| `src/Rimlink.Client.Core` | Game-independent client: connection, pinning, reconnect, shared state, save transfer |
+| `src/Rimlink.Client` | RimWorld 1.7 mod (Harmony): UI, patches, session — built against the game, not in the solution |
+| `src/Rimlink.Tools` | Admin CLI (backups, mod list import, admin operations) |
+| `tests/` | Server and client-core tests (`WebApplicationFactory` against the real server) |
+| `mod/` | Mod metadata, defs, languages |
+| `scripts/` | `Build-ClientMod.ps1` (compile + assemble the mod), `Package-Release.ps1` (zips) |
 | `deploy/` | Dockerfile, docker-compose, sample configuration |
 
 ## Build and test
@@ -33,6 +40,13 @@ check, admin API, CLI and Docker image. The RimWorld client mod is next. Design 
 dotnet build Rimlink.sln
 dotnet test Rimlink.sln
 docker build -f deploy/Dockerfile -t rimlink-server .
+```
+
+Client mod (needs RimWorld 1.7 and the Harmony mod installed; PowerShell):
+
+```powershell
+.\scripts\Build-ClientMod.ps1 -RimWorldDir 'C:\...\RimWorld' -InstallTo 'C:\...\RimWorld\Mods'
+.\scripts\Package-Release.ps1   # dist/rimlink-client-<ver>.zip, dist/rimlink-server-<ver>-<rid>.zip
 ```
 
 ## License
