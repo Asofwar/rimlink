@@ -8,6 +8,7 @@ using Lot = Rimlink.Server.Storage.Entities.Lot;
 using Parcel = Rimlink.Server.Storage.Entities.Parcel;
 using Transfer = Rimlink.Server.Storage.Entities.Transfer;
 using Rimlink.Server.Application.Events;
+using Rimlink.Server.Application.Feed;
 using Rimlink.Server.Application.Raids;
 using Rimlink.Server.Application.Live;
 using LiveSessionRow = Rimlink.Server.Storage.Entities.LiveSession;
@@ -47,6 +48,7 @@ public sealed class AdminOperations(
     ShopService shop,
     VisitService visits,
     Backup.BackupService backups,
+    AdminFeed feed,
     ILogger<AdminOperations> log)
 {
     public async Task<Backup.BackupFile> CreateBackup(Actor actor)
@@ -122,6 +124,7 @@ public sealed class AdminOperations(
         raidFreeze.Frozen = frozen;
         raidFreeze.Reason = frozen ? reason : null;
         await Audit(actor, frozen ? "raids-freeze" : "raids-unfreeze", null, reason ?? "");
+        feed.Publish(FeedTypes.RaidsFrozen, new FreezeData(frozen, raidFreeze.Reason));
     }
 
     public async Task<RaidStatsResult> RaidStats(Actor actor)
@@ -251,6 +254,7 @@ public sealed class AdminOperations(
         freeze.Frozen = frozen;
         freeze.Reason = frozen ? reason : null;
         await Audit(actor, frozen ? "economy-freeze" : "economy-unfreeze", null, reason ?? "");
+        feed.Publish(FeedTypes.EconomyFrozen, new FreezeData(frozen, freeze.Reason));
         if (frozen) events.Broadcast(new ServerEvent { Notice = new Notice { Text = "Trading is paused: " + (reason ?? "maintenance") } });
         else events.Broadcast(new ServerEvent { Notice = new Notice { Text = "Trading is open again" } });
     }
@@ -385,6 +389,7 @@ public sealed class AdminOperations(
     {
         actor.Require(Role.Moderator);
         events.Broadcast(new ServerEvent { Notice = new Notice { Text = text } });
+        feed.Publish(FeedTypes.Notice, new NoticeData(text));
         await chat.System($"[server] {text}");
         await Audit(actor, "broadcast", null, text);
     }
@@ -426,6 +431,7 @@ public sealed class AdminOperations(
         actor.Require(Role.Admin);
         inSeconds = Math.Max(0, inSeconds);
         events.Broadcast(new ServerEvent { Shutdown = new ServerShutdown { InSeconds = inSeconds, Reason = reason } });
+        feed.Publish(FeedTypes.ServerShutdown, new ShutdownData(inSeconds, reason));
         await Audit(actor, "shutdown", null, $"in {inSeconds}s: {reason}");
         log.LogWarning("Shutdown in {Seconds}s requested by {Actor}: {Reason}", inSeconds, actor.Name, reason);
         _ = Task.Run(async () =>
@@ -475,6 +481,9 @@ public sealed class AdminOperations(
         db.WorldObjects.RemoveRange(objects);
         await db.SaveChangesAsync();
         foreach (var o in objects) events.Broadcast(new ServerEvent { WorldObjectRemoved = new WorldObjectRemoved { ObjectId = o.Id } });
+        string owner = await db.Players.AsNoTracking().Where(p => p.Id == playerId).Select(p => p.Name).FirstOrDefaultAsync() ?? "";
+        foreach (var o in objects.Where(o => o.Type == WorldObjectTypes.Settlement))
+            feed.Publish(FeedTypes.ColonyRemoved, new ColonyData(new FeedPlayer(playerId, owner), o.Name, null));
     }
 
     private async Task Audit(Actor actor, string action, long? targetAccountId, string details)
@@ -482,5 +491,9 @@ public sealed class AdminOperations(
         db.AdminActions.Add(new AdminAction { ActorAccountId = actor.AccountId, ActorName = actor.Name, Action = action, TargetAccountId = targetAccountId, Details = details, At = DateTime.UtcNow });
         await db.SaveChangesAsync();
         log.LogInformation("Admin {Actor}: {Action} {Target} {Details}", actor.Name, action, targetAccountId, details);
+        FeedPlayer? target = targetAccountId is { } accountId
+            ? await db.Players.AsNoTracking().Where(p => p.AccountId == accountId).Select(p => new FeedPlayer(p.Id, p.Name)).FirstOrDefaultAsync()
+            : null;
+        feed.Publish(FeedTypes.AdminAction, new AdminActionData(action, actor.Name, target, details));
     }
 }

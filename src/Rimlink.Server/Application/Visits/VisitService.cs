@@ -11,11 +11,12 @@ using Rimlink.Server.Grpc;
 using Rimlink.Server.Storage;
 using Rimlink.Server.Storage.Entities;
 using Visit = Rimlink.Server.Storage.Entities.Visit;
+using Rimlink.Server.Application.Feed;
 
 namespace Rimlink.Server.Application.Visits;
 
 /// <summary>A visit is a ticket: while it is open the visitor may download the host's save and buy from their shop.</summary>
-public sealed class VisitService(RimlinkDbContext db, SaveStore saves, EventBus events, IOptions<RaidOptions> options, ILogger<VisitService> log)
+public sealed class VisitService(RimlinkDbContext db, SaveStore saves, EventBus events, AdminFeed feed, IOptions<RaidOptions> options, ILogger<VisitService> log)
 {
     /// <summary>A ticket nobody ended (the visitor's game crashed mid-visit) is good for Raids:VisitHours, then no longer opens the host's save or shop.</summary>
     private DateTime OpenedAfter => DateTime.UtcNow - TimeSpan.FromHours(options.Value.VisitHours);
@@ -38,6 +39,7 @@ public sealed class VisitService(RimlinkDbContext db, SaveStore saves, EventBus 
         RaidMetrics.Visits.Inc();
         var visitor = await db.Players.AsNoTracking().FirstAsync(p => p.Id == visitorId);
         events.SendTo(hostId, new ServerEvent { VisitStarted = new VisitStarted { Visitor = visitor.ToRef() } });
+        feed.Publish(FeedTypes.VisitStarted, new VisitData(new FeedPlayer(visitor.Id, visitor.Name), new FeedPlayer(host.Id, host.Name)));
         log.LogInformation("Player {Visitor} is visiting player {Host} (visit {Visit})", visitorId, hostId, visit.Id);
         return (visit, host);
     }

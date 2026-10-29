@@ -11,10 +11,11 @@ using Rimlink.Server.Hosting;
 using Rimlink.Server.Storage;
 using Rimlink.Server.Storage.Entities;
 using WorldEntity = Rimlink.Server.Storage.Entities.World;
+using Rimlink.Server.Application.Feed;
 
 namespace Rimlink.Server.Application.World;
 
-public sealed class WorldService(RimlinkDbContext db, EventBus events, IOptions<ServerOptions> server, ILogger<WorldService> log)
+public sealed class WorldService(RimlinkDbContext db, EventBus events, AdminFeed feed, IOptions<ServerOptions> server, ILogger<WorldService> log)
 {
     private const int SqliteConstraint = 19;
 
@@ -84,6 +85,7 @@ public sealed class WorldService(RimlinkDbContext db, EventBus events, IOptions<
         await db.Entry(entity).Reference(o => o.Owner).LoadAsync();
         var proto = ToProto(entity);
         events.BroadcastExcept(actor.PlayerId, new ServerEvent { WorldObjectAdded = new WorldObjectAdded { Object = proto } });
+        feed.Publish(FeedTypes.ColonyFounded, new ColonyData(new FeedPlayer(entity.OwnerPlayerId, entity.Owner.Name), name, tile));
         log.LogInformation("{Player} settled tile {Tile} as '{Name}'", actor.PlayerName, tile, name);
         return proto;
     }
@@ -96,6 +98,11 @@ public sealed class WorldService(RimlinkDbContext db, EventBus events, IOptions<
         db.WorldObjects.Remove(entity);
         await db.SaveChangesAsync();
         events.Broadcast(new ServerEvent { WorldObjectRemoved = new WorldObjectRemoved { ObjectId = objectId } });
+        if (entity.Type == WorldObjectTypes.Settlement)
+        {
+            string owner = await db.Players.AsNoTracking().Where(pl => pl.Id == entity.OwnerPlayerId).Select(pl => pl.Name).FirstOrDefaultAsync() ?? "";
+            feed.Publish(FeedTypes.ColonyRemoved, new ColonyData(new FeedPlayer(entity.OwnerPlayerId, owner), entity.Name, null));
+        }
         log.LogInformation("{Player} abandoned world object {Id} on tile {Tile}", actor.PlayerName, objectId, entity.Tile);
     }
 

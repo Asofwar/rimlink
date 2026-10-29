@@ -13,6 +13,7 @@ using Rimlink.Server.Storage.Entities;
 using Raid = Rimlink.Server.Storage.Entities.Raid;
 using Parcel = Rimlink.Server.Storage.Entities.Parcel;
 using Transfer = Rimlink.Server.Storage.Entities.Transfer;
+using Rimlink.Server.Application.Feed;
 
 namespace Rimlink.Server.Application.Raids;
 
@@ -21,7 +22,7 @@ namespace Rimlink.Server.Application.Raids;
 /// became of them; the server only validates and moves parcels.
 /// </summary>
 public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, RaidReportValidator reports, MailboxService mailbox, RaidGate gate, RaidRules rules,
-    EventBus events, IOptions<RaidOptions> options, ILogger<RaidService> log)
+    EventBus events, AdminFeed feed, IOptions<RaidOptions> options, ILogger<RaidService> log)
 {
     private static readonly RaidStateDb[] FinalStates = [RaidStateDb.Resolved, RaidStateDb.Expired, RaidStateDb.Cancelled];
     private static readonly RaidStateDb[] PendingStates = [RaidStateDb.Queued, RaidStateDb.Announced];
@@ -140,6 +141,8 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
 
         RaidMetrics.Outcome("landed");
         events.SendTo(raid.AttackerPlayerId, new ServerEvent { RaidLanded = new RaidLanded { RaidId = raid.Id, Target = target.ToRef() } });
+        string attackerName = await db.Players.AsNoTracking().Where(p => p.Id == raid.AttackerPlayerId).Select(p => p.Name).FirstAsync();
+        feed.Publish(FeedTypes.RaidLanded, new RaidLandedData(raid.Id, new FeedPlayer(raid.AttackerPlayerId, attackerName), new FeedPlayer(target.Id, target.Name)));
         log.LogInformation("Raid {Raid} landed at player {Target} at tick {Tick}", raid.Id, targetId, gameTick);
     }
 
@@ -214,6 +217,9 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
         }
         RaidMetrics.Outcome("resolved");
         events.SendTo(attackerId, new ServerEvent { RaidResolved = new RaidResolved { RaidId = r.RaidId, Summary = summary } });
+        var names = await db.Players.AsNoTracking().Where(p => p.Id == attackerId || p.Id == targetId).ToDictionaryAsync(p => p.Id, p => p.Name);
+        feed.Publish(FeedTypes.RaidResolved, new RaidResolvedData(r.RaidId, new FeedPlayer(attackerId, names.GetValueOrDefault(attackerId, "")), new FeedPlayer(targetId, names.GetValueOrDefault(targetId, "")),
+            summary.Dead, summary.Captured, summary.Fled, summary.Alive, summary.LootValue, summary.Captives));
         foreach (var parcel in parcels) await mailbox.Announce(parcel);
         return reported;
     }

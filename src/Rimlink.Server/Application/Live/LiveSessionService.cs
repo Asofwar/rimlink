@@ -16,6 +16,7 @@ using Parcel = Rimlink.Server.Storage.Entities.Parcel;
 using Player = Rimlink.Server.Storage.Entities.Player;
 using Transfer = Rimlink.Server.Storage.Entities.Transfer;
 using Grpc.Core;
+using Rimlink.Server.Application.Feed;
 
 namespace Rimlink.Server.Application.Live;
 
@@ -25,9 +26,23 @@ namespace Rimlink.Server.Application.Live;
 /// The host's report ends either kind through <see cref="RaidService.Report"/> or <see cref="ReportVisit"/>.
 /// </summary>
 public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, RaidRules rules, ParcelValidator validator, MailboxService mailbox,
-    SessionRegistry registry, EventBus events, LiveRelay relay, IOptions<LiveOptions> options, IOptions<RaidOptions> raidOptions, ILogger<LiveSessionService> log)
+    SessionRegistry registry, EventBus events, AdminFeed feed, LiveRelay relay, IOptions<LiveOptions> options, IOptions<RaidOptions> raidOptions, ILogger<LiveSessionService> log)
 {
     public static readonly LiveStateDb[] FinalStates = [LiveStateDb.Ended, LiveStateDb.Fallback];
+
+    private static LiveData FeedData(Protocol.V1.LiveSession s, LiveEndReason? reason) => new(
+        s.Id, s.Kind == LiveKind.LiveVisit ? "visit" : "raid", new FeedPlayer(s.Host.PlayerId, s.Host.Name), new FeedPlayer(s.Guest.PlayerId, s.Guest.Name),
+        reason switch
+        {
+            null => null,
+            LiveEndReason.EndNormal => "normal",
+            LiveEndReason.EndGuestLost => "guest-lost",
+            LiveEndReason.EndHostLost => "host-lost",
+            LiveEndReason.EndHostAborted => "host-aborted",
+            LiveEndReason.EndGuestCancelled => "guest-cancelled",
+            LiveEndReason.EndAdmin => "admin",
+            _ => reason.ToString(),
+        });
 
     public async Task<LiveSessionRow> Propose(long guestId, LiveProposal p)
     {
@@ -124,6 +139,7 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
         var proto = await ToProto(session);
         events.SendTo(session.HostPlayerId, new ServerEvent { LiveStarted = new LiveStarted { Session = proto } });
         events.SendTo(session.GuestPlayerId, new ServerEvent { LiveStarted = new LiveStarted { Session = proto } });
+        feed.Publish(FeedTypes.LiveStarted, FeedData(proto, null));
         log.LogInformation("Live session {Id} starting", session.Id);
     }
 
@@ -222,6 +238,7 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
         var proto = await ToProto(session);
         events.SendTo(session.HostPlayerId, new ServerEvent { LiveEnded = new LiveEnded { Session = proto } });
         events.SendTo(session.GuestPlayerId, new ServerEvent { LiveEnded = new LiveEnded { Session = proto } });
+        feed.Publish(FeedTypes.LiveEnded, FeedData(proto, reason));
         log.LogInformation("Live session {Id} ending: {Reason}", session.Id, reason);
     }
 
@@ -294,6 +311,7 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
         var proto = await ToProto(session);
         events.SendTo(session.GuestPlayerId, new ServerEvent { LiveEnded = new LiveEnded { Session = proto } });
         if (!announced) events.SendTo(session.HostPlayerId, new ServerEvent { LiveEnded = new LiveEnded { Session = proto } });
+        if (!announced) feed.Publish(FeedTypes.LiveEnded, FeedData(proto, (LiveEndReason)session.EndReason!.Value)); // an Ending session was published by MarkEnding
         log.LogInformation("Live session {Id} ended", session.Id);
     }
 

@@ -13,6 +13,7 @@ using Rimlink.Server.Storage.Entities;
 using Parcel = Rimlink.Server.Storage.Entities.Parcel;
 using ShopItem = Rimlink.Server.Storage.Entities.ShopItem;
 using Transfer = Rimlink.Server.Storage.Entities.Transfer;
+using Rimlink.Server.Application.Feed;
 
 namespace Rimlink.Server.Application.Visits;
 
@@ -21,7 +22,7 @@ namespace Rimlink.Server.Application.Visits;
 /// the visitor (checked against the host's descriptor); the host's game removes the sold thing at its next login.
 /// </summary>
 public sealed class ShopService(RimlinkDbContext db, WalletService wallet, MailboxService mailbox, VisitService visits, EconomyGate gate,
-    EventBus events, IOptions<EconomyOptions> options, ILogger<ShopService> log)
+    EventBus events, AdminFeed feed, IOptions<EconomyOptions> options, ILogger<ShopService> log)
 {
     /// <summary>Replaces the host's unsold list. Sold rows and rows with an unacknowledged removal stay as they are, so a list from an older save cannot resurrect them.</summary>
     public async Task Publish(long hostId, ShopList list)
@@ -80,6 +81,7 @@ public sealed class ShopService(RimlinkDbContext db, WalletService wallet, Mailb
 
         Parcel parcel;
         ItemSold sold;
+        string itemLabel;
         await using (var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable))
         {
             if (!string.IsNullOrEmpty(r.ClientRequestId))
@@ -111,11 +113,14 @@ public sealed class ShopService(RimlinkDbContext db, WalletService wallet, Mailb
 
             var buyer = await db.Players.AsNoTracking().FirstAsync(p => p.Id == buyerId);
             sold = new ItemSold { ThingId = r.ThingId, Count = r.Count, Price = price, Buyer = buyer.ToRef() };
+            itemLabel = string.IsNullOrEmpty(row.Label) ? row.DefName : row.Label;
             log.LogInformation("Player {Buyer} bought {Count}x {Def} from player {Host}'s shop for {Price}", buyerId, r.Count, row.DefName, r.HostPlayerId, price);
         }
         RaidMetrics.Sales.Inc();
         EconomyMetrics.Trade("shop", sold.Price);
         events.SendTo(r.HostPlayerId, new ServerEvent { ItemSold = sold });
+        string host = await db.Players.AsNoTracking().Where(p => p.Id == r.HostPlayerId).Select(p => p.Name).FirstAsync();
+        feed.Publish(FeedTypes.ShopSold, new ShopSoldData(new FeedPlayer(r.HostPlayerId, host), new FeedPlayer(buyerId, sold.Buyer.Name), itemLabel, sold.Count, sold.Price));
         await mailbox.Announce(parcel);
         return parcel;
     }

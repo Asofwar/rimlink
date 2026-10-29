@@ -12,12 +12,13 @@ using Rimlink.Server.Storage.Entities;
 using Lot = Rimlink.Server.Storage.Entities.Lot;
 using Parcel = Rimlink.Server.Storage.Entities.Parcel;
 using Transfer = Rimlink.Server.Storage.Entities.Transfer;
+using Rimlink.Server.Application.Feed;
 
 namespace Rimlink.Server.Application.Economy;
 
 /// <summary>The board: a lot holds the seller's items in escrow until bought, withdrawn or expired.</summary>
 public sealed class MarketService(RimlinkDbContext db, WalletService wallet, MailboxService mailbox, ParcelValidator validator, EconomyGate gate,
-    TransferService transfers, EventBus events, IOptions<EconomyOptions> options, ILogger<MarketService> log)
+    TransferService transfers, EventBus events, AdminFeed feed, IOptions<EconomyOptions> options, ILogger<MarketService> log)
 {
     public const int PageSize = 50;
 
@@ -58,6 +59,8 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
         await db.SaveChangesAsync();
         await tx.CommitAsync();
         EconomyMetrics.Trade("post");
+        string sellerName = await db.Players.AsNoTracking().Where(p => p.Id == sellerId).Select(p => p.Name).FirstAsync();
+        feed.Publish(FeedTypes.LotPosted, new LotData(lot.Id, new FeedPlayer(sellerId, sellerName), null, lot.Price, LotSummary.Of(hasItems ? request.Items : null, hasPawn ? request.Pawn : null)));
         return lot;
     }
 
@@ -101,6 +104,7 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
         Parcel parcel;
         LotSold sold;
         long sellerId;
+        string lotSummary;
         await using (var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable))
         {
             var lot = await db.Lots.FirstOrDefaultAsync(l => l.Id == lotId) ?? throw RpcErrors.Failed(ErrorCode.LotGone, "no such lot");
@@ -119,6 +123,7 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
             var items = ItemList.Parser.ParseFrom(lot.Items);
             var pawns = lot.Pawn is null ? new PawnList() : new PawnList { Pawns = { PawnBlob.Parser.ParseFrom(lot.Pawn) } };
             parcel = await mailbox.Create(buyerId, lot.SellerPlayerId, ParcelKindDb.Purchase, items, pawns, 0, null);
+            lotSummary = LotSummary.Of(items, pawns.Pawns.FirstOrDefault());
             string summary = TransferService.Summary(items, pawns, 0) + $" @ {lot.Price}";
             db.Transfers.Add(new Transfer { FromPlayerId = buyerId, ToPlayerId = lot.SellerPlayerId, Kind = "buy", GameTick = 0, Summary = summary, At = DateTime.UtcNow });
             await db.SaveChangesAsync();
@@ -131,6 +136,8 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
         }
         EconomyMetrics.Trade("buy", sold.Price);
         events.SendTo(sellerId, new ServerEvent { LotSold = sold });
+        string seller = await db.Players.AsNoTracking().Where(p => p.Id == sellerId).Select(p => p.Name).FirstAsync();
+        feed.Publish(FeedTypes.LotSold, new LotData(sold.LotId, new FeedPlayer(sellerId, seller), new FeedPlayer(buyerId, sold.Buyer.Name), sold.Price, lotSummary));
         await mailbox.Announce(parcel);
         return parcel;
     }

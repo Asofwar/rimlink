@@ -4,6 +4,7 @@ using Rimlink.Server.Application.Chat;
 using Rimlink.Server.Application.Events;
 using Rimlink.Server.Grpc;
 using Rimlink.Server.Storage;
+using Rimlink.Server.Application.Feed;
 
 namespace Rimlink.Server.Application.Sessions;
 
@@ -12,11 +13,13 @@ public sealed class PresenceNotifier : IDisposable
 {
     private readonly SessionRegistry sessions;
     private readonly EventBus events;
+    private readonly AdminFeed feed;
     private readonly IServiceScopeFactory scopes;
     private readonly ILogger<PresenceNotifier> log;
 
-    public PresenceNotifier(SessionRegistry sessions, EventBus events, IServiceScopeFactory scopes, ILogger<PresenceNotifier> log)
+    public PresenceNotifier(SessionRegistry sessions, EventBus events, AdminFeed feed, IServiceScopeFactory scopes, ILogger<PresenceNotifier> log)
     {
+        this.feed = feed;
         this.sessions = sessions;
         this.events = events;
         this.scopes = scopes;
@@ -41,6 +44,7 @@ public sealed class PresenceNotifier : IDisposable
             events.BroadcastExcept(session.PlayerId, joined
                 ? new ServerEvent { PlayerJoined = new PlayerJoined { Player = reference } }
                 : new ServerEvent { PlayerLeft = new PlayerLeft { Player = reference } });
+            feed.Publish(joined ? FeedTypes.PlayerJoined : FeedTypes.PlayerLeft, new PlayerData(new FeedPlayer(reference.PlayerId, reference.Name), player?.FactionName ?? ""));
             await scope.ServiceProvider.GetRequiredService<ChatService>().System(joined ? $"{reference.Name} joined the server" : $"{reference.Name} left the server");
         }
         catch (Exception ex)
