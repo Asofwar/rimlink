@@ -84,6 +84,7 @@ builder.Services.AddScoped<Rimlink.Server.Application.Visits.VisitService>();
 builder.Services.AddScoped<Rimlink.Server.Application.Visits.ShopService>();
 builder.Services.AddScoped<Rimlink.Server.Application.Live.LiveSessionService>();
 builder.Services.AddSingleton<Rimlink.Server.Application.Live.LiveTimeoutService>();
+builder.Services.AddSingleton<Rimlink.Server.Application.Live.LiveRelay>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<Rimlink.Server.Application.Live.LiveTimeoutService>());
 builder.Services.AddSingleton<PresenceNotifier>();
 builder.Services.AddHttpClient<ISteamTicketVerifier, SteamWebApiTicketVerifier>(client => client.Timeout = TimeSpan.FromSeconds(10));

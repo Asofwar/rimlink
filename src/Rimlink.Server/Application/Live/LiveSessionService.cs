@@ -25,7 +25,7 @@ namespace Rimlink.Server.Application.Live;
 /// The host's report ends either kind through <see cref="RaidService.Report"/> or <see cref="ReportVisit"/>.
 /// </summary>
 public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, RaidRules rules, ParcelValidator validator, MailboxService mailbox,
-    SessionRegistry registry, EventBus events, IOptions<LiveOptions> options, IOptions<RaidOptions> raidOptions, ILogger<LiveSessionService> log)
+    SessionRegistry registry, EventBus events, LiveRelay relay, IOptions<LiveOptions> options, IOptions<RaidOptions> raidOptions, ILogger<LiveSessionService> log)
 {
     private static readonly LiveStateDb[] FinalStates = [LiveStateDb.Ended, LiveStateDb.Fallback];
 
@@ -149,6 +149,24 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
         await mailbox.Announce(parcel);
     }
 
+    /// <summary>The session a stream may attach to, or LIVE_GONE: the player must be its host or guest and it must be open.</summary>
+    public async Task<LiveSessionRow> ForStream(long sessionId, long playerId, int role)
+    {
+        var session = await db.LiveSessions.AsNoTracking().FirstOrDefaultAsync(s => s.Id == sessionId);
+        if (session is null || session.State is not (LiveStateDb.Starting or LiveStateDb.Running or LiveStateDb.Waiting)) throw RpcErrors.Failed(ErrorCode.LiveGone, "that live session is not open");
+        bool host = session.HostPlayerId == playerId, guest = session.GuestPlayerId == playerId;
+        if (!(host && role == 1) && !(guest && role == 2)) throw new RpcException(new Status(StatusCode.PermissionDenied, "not your role in this live session"));
+        return session;
+    }
+
+    public async Task SetSnapshot(long sessionId, int version)
+    {
+        var session = await db.LiveSessions.FirstOrDefaultAsync(s => s.Id == sessionId);
+        if (session is null || FinalStates.Contains(session.State)) return;
+        session.SnapshotVersion = version;
+        await db.SaveChangesAsync();
+    }
+
     public async Task MarkRunning(long sessionId)
     {
         var session = await db.LiveSessions.FirstOrDefaultAsync(s => s.Id == sessionId);
@@ -191,6 +209,7 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
         session.EndReason = (int)reason;
         session.WaitingSince = null;
         await db.SaveChangesAsync();
+        relay.CloseSession(session.Id, reason); // streams still open (an admin end, a timeout) learn it from their own channel
         var proto = await ToProto(session);
         events.SendTo(session.HostPlayerId, new ServerEvent { LiveEnded = new LiveEnded { Session = proto } });
         events.SendTo(session.GuestPlayerId, new ServerEvent { LiveEnded = new LiveEnded { Session = proto } });
