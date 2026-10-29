@@ -45,6 +45,39 @@ public static class Targets
         return result;
     }
 
+    /// <summary>
+    /// Stacks to send from "def:count,def:count": from under the orbital trade beacons, as the economy window picks them,
+    /// or from anywhere on the map. Null with <paramref name="error"/> on an unknown def or too few things.
+    /// </summary>
+    public static List<Rimlink.Client.Game.Economy.Outgoing.Pick>? Items(Map map, string csv, bool anywhere, out string? error)
+    {
+        error = null;
+        var source = (anywhere
+                ? map.listerThings.AllThings.Where(t => t.Spawned && t.def.EverHaulable)
+                : TradeUtility.AllLaunchableThingsForTrade(map))
+            .ToList();
+        var picks = new List<Rimlink.Client.Game.Economy.Outgoing.Pick>();
+        var problems = new List<string>();
+        foreach (string token in csv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            string[] parts = token.Split(':', StringSplitOptions.TrimEntries);
+            if (parts.Length != 2 || !int.TryParse(parts[1], out int count) || count <= 0) { problems.Add($"'{token}' is not def:count"); continue; }
+            var def = DefDatabase<ThingDef>.AllDefs.FirstOrDefault(d => string.Equals(d.defName, parts[0], StringComparison.OrdinalIgnoreCase));
+            if (def is null) { problems.Add($"unknown def '{parts[0]}'"); continue; }
+            int left = count;
+            foreach (var stack in source.Where(t => t.def == def))
+            {
+                if (left <= 0) break;
+                int take = Math.Min(left, stack.stackCount);
+                picks.Add(new(stack, take));
+                left -= take;
+            }
+            if (left > 0) problems.Add($"only {count - left} of {count} {def.defName} {(anywhere ? "on the map" : "under the beacons")}");
+        }
+        if (problems.Count > 0) { error = string.Join("; ", problems); return null; }
+        return picks;
+    }
+
     /// <summary>Common checks of the in-game actions; null when the game is ready for one.</summary>
     public static object? NotPlaying()
     {
