@@ -176,8 +176,12 @@
   То, с чем рейдер прибыл, — не лут (ветка `asofwar/s2-proposals`): караван гостя (Will, в инвентаре 200 серебра) → «Raid Host-s2's
   colony...» → Copies, Instant → рейдер уходит с карты, ничего не взяв (`JobGiver_ExitMapBest`). До исправления — рейд 11: `resolved: …
   fled 1 … loot 200`, посылка `Loot` 12 с копией этих 200 серебра гостю. После — рейд 12: `fled 1 … loot 0`, на сервере `Resolved
-  {fled: 1}`, посылки нет. Real-вариант (свои вещи едут домой в блобе) в игре не прогнан: рейд из каравана в режиме Real после
-  подтверждения не запустился (в логе ничего), проверен чтением кода.
+  {fled: 1}`, посылки нет. Real: караван Will (200 серебра в инвентаре) + Vivis на тайле Host-s2 → Real, Instant, в рейд только Will →
+  `raid 13 … PawnReal/TimingInstant/ArrivalEdge`, у хозяина Will высадился с `Silver ×200` в инвентаре, ушёл (`JobGiver_ExitMapBest`) →
+  `fled 1 … loot 0`, на сервере `Resolved {fled: 1}`, посылки `Loot` нет, `RaidReturn` 14 привёз Will домой с теми же 200 серебра.
+  Первый заход (караван из одного Will) после подтверждения «ничего не сделал»: это отказ `KeepOneColonist` («At least one colonist must
+  stay with the caravan», `RejectInput`, без строки в логе и без вызова сервера), сообщение погасло раньше, чем его прочитали; та же
+  проверка есть на main с появления рейдов.
 - [x] **Пленный рейдер.** Захват → `CAPTURED`, остаётся у защитника.
   Прогон 2026-10-29 (стенд s2): рейд копиями 4 (Blizzard) на Nova-s2, dev «T: Damage Until Down», god mode: спальное место на открытой
   земле не годится («Cannot capture: No reachable, un-reserved, enclosed prisoner-marked bed»), нужна закрытая комната с дверью и крышей
