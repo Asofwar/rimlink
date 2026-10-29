@@ -190,6 +190,7 @@
   <Rimlink.Visit.Downloading>Загружаем колонию {0}...</Rimlink.Visit.Downloading>
   <Rimlink.Visit.Arrived>Вы в гостях у {0}. Отсюда ничего не уносится; покупайте с полок и завершите визит, когда закончите.</Rimlink.Visit.Arrived>
   <Rimlink.Visit.Failed>Визит не удался: {0}.</Rimlink.Visit.Failed>
+  <Rimlink.Visit.MissingMods>{0} играет с модами, которых у вас нет: {1}</Rimlink.Visit.MissingMods>
   <Rimlink.Visit.NoSaving>Чужую колонию нельзя сохранить.</Rimlink.Visit.NoSaving>
   <Rimlink.Visit.Hud>В гостях у {0}</Rimlink.Visit.Hud>
   <Rimlink.Visit.End>Закончить визит</Rimlink.Visit.End>

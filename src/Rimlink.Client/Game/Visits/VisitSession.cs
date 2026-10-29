@@ -146,6 +146,14 @@ public static class VisitSession
             MainThread.Post(() =>
             {
                 wait.Close();
+                // A mod of the host's that this game lacks: the copy would load with the game's errors and lose that mod's things.
+                if (MissingMods(path) is { } missingMods)
+                {
+                    RimlinkLog.Instance.Warn($"visit {pending.VisitId}: {pending.HostName}'s colony needs mods this game does not run: {missingMods}");
+                    DeleteVisitFile(pending.HostId);
+                    Fail(pending, visits, "Rimlink.Visit.MissingMods".Translate(pending.HostName, missingMods), onFailure);
+                    return;
+                }
                 Active = false;
                 Pending = pending;
                 RimlinkLog.Instance.Info($"visit {pending.VisitId}: loading {pending.HostName}'s colony{(pending.Live is { } live ? $" (live session {live.Id}, snapshot v{live.SnapshotVersion})" : "")}");
@@ -222,6 +230,22 @@ public static class VisitSession
         catch (Exception ex)
         {
             RimlinkLog.Instance.Warn("pawn textures not freed: " + ex.Message);
+        }
+    }
+
+    /// <summary>The names of the downloaded copy's mods this game does not run, comma-separated, or null when it can be loaded as it is.</summary>
+    private static string? MissingMods(string path)
+    {
+        try
+        {
+            using var file = File.OpenRead(path);
+            var missing = Rimlink.Client.Visits.SaveMods.Missing(file, ModsConfig.IsActive);
+            return missing.Count == 0 ? null : string.Join(", ", missing);
+        }
+        catch (Exception ex)
+        {
+            RimlinkLog.Instance.Warn("the host's mod list could not be read: " + ex.Message);
+            return null; // the load itself reports a broken file
         }
     }
 

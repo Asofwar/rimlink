@@ -191,6 +191,7 @@
   <Rimlink.Visit.Downloading>Loading {0}'s colony...</Rimlink.Visit.Downloading>
   <Rimlink.Visit.Arrived>You are visiting {0}. Nothing taken here goes home; buy from the shelves and end the visit when done.</Rimlink.Visit.Arrived>
   <Rimlink.Visit.Failed>The visit could not start: {0}.</Rimlink.Visit.Failed>
+  <Rimlink.Visit.MissingMods>{0} plays with mods you do not have: {1}</Rimlink.Visit.MissingMods>
   <Rimlink.Visit.NoSaving>A visited colony cannot be saved.</Rimlink.Visit.NoSaving>
   <Rimlink.Visit.Hud>Visiting {0}</Rimlink.Visit.Hud>
   <Rimlink.Visit.End>End visit</Rimlink.Visit.End>
