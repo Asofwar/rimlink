@@ -333,7 +333,8 @@ Discord roles. It talks to the server only through the admin REST API, with a to
    bot with the scopes `bot` and `applications.commands` and the permissions View Channels, Send Messages, Add Reactions
    and Read Message History.
 2. **Ids.** Turn on Developer Mode in Discord (Settings → Advanced) and copy the server (guild) id, the ids of the
-   moderator and admin roles, and the channel ids for each event group: `server` (joins, colonies, announcements,
+   moderator and admin roles, and the channel ids for each event group: `server` (joins, colonies, colony archives
+   and restores — `colony.archived` and `colony.restored`, announcements,
    shutdowns, freezes), `raids` (landed and finished raids, visits, live sessions), `market` (lots posted and sold, shop
    sales), `moderation` (every admin action from the audit log, best a closed channel) and `chat` (the chat bridge).
    A group without a channel is off.

@@ -8,6 +8,8 @@ public static class FeedTypes
     public const string PlayerLeft = "player.left";
     public const string ColonyFounded = "colony.founded";
     public const string ColonyRemoved = "colony.removed";
+    public const string ColonyArchived = "colony.archived";
+    public const string ColonyRestored = "colony.restored";
     public const string Notice = "notice";
     public const string ServerShutdown = "server.shutdown";
     public const string EconomyFrozen = "economy.frozen";
@@ -28,6 +30,7 @@ public static class FeedTypes
     {
         [ServerStarted] = FeedGroup.Server, [PlayerJoined] = FeedGroup.Server, [PlayerLeft] = FeedGroup.Server,
         [ColonyFounded] = FeedGroup.Server, [ColonyRemoved] = FeedGroup.Server, [Notice] = FeedGroup.Server,
+        [ColonyArchived] = FeedGroup.Server, [ColonyRestored] = FeedGroup.Server,
         [ServerShutdown] = FeedGroup.Server, [EconomyFrozen] = FeedGroup.Server, [RaidsFrozen] = FeedGroup.Server,
         [RaidLanded] = FeedGroup.Raids, [RaidResolved] = FeedGroup.Raids, [VisitStarted] = FeedGroup.Raids,
         [LiveStarted] = FeedGroup.Raids, [LiveEnded] = FeedGroup.Raids,

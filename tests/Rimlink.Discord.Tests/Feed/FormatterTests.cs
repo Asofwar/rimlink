@@ -17,6 +17,8 @@ public class FormatterTests
         { FeedTypes.PlayerLeft, new { player = P(1, "Nova"), faction = "" } },
         { FeedTypes.ColonyFounded, new { player = P(1, "Nova"), colony = "Home", tile = 100 } },
         { FeedTypes.ColonyRemoved, new { player = P(1, "Nova"), colony = "Home", tile = (int?)null } },
+        { FeedTypes.ColonyArchived, new { player = P(12, "Nova"), colony = "Nova Home", tile = 100, reason = "auto", actor = "system:hygiene" } },
+        { FeedTypes.ColonyRestored, new { player = P(12, "Nova"), colony = "Nova Home", tile = 100, actor = "player" } },
         { FeedTypes.Notice, new { text = "hello" } },
         { FeedTypes.ServerShutdown, new { inSeconds = 60, reason = "update" } },
         { FeedTypes.EconomyFrozen, new { frozen = true, reason = "audit" } },
@@ -59,6 +61,35 @@ public class FormatterTests
         Assert.False(string.IsNullOrWhiteSpace(text));
         Assert.DoesNotContain("feed.", text);
         Assert.Equal(type, Assert.Single(FeedTypes.All, t => t == type));
+    }
+
+    [Theory]
+    [InlineData("colony.archived", "auto", "system:hygiene", "The colony **Nova Home** of **Nova** went to the archive (inactive)")]
+    [InlineData("colony.archived", "admin", "discord:Mod (123)", "The colony **Nova Home** of **Nova** was archived by discord:Mod (123)")]
+    [InlineData("colony.restored", null, "player", "The colony **Nova Home** of **Nova** is back: its player returned")]
+    [InlineData("colony.restored", null, "panel", "The colony **Nova Home** of **Nova** was restored by panel")]
+    public void ColonyArchiveVariantsAreFormatted(string type, string? reason, string actor, string expected)
+    {
+        var data = new { player = P(12, "Nova"), colony = "Nova Home", tile = 100, reason, actor };
+
+        Assert.Equal(expected, En.Format(Ev(type, data)));
+        Assert.Equal(FeedGroup.Server, FeedTypes.GroupOf(type));
+    }
+
+    [Theory]
+    [InlineData("colony.archived", "auto", "system:hygiene")]
+    [InlineData("colony.archived", "admin", "@everyone")]
+    [InlineData("colony.restored", null, "player")]
+    [InlineData("colony.restored", null, "@everyone")]
+    public void ColonyArchiveNamesAndActorsAreEscaped(string type, string? reason, string actor)
+    {
+        string text = En.Format(Ev(type, new { player = P(12, "@everyone"), colony = "**@everyone**", tile = 100, reason, actor }))!;
+
+        Assert.NotNull(text);
+        Assert.DoesNotContain("@everyone", text, StringComparison.Ordinal);
+        Assert.Contains("@\u200beveryone", text, StringComparison.Ordinal);
+        Assert.Contains("\\*\\*@\u200beveryone\\*\\*", text, StringComparison.Ordinal);
+        if (actor == "@everyone") Assert.EndsWith("@\u200beveryone", text, StringComparison.Ordinal);
     }
 
     [Fact]

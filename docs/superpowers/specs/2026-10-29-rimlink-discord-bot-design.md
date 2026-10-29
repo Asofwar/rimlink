@@ -71,6 +71,8 @@
 | server | `player.joined`, `player.left` | `{player, faction}` | `PresenceNotifier` |
 | server | `colony.founded` | `{player, colony, tile}` | `WorldService` (новый `Settlement`) |
 | server | `colony.removed` | `{player, colony}` | `WorldService`, `AdminOperations.RemoveObjectsOf` |
+| server | `colony.archived` | `{player, colony, tile, reason, actor}` | `ColonyArchive` (archive by the sweep or an admin) |
+| server | `colony.restored` | `{player, colony, tile, actor}` | `ColonyArchive` (restore at login or by an admin) |
 | server | `notice` | `{text}` | `AdminOperations.Broadcast` |
 | server | `server.shutdown` | `{inSeconds, reason}` | `AdminOperations.Shutdown` |
 | server | `economy.frozen`, `raids.frozen` | `{frozen, reason}` | `AdminOperations.SetEconomyFrozen` / `SetRaidsFrozen` |
