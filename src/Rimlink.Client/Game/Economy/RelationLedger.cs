@@ -112,7 +112,7 @@ public sealed class RelationLedger : GameComponent
                 }
                 index.Remove(pawn.thingIDNumber);
                 pawn.thingIDNumber = entry.ThingId;
-                ThingBlobs.RebuildOwnVerbs(pawn);
+                ThingBlobs.RenameOwnVerbs(pawn);
                 index[pawn.thingIDNumber] = pawn;
             }
             var world = new VerseWorld(index);
