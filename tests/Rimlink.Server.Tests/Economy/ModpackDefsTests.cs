@@ -45,13 +45,13 @@ public class ModpackDefsTests
     public async Task DefsSurviveARestart()
     {
         string dataDir;
-        using (var fixture = Server())
+        using (var fixture = Server().KeepDataDir())
         {
             dataDir = fixture.DataDir;
             var admin = await fixture.RegisterAndLogin("admin");
             await new Protocol.V1.Modpack.ModpackClient(fixture.CreateChannel()).SetDefsAsync(new DefList { DefNames = { "Steel" } }, Bearer(admin.SessionToken));
         }
-        using var again = Server().WithSetting("Server:DataDir", dataDir);
+        using var again = Server().WithDataDir(dataDir);
         var nova = await again.RegisterAndLogin("nova");
         var bob = await again.RegisterAndLogin("bob");
         var n = Clients(again, nova.SessionToken);
