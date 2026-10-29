@@ -488,6 +488,7 @@
   <Rimlink.Refusal.Parcel.ItemCount>item '{0}' has count {1}</Rimlink.Refusal.Parcel.ItemCount>
   <Rimlink.Refusal.Parcel.ItemNoData>item without def or data</Rimlink.Refusal.Parcel.ItemNoData>
   <Rimlink.Refusal.Parcel.DefNotInModpack>def '{0}' is not in the server modpack</Rimlink.Refusal.Parcel.DefNotInModpack>
+  <Rimlink.Refusal.Parcel.DefForbidden>def '{0}' is forbidden for transfers</Rimlink.Refusal.Parcel.DefForbidden>
   <Rimlink.Refusal.Parcel.PawnNoData>pawn without kind or data</Rimlink.Refusal.Parcel.PawnNoData>
   <Rimlink.Refusal.Raids.PeacefulSelf>you are in peaceful mode</Rimlink.Refusal.Raids.PeacefulSelf>
   <Rimlink.Refusal.Raids.PeacefulTarget>{0} is in peaceful mode</Rimlink.Refusal.Raids.PeacefulTarget>

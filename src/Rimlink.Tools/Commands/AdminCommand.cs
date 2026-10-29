@@ -10,7 +10,7 @@ public static class AdminCommand
         var server = new Option<string>("--server") { Description = "Server base URL, e.g. https://host:25560", Required = true };
         var token = new Option<string>("--token") { Description = "Admin:ApiToken", Required = true };
         var insecure = new Option<bool>("--insecure") { Description = "Accept a self-signed server certificate" };
-        var name = new Argument<string>("command") { Description = "online | players [query] | player <playerId> | role <playerId> player|moderator|admin | rename <playerId> <name> [faction] | kick <playerId> [reason] | ban <playerId> [days] [reason] | pardon <banId> | bans | mute <playerId> <minutes> | unmute <playerId> | saves <playerId> | rollback <playerId> <version> | reset <playerId> | broadcast <text> | say <author> <text> | saveall | shutdown <seconds> [reason] | recreateworld | modpack | actions | chat [playerId] | status | config | backups | backup | backup-get <name> <file> | wallet <playerId> [+n|-n] [reason] | parcels <playerId> | lots [playerId] | refund lot <id> | refund parcel <id> | economy freeze [reason]|unfreeze|stats | raids list [playerId]|cancel <id> [reason]|freeze [reason]|unfreeze|stats | peaceful <playerId> on|off | shop <playerId> | removals <playerId> | trades [playerId] | trade cancel <id> [reason] | player-freeze <playerId> [reason] | player-unfreeze <playerId>" };
+        var name = new Argument<string>("command") { Description = "online | players [query] | player <playerId> | role <playerId> player|moderator|admin | rename <playerId> <name> [faction] | kick <playerId> [reason] | ban <playerId> [days] [reason] | pardon <banId> | bans | mute <playerId> <minutes> | unmute <playerId> | saves <playerId> | rollback <playerId> <version> | reset <playerId> | broadcast <text> | say <author> <text> | saveall | shutdown <seconds> [reason] | recreateworld | modpack | actions | chat [playerId] | status | config | backups | backup | backup-get <name> <file> | wallet <playerId> [+n|-n] [reason] | parcels <playerId> | lots [playerId] | refund lot <id> | refund parcel <id> | economy freeze [reason]|unfreeze|stats | raids list [playerId]|cancel <id> [reason]|freeze [reason]|unfreeze|stats | peaceful <playerId> on|off | shop <playerId> | removals <playerId> | trades [playerId] | trade cancel <id> [reason] | player-freeze <playerId> [reason] | player-unfreeze <playerId> | forbid list|add|remove <def...>" };
         var args = new Argument<string[]>("args") { Arity = ArgumentArity.ZeroOrMore };
 
         var command = new Command("admin", "Run an admin operation on a running server") { server, token, insecure, name, args };
@@ -84,6 +84,9 @@ public static class AdminCommand
                 },
                 "shop" => await rest.Get($"shop/{a[0]}"),
                 "removals" => await rest.Get($"shop/{a[0]}/removals"),
+                "forbid" => a.Length == 0 || a[0] == "list"
+                    ? await rest.Get("economy/forbidden-defs")
+                    : await rest.Put("economy/forbidden-defs", new { defs = Forbid(await rest.Get("economy/forbidden-defs"), a) }),
                 "peaceful" => await rest.Post($"players/{a[0]}/peaceful", new { peaceful = a[1] == "on" }),
                 "player-freeze" => await rest.Post($"players/{a[0]}/economy", new { frozen = true, reason = a.Length > 1 ? rest1 : null }),
                 "player-unfreeze" => await rest.Post($"players/{a[0]}/economy", new { frozen = false, reason = (string?)null }),
@@ -102,5 +105,17 @@ public static class AdminCommand
     {
         await rest.Download($"backups/{Uri.EscapeDataString(name)}", file);
         return $"saved {file}";
+    }
+
+    /// <summary>The forbidden list after "add" or "remove" of the given defs, from the server's current list.</summary>
+    private static string[] Forbid(string currentJson, string[] a)
+    {
+        var current = System.Text.Json.JsonDocument.Parse(currentJson).RootElement.GetProperty("defs").EnumerateArray().Select(e => e.GetString()!).ToList();
+        return a[0] switch
+        {
+            "add" => current.Concat(a.Skip(1)).ToArray(),
+            "remove" => current.Except(a.Skip(1), StringComparer.Ordinal).ToArray(),
+            _ => throw new InvalidOperationException("forbid list | add <def...> | remove <def...>"),
+        };
     }
 }

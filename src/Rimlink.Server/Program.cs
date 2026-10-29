@@ -91,12 +91,14 @@ builder.Services.AddSingleton<PublicStatusCache>();
 builder.Services.AddSingleton<FreezeState>();
 builder.Services.AddSingleton<Rimlink.Server.Application.Raids.RaidFreezeState>();
 builder.Services.AddSingleton<ModpackDefs>();
+builder.Services.AddSingleton<ForbiddenDefs>();
 builder.Services.AddScoped<EconomyGate>();
 builder.Services.AddScoped<PlayerFreeze>();
 builder.Services.AddScoped<ParcelValidator>();
 builder.Services.AddScoped<WalletService>();
 builder.Services.AddScoped<ServerWealth>();
 builder.Services.AddScoped<EconomyGuard>();
+builder.Services.AddScoped<ForbiddenDefsService>();
 builder.Services.AddScoped<MailboxService>();
 builder.Services.AddScoped<TransferService>();
 builder.Services.AddScoped<MarketService>();
@@ -125,6 +127,7 @@ var app = builder.Build();
 app.Services.GetRequiredService<ApiTokens>(); // validates Admin:Tokens: a bad entry stops the start
 app.Services.MigrateRimlinkStorage();
 ModpackService.LoadDefs(app.Services);
+ForbiddenDefsService.Load(app.Services);
 app.Services.GetRequiredService<PresenceNotifier>(); // subscribes to session events
 app.Services.GetRequiredService<Rimlink.Server.Application.Feed.AdminFeed>(); // server.started is the feed's first event
 

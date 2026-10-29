@@ -4,7 +4,8 @@ using Rimlink.Server.Application.Economy;
 
 namespace Rimlink.Server.Grpc;
 
-public sealed class WalletGrpcService(WalletService wallet, EconomyGate gate, TransferService transfers, MailboxService mailbox, ServerWealth wealth, EconomyGuard guard) : Protocol.V1.Wallet.WalletBase
+public sealed class WalletGrpcService(WalletService wallet, EconomyGate gate, TransferService transfers, MailboxService mailbox, ServerWealth wealth, EconomyGuard guard, ForbiddenDefs forbidden,
+    Microsoft.Extensions.Options.IOptions<Hosting.EconomyOptions> options) : Protocol.V1.Wallet.WalletBase
 {
     public override async Task<WalletState> Deposit(DepositRequest request, ServerCallContext context)
     {
@@ -20,6 +21,15 @@ public sealed class WalletGrpcService(WalletService wallet, EconomyGate gate, Tr
         gate.RequireOpen();
         long playerId = context.GetSession().PlayerId;
         return new WalletState { Balance = await wallet.Balance(playerId), ServerWealth = await wealth.Of(playerId) };
+    }
+
+    /// <summary>What the economy window checks before asking (no gate: it is read at login, even with trading paused).</summary>
+    public override Task<EconomyRules> Rules(Empty request, ServerCallContext context)
+    {
+        var o = options.Value;
+        var rules = new EconomyRules { StorageFeePercentPerDay = Math.Clamp(o.StorageFeePercentPerDay, 0, 100), StorageFreeDays = Math.Max(0, o.StorageFreeDays) };
+        rules.ForbiddenDefs.AddRange(forbidden.All);
+        return Task.FromResult(rules);
     }
 
     public override async Task<WalletHistory> History(Empty request, ServerCallContext context)

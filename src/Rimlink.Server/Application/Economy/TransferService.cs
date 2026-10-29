@@ -16,7 +16,7 @@ public sealed class TransferService(RimlinkDbContext db, WalletService wallet, M
         gate.RequireOpen();
         if (request.ToPlayerId == fromPlayerId) throw RpcErrors.Failed(ErrorCode.SelfTrade, RefusalKeys.EconomySelfSend, "you cannot send to yourself");
         if (request.Silver < 0) throw RpcErrors.Failed(ErrorCode.Unspecified, RefusalKeys.EconomyNegativeSilver, "silver must not be negative");
-        if (validator.Validate(request.Items, request.Pawns) is { } reason) throw RpcErrors.Failed(reason.Code, reason.Key, reason.Message, reason.Args);
+        if (validator.Validate(request.Items, request.Pawns, checkForbidden: true) is { } reason) throw RpcErrors.Failed(reason.Code, reason.Key, reason.Message, reason.Args);
         if (request.Items.Items.Count == 0 && request.Pawns.Pawns.Count == 0 && request.Silver == 0)
             throw RpcErrors.Failed(ErrorCode.Unspecified, RefusalKeys.EconomyNothingToSend, "nothing to send");
 

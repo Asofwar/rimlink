@@ -9,14 +9,18 @@ namespace Rimlink.Server.Application.Economy;
 public sealed record ParcelRefusal(string Key, string Message, params object[] Args)
 {
     // Keep the original CodeFor mapping even when a descriptor contains this phrase.
-    public ErrorCode Code => Message.Contains("not in the server modpack") ? ErrorCode.DefNotInModpack : ErrorCode.ParcelTooBig;
+    public ErrorCode Code => Key == RefusalKeys.ParcelDefForbidden ? ErrorCode.DefForbidden
+        : Message.Contains("not in the server modpack") ? ErrorCode.DefNotInModpack : ErrorCode.ParcelTooBig;
 }
 
 /// <summary>Size and descriptor checks on item/pawn lists; the blobs themselves are never opened.</summary>
-public sealed class ParcelValidator(IOptions<EconomyOptions> options, ModpackDefs defs)
+public sealed class ParcelValidator(IOptions<EconomyOptions> options, ModpackDefs defs, ForbiddenDefs forbidden)
 {
-    /// <summary>Null when acceptable, otherwise the typed, localizable refusal.</summary>
-    public ParcelRefusal? Validate(ItemList? items, PawnList? pawns)
+    /// <summary>
+    /// Null when acceptable, otherwise the typed, localizable refusal. <paramref name="checkForbidden"/> applies the admin's
+    /// forbidden defs: sends and lots set it, raids do not.
+    /// </summary>
+    public ParcelRefusal? Validate(ItemList? items, PawnList? pawns, bool checkForbidden = false)
     {
         var o = options.Value;
         int itemCount = items?.Items.Count ?? 0, pawnCount = pawns?.Pawns.Count ?? 0;
@@ -30,14 +34,19 @@ public sealed class ParcelValidator(IOptions<EconomyOptions> options, ModpackDef
             if (string.IsNullOrEmpty(item.DefName) || item.ScribeXmlZstd.Length == 0) return new(RefusalKeys.ParcelItemNoData, "item without def or data");
             if (!defs.IsEmpty && !defs.Contains(item.DefName)) return new(RefusalKeys.ParcelDefNotInModpack, $"def '{item.DefName}' is not in the server modpack", item.DefName);
             if (!defs.IsEmpty && item.StuffDef.Length > 0 && !defs.Contains(item.StuffDef)) return new(RefusalKeys.ParcelDefNotInModpack, $"def '{item.StuffDef}' is not in the server modpack", item.StuffDef);
+            if (checkForbidden && forbidden.Contains(item.DefName)) return Forbidden(item.DefName);
+            if (checkForbidden && item.StuffDef.Length > 0 && forbidden.Contains(item.StuffDef)) return Forbidden(item.StuffDef);
         }
         foreach (var pawn in pawns?.Pawns ?? [])
         {
             if (string.IsNullOrEmpty(pawn.KindDef) || pawn.ScribeXmlZstd.Length == 0) return new(RefusalKeys.ParcelPawnNoData, "pawn without kind or data");
             if (!defs.IsEmpty && !defs.Contains(pawn.KindDef)) return new(RefusalKeys.ParcelDefNotInModpack, $"def '{pawn.KindDef}' is not in the server modpack", pawn.KindDef);
+            if (checkForbidden && forbidden.Contains(pawn.KindDef)) return Forbidden(pawn.KindDef);
         }
         return null;
     }
+
+    private static ParcelRefusal Forbidden(string def) => new(RefusalKeys.ParcelDefForbidden, $"def '{def}' is forbidden for transfers", def);
 
     public static int SizeOf(ItemList? items, PawnList? pawns) =>
         (items?.Items.Sum(i => i.ScribeXmlZstd.Length) ?? 0) + (pawns?.Pawns.Sum(p => p.ScribeXmlZstd.Length) ?? 0);

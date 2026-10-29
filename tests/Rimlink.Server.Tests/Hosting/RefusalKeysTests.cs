@@ -116,7 +116,7 @@ public class RefusalKeysTests
     [Fact]
     public void ParcelCodeKeepsTheExistingReasonBasedMapping()
     {
-        var validator = new ParcelValidator(Options.Create(new EconomyOptions()), new ModpackDefs());
+        var validator = new ParcelValidator(Options.Create(new EconomyOptions()), new ModpackDefs(), new ForbiddenDefs());
         var refusal = validator.Validate(Items(("not in the server modpack", 0)), null)!;
 
         Assert.Equal(ErrorCode.DefNotInModpack, refusal.Code);

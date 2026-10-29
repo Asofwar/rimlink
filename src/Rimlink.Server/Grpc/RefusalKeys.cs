@@ -146,6 +146,7 @@ public static class RefusalKeys
     public const string ParcelItemCount = "Parcel.ItemCount";
     public const string ParcelItemNoData = "Parcel.ItemNoData";
     public const string ParcelDefNotInModpack = "Parcel.DefNotInModpack";
+    public const string ParcelDefForbidden = "Parcel.DefForbidden";
     public const string ParcelPawnNoData = "Parcel.PawnNoData";
 
     public const string GiftsNoDecision = "Gifts.NoDecision";

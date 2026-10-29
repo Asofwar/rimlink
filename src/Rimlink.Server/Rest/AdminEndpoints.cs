@@ -22,6 +22,8 @@ public static class AdminEndpoints
     public sealed record ModConfigsBody(List<ModConfigBody> Configs);
     public sealed record ModpackBody(List<ModpackEntryBody> Entries);
     public sealed record DefsBody(List<string> DefNames);
+
+    public sealed record ForbiddenDefsBody(List<string>? Defs);
     public sealed record WalletBody(long Delta, string? Reason);
     public sealed record FreezeBody(bool Frozen, string? Reason);
     public sealed record ReasonBody(string? Reason);
@@ -145,6 +147,10 @@ public static class AdminEndpoints
             await modpack.SetConfigs(configs, ctx.Actor().Role, ctx.Actor().Name);
             return Results.Ok(new { count = configs.Count });
         }).RequireScope(ApiScope.Admin);
+
+        group.MapGet("/economy/forbidden-defs", (HttpContext ctx, AdminOperations ops) => new { defs = ops.ListForbiddenDefs(ctx.Actor()) }).RequireScope(ApiScope.Read);
+        group.MapPut("/economy/forbidden-defs", async (ForbiddenDefsBody body, HttpContext ctx, AdminOperations ops) =>
+            new { defs = await ops.SetForbiddenDefs(ctx.Actor(), body.Defs ?? []) }).RequireScope(ApiScope.Admin);
     }
 
     private static string? NameOf(Dictionary<long, string> names, long? playerId) =>

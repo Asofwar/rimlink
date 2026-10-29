@@ -488,6 +488,7 @@
   <Rimlink.Refusal.Parcel.ItemCount>У предмета «{0}» недопустимое количество: {1}</Rimlink.Refusal.Parcel.ItemCount>
   <Rimlink.Refusal.Parcel.ItemNoData>У предмета отсутствует определение или данные</Rimlink.Refusal.Parcel.ItemNoData>
   <Rimlink.Refusal.Parcel.DefNotInModpack>Определение «{0}» отсутствует в сборке модов сервера</Rimlink.Refusal.Parcel.DefNotInModpack>
+  <Rimlink.Refusal.Parcel.DefForbidden>Определение «{0}» запрещено передавать</Rimlink.Refusal.Parcel.DefForbidden>
   <Rimlink.Refusal.Parcel.PawnNoData>У персонажа отсутствует тип или данные</Rimlink.Refusal.Parcel.PawnNoData>
   <Rimlink.Refusal.Raids.PeacefulSelf>У вас включён мирный режим</Rimlink.Refusal.Raids.PeacefulSelf>
   <Rimlink.Refusal.Raids.PeacefulTarget>У игрока {0} включён мирный режим</Rimlink.Refusal.Raids.PeacefulTarget>

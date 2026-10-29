@@ -19,7 +19,8 @@ public sealed class AdminCommandRunner(AdminOperations ops, ModpackService modpa
         raids list [player] | raids cancel <id> [--return] [reason] | raids freeze [reason] | raids unfreeze | raids stats |
         live list [player] | live end <id> [reason] | peaceful <player> on|off | shop <player> | removals <player> |
         trades [player] | trade cancel <id> [reason] |
-        freeze <player> [reason] | unfreeze <player>
+        freeze <player> [reason] | unfreeze <player> |
+        forbid list | forbid add <def...> | forbid remove <def...>
         """;
 
     public async Task<string> Execute(Actor actor, AdminCommand command)
@@ -114,6 +115,18 @@ public sealed class AdminCommandRunner(AdminOperations ops, ModpackService modpa
                     _ => throw new RpcException(new Status(StatusCode.InvalidArgument, "refund lot <id> | refund parcel <id>")),
                 };
                 return ok ? $"{Arg(0)} {id} refunded" : $"{Arg(0)} {id} not found or not refundable";
+            }
+            case "forbid":
+            {
+                var current = ops.ListForbiddenDefs(actor);
+                var defs = Arg(0) switch
+                {
+                    "list" => current,
+                    "add" => await ops.SetForbiddenDefs(actor, current.Concat(args.Skip(1))),
+                    "remove" => await ops.SetForbiddenDefs(actor, current.Except(args.Skip(1), StringComparer.Ordinal)),
+                    _ => throw new RpcException(new Status(StatusCode.InvalidArgument, "forbid list | forbid add <def...> | forbid remove <def...>")),
+                };
+                return defs.Count == 0 ? "no defs are forbidden" : string.Join(' ', defs);
             }
             case "economy":
                 switch (Arg(0))

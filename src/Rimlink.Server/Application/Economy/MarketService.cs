@@ -29,7 +29,7 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
         if (hasItems == hasPawn) throw RpcErrors.Failed(ErrorCode.Unspecified, RefusalKeys.EconomyLotContents, "a lot holds either items or one pawn");
         if (request.Price < 1) throw RpcErrors.Failed(ErrorCode.Unspecified, RefusalKeys.EconomyPriceTooLow, "price must be at least 1 silver");
         var pawns = hasPawn ? new PawnList { Pawns = { request.Pawn } } : null;
-        if (validator.Validate(hasItems ? request.Items : null, pawns) is { } reason) throw RpcErrors.Failed(reason.Code, reason.Key, reason.Message, reason.Args);
+        if (validator.Validate(hasItems ? request.Items : null, pawns, checkForbidden: true) is { } reason) throw RpcErrors.Failed(reason.Code, reason.Key, reason.Message, reason.Args);
 
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         if (!string.IsNullOrEmpty(request.ClientRequestId))

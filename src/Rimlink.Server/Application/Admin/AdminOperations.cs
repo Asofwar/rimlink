@@ -54,7 +54,9 @@ public sealed class AdminOperations(
     Backup.BackupService backups,
     AdminFeed feed,
     PlayerFreeze playerFreeze,
-    ILogger<AdminOperations> log)
+    ILogger<AdminOperations> log,
+    ForbiddenDefsService forbiddenStore,
+    ForbiddenDefs forbidden)
 {
     public async Task<Backup.BackupFile> CreateBackup(Actor actor)
     {
@@ -548,6 +550,22 @@ public sealed class AdminOperations(
         string owner = await db.Players.AsNoTracking().Where(p => p.Id == playerId).Select(p => p.Name).FirstOrDefaultAsync() ?? "";
         foreach (var o in objects.Where(o => o.Type == WorldObjectTypes.Settlement))
             feed.Publish(FeedTypes.ColonyRemoved, new ColonyData(new FeedPlayer(playerId, owner), o.Name, null));
+    }
+
+    /// <summary>Defs forbidden in sends and lots, sorted.</summary>
+    public IReadOnlyList<string> ListForbiddenDefs(Actor actor)
+    {
+        actor.Require(Role.Moderator);
+        return forbidden.All;
+    }
+
+    /// <summary>Replaces the forbidden list; open lots holding such defs stay open.</summary>
+    public async Task<IReadOnlyList<string>> SetForbiddenDefs(Actor actor, IEnumerable<string> defs)
+    {
+        actor.Require(Role.Admin);
+        var list = await forbiddenStore.Set(defs);
+        await Audit(actor, "forbidden-defs", null, list.Count == 0 ? "none" : string.Join(", ", list));
+        return list;
     }
 
     private async Task Audit(Actor actor, string action, long? targetAccountId, string details)
