@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+package rimlink.v1;
+option csharp_namespace = "Rimlink.Protocol.V1";
+
+import "google/protobuf/timestamp.proto";
+import "common.proto";
+import "raids.proto";
+import "auth.proto";
+
+// "While you were away": what happened to the player since their last session ended. The baseline is fixed by the server
+// at login; the client asks once after the home colony has loaded and shows a letter when anything is in it.
+service Away {
+  rpc Summary (Empty) returns (AwaySummary);
+}
+
+message AwaySummary {
+  // Unset on the account's first login (nothing to summarise).
+  google.protobuf.Timestamp since = 1;
+  repeated AwayRaid raids_on_me = 2;            // queued / announced / landed since, or cancelled / expired since: the attacker
+  repeated AwayRaid my_raids = 3;               // resolved / cancelled / expired since: the target and the outcome
+  repeated AwayVisit visits = 4;
+  repeated AwayParcel parcels = 5;
+  repeated AwaySale lot_sales = 6;
+  int32 shop_items_sold = 7;
+  int64 shop_silver = 8;
+  repeated AwayLine mentions = 9;
+  repeated AwayAdminAction admin_actions = 10;
+  ColonyRestore colony_restore = 11;            // what happened to an archived colony at this login
+  // Rows beyond the ones listed (lists hold the newest 10, mentions 5).
+  int32 raids_on_me_more = 12;
+  int32 my_raids_more = 13;
+  int32 visits_more = 14;
+  int32 parcels_more = 15;
+  int32 lot_sales_more = 16;
+  int32 mentions_more = 17;
+  int32 admin_actions_more = 18;
+}
+
+message AwayRaid {
+  int64 raid_id = 1;
+  PlayerRef other = 2;
+  // queued, announced, landed, resolved, expired or cancelled.
+  string state = 3;
+  google.protobuf.Timestamp at = 4;
+  RaidSummary summary = 5;
+}
+
+message AwayVisit {
+  PlayerRef visitor = 1;
+  google.protobuf.Timestamp at = 2;
+}
+
+message AwayParcel {
+  // gift, purchase, lot_return, withdraw, admin, loot, raid_return or captive.
+  string kind = 1;
+  PlayerRef from = 2;
+  int64 silver = 3;
+  google.protobuf.Timestamp at = 4;
+}
+
+message AwaySale {
+  string summary = 1;
+  int64 price = 2;
+  PlayerRef buyer = 3;
+  google.protobuf.Timestamp at = 4;
+}
+
+message AwayLine {
+  PlayerRef from = 1;       // unset for a line from outside the game
+  string author = 2;        // the outside author (Discord name), if any
+  string text = 3;
+  bool direct = 4;          // a direct message to this player
+  google.protobuf.Timestamp at = 5;
+}
+
+message AwayAdminAction {
+  string action = 1;
+  string actor = 2;
+  string details = 3;
+  google.protobuf.Timestamp at = 4;
+}
