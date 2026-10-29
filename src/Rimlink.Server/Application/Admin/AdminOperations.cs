@@ -23,6 +23,8 @@ using Role = Rimlink.Server.Storage.Entities.Role;
 
 namespace Rimlink.Server.Application.Admin;
 
+public sealed record LotView(long Id, long SellerPlayerId, string SellerName, long Price, DateTime CreatedAt, DateTime ExpiresAt, string Status, string Summary);
+
 public sealed record OnlinePlayer(long PlayerId, long AccountId, string Name, string FactionName, Role Role, string Ip, DateTime Since);
 
 /// <summary>Every administrative operation, with the role check and the audit log in one place. gRPC, REST and chat commands all call this.</summary>
@@ -182,6 +184,17 @@ public sealed class AdminOperations(
         var lots = db.Lots.AsNoTracking().Where(l => l.Status == LotStatusDb.Open);
         if (playerId is { } id) lots = lots.Where(l => l.SellerPlayerId == id);
         return await lots.OrderByDescending(l => l.Id).Take(200).ToListAsync();
+    }
+
+    /// <summary>Open lots with the seller's name and a one-line summary of what they hold.</summary>
+    public async Task<List<LotView>> ListLotViews(Actor actor, long? playerId)
+    {
+        var lots = await ListLots(actor, playerId);
+        var sellerIds = lots.Select(l => l.SellerPlayerId).Distinct().ToList();
+        var names = await db.Players.AsNoTracking().Where(p => sellerIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Name);
+        return lots.Select(l => new LotView(
+            l.Id, l.SellerPlayerId, names.GetValueOrDefault(l.SellerPlayerId, ""), l.Price, l.CreatedAt, l.ExpiresAt, l.Status.ToString(),
+            LotSummary.Of(ItemList.Parser.ParseFrom(l.Items), l.Pawn is { Length: > 0 } pawn ? PawnBlob.Parser.ParseFrom(pawn) : null))).ToList();
     }
 
     /// <summary>An open lot goes back to its seller as if withdrawn.</summary>

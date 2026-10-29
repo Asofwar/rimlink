@@ -75,7 +75,7 @@ public static class AdminEndpoints
         group.MapGet("/economy/parcels/{id:long}", async (long id, HttpContext ctx, AdminOperations ops) =>
             (await ops.ListParcels(ctx.Actor(), id)).Select(p => new { p.Id, Kind = p.Kind.ToString(), p.FromPlayerId, p.Silver, p.SizeBytes, p.CreatedAt, p.DeliveredAt, p.DeliveredTick })).RequireScope(ApiScope.Moderate);
         group.MapGet("/economy/lots", async (HttpContext ctx, AdminOperations ops, [FromQuery] long? playerId = null) =>
-            (await ops.ListLots(ctx.Actor(), playerId)).Select(l => new { l.Id, l.SellerPlayerId, l.Price, l.CreatedAt, l.ExpiresAt, Status = l.Status.ToString() })).RequireScope(ApiScope.Read);
+            await ops.ListLotViews(ctx.Actor(), playerId)).RequireScope(ApiScope.Read);
         group.MapPost("/economy/refund/lot/{id:long}", async (long id, HttpContext ctx, AdminOperations ops) => await ops.RefundLot(ctx.Actor(), id) ? Results.Ok() : Results.NotFound()).RequireScope(ApiScope.Admin);
         group.MapPost("/economy/refund/parcel/{id:long}", async (long id, HttpContext ctx, AdminOperations ops) => await ops.RefundParcel(ctx.Actor(), id) ? Results.Ok() : Results.NotFound()).RequireScope(ApiScope.Admin);
         group.MapPost("/economy/freeze", async (FreezeBody body, HttpContext ctx, AdminOperations ops) => { await ops.SetEconomyFrozen(ctx.Actor(), body.Frozen, body.Reason); return Results.Ok(); }).RequireScope(ApiScope.Admin);

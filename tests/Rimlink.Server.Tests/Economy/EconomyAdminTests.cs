@@ -27,6 +27,25 @@ public class EconomyAdminTests
     }
 
     [Fact]
+    public async Task LotsCarrySellerNameAndSummary()
+    {
+        using var fixture = Server();
+        var nova = await fixture.RegisterAndLogin("nova", playerName: "Nova");
+        var n = Clients(fixture, nova.SessionToken);
+        var lot = await n.Market.PostAsync(new PostRequest { ClientRequestId = Guid.NewGuid().ToString("N"), Items = Items(("Steel", 50), ("Component", 3)), Price = 300, GameTick = 100 }, n.Auth);
+
+        var lots = await Rest(fixture).GetFromJsonAsync<System.Text.Json.JsonElement>("/api/admin/economy/lots");
+
+        var row = lots.EnumerateArray().Single();
+        Assert.Equal(lot.Id, row.GetProperty("id").GetInt64());
+        Assert.Equal(nova.Player.PlayerId, row.GetProperty("sellerPlayerId").GetInt64());
+        Assert.Equal("Nova", row.GetProperty("sellerName").GetString());
+        Assert.Equal("Steel ×50, Component ×3", row.GetProperty("summary").GetString());
+        Assert.Equal(300, row.GetProperty("price").GetInt64());
+        Assert.Equal("Open", row.GetProperty("status").GetString());
+    }
+
+    [Fact]
     public async Task WalletAdjustIsAppliedAndLogged()
     {
         using var fixture = Server();
