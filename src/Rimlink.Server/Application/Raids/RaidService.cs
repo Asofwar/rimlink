@@ -22,7 +22,7 @@ namespace Rimlink.Server.Application.Raids;
 /// became of them; the server only validates and moves parcels.
 /// </summary>
 public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, RaidReportValidator reports, MailboxService mailbox, RaidGate gate, RaidRules rules,
-    EventBus events, AdminFeed feed, IOptions<RaidOptions> options, ILogger<RaidService> log)
+    Economy.PlayerFreeze freezes, EventBus events, AdminFeed feed, IOptions<RaidOptions> options, ILogger<RaidService> log)
 {
     private static readonly RaidStateDb[] FinalStates = [RaidStateDb.Resolved, RaidStateDb.Expired, RaidStateDb.Cancelled];
     private static readonly RaidStateDb[] PendingStates = [RaidStateDb.Queued, RaidStateDb.Announced];
@@ -43,6 +43,7 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
             var existing = await db.Raids.AsNoTracking().FirstOrDefaultAsync(x => x.AttackerPlayerId == attackerId && x.ClientRequestId == r.ClientRequestId);
             if (existing is not null) return existing;
         }
+        await freezes.Require(attackerId); // raiders carry loot home: a frozen player starts none (after the replay lookup, as in EconomyGate)
         var attacker = await db.Players.FirstAsync(p => p.Id == attackerId);
         var target = await db.Players.FirstOrDefaultAsync(p => p.Id == r.TargetPlayerId)
             ?? throw RpcErrors.Failed(ErrorCode.RecipientUnknown, RefusalKeys.NoSuchPlayer, "no such player");

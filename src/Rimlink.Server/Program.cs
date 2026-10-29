@@ -91,6 +91,7 @@ builder.Services.AddSingleton<FreezeState>();
 builder.Services.AddSingleton<Rimlink.Server.Application.Raids.RaidFreezeState>();
 builder.Services.AddSingleton<ModpackDefs>();
 builder.Services.AddScoped<EconomyGate>();
+builder.Services.AddScoped<PlayerFreeze>();
 builder.Services.AddScoped<ParcelValidator>();
 builder.Services.AddScoped<WalletService>();
 builder.Services.AddScoped<MailboxService>();

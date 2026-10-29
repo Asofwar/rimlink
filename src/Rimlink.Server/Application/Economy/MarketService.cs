@@ -37,6 +37,7 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
             var existing = await db.Lots.AsNoTracking().FirstOrDefaultAsync(l => l.ClientRequestId == request.ClientRequestId);
             if (existing is not null) return existing;
         }
+        await gate.RequireNotFrozen(sellerId);
         int open = await db.Lots.CountAsync(l => l.SellerPlayerId == sellerId && l.Status == LotStatusDb.Open);
         if (open >= options.Value.MaxLotsPerPlayer)
             throw RpcErrors.Failed(ErrorCode.Unspecified, RefusalKeys.EconomyLotLimit, $"you already have {open} open lots (limit {options.Value.MaxLotsPerPlayer})", open, options.Value.MaxLotsPerPlayer);
@@ -64,10 +65,12 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
         return lot;
     }
 
-    public async Task<LotList> List(MarketQuery query)
+    /// <summary>Open lots; a frozen seller's lots are not for sale and only that seller sees them.</summary>
+    public async Task<LotList> List(MarketQuery query, long viewerId)
     {
         var lots = db.Lots.AsNoTracking().Where(l => l.Status == LotStatusDb.Open);
         if (query.SellerPlayerId != 0) lots = lots.Where(l => l.SellerPlayerId == query.SellerPlayerId);
+        lots = lots.Where(l => l.SellerPlayerId == viewerId || !db.Players.Any(p => p.Id == l.SellerPlayerId && p.EconomyFrozenAt != null));
         var all = await lots.OrderByDescending(l => l.Id).ToListAsync();
         var sellers = await db.Players.AsNoTracking().Where(p => all.Select(l => l.SellerPlayerId).Contains(p.Id)).ToDictionaryAsync(p => p.Id);
 
@@ -101,6 +104,7 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
     public async Task<Parcel> Buy(long buyerId, long lotId)
     {
         gate.RequireOpen();
+        await gate.RequireNotFrozen(buyerId); // no replay key: a repeated buy of a sold lot is refused either way
         Parcel parcel;
         LotSold sold;
         long sellerId;
@@ -110,6 +114,7 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
             var lot = await db.Lots.FirstOrDefaultAsync(l => l.Id == lotId) ?? throw RpcErrors.Failed(ErrorCode.LotGone, RefusalKeys.EconomyLotUnknown, "no such lot");
             if (lot.SellerPlayerId == buyerId) throw RpcErrors.Failed(ErrorCode.SelfTrade, RefusalKeys.EconomySelfBuy, "you cannot buy your own lot");
             if (lot.Status != LotStatusDb.Open) throw RpcErrors.Failed(ErrorCode.LotGone, RefusalKeys.EconomyLotGone, "this lot was already sold or withdrawn");
+            await gate.RequireSellerOpen(lot.SellerPlayerId);
 
             long fee = lot.Price * Math.Clamp(options.Value.MarketFeePercent, 0, 100) / 100;
             await wallet.Apply(buyerId, -lot.Price, "purchase", lot.Id);

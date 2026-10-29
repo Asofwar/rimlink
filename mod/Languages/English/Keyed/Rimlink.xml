@@ -427,6 +427,8 @@
   <Rimlink.Refusal.Economy.WalletInsufficient>not enough silver: balance {0}, needed {1}</Rimlink.Refusal.Economy.WalletInsufficient>
   <Rimlink.Refusal.Economy.SilverTooLow>silver must be at least 1</Rimlink.Refusal.Economy.SilverTooLow>
   <Rimlink.Refusal.Economy.Paused>trading is paused: {0}</Rimlink.Refusal.Economy.Paused>
+  <Rimlink.Refusal.Economy.PlayerFrozen>your trading is frozen: {0}</Rimlink.Refusal.Economy.PlayerFrozen>
+  <Rimlink.Refusal.Economy.SellerFrozen>this seller's trading is frozen</Rimlink.Refusal.Economy.SellerFrozen>
   <Rimlink.Refusal.Raids.Paused>raids are paused: {0}</Rimlink.Refusal.Raids.Paused>
   <Rimlink.Refusal.Live.WrongRole>not your role in this live session</Rimlink.Refusal.Live.WrongRole>
   <Rimlink.Refusal.Live.OnlyHostSpawns>only the host spawns the guest's pawns</Rimlink.Refusal.Live.OnlyHostSpawns>

@@ -50,6 +50,8 @@ enum ErrorCode {
   // Modpack join (sub-project modpack-join): a mod settings set the admin uploaded was refused (size, mod not in the
   // modpack, mod loaded before Rimlink).
   MODPACK_CONFIGS_INVALID = 37;
+  // Integrity: this player's economy is frozen (an admin, a dev-mode save or a wealth jump); deliveries to them go on.
+  PLAYER_FROZEN = 38;
 }
 
 // Attached to failed calls as the "rimlink-error-bin" trailer.

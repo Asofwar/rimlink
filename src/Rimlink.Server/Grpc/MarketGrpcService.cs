@@ -6,7 +6,7 @@ namespace Rimlink.Server.Grpc;
 
 public sealed class MarketGrpcService(MarketService market, MailboxService mailbox) : Protocol.V1.Market.MarketBase
 {
-    public override Task<LotList> List(MarketQuery request, ServerCallContext context) => market.List(request);
+    public override Task<LotList> List(MarketQuery request, ServerCallContext context) => market.List(request, context.GetSession().PlayerId);
 
     public override async Task<Lot> Post(PostRequest request, ServerCallContext context)
     {

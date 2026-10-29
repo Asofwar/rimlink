@@ -89,6 +89,8 @@ public sealed class ShopService(RimlinkDbContext db, WalletService wallet, Mailb
                 var existing = await db.Parcels.AsNoTracking().FirstOrDefaultAsync(p => p.ClientRequestId == r.ClientRequestId);
                 if (existing is not null) return existing;
             }
+            await gate.RequireNotFrozen(buyerId);
+            await gate.RequireSellerOpen(r.HostPlayerId);
             var row = await db.ShopItems.FirstOrDefaultAsync(s => s.HostPlayerId == r.HostPlayerId && s.ThingId == r.ThingId);
             if (row is null || row.SoldAt is not null || row.Count <= 0) throw RpcErrors.Failed(ErrorCode.ItemSold, RefusalKeys.ShopSold, "that item is no longer for sale");
             if (row.Count < r.Count) throw RpcErrors.Failed(ErrorCode.ItemSold, RefusalKeys.ShopOnlyLeft, $"only {row.Count} left", row.Count);

@@ -61,6 +61,7 @@ public sealed class WalletService(RimlinkDbContext db, EventBus events)
         await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
         if (!string.IsNullOrEmpty(request.ClientRequestId) && await db.Transfers.AnyAsync(t => t.ClientRequestId == request.ClientRequestId))
             return await Balance(playerId);
+        await gate.RequireNotFrozen(playerId);
         await Apply(playerId, request.Silver, "deposit", 0);
         await transfers.StampOutgoing(playerId, request.GameTick);
         db.Transfers.Add(new Transfer { FromPlayerId = playerId, Kind = "deposit", GameTick = request.GameTick, Summary = $"{request.Silver} silver", At = DateTime.UtcNow, ClientRequestId = string.IsNullOrEmpty(request.ClientRequestId) ? null : request.ClientRequestId });
@@ -82,6 +83,7 @@ public sealed class WalletService(RimlinkDbContext db, EventBus events)
             var existing = await db.Parcels.AsNoTracking().FirstOrDefaultAsync(p => p.ClientRequestId == request.ClientRequestId);
             if (existing is not null) return existing;
         }
+        await gate.RequireNotFrozen(playerId);
         long balance = await Balance(playerId);
         if (balance < request.Silver)
             throw RpcErrors.Failed(ErrorCode.WalletInsufficient, RefusalKeys.EconomyWalletInsufficient, $"not enough silver: balance {balance}, needed {request.Silver}", balance, request.Silver);

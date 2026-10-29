@@ -66,6 +66,8 @@ public static class RefusalKeys
     public const string EconomyWalletInsufficient = "Economy.WalletInsufficient";
     public const string EconomySilverTooLow = "Economy.SilverTooLow";
     public const string EconomyPaused = "Economy.Paused";
+    public const string EconomyPlayerFrozen = "Economy.PlayerFrozen";
+    public const string EconomySellerFrozen = "Economy.SellerFrozen";
 
     public const string RaidsPaused = "Raids.Paused";
     public const string RaidsOutcomeIndex = "Raids.OutcomeIndex";
