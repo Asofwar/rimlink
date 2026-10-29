@@ -12,6 +12,7 @@ public sealed class EconomyClient(RimlinkConnection connection)
     private static DateTime Until => DateTime.UtcNow + Deadline;
 
     public Task<WalletState> Wallet(CancellationToken ct) => connection.WalletApi.GetAsync(new Empty(), deadline: Until, cancellationToken: ct).ResponseAsync;
+    public Task<EconomyRules> Rules(CancellationToken ct) => connection.WalletApi.RulesAsync(new Empty(), deadline: Until, cancellationToken: ct).ResponseAsync;
     public Task<WalletHistory> History(CancellationToken ct) => connection.WalletApi.HistoryAsync(new Empty(), deadline: Until, cancellationToken: ct).ResponseAsync;
     public Task<WalletState> Deposit(DepositRequest request, CancellationToken ct) => connection.WalletApi.DepositAsync(request, deadline: Until, cancellationToken: ct).ResponseAsync;
     public Task<Parcel> WithdrawSilver(WithdrawRequest request, CancellationToken ct) => connection.WalletApi.WithdrawAsync(request, deadline: Until, cancellationToken: ct).ResponseAsync;

@@ -178,6 +178,15 @@ public class TransferOutboxTests : IDisposable
     }
 
     [Fact]
+    public void UnderThreatIsDefinitive()
+    {
+        // A replay refused under a raid returns the things by pod: waiting would keep them off the map, the same evacuation.
+        var underThreat = new Metadata { { "rimlink-error-bin", new ErrorDetail { Code = ErrorCode.UnderThreat, Message = "raid" }.ToByteArray() } };
+
+        Assert.True(TransferOutbox.IsDefinitive(new RpcException(new Status(StatusCode.FailedPrecondition, "x"), underThreat)));
+    }
+
+    [Fact]
     public void EntriesSurviveAReload()
     {
         var outbox = Outbox();

@@ -67,6 +67,8 @@ public sealed class RaidsState
                 RaidResolved?.Invoke(ev.RaidResolved);
                 break;
             case ServerEvent.BodyOneofCase.RaidExpired:
+                // Also sent to the target of a raid that never landed (cancelled or expired): it is no longer incoming.
+                MarkLanded(ev.RaidExpired.RaidId);
                 SetMineState(ev.RaidExpired.RaidId, RaidState.RaidExpired);
                 RaidExpired?.Invoke(ev.RaidExpired);
                 break;

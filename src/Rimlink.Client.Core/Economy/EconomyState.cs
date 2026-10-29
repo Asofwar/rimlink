@@ -9,6 +9,14 @@ public sealed class EconomyState
     private readonly HashSet<long> pendingIds = [];
 
     public long Balance { get; private set; }
+    /// <summary>Wallet, open lots and parcels in transit as the server counts them for the storyteller (already scaled).</summary>
+    public long ServerWealth { get; private set; }
+    /// <summary>Set by events that change what the server holds; the game refreshes the wallet and clears it.</summary>
+    public bool WealthStale { get; private set; }
+    /// <summary>Forbidden defs and the storage fee; empty until login loads them.</summary>
+    public EconomyRules Rules { get; private set; } = new();
+    /// <summary>Storage fees left a debt: buying, lots and sends are closed until it is paid.</summary>
+    public bool InDebt => Balance < 0;
     public IReadOnlyList<Parcel> Pending => pending;
     public List<Lot> MyLots { get; } = [];
 
@@ -18,14 +26,25 @@ public sealed class EconomyState
     public event Action<LotClosed>? LotClosed;
     public event Action<WalletChanged>? WalletChanged;
 
-    public void Load(WalletState wallet, ParcelList parcels, LotList myLots)
+    public bool IsForbidden(string defName) => defName.Length > 0 && Rules.ForbiddenDefs.Contains(defName);
+
+    public void Load(WalletState wallet, ParcelList parcels, LotList myLots, EconomyRules? rules = null)
     {
-        Balance = wallet.Balance;
+        SetWallet(wallet);
+        Rules = rules ?? new EconomyRules();
         pending.Clear();
         pendingIds.Clear();
         foreach (var p in parcels.Parcels) AddPending(p);
         MyLots.Clear();
         MyLots.AddRange(myLots.Lots);
+    }
+
+    /// <summary>A fresh wallet answer: balance and server wealth, no longer stale.</summary>
+    public void SetWallet(WalletState wallet)
+    {
+        Balance = wallet.Balance;
+        ServerWealth = wallet.ServerWealth;
+        WealthStale = false;
     }
 
     /// <summary>False when the parcel is already known (replayed event, or a gift whose decision changed: replaced in place).</summary>
@@ -48,6 +67,9 @@ public sealed class EconomyState
 
     public void Apply(ServerEvent ev)
     {
+        if (ev.BodyCase is ServerEvent.BodyOneofCase.ParcelArrived or ServerEvent.BodyOneofCase.LotSold
+            or ServerEvent.BodyOneofCase.LotClosed or ServerEvent.BodyOneofCase.WalletChanged)
+            WealthStale = true;
         switch (ev.BodyCase)
         {
             case ServerEvent.BodyOneofCase.ParcelArrived:
@@ -75,6 +97,9 @@ public sealed class EconomyState
     public void Reset()
     {
         Balance = 0;
+        ServerWealth = 0;
+        WealthStale = false;
+        Rules = new EconomyRules();
         pending.Clear();
         pendingIds.Clear();
         MyLots.Clear();
