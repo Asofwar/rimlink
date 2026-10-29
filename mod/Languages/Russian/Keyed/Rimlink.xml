@@ -533,4 +533,54 @@
   <Rimlink.Refusal.Trades.NoteTooLong>Записка длиннее {0} символов</Rimlink.Refusal.Trades.NoteTooLong>
   <Rimlink.Refusal.Trades.NoteControlChars>В записке есть управляющие символы</Rimlink.Refusal.Trades.NoteControlChars>
   <Rimlink.Refusal.Trades.PartnerFrozen>Торговля игрока {0} заморожена</Rimlink.Refusal.Trades.PartnerFrozen>
+  <Rimlink.Settlement.InspectFaction>Колония игрока {0}, фракция {1}</Rimlink.Settlement.InspectFaction>
+  <Rimlink.Settlement.Online>Сейчас в сети</Rimlink.Settlement.Online>
+  <Rimlink.Settlement.SeenToday>Был в сети сегодня</Rimlink.Settlement.SeenToday>
+  <Rimlink.Settlement.SeenYesterday>Был в сети вчера</Rimlink.Settlement.SeenYesterday>
+  <Rimlink.Settlement.SeenDaysAgo>Был в сети {0} дн. назад</Rimlink.Settlement.SeenDaysAgo>
+  <Rimlink.Settlement.Age>Возраст колонии: {0} игровых дн.</Rimlink.Settlement.Age>
+  <Rimlink.Settlement.Wealth>Богатство: уровень {0} из 5 ({1})</Rimlink.Settlement.Wealth>
+  <Rimlink.Settlement.RangeBelow>до {0}</Rimlink.Settlement.RangeBelow>
+  <Rimlink.Settlement.RangeBetween>от {0} до {1}</Rimlink.Settlement.RangeBetween>
+  <Rimlink.Settlement.RangeAbove>от {0}</Rimlink.Settlement.RangeAbove>
+  <Rimlink.Settlement.Thousands>{0} тыс.</Rimlink.Settlement.Thousands>
+  <Rimlink.Settlement.Millions>{0} млн</Rimlink.Settlement.Millions>
+  <Rimlink.Archive.TileTaken>Ваша колония «{0}» ушла в архив, пока вас не было, и её место на карте с тех пор заняли. Начните новую колонию; админ сможет вернуть старую, когда её тайл освободится.</Rimlink.Archive.TileTaken>
+  <Rimlink.Archive.Damaged>Ваша колония «{0}» в архиве, но вернуть её не удалось. Начните новую колонию и сообщите админу.</Rimlink.Archive.Damaged>
+  <Rimlink.Away.Title>Пока вас не было ({0})</Rimlink.Away.Title>
+  <Rimlink.Away.TitleShort>Пока вас не было</Rimlink.Away.TitleShort>
+  <Rimlink.Away.Days>{0} дн.</Rimlink.Away.Days>
+  <Rimlink.Away.Hours>{0} ч</Rimlink.Away.Hours>
+  <Rimlink.Away.Minutes>{0} мин</Rimlink.Away.Minutes>
+  <Rimlink.Away.Restored>Ваша колония {0} уходила в архив, пока вас не было, и вернулась.</Rimlink.Away.Restored>
+  <Rimlink.Away.RaidsOnMe>Рейды на вашу колонию</Rimlink.Away.RaidsOnMe>
+  <Rimlink.Away.MyRaids>Ваши рейды</Rimlink.Away.MyRaids>
+  <Rimlink.Away.Visits>Гости</Rimlink.Away.Visits>
+  <Rimlink.Away.Parcels>Посылки</Rimlink.Away.Parcels>
+  <Rimlink.Away.LotSales>Продажи на рынке</Rimlink.Away.LotSales>
+  <Rimlink.Away.LotSale>{0} за {1} серебра, покупатель {2}</Rimlink.Away.LotSale>
+  <Rimlink.Away.Shop>Ваш магазин продал {0} шт. за {1} серебра.</Rimlink.Away.Shop>
+  <Rimlink.Away.Mentions>Упоминания в чате</Rimlink.Away.Mentions>
+  <Rimlink.Away.Direct>{0} (лично)</Rimlink.Away.Direct>
+  <Rimlink.Away.Admin>Действия админа</Rimlink.Away.Admin>
+  <Rimlink.Away.AdminLine>{0} ({1}): {2}</Rimlink.Away.AdminLine>
+  <Rimlink.Away.More>и ещё {0}</Rimlink.Away.More>
+  <Rimlink.Away.Someone>кто-то</Rimlink.Away.Someone>
+  <Rimlink.Away.From>от {0}</Rimlink.Away.From>
+  <Rimlink.Away.Silver>{0} серебра</Rimlink.Away.Silver>
+  <Rimlink.Away.RaidOutcome>убито {0}, в плену {1}, бежало {2}, добыча на {3}</Rimlink.Away.RaidOutcome>
+  <Rimlink.Away.RaidState.queued>в пути</Rimlink.Away.RaidState.queued>
+  <Rimlink.Away.RaidState.announced>объявлен</Rimlink.Away.RaidState.announced>
+  <Rimlink.Away.RaidState.landed>высадился</Rimlink.Away.RaidState.landed>
+  <Rimlink.Away.RaidState.resolved>завершён</Rimlink.Away.RaidState.resolved>
+  <Rimlink.Away.RaidState.expired>истёк</Rimlink.Away.RaidState.expired>
+  <Rimlink.Away.RaidState.cancelled>отменён</Rimlink.Away.RaidState.cancelled>
+  <Rimlink.Away.Parcel.gift>подарок</Rimlink.Away.Parcel.gift>
+  <Rimlink.Away.Parcel.purchase>покупка</Rimlink.Away.Parcel.purchase>
+  <Rimlink.Away.Parcel.lot_return>возврат непроданного лота</Rimlink.Away.Parcel.lot_return>
+  <Rimlink.Away.Parcel.withdraw>снятие со счёта</Rimlink.Away.Parcel.withdraw>
+  <Rimlink.Away.Parcel.admin>от админа</Rimlink.Away.Parcel.admin>
+  <Rimlink.Away.Parcel.loot>добыча рейда</Rimlink.Away.Parcel.loot>
+  <Rimlink.Away.Parcel.raid_return>пешки вернулись с рейда</Rimlink.Away.Parcel.raid_return>
+  <Rimlink.Away.Parcel.captive>пленник</Rimlink.Away.Parcel.captive>
 </LanguageData>

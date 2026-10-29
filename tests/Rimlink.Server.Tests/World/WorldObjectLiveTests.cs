@@ -145,4 +145,16 @@ public class WorldObjectLiveTests
 
         Assert.Equal(["id", "type", "owner", "tile", "name", "payload", "wealth_tier", "owner_last_seen", "colony_game_days"], fields);
     }
+
+    [Fact]
+    public async Task WorldInfoCarriesTheTierBounds()
+    {
+        using var fixture = HygieneServer().WithSetting("Hygiene:WealthTiers:0", "10").WithSetting("Hygiene:WealthTiers:1", "20")
+            .WithSetting("Hygiene:WealthTiers:2", "30").WithSetting("Hygiene:WealthTiers:3", "40");
+        var nova = await fixture.RegisterAndLogin("nova", playerName: "Nova");
+
+        var info = await new Protocol.V1.World.WorldClient(fixture.CreateChannel()).GetAsync(new Empty(), Bearer(nova.SessionToken));
+
+        Assert.Equal([10L, 20L, 30L, 40L], info.WealthTiers);
+    }
 }

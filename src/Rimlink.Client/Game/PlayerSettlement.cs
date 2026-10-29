@@ -14,6 +14,40 @@ public sealed class PlayerSettlement : WorldObject
     public string OwnerName = "";
     public string SettlementName = "";
     public uint ColorArgb = 0xFF4A90D9;
+    public long OwnerPlayerId;
+    public string FactionName = "";
+    /// <summary>0 unknown, 1–5 by the server's bounds (<see cref="WorldInfo.WealthTiers"/>); never the exact wealth.</summary>
+    public int WealthTier;
+    /// <summary>The day of the owner's last activity as the server knew it when it sent the object (UTC midnight).</summary>
+    public DateTime? OwnerLastSeen;
+    public int? ColonyGameDays;
+    private DateTime? seenOnlineDay;
+
+    /// <summary>Copies what the server sends about the settlement and its owner (on spawn and on every update).</summary>
+    public void Apply(Protocol.V1.WorldObject o)
+    {
+        OwnerPlayerId = o.Owner.PlayerId;
+        OwnerName = o.Owner.Name;
+        FactionName = o.Owner.FactionName;
+        SettlementName = o.Name;
+        ColorArgb = o.Owner.ColorArgb;
+        WealthTier = o.WealthTier;
+        OwnerLastSeen = o.OwnerLastSeen?.ToDateTime();
+        ColonyGameDays = o.HasColonyGameDays ? o.ColonyGameDays : null;
+    }
+
+    /// <summary>From the online list; remembers today while the owner is seen online, for "last seen" after they leave.</summary>
+    public bool OwnerOnline
+    {
+        get
+        {
+            bool online = RimlinkSession.State.Players.Online.Any(p => p.PlayerId == OwnerPlayerId);
+            if (online) seenOnlineDay = DateTime.UtcNow.Date;
+            return online;
+        }
+    }
+
+    private DateTime? LastSeenDay => seenOnlineDay is { } seen && (OwnerLastSeen is not { } known || seen > known) ? seen : OwnerLastSeen;
 
     public override string Label => SettlementName.Length > 0 ? SettlementName : OwnerName;
 
@@ -23,7 +57,38 @@ public sealed class PlayerSettlement : WorldObject
         (ColorArgb & 0xFF) / 255f,
         ((ColorArgb >> 24) & 0xFF) / 255f);
 
-    public override string GetInspectString() => "Rimlink.Settlement.Inspect".Translate(OwnerName);
+    public override string GetInspectString()
+    {
+        var lines = new List<string>
+        {
+            FactionName.Length > 0 ? "Rimlink.Settlement.InspectFaction".Translate(OwnerName, FactionName) : "Rimlink.Settlement.Inspect".Translate(OwnerName),
+        };
+        if (OwnerOnline) lines.Add("Rimlink.Settlement.Online".Translate());
+        else if (LastSeenDay is { } day)
+        {
+            int days = Math.Max(0, (int)(DateTime.UtcNow.Date - day.Date).TotalDays);
+            lines.Add(days == 0 ? "Rimlink.Settlement.SeenToday".Translate() : days == 1 ? "Rimlink.Settlement.SeenYesterday".Translate() : "Rimlink.Settlement.SeenDaysAgo".Translate(days));
+        }
+        if (ColonyGameDays is { } age) lines.Add("Rimlink.Settlement.Age".Translate(age));
+        if (WealthTier > 0) lines.Add("Rimlink.Settlement.Wealth".Translate(WealthTier, TierRange(WealthTier)));
+        return string.Join("\n", lines);
+    }
+
+    private static string TierRange(int tier)
+    {
+        var bounds = RimlinkSession.World?.WealthTiers;
+        if (bounds is null || bounds.Count != 4) return "?";
+        return tier switch
+        {
+            1 => "Rimlink.Settlement.RangeBelow".Translate(Short(bounds[0])),
+            5 => "Rimlink.Settlement.RangeAbove".Translate(Short(bounds[3])),
+            _ => "Rimlink.Settlement.RangeBetween".Translate(Short(bounds[tier - 2]), Short(bounds[tier - 1])),
+        };
+    }
+
+    private static string Short(long value) => value >= 1_000_000
+        ? "Rimlink.Settlement.Millions".Translate((value / 1_000_000.0).ToString("0.#"))
+        : "Rimlink.Settlement.Thousands".Translate((value / 1000.0).ToString("0.#"));
 
     public override bool SelectableNow => true;
 

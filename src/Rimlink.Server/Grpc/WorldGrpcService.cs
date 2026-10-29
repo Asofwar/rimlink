@@ -6,7 +6,7 @@ using Rimlink.Server.Hosting;
 
 namespace Rimlink.Server.Grpc;
 
-public sealed class WorldGrpcService(WorldService worlds, IOptions<IntegrityOptions> integrity) : Protocol.V1.World.WorldBase
+public sealed class WorldGrpcService(WorldService worlds, IOptions<IntegrityOptions> integrity, IOptions<Hosting.HygieneOptions> hygiene) : Protocol.V1.World.WorldBase
 {
     public override async Task<WorldInfo> Create(CreateWorldRequest request, ServerCallContext context) =>
         WithPolicy(WorldService.ToInfo(await worlds.Create(request.Params ?? new WorldParams(), request.NpcTiles, context.GetSession())));
@@ -17,6 +17,7 @@ public sealed class WorldGrpcService(WorldService worlds, IOptions<IntegrityOpti
     private WorldInfo WithPolicy(WorldInfo info)
     {
         info.StorytellerLocked = info.Exists && integrity.Value.StorytellerPolicy == StorytellerPolicy.Locked;
+        info.WealthTiers.AddRange(hygiene.Value.Tiers);
         return info;
     }
 

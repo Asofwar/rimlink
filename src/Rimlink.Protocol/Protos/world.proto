@@ -44,6 +44,8 @@ message WorldInfo {
   repeated int32 npc_tiles = 3;
   // Integrity:StorytellerPolicy = Locked: every colony plays with the storyteller and difficulty above.
   bool storyteller_locked = 4;
+  // The four bounds of the wealth tiers 1-5 shown on settlements (Hygiene:WealthTiers), for the inspect text.
+  repeated int64 wealth_tiers = 5;
 }
 
 message WorldObject {

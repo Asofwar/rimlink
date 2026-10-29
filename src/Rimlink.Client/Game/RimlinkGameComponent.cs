@@ -56,6 +56,11 @@ public sealed class RimlinkGameComponent : GameComponent
         // A visit's game is the host's colony: removing "sold" things there would strip the guest's copy, not the home map.
         if (!Visits.VisitSession.InVisit) Shop.ShopSync.ApplyRemovals();
         if (!Visits.VisitSession.InVisit) SettleLiveSessionsAfterLoad();
+        if (!Visits.VisitSession.InVisit && RimlinkSession.SummaryPending)
+        {
+            RimlinkSession.SummaryPending = false;
+            Away.AwayLetter.Request();
+        }
     }
 
     /// <summary>

@@ -13,12 +13,15 @@ public static class ForeignSettlements
 
     public static WorldObjectDef Def => DefDatabase<WorldObjectDef>.GetNamed("Rimlink_PlayerSettlement");
 
+    public static IEnumerable<PlayerSettlement> All => spawned.Values;
+
     public static void Subscribe()
     {
         if (subscribed) return;
         subscribed = true;
         RimlinkSession.State.ObjectAdded += Add;
         RimlinkSession.State.ObjectRemoved += Remove;
+        RimlinkSession.State.ObjectUpdated += Update;
     }
 
     /// <summary>
@@ -48,13 +51,16 @@ public static class ForeignSettlements
 
         var settlement = (PlayerSettlement)WorldObjectMaker.MakeWorldObject(Def);
         settlement.ObjectId = o.Id;
-        settlement.OwnerName = o.Owner.Name;
-        settlement.SettlementName = o.Name;
-        settlement.ColorArgb = o.Owner.ColorArgb;
+        settlement.Apply(o);
         settlement.Tile = o.Tile;
         Find.WorldObjects.Add(settlement);
         spawned[o.Id] = settlement;
         RimlinkLog.Instance.Info($"placed {o.Owner.Name}'s settlement '{o.Name}' on tile {o.Tile}");
+    }
+
+    private static void Update(Protocol.V1.WorldObject o)
+    {
+        if (spawned.TryGetValue(o.Id, out var settlement)) settlement.Apply(o);
     }
 
     private static void Remove(long id)

@@ -53,6 +53,15 @@ public static class LoginFlow
 
                 string savePath = SaveSync.SaveFilePath;
                 var pending = SaveSync.Pending;
+                RimlinkSession.SummaryPending = true;
+                var restore = reply.ColonyRestore;
+                if (restore is { Restored: false })
+                {
+                    // The old colony stays in the server's archive: its local copy must not be uploaded as the new colony's save.
+                    if (File.Exists(savePath)) File.Move(savePath, Path.ChangeExtension(savePath, $".archived-{DateTime.Now:yyyyMMdd-HHmm}.rws"), overwrite: true);
+                    pending.Clear();
+                    RimlinkLog.Instance.Warn($"archived colony '{restore.Name}' not restored ({restore.Reason}): starting a new colony");
+                }
                 var action = LoginPlan.Decide(pending.IsSet, File.Exists(savePath), reply.HasSave, reply.HasSettlement);
                 RimlinkLog.Instance.Info($"login plan: {action} (pending={pending.IsSet}, local={File.Exists(savePath)}, server save={reply.HasSave}, settlement={reply.HasSettlement})");
 
@@ -89,7 +98,16 @@ public static class LoginFlow
 
                     case LoginAction.NewColony:
                         // The vanilla new-colony pages, with the world page locked to the server's planet.
-                        MainThread.Post(() => { wait.Close(); Find.WindowStack.Add(new Page_SelectScenario()); });
+                        MainThread.Post(() =>
+                        {
+                            wait.Close();
+                            if (restore is { Restored: false })
+                                Find.WindowStack.Add(new Dialog_MessageBox(
+                                    (restore.Reason == "damaged" ? "Rimlink.Archive.Damaged" : "Rimlink.Archive.TileTaken").Translate(restore.Name),
+                                    buttonAAction: () => Find.WindowStack.Add(new Page_SelectScenario())));
+                            else
+                                Find.WindowStack.Add(new Page_SelectScenario());
+                        });
                         return new LoginOutcome(LoginOutcomeKind.NewColony);
                 }
                 throw new InvalidOperationException($"unknown login action {action}");

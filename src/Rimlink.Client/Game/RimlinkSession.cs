@@ -28,6 +28,8 @@ public static class RimlinkSession
     /// <summary>Economy requests whose answer has not been seen; replayed at login and after a reconnect.</summary>
     public static Rimlink.Client.Economy.TransferOutbox? Outbox { get; private set; }
     public static long MyPlayerId => Login?.Player.PlayerId ?? 0;
+    /// <summary>Set by a login; the first home-colony frame asks for the "while you were away" letter and clears it.</summary>
+    public static bool SummaryPending { get; set; }
     public static bool IsAdmin => Login?.Role == Role.Admin;
     public static bool IsModerator => Login?.Role is Role.Admin or Role.Moderator;
     /// <summary>The server lets this player use dev mode (Admin role, or Integrity:DevMode = Everyone).</summary>
@@ -59,6 +61,7 @@ public static class RimlinkSession
         if (Connection is { } c) c.EventReceived -= Inbox.Enqueue;
         if (Live is { } live) _ = live.Close();
         Live = null;
+        SummaryPending = false;
         Connection = null;
         Login = null;
         Outbox = null;

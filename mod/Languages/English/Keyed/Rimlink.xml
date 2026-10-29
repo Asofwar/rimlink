@@ -533,4 +533,54 @@
   <Rimlink.Refusal.Trades.NoteTooLong>note longer than {0} characters</Rimlink.Refusal.Trades.NoteTooLong>
   <Rimlink.Refusal.Trades.NoteControlChars>note contains control characters</Rimlink.Refusal.Trades.NoteControlChars>
   <Rimlink.Refusal.Trades.PartnerFrozen>{0}'s trading is frozen</Rimlink.Refusal.Trades.PartnerFrozen>
+  <Rimlink.Settlement.InspectFaction>Colony of player {0}, faction {1}</Rimlink.Settlement.InspectFaction>
+  <Rimlink.Settlement.Online>Online now</Rimlink.Settlement.Online>
+  <Rimlink.Settlement.SeenToday>Last seen today</Rimlink.Settlement.SeenToday>
+  <Rimlink.Settlement.SeenYesterday>Last seen yesterday</Rimlink.Settlement.SeenYesterday>
+  <Rimlink.Settlement.SeenDaysAgo>Last seen {0} days ago</Rimlink.Settlement.SeenDaysAgo>
+  <Rimlink.Settlement.Age>Colony age: {0} game days</Rimlink.Settlement.Age>
+  <Rimlink.Settlement.Wealth>Wealth: tier {0} of 5 ({1})</Rimlink.Settlement.Wealth>
+  <Rimlink.Settlement.RangeBelow>under {0}</Rimlink.Settlement.RangeBelow>
+  <Rimlink.Settlement.RangeBetween>{0} to {1}</Rimlink.Settlement.RangeBetween>
+  <Rimlink.Settlement.RangeAbove>{0} and more</Rimlink.Settlement.RangeAbove>
+  <Rimlink.Settlement.Thousands>{0}k</Rimlink.Settlement.Thousands>
+  <Rimlink.Settlement.Millions>{0}M</Rimlink.Settlement.Millions>
+  <Rimlink.Archive.TileTaken>Your colony "{0}" went to the archive while you were away, and its place on the map has been taken since. Start a new colony; an admin can bring the old one back once its tile is free.</Rimlink.Archive.TileTaken>
+  <Rimlink.Archive.Damaged>Your colony "{0}" is in the archive, but it could not be brought back. Start a new colony and tell an admin.</Rimlink.Archive.Damaged>
+  <Rimlink.Away.Title>While you were away ({0})</Rimlink.Away.Title>
+  <Rimlink.Away.TitleShort>While you were away</Rimlink.Away.TitleShort>
+  <Rimlink.Away.Days>{0} days</Rimlink.Away.Days>
+  <Rimlink.Away.Hours>{0} h</Rimlink.Away.Hours>
+  <Rimlink.Away.Minutes>{0} min</Rimlink.Away.Minutes>
+  <Rimlink.Away.Restored>Your colony {0} went to the archive while you were away and is back now.</Rimlink.Away.Restored>
+  <Rimlink.Away.RaidsOnMe>Raids on your colony</Rimlink.Away.RaidsOnMe>
+  <Rimlink.Away.MyRaids>Your raids</Rimlink.Away.MyRaids>
+  <Rimlink.Away.Visits>Visitors</Rimlink.Away.Visits>
+  <Rimlink.Away.Parcels>Parcels</Rimlink.Away.Parcels>
+  <Rimlink.Away.LotSales>Market sales</Rimlink.Away.LotSales>
+  <Rimlink.Away.LotSale>{0} for {1} silver to {2}</Rimlink.Away.LotSale>
+  <Rimlink.Away.Shop>Your shop sold {0} items for {1} silver.</Rimlink.Away.Shop>
+  <Rimlink.Away.Mentions>Mentions in chat</Rimlink.Away.Mentions>
+  <Rimlink.Away.Direct>{0} (private)</Rimlink.Away.Direct>
+  <Rimlink.Away.Admin>Admin actions</Rimlink.Away.Admin>
+  <Rimlink.Away.AdminLine>{0} by {1}: {2}</Rimlink.Away.AdminLine>
+  <Rimlink.Away.More>and {0} more</Rimlink.Away.More>
+  <Rimlink.Away.Someone>someone</Rimlink.Away.Someone>
+  <Rimlink.Away.From>from {0}</Rimlink.Away.From>
+  <Rimlink.Away.Silver>{0} silver</Rimlink.Away.Silver>
+  <Rimlink.Away.RaidOutcome>dead {0}, captured {1}, fled {2}, loot worth {3}</Rimlink.Away.RaidOutcome>
+  <Rimlink.Away.RaidState.queued>on its way</Rimlink.Away.RaidState.queued>
+  <Rimlink.Away.RaidState.announced>announced</Rimlink.Away.RaidState.announced>
+  <Rimlink.Away.RaidState.landed>landed</Rimlink.Away.RaidState.landed>
+  <Rimlink.Away.RaidState.resolved>over</Rimlink.Away.RaidState.resolved>
+  <Rimlink.Away.RaidState.expired>expired</Rimlink.Away.RaidState.expired>
+  <Rimlink.Away.RaidState.cancelled>cancelled</Rimlink.Away.RaidState.cancelled>
+  <Rimlink.Away.Parcel.gift>gift</Rimlink.Away.Parcel.gift>
+  <Rimlink.Away.Parcel.purchase>purchase</Rimlink.Away.Parcel.purchase>
+  <Rimlink.Away.Parcel.lot_return>unsold lot back</Rimlink.Away.Parcel.lot_return>
+  <Rimlink.Away.Parcel.withdraw>withdrawal</Rimlink.Away.Parcel.withdraw>
+  <Rimlink.Away.Parcel.admin>from the admin</Rimlink.Away.Parcel.admin>
+  <Rimlink.Away.Parcel.loot>raid loot</Rimlink.Away.Parcel.loot>
+  <Rimlink.Away.Parcel.raid_return>pawns back from a raid</Rimlink.Away.Parcel.raid_return>
+  <Rimlink.Away.Parcel.captive>captive</Rimlink.Away.Parcel.captive>
 </LanguageData>
