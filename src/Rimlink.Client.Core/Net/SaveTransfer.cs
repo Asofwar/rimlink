@@ -7,7 +7,8 @@ using ZstdSharp;
 
 namespace Rimlink.Client.Net;
 
-public sealed record SaveMeta(string WorldSeed, string FactionName, long GameTick, long WealthTotal = 0, long WealthItems = 0);
+/// <param name="DevMode">Dev mode was on in this game since the previous upload (integrity spec §3).</param>
+public sealed record SaveMeta(string WorldSeed, string FactionName, long GameTick, long WealthTotal = 0, long WealthItems = 0, bool DevMode = false);
 
 /// <summary>Moves .rws files to and from the server: zstd in 1 MB chunks, hashed, atomically written on download.</summary>
 public sealed class SaveTransfer(RimlinkConnection connection)
@@ -33,6 +34,7 @@ public sealed class SaveTransfer(RimlinkConnection connection)
                 FactionName = meta.FactionName,
                 WealthTotal = meta.WealthTotal,
                 WealthItems = meta.WealthItems,
+                DevMode = meta.DevMode,
                 TotalSize = compressed.Length,
                 Sha256 = ByteString.CopyFrom(SHA256.HashData(compressed)),
             },

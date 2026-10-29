@@ -144,7 +144,8 @@ public sealed class TransferOutbox
     /// </summary>
     public static bool IsDefinitive(RpcException ex)
     {
-        // A frozen economy or a rate limit says "not now", not "no".
+        // A frozen economy or a rate limit says "not now", not "no". PLAYER_FROZEN is a "no": the server checks it after the
+        // replay lookup, so a request applied before the freeze still returns its result and a refused one was never applied.
         if (EconomyClient.CodeOf(ex) is { } code) return code != ErrorCode.EconomyFrozen;
         return ex.StatusCode is StatusCode.InvalidArgument or StatusCode.FailedPrecondition or StatusCode.NotFound
             or StatusCode.PermissionDenied or StatusCode.AlreadyExists or StatusCode.OutOfRange or StatusCode.Unimplemented;

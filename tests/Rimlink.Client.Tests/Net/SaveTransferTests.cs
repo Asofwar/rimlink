@@ -61,6 +61,21 @@ public class SaveTransferTests : IDisposable
     }
 
     [Fact]
+    public async Task DevModeFlagReachesTheServer()
+    {
+        using var fixture = new ServerFixture().WithSetting("Auth:AllowPassword", "true").WithSetting("Integrity:DevMode", "Everyone");
+        await using var connection = await Connected(fixture);
+        var transfer = new SaveTransfer(connection);
+        string rws = WriteRws("current.rws", ServerFixture.WorldSeed, "Nova", tick: 777);
+
+        await transfer.UploadAsync(rws, new SaveMeta(ServerFixture.WorldSeed, "Nova", 777, DevMode: true), CancellationToken.None);
+
+        using var scope = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.CreateScope(fixture.Services);
+        var db = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Rimlink.Server.Storage.RimlinkDbContext>(scope.ServiceProvider);
+        Assert.True(Assert.Single(db.SaveVersions).DevMode);
+    }
+
+    [Fact]
     public async Task UploadFailureLeavesLocalFileAndThrowsSaveRejected()
     {
         using var fixture = new ServerFixture().WithSetting("Auth:AllowPassword", "true");

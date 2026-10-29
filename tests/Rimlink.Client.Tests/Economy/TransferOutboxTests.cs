@@ -169,6 +169,15 @@ public class TransferOutboxTests : IDisposable
     }
 
     [Fact]
+    public void IsDefinitiveForPlayerFrozen()
+    {
+        // The server checks a frozen player after the replay lookup: PLAYER_FROZEN means "not applied", the things go back.
+        var frozen = new Metadata { { "rimlink-error-bin", new ErrorDetail { Code = ErrorCode.PlayerFrozen, Message = "your trading is frozen: x" }.ToByteArray() } };
+
+        Assert.True(TransferOutbox.IsDefinitive(new RpcException(new Status(StatusCode.FailedPrecondition, "x"), frozen)));
+    }
+
+    [Fact]
     public void EntriesSurviveAReload()
     {
         var outbox = Outbox();
