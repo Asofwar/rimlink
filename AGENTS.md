@@ -12,12 +12,13 @@ core, and a Harmony mod. Nothing here may be copied from other multiplayer mods 
 | `src/Rimlink.Client.Core` | client logic with no game references: connection, state, outbox, save transfer, live client | yes |
 | `src/Rimlink.Client` | the RimWorld mod: Harmony patches, UI, game components. Built against the game, **not** in the solution | no |
 | `src/Rimlink.Tools` | admin CLI | yes |
+| `tools/Rimlink.BridgeTools` | dev-only RimBridgeServer companion: `rimlink/*` tools that drive the game from GABS. Built against the game, never shipped | no |
 | `tests/Rimlink.Server.Tests` | xUnit against the real server (`WebApplicationFactory`, fixtures in `Support/`) | yes |
 | `tests/Rimlink.Client.Tests` | xUnit for the client core, talking to a real test server | yes |
 | `mod/` | mod metadata (`About/About.xml`), defs, `Languages/` (English + Russian keyed strings) | — |
 | `docs/` | `player-guide.md`, `server-setup.md`, `manual-checklist.md`, `superpowers/specs`, `superpowers/plans` | — |
 | `deploy/` | Dockerfile, docker-compose, `appsettings.example.json` (every config key with its default) | — |
-| `scripts/` | `Build-ClientMod.ps1` (compile + assemble + install the mod), `Package-Release.ps1` | — |
+| `scripts/` | `Build-ClientMod.ps1` (compile + assemble + install the mod), `Build-BridgeTools.ps1` (dev companion), `Package-Release.ps1` | — |
 
 Toolchain: .NET SDK pinned in `global.json`, C# latest, nullable on, central package versions in
 `Directory.Packages.props`. Harmony is `Lib.Harmony 3.0.0-rc.3` (the game's Harmony mod 3.x at runtime).
@@ -49,6 +50,46 @@ Any config key is an environment variable `Rimlink__Section__Key` (`Rimlink__Rai
 A second game instance for two-player checks: `RimWorld.exe -savedatafolder=<folder>` with its own `Config/` (mod list, windowed mode)
 and the same server pinned. Steam must be running, or the Workshop Harmony mod is invisible and the mod fails with
 `Could not load type HarmonyLib.HarmonyPatch`.
+
+## Driving the game from an agent (GABS + Rimlink.BridgeTools)
+
+The live game is driven through GABS (`games_start rimworld-host` / `rimworld-guest`, each with its own `-savedatafolder`) and the
+RimBridgeServer mod. `tools/Rimlink.BridgeTools` adds `rimlink/*` tools on top, so login, a new colony and every two-player flow
+run without pixel clicks. It is a dev tool: not in the solution, not in `Package-Release.ps1`, no RimBridgeServer reference in `src/`.
+
+Build and deploy with the games closed (companions load when the bridge starts; restart the game after a deploy):
+
+```powershell
+.\scripts\Build-BridgeTools.ps1 -RimWorldDir 'D:\SteamLibrary\steamapps\common\RimWorld'
+```
+
+It deploys exactly one file, `<RimWorld>\BridgeTools\Rimlink\Rimlink.BridgeTools.dll`, and refuses a folder holding anything else:
+RimBridgeServer resolves a companion's dependencies from its own folder first, and a `Rimlink.Client.dll` there would load a second
+Rimlink.Client whose session is always empty. `rimlink/status` reports `clientAssembly` (must be under `Mods\Rimlink`). Build the mod
+and the companion from the same tree. Tools missing or failing: `rimbridge/get_bridge_status` lists companion load/register errors.
+
+Calls: `games_call_tool {gameId, tool, arguments}`. The host stops an extension tool after 60 s: for `rimlink/connect` and
+`rimlink/start_colony` add `"_rimBridgeTimeoutMs": 330000` to `arguments` and give the GABS call `timeout: 340`. Lists are
+comma-separated strings: `pawns: "Thing_Human12,Thing_Human13"` (ids from `rimworld/list_colonists`, or names), `items: "Silver:100,Steel:50"`.
+Every result is `{success, error?, ...}`; the action tools return as soon as the flow starts, follow them with `rimlink/status` and the
+`[Rimlink]` lines of `rimbridge/list_logs`.
+
+| Tool | What it does |
+|---|---|
+| `rimlink/status` | program state, top window, session (connection, player, world, players, settlements, economy, raids, live session, visit, outbox) |
+| `rimlink/connect {login, password, register=auto\|never, host, port, playerName, serverPassword, trustChangedPin, timeoutSec}` | from the main menu: adds the server, logs in (registers once on refusal with `auto`), trusts a new certificate, returns `Loading`/`NewColony`/`ModpackDiff`/`Failed` and waits for the map on `Loading` |
+| `rimlink/start_colony {scenario, storyteller, difficulty, seed, tile, timeoutSec}` | walks the new-colony pages with defaults (Crashlanded, Cassandra/Rough, classic ideology, the server's planet, a free random site) until the server registered the settlement |
+| `rimlink/menu_options`, `rimlink/click_menu_option {label}` | the main-menu options (Rimlink's "Multiplayer" included), which `rimworld/get_ui_layout` cannot see |
+| `rimlink/page_state`, `rimlink/page_action {next\|back\|random_site}` | the top `Page` and its buttons, including the starting-site page's bottom buttons the layout snapshot misses |
+| `rimlink/raid {player, pawns, mode=snapshot\|real, timing=instant\|warned}`, `rimlink/visit {player, pawns}` | raid or visit from the current map, no caravan |
+| `rimlink/live_propose {player, pawns, kind=raid\|visit}`, `rimlink/live_answer {accept}`, `rimlink/live_end` | live sessions: propose (guest), answer the open invite (host), end (guest) or abort (host) without the confirmation dialog |
+| `rimlink/send {player, items, pawns, silver, anywhere}`, `rimlink/post_lot {price, items \| pawn}`, `rimlink/deposit {silver, anywhere}`, `rimlink/market {seller}`, `rimlink/buy {lotId}` | the economy window; items come from under the beacons unless `anywhere` (deposit `anywhere` needs dev mode) |
+| `rimlink/chat {count}`, `rimlink/chat_send {text, to}` | chat history as received, send public or to one player |
+
+Typical two-player run: host `rimlink/connect {login:"admin", ...}` (an `AdminLogins` login creates the world) → `rimlink/start_colony`;
+guest `rimlink/connect` → `rimlink/start_colony` on the locked world; then `chat_send`, `send`, `raid`, `live_propose` → host
+`live_answer {accept:true}` → `live_end`; `rimworld/go_to_main_menu` saves and uploads as the menu button does. Bridge pitfalls:
+`rimworld/set_text_field` must use `instant` (`typed` times out on mod dialogs).
 
 ## How work is organised (the workflow and the skills behind it)
 
