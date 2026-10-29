@@ -99,7 +99,7 @@ public static class Outgoing
             foreach (var pawn in pawns)
             {
                 caravan.RemovePawn(pawn);
-                taken.Add(new Taken(null, ThingBlobs.SerializePawn(pawn), p => caravan.AddPawn((Pawn)p, addCarriedPawnToWorldPawnsIfAny: true)));
+                taken.Add(new Taken(null, ThingBlobs.SerializePawn(pawn), p => PawnExit.BackToCaravan(caravan, (Pawn)p)));
                 PawnExit.Remove(pawn);
             }
             foreach (var thing in things)
@@ -131,7 +131,7 @@ public static class Outgoing
             foreach (var pawn in pawns)
             {
                 caravan.RemovePawn(pawn);
-                taken.Add(new Taken(null, ThingBlobs.SerializePawn(pawn), p => caravan.AddPawn((Pawn)p, addCarriedPawnToWorldPawnsIfAny: true)));
+                taken.Add(new Taken(null, ThingBlobs.SerializePawn(pawn), p => PawnExit.BackToCaravan(caravan, (Pawn)p)));
                 PawnExit.Remove(pawn);
             }
         }

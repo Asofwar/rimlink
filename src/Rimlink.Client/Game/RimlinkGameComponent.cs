@@ -40,6 +40,7 @@ public sealed class RimlinkGameComponent : GameComponent
     /// </summary>
     private static void SettleLiveSessionsAfterLoad()
     {
+        Live.LiveHost.ForgetIfMapGone(); // a save loaded mid-session: the session's map is gone, the loaded colony holds the guest pawns
         var state = RimlinkSession.State.Live;
         var keep = new List<long>();
         if (state.PendingEnds.Count > 0)
@@ -73,10 +74,12 @@ public sealed class RimlinkGameComponent : GameComponent
         };
         live.Ended += session =>
         {
-            if (session.Host?.PlayerId == RimlinkSession.MyPlayerId && Live.LiveHost.Session?.Id == session.Id && session.State == LiveState.LiveEnding) Live.LiveHost.End(session.EndReason);
-            else if (session.Host?.PlayerId == RimlinkSession.MyPlayerId && !Live.LiveHost.Active && !Live.LiveHost.Settled(session.Id) && session.State == LiveState.LiveEnding
-                && Current.ProgramState == ProgramState.Playing && !Visits.VisitSession.InVisit)
-                Live.LiveHost.ResolvePendingEnds([session]); // ended while this host was not hosting it (a reload within the wait): the pawns are still on the map
+            if (session.Host?.PlayerId == RimlinkSession.MyPlayerId && session.State == LiveState.LiveEnding)
+            {
+                if (Live.LiveHost.Session?.Id == session.Id) Live.LiveHost.End(session.EndReason);
+                // Not settled by that (the hosted map was gone) or ended while this game was not hosting it: the pawns are in the home colony.
+                if (!Live.LiveHost.Active) Live.LiveHost.ReportLater(session);
+            }
             else if (session.Guest?.PlayerId == RimlinkSession.MyPlayerId && session.State == LiveState.LiveEnding) Live.LiveGuest.OnEnded(session);
         };
         live.FellBack += session => { if (session.Guest?.PlayerId == RimlinkSession.MyPlayerId) Live.LiveGuest.OnFallback(session); };

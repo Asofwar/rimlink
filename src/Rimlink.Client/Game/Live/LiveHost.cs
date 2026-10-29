@@ -313,8 +313,7 @@ public static class LiveHost
         Active = false;
         Starting = false;
         GuestHere = false;
-        LiveTempo.Reset();
-        LiveTempo.Apply();
+        LiveTempo.Reset(); // the game keeps the speed it runs at (a raid handed to the AI while waiting for the guest stays paused)
         OrderExecutor.VirtualDrafted.Clear();
         if (RimlinkSession.Live is { } live) _ = live.Close();
         RimlinkLog.Instance.Info($"live session {session.Id} ended: {reason}");
@@ -325,9 +324,45 @@ public static class LiveHost
             if (reason == LiveEndReason.EndGuestLost && session.Kind == LiveKind.LiveRaid) Degrade(session, map);
             else Resolve(session, map);
         }
+        exits.Clear();
+        guestLord = null;
         Session = null;
         Map = null;
         collector = null;
+    }
+
+    /// <summary>
+    /// The hosted map is gone (this game loaded a save mid-session): the session cannot continue from here. Forgotten without a
+    /// report; the caller cancels it on the server and the ended event reports it from the loaded colony.
+    /// </summary>
+    public static void ForgetIfMapGone()
+    {
+        if (!Active && !Starting || Map is { } map && Find.Maps.Contains(map)) return;
+        RimlinkLog.Instance.Info($"live session {Session?.Id}: the hosted map is gone (a save was loaded); the session is dropped here");
+        Active = false;
+        Starting = false;
+        GuestHere = false;
+        Session = null;
+        Map = null;
+        collector = null;
+        guestLord = null;
+        exits.Clear();
+        LiveTempo.Reset();
+        OrderExecutor.VirtualDrafted.Clear();
+        if (RimlinkSession.Live is { } live) _ = live.Close();
+    }
+
+    /// <summary>A session that ended without this game reporting it: reported now when the home colony is loaded, else at the next load.</summary>
+    public static void ReportLater(LiveSession session)
+    {
+        if (settled.Contains(session.Id)) return;
+        if (Verse.Current.ProgramState == ProgramState.Playing && !Visits.VisitSession.InVisit && Find.AnyPlayerHomeMap is not null)
+        {
+            ResolvePendingEnds([session]);
+            return;
+        }
+        var pending = RimlinkSession.State.Live.PendingEnds;
+        if (!pending.Any(s => s.Id == session.Id)) pending.Add(session);
     }
 
     /// <summary>The guest is gone: their raiders fight on under an AI lord and the 3a resolver reports the outcome later.</summary>
@@ -392,7 +427,10 @@ public static class LiveHost
         foreach (var session in pending)
         {
             var map = Find.Maps.FirstOrDefault(m => m.IsPlayerHome && MapComponent_LiveOwners.Of(m).IdsOf(session.Guest.PlayerId).Count > 0) ?? Find.AnyPlayerHomeMap;
-            if (map is null || !settled.Add(session.Id)) continue;
+            if (map is null || settled.Contains(session.Id)) continue;
+            // Handed to the AI after the guest was lost (saved as an active raid): the 3a resolver reports it when it is over.
+            if (Verse.Current.Game?.GetComponent<RimlinkGameComponent>()?.ActiveRaids.Any(r => r.LiveSessionId == session.Id) == true) continue;
+            settled.Add(session.Id);
             RimlinkLog.Instance.Info($"live session {session.Id}: reporting its end after the host's return");
             Resolve(session, map);
         }
@@ -431,6 +469,8 @@ public static class LiveHost
         Map = null;
         collector = null;
         guestLord = null;
+        exits.Clear();
+        settled.Clear(); // session ids are per server; a degraded raid is recognised by its saved active raid, not by this set
         LiveTempo.Reset();
     }
 

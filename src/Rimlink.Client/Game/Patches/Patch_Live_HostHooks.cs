@@ -1,3 +1,4 @@
+using System.Reflection;
 using HarmonyLib;
 using RimWorld;
 using Rimlink.Client.Game.Live;
@@ -64,17 +65,36 @@ public static class Patch_TickManager_CurTimeSpeed_Live
 }
 
 /// <summary>
-/// The host's pawn tables (work, schedule, assignments) leave out the guest's visitors: they are the host's faction for the
-/// game's sake, but the guest manages them (the colonist bar still shows them, as guests on the map).
+/// The host's pawn tables (work, schedule, assignments, animals) leave out the guest's visitors and their animals: they are the
+/// host's faction for the game's sake, but the guest manages them (the colonist bar still shows them, as guests on the map).
+/// Work and schedule use the base getter; assignments and animals override it.
 /// </summary>
-[HarmonyPatch(typeof(MainTabWindow_PawnTable), "Pawns", MethodType.Getter)]
-public static class Patch_MainTabWindow_PawnTable_Pawns_Live
+[HarmonyPatch]
+public static class Patch_PawnTables_Pawns_Live
 {
+    public static IEnumerable<MethodBase> TargetMethods()
+    {
+        foreach (var type in new[] { typeof(MainTabWindow_PawnTable), typeof(MainTabWindow_Assign), typeof(MainTabWindow_Animals) })
+            if (AccessTools.DeclaredPropertyGetter(type, "Pawns") is { } getter) yield return getter;
+    }
+
     public static void Postfix(ref IEnumerable<Pawn> __result)
     {
-        if (!LiveHost.Active || LiveHost.Map is not { } map || Find.CurrentMap != map) return;
+        if (!LiveHost.Active || LiveHost.Map is not { } map) return;
         var owners = MapComponent_LiveOwners.Of(map);
         __result = __result.Where(p => !owners.IsOwned(p)).ToList();
+    }
+}
+
+/// <summary>The pause button and Space write the speed field directly; during a session they toggle the host's own wish.</summary>
+[HarmonyPatch(typeof(TickManager), nameof(TickManager.TogglePaused))]
+public static class Patch_TickManager_TogglePaused_Live
+{
+    public static bool Prefix()
+    {
+        if (!LiveTempo.Active || LiveTempo.Applying) return true;
+        LiveTempo.ToggleHostPause();
+        return false;
     }
 }
 

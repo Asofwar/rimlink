@@ -41,10 +41,23 @@ public static class LiveTempo
         Apply();
     }
 
+    private static TimeSpeed hostWishBeforePause = TimeSpeed.Normal;
+
+    /// <summary>The host's pause button (TogglePaused writes the speed field directly, past the setter).</summary>
+    public static void ToggleHostPause()
+    {
+        if (HostWish == TimeSpeed.Paused) HostWish = hostWishBeforePause == TimeSpeed.Paused ? TimeSpeed.Normal : hostWishBeforePause;
+        else
+        {
+            hostWishBeforePause = HostWish;
+            HostWish = TimeSpeed.Paused;
+        }
+        Apply();
+    }
+
     public static void Reset()
     {
         Active = false;
-        HostWish = TimeSpeed.Normal;
         WaitingPause = false;
         GuestPaused = false;
     }
