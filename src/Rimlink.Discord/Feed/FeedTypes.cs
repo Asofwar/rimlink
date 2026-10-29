@@ -43,15 +43,21 @@ public static class FeedTypes
 
 public enum FeedGroup { Server, Raids, Market, Moderation, Chat }
 
-/// <summary>Discord channel per group; 0 = the group is off (not configured, or the bot cannot write there).</summary>
-public sealed record ChannelMap(ulong Server, ulong Raids, ulong Market, ulong Moderation, ulong Chat)
+/// <summary>
+/// Discord channel per group; 0 = the group is off (not configured, or the bot cannot write there — <see cref="Disable"/>, called
+/// by the start-up check once Discord is connected).
+/// </summary>
+public sealed class ChannelMap(ulong server, ulong raids, ulong market, ulong moderation, ulong chat)
 {
-    public ulong For(FeedGroup group) => group switch
-    {
-        FeedGroup.Server => Server,
-        FeedGroup.Raids => Raids,
-        FeedGroup.Market => Market,
-        FeedGroup.Moderation => Moderation,
-        _ => Chat,
-    };
+    private readonly ulong[] ids = [server, raids, market, moderation, chat];
+
+    public ulong Server => For(FeedGroup.Server);
+    public ulong Raids => For(FeedGroup.Raids);
+    public ulong Market => For(FeedGroup.Market);
+    public ulong Moderation => For(FeedGroup.Moderation);
+    public ulong Chat => For(FeedGroup.Chat);
+
+    public ulong For(FeedGroup group) => Volatile.Read(ref ids[(int)group]);
+
+    public void Disable(FeedGroup group) => Volatile.Write(ref ids[(int)group], 0UL);
 }

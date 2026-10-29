@@ -1,0 +1,45 @@
+{
+  "online": { "description": "Кто сейчас в игре" },
+  "status": { "description": "Версия сервера, онлайн и приостановленные функции" },
+  "market": { "description": "Открытые лоты рынка", "seller": { "description": "Только лоты этого игрока" } },
+  "player": { "description": "Фракция, колонии и состояние игрока", "name": { "description": "Имя игрока" } },
+  "kick": { "description": "Отключить игрока", "player": { "description": "Имя игрока" }, "reason": { "description": "Увидит игрок" } },
+  "mute": { "description": "Запретить игроку писать в чат", "player": { "description": "Имя игрока" }, "minutes": { "description": "На сколько минут" } },
+  "unmute": { "description": "Снять запрет на чат", "player": { "description": "Имя игрока" } },
+  "broadcast": { "description": "Объявление всем в игре", "text": { "description": "Текст объявления" } },
+  "bans": { "description": "Активные баны" },
+  "actions": { "description": "Последние записи журнала админов", "limit": { "description": "Сколько (1–50)" } },
+  "ban": { "description": "Забанить игрока", "player": { "description": "Имя игрока" }, "days": { "description": "Не указывать — бан навсегда" }, "reason": { "description": "Причина" } },
+  "pardon": { "description": "Снять бан", "ban": { "description": "Номер бана из /bans" } },
+  "wallet": { "description": "Добавить или снять серебро игрока", "player": { "description": "Имя игрока" }, "delta": { "description": "Сколько добавить (минус — снять)" }, "reason": { "description": "Причина" } },
+  "peaceful": { "description": "Сразу включить или выключить мирный режим игрока", "player": { "description": "Имя игрока" }, "on": { "description": "Включить или выключить" } },
+  "saves": { "description": "Версии сейвов игрока", "player": { "description": "Имя игрока" } },
+  "shutdown": { "description": "Выключить сервер (с подтверждением)", "seconds": { "description": "Обратный отсчёт" }, "reason": { "description": "Увидят игроки" } },
+  "rollback": { "description": "Откатить игрока к версии сейва (с подтверждением)", "player": { "description": "Имя игрока" }, "version": { "description": "Версия из /saves" } },
+  "reset": { "description": "Сбросить колонию игрока (с подтверждением)", "player": { "description": "Имя игрока" } },
+  "recreateworld": { "description": "Убрать все колонии в архив и создать новый мир (с подтверждением)" },
+  "raids": {
+    "description": "Рейды между колониями",
+    "list": { "description": "Последние рейды", "player": { "description": "Только рейды этого игрока или на него" } },
+    "stats": { "description": "Счётчики рейдов" },
+    "cancel": { "description": "Отменить рейд", "raid": { "description": "Номер рейда из /raids list" }, "return": { "description": "Вернуть высадившихся атакующему" }, "reason": { "description": "Причина" } },
+    "freeze": { "description": "Приостановить новые рейды", "reason": { "description": "Покажется в канале сервера" } },
+    "unfreeze": { "description": "Снова разрешить рейды" }
+  },
+  "live": {
+    "description": "Живые рейды и визиты",
+    "list": { "description": "Последние живые сессии", "player": { "description": "Только сессии этого игрока" } },
+    "end": { "description": "Завершить живую сессию", "session": { "description": "Номер сессии из /live list" }, "reason": { "description": "Причина" } }
+  },
+  "economy": {
+    "description": "Серебро и торговля",
+    "stats": { "description": "Серебро, лоты и сделки" },
+    "freeze": { "description": "Приостановить торговлю", "reason": { "description": "Увидят игроки" } },
+    "unfreeze": { "description": "Снова открыть торговлю" }
+  },
+  "refund": {
+    "description": "Отменить сделку",
+    "lot": { "description": "Вернуть открытый лот продавцу", "lot": { "description": "Номер лота" } },
+    "parcel": { "description": "Вернуть недоставленный подарок", "parcel": { "description": "Номер посылки" } }
+  }
+}

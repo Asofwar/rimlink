@@ -1,2 +1,7 @@
-// The host is wired in Task 10 of the Discord bot plan; until then the bot only builds.
+using Rimlink.Discord;
+
+int check = BotHost.Check(BotHost.Configuration(args), Console.Error);
+if (check != 0) return check;
+
+await BotHost.Create(args).RunAsync();
 return 0;
