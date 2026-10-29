@@ -164,4 +164,5 @@ public static class RefusalKeys
     public const string TradesNegativeSilver = "Trades.NegativeSilver";
     public const string TradesNoteTooLong = "Trades.NoteTooLong";
     public const string TradesNoteControlChars = "Trades.NoteControlChars";
+    public const string TradesPartnerFrozen = "Trades.PartnerFrozen";
 }

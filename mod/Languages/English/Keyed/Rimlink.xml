@@ -524,4 +524,5 @@
   <Rimlink.Refusal.Trades.NegativeSilver>silver must not be negative</Rimlink.Refusal.Trades.NegativeSilver>
   <Rimlink.Refusal.Trades.NoteTooLong>note longer than {0} characters</Rimlink.Refusal.Trades.NoteTooLong>
   <Rimlink.Refusal.Trades.NoteControlChars>note contains control characters</Rimlink.Refusal.Trades.NoteControlChars>
+  <Rimlink.Refusal.Trades.PartnerFrozen>{0}'s trading is frozen</Rimlink.Refusal.Trades.PartnerFrozen>
 </LanguageData>

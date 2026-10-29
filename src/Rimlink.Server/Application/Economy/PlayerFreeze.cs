@@ -36,6 +36,13 @@ public sealed class PlayerFreeze(RimlinkDbContext db, EventBus events)
         throw RpcErrors.Failed(ErrorCode.PlayerFrozen, RefusalKeys.EconomyPlayerFrozen, "your trading is frozen: " + reason, reason);
     }
 
+    /// <summary>Refuses with PLAYER_FROZEN when the other party of a trade is frozen: an exchange would move their goods.</summary>
+    public async Task RequireTradePartner(long partnerId)
+    {
+        string? name = await db.Players.AsNoTracking().Where(p => p.Id == partnerId && p.EconomyFrozenAt != null).Select(p => p.Name).FirstOrDefaultAsync();
+        if (name is not null) throw RpcErrors.Failed(ErrorCode.PlayerFrozen, RefusalKeys.TradesPartnerFrozen, $"{name}'s trading is frozen", name);
+    }
+
     /// <summary>Refuses with PLAYER_FROZEN when the seller (lot owner, shop host) is frozen: their goods are not for sale meanwhile.</summary>
     public async Task RequireSeller(long sellerId)
     {

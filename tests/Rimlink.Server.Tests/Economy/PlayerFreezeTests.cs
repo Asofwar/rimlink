@@ -147,6 +147,28 @@ public class PlayerFreezeTests
     }
 
     [Fact]
+    public async Task FrozenPlayerCannotTradeButCanCancel()
+    {
+        using var fixture = EconomyServer();
+        var (nova, kai, _, _, _) = await Players(fixture);
+        var n = SocialFixtures.Social(fixture, nova.SessionToken);
+        var k = SocialFixtures.Social(fixture, kai.SessionToken);
+        // Opened before the freeze, both sides offered: confirming either side would move a frozen player's goods.
+        var open = await k.Trades.OpenAsync(SocialFixtures.OpenTrade(nova.Player.PlayerId, Items(("Steel", 5))), k.Economy.Auth);
+        var offered = await n.Trades.SetSideAsync(SocialFixtures.TradeSide(open.Id, Items(("Gold", 1)), baseRevision: open.Revision), n.Economy.Auth);
+        await Freeze(fixture, nova.Player.PlayerId, true);
+
+        await AssertFrozen(() => n.Trades.OpenAsync(SocialFixtures.OpenTrade(kai.Player.PlayerId, Items(("Steel", 1))), n.Economy.Auth).ResponseAsync);
+        await AssertFrozen(() => k.Trades.OpenAsync(SocialFixtures.OpenTrade(nova.Player.PlayerId, Items(("Steel", 1))), k.Economy.Auth).ResponseAsync, "Nova");
+        await AssertFrozen(() => n.Trades.SetSideAsync(SocialFixtures.TradeSide(open.Id, Items(("Gold", 2)), baseRevision: offered.Revision), n.Economy.Auth).ResponseAsync);
+        await AssertFrozen(() => n.Trades.ConfirmAsync(new TradeConfirmRequest { TradeId = open.Id, Revision = offered.Revision }, n.Economy.Auth).ResponseAsync);
+        await AssertFrozen(() => k.Trades.ConfirmAsync(new TradeConfirmRequest { TradeId = open.Id, Revision = offered.Revision }, k.Economy.Auth).ResponseAsync, "Nova");
+
+        var cancelled = await n.Trades.CancelAsync(new TradeRef { TradeId = open.Id }, n.Economy.Auth);
+        Assert.Equal(TradeStatus.TradeCancelled, cancelled.Status);
+    }
+
+    [Fact]
     public async Task GlobalFreezeIsReportedFirst()
     {
         using var fixture = EconomyServer();

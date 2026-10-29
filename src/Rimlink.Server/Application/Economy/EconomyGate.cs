@@ -28,4 +28,6 @@ public sealed class EconomyGate(IOptions<EconomyOptions> options, FreezeState fr
     public Task RequireNotFrozen(long playerId) => players.Require(playerId);
 
     public Task RequireSellerOpen(long sellerId) => players.RequireSeller(sellerId);
+
+    public Task RequireTradePartnerOpen(long partnerId) => players.RequireTradePartner(partnerId);
 }

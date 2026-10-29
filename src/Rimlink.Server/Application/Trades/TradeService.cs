@@ -49,6 +49,8 @@ public sealed class TradeService(
             var partner = await db.Players.AsNoTracking().FirstOrDefaultAsync(p => p.Id == r.PartnerId)
                 ?? throw RpcErrors.With(StatusCode.NotFound, ErrorCode.RecipientUnknown, RefusalKeys.EconomyRecipientUnknown, $"no player with id {r.PartnerId}", r.PartnerId);
             await BlockRules.RequireNotBlocked(db, playerId, partner.Id);
+            await gate.RequireNotFrozen(playerId);
+            await gate.RequireTradePartnerOpen(partner.Id);
             if (partner.TradesClosed) throw RpcErrors.Failed(ErrorCode.TradesClosed, RefusalKeys.TradesClosed, $"{partner.Name} does not accept trade offers", partner.Name);
             int max = options.Value.MaxOpenTrades;
             if (await OpenCount(playerId) >= max) throw RpcErrors.Failed(ErrorCode.TradeLimit, RefusalKeys.TradesLimitOwn, $"you already have {max} open trades", max);
@@ -105,6 +107,7 @@ public sealed class TradeService(
                 return await ToProto(await Party(playerId, r.TradeId));
             trade = await Party(playerId, r.TradeId, tracked: true);
             if (trade.Status != TradeStatusDb.Open) throw Gone();
+            await gate.RequireNotFrozen(playerId); // a frozen player can only cancel: the goods go back to their owners
             var side = new Side(trade, trade.InitiatorPlayerId == playerId);
             var other = new Side(trade, trade.InitiatorPlayerId != playerId);
 
@@ -166,6 +169,9 @@ public sealed class TradeService(
             if (trade.Status == TradeStatusDb.Completed) return await ToProto(trade); // a second press after the exchange
             if (trade.Status != TradeStatusDb.Open) throw Gone();
             gate.RequireOpen();
+            // Neither side may be frozen: the exchange moves both sides' goods.
+            await gate.RequireNotFrozen(playerId);
+            await gate.RequireTradePartnerOpen(trade.InitiatorPlayerId == playerId ? trade.PartnerPlayerId : trade.InitiatorPlayerId);
             if (revision != trade.Revision) throw RpcErrors.Failed(ErrorCode.TradeChanged, RefusalKeys.TradesChanged, "the trade changed; look at it again");
             var side = new Side(trade, trade.InitiatorPlayerId == playerId);
             var other = new Side(trade, trade.InitiatorPlayerId != playerId);

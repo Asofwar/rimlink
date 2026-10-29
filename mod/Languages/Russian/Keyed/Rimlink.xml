@@ -524,4 +524,5 @@
   <Rimlink.Refusal.Trades.NegativeSilver>Серебро не может быть отрицательным</Rimlink.Refusal.Trades.NegativeSilver>
   <Rimlink.Refusal.Trades.NoteTooLong>Записка длиннее {0} символов</Rimlink.Refusal.Trades.NoteTooLong>
   <Rimlink.Refusal.Trades.NoteControlChars>В записке есть управляющие символы</Rimlink.Refusal.Trades.NoteControlChars>
+  <Rimlink.Refusal.Trades.PartnerFrozen>Торговля игрока {0} заморожена</Rimlink.Refusal.Trades.PartnerFrozen>
 </LanguageData>
