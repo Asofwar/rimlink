@@ -31,6 +31,7 @@ function fingerprintBlock(fingerprint) {
     try {
       await navigator.clipboard.writeText(fingerprint);
       copy.textContent = t('public.copied');
+      setTimeout(() => { copy.textContent = t('public.copy'); }, 2000);
     } catch {
       window.getSelection()?.selectAllChildren(code);
     }
@@ -77,7 +78,7 @@ function render(s) {
         { label: t('public.kind'), render: e => h('span', { class: `badge ${e.kind === 'required' ? 'warn' : ''}` }, e.kind === 'required' ? t('public.required') : t('public.allowed')) },
         { label: t('public.versionPin'), render: e => e.version || t('public.anyVersion') },
         { label: t('public.link'), render: e => e.url ? h('a', { href: e.url }, e.url) : '' },
-      ], s.modpack)),
+      ], s.modpack, t('public.noMods'))),
 
     s.players === null ? null : section(t('public.players'),
       s.players.length === 0

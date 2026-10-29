@@ -10,7 +10,10 @@ export function render(root) {
   let rows = [];
 
   append(root, 
-    h('div', { class: 'toolbar' }, h('h1', { class: 'grow' }, t('nav.modpack')), refreshButton(load)),
+    h('div', { class: 'toolbar' }, h('h1', { class: 'grow' }, t('nav.modpack')), refreshButton(async () => {
+      if (dirty() && !await confirmDialog({ title: t('modpack.discardTitle'), text: t('modpack.discardText'), confirmLabel: t('modpack.discard') })) return;
+      await load();
+    })),
     h('p', { class: 'muted' }, t('modpack.hint')),
     body);
 
@@ -25,6 +28,12 @@ export function render(root) {
     if (target < 0 || target >= rows.length) return;
     [rows[index], rows[target]] = [rows[target], rows[index]];
     draw();
+    // Keep keyboard focus on the row that moved.
+    body.querySelectorAll('tbody tr')[target]?.querySelector(by < 0 ? '[data-move="up"]' : '[data-move="down"]')?.focus();
+  }
+
+  function dirty() {
+    return diff(entries()) !== t('modpack.noChanges');
   }
 
   function draw() {
@@ -36,7 +45,7 @@ export function render(root) {
       select.addEventListener('change', () => { row.kind = select.value; });
       return select;
     };
-    const tableBody = h('tbody', null, rows.map((row, i) => h('tr', null,
+    const tableBody = h('tbody', null, rows.length === 0 ? h('tr', null, h('td', { class: 'empty', colspan: 7 }, t('modpack.empty'))) : null, rows.map((row, i) => h('tr', null,
       h('td', null, String(i + 1)),
       h('td', null, cell(row, 'packageId', { 'aria-label': t('modpack.packageId'), required: true })),
       h('td', null, cell(row, 'version', { 'aria-label': t('modpack.version'), placeholder: t('public.anyVersion') })),
@@ -44,8 +53,8 @@ export function render(root) {
       h('td', null, cell(row, 'url', { 'aria-label': t('public.link') })),
       h('td', null, kindSelect(row)),
       h('td', null, h('div', { class: 'row' },
-        h('button', { type: 'button', 'aria-label': t('modpack.up'), onClick: () => move(i, -1) }, '↑'),
-        h('button', { type: 'button', 'aria-label': t('modpack.down'), onClick: () => move(i, 1) }, '↓'),
+        h('button', { type: 'button', 'aria-label': t('modpack.up'), 'data-move': 'up', onClick: () => move(i, -1) }, '↑'),
+        h('button', { type: 'button', 'aria-label': t('modpack.down'), 'data-move': 'down', onClick: () => move(i, 1) }, '↓'),
         h('button', { type: 'button', class: 'danger', 'aria-label': t('modpack.remove'), onClick: () => { rows.splice(i, 1); draw(); } }, '×'))))));
     const add = h('button', { type: 'button' }, t('modpack.add'));
     add.addEventListener('click', () => { rows.push({ packageId: '', version: '', workshopId: '', url: '', kind: 'Required' }); draw(); });
@@ -108,5 +117,9 @@ export function render(root) {
     }
   }
 
+  // Leaving the page with unsaved edits asks first; the hash router's own navigation is covered by the stop function.
+  const beforeUnload = event => { if (dirty()) { event.preventDefault(); event.returnValue = ''; } };
+  window.addEventListener('beforeunload', beforeUnload);
   load();
+  return () => window.removeEventListener('beforeunload', beforeUnload);
 }

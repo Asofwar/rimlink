@@ -33,7 +33,13 @@ function match(path) {
     const want = pattern.split('/').filter(Boolean);
     if (want.length !== parts.length) continue;
     const params = {};
-    if (want.every((segment, i) => segment.startsWith(':') ? (params[segment.slice(1)] = decodeURIComponent(parts[i]), true) : segment === parts[i])) return { view, params };
+    let ok;
+    try {
+      ok = want.every((segment, i) => segment.startsWith(':') ? (params[segment.slice(1)] = decodeURIComponent(parts[i]), true) : segment === parts[i]);
+    } catch {
+      ok = false; // a malformed %-escape in the hash: fall through to the overview
+    }
+    if (ok) return { view, params };
   }
   return { view: 'overview', params: {} };
 }
@@ -51,7 +57,15 @@ async function showRoute() {
   clearBanners();
   const { view, params } = match(currentPath());
   for (const link of document.querySelectorAll('nav.sidebar a')) {
-    link.classList.toggle('active', link.dataset.route === (view === 'player' ? 'players' : currentPath().split('/')[0]));
+    const active = link.dataset.route === (view === 'player' ? 'players' : currentPath().split('/')[0]);
+    link.classList.toggle('active', active);
+    if (active) {
+      link.setAttribute('aria-current', 'page');
+      // On a phone the nav is a scrolling strip: keep the current screen's pill in view.
+      link.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    } else {
+      link.removeAttribute('aria-current');
+    }
   }
   let module;
   try {
@@ -108,7 +122,7 @@ async function showShell() {
     }
   });
 
-  const nav = h('nav', { class: 'sidebar' }, NAV.map(route => h('a', { href: `#/${route}`, 'data-route': route }, t(`nav.${route || 'overview'}`))));
+  const nav = h('nav', { class: 'sidebar', 'aria-label': t('nav.label') }, NAV.map(route => h('a', { href: `#/${route}`, 'data-route': route }, t(`nav.${route || 'overview'}`))));
   append(app, 
     h('header', { class: 'topbar' }, h('strong', { class: 'brand' }, serverName), chips, h('div', { class: 'spacer' }), language, logout),
     h('div', { class: 'layout' }, nav, h('main', { id: 'view' })));

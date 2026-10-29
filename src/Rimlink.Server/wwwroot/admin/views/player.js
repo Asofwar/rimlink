@@ -1,8 +1,8 @@
 import { api, query } from '../api.js';
 import { h, table, busyButton, section, field, banner, confirmDialog, showError, append, replace } from '../../shared/dom.js';
-import { t } from '../../shared/i18n.js';
+import { t, tEnum } from '../../shared/i18n.js';
 import { fmtDate, fmtBytes, fmtSilver } from '../../shared/format.js';
-import { playerLink, badge, fill, input, numberInput } from '../ui.js';
+import { playerLink, badge, fill, input, numberInput, roleName, valid } from '../ui.js';
 
 /** The player card: facts, moderation and admin actions, saves, economy, shop, raids and live sessions, chat lines. */
 export function render(root, params) {
@@ -54,7 +54,7 @@ function factsList(card) {
   const rows = [
     [t('player.name'), card.name],
     [t('player.faction'), card.factionName],
-    [t('player.role'), card.role],
+    [t('player.role'), roleName(card.role)],
     [t('player.state'), [
       card.online ? badge(t('players.online'), 'on') : badge(t('players.offline')),
       card.banned ? badge(t('players.banned'), 'bad') : null,
@@ -78,64 +78,79 @@ function factsList(card) {
 
 function actionsBlock(card, done) {
   const id = card.id;
-  const kickReason = input({ placeholder: t('player.reason') });
-  const muteMinutes = numberInput({ min: 1, value: 30 });
-  const banDays = numberInput({ min: 0, step: 'any', placeholder: t('player.banForever') });
-  const banReason = input({ placeholder: t('player.reason') });
-  const role = h('select', null, ['player', 'moderator', 'admin'].map(r => h('option', { value: r }, r)));
+  const kickReason = input({ placeholder: t('player.reasonOptional') });
+  const muteMinutes = numberInput({ min: 1, step: 1, value: 30, required: true });
+  const banDays = numberInput({ min: 1, step: 'any', placeholder: t('player.banForever') });
+  const banReason = input({ placeholder: t('player.reasonOptional') });
+  const role = h('select', null, ['player', 'moderator', 'admin'].map(r => h('option', { value: r }, roleName(r))));
   role.value = card.role;
-  const newName = input({ value: card.name });
-  const newFaction = input({ value: card.factionName });
+  const newName = input({ value: card.name, required: true, minlength: 2, maxlength: 32 });
+  const newFaction = input({ value: card.factionName, maxlength: 32 });
 
   return h('div', { class: 'stack' },
-    h('div', { class: 'row' },
-      field(t('player.reason'), kickReason),
-      busyButton(t('player.kick'), async () => {
-        await api.post(`players/${id}/kick`, { reason: kickReason.value.trim() || null });
-        await done(t('player.kicked', { name: card.name }));
-      })),
-    h('div', { class: 'row' },
-      field(t('player.muteMinutes'), muteMinutes),
-      busyButton(t('player.mute'), async () => {
-        await api.post(`players/${id}/mute`, { minutes: Number(muteMinutes.value) || 30 });
-        await done(t('player.muted', { name: card.name }));
-      }),
-      busyButton(t('player.unmute'), async () => {
-        await api.del(`players/${id}/mute`);
-        await done(t('player.unmuted', { name: card.name }));
-      })),
-    h('div', { class: 'row' },
-      field(t('player.banDays'), banDays),
-      field(t('player.reason'), banReason),
-      busyButton(t('player.ban'), async () => {
-        const days = banDays.value === '' ? null : Number(banDays.value);
-        if (!await confirmDialog({ title: t('player.banTitle', { name: card.name }), text: days ? t('player.banDaysText', { days }) : t('player.banForeverText') })) return;
-        await api.post('bans', { playerId: id, reason: banReason.value.trim() || t('player.banDefaultReason'), days });
-        await done(t('player.banned', { name: card.name }));
-      }, { class: 'danger' })),
-    h('div', { class: 'row' },
-      field(t('player.role'), role),
-      busyButton(t('player.setRole'), async () => {
-        await api.post(`players/${id}/role`, { role: role.value });
-        await done(t('player.roleSet', { name: card.name, role: role.value }));
-      })),
-    h('div', { class: 'row' },
-      field(t('player.name'), newName),
-      field(t('player.faction'), newFaction),
-      busyButton(t('player.rename'), async () => {
-        await api.post(`players/${id}/rename`, { name: newName.value.trim(), factionName: newFaction.value.trim() || null });
-        await done(t('player.renamed', { name: newName.value.trim() }));
-      })),
-    h('div', { class: 'row' },
-      busyButton(card.peaceful ? t('player.peacefulOff') : t('player.peacefulOn'), async () => {
-        await api.post(`players/${id}/peaceful`, { peaceful: !card.peaceful });
-        await done(t('player.peacefulSet'));
-      }),
-      busyButton(t('player.reset'), async () => {
-        if (!await confirmDialog({ title: t('player.resetTitle', { name: card.name }), text: t('player.resetText'), typeToConfirm: card.name })) return;
-        await api.post(`players/${id}/reset`, {});
-        await done(t('player.resetDone', { name: card.name }));
-      }, { class: 'danger' })));
+    h('div', { class: 'group' },
+      h('h3', null, t('player.groupModeration')),
+      h('div', { class: 'stack' },
+        h('div', { class: 'row' },
+          field(t('player.reason'), kickReason),
+          busyButton(t('player.kick'), async () => {
+            await api.post(`players/${id}/kick`, { reason: kickReason.value.trim() || null });
+            await done(t('player.kicked', { name: card.name }));
+          })),
+        h('div', { class: 'row' },
+          field(t('player.muteMinutes'), muteMinutes),
+          busyButton(t('player.mute'), async () => {
+            if (!valid(muteMinutes)) return;
+            await api.post(`players/${id}/mute`, { minutes: Number(muteMinutes.value) });
+            await done(t('player.muted', { name: card.name }));
+          }),
+          busyButton(t('player.unmute'), async () => {
+            await api.del(`players/${id}/mute`);
+            await done(t('player.unmuted', { name: card.name }));
+          })),
+        h('div', { class: 'row' },
+          field(t('player.banDays'), banDays),
+          field(t('player.reason'), banReason),
+          busyButton(t('player.ban'), async () => {
+            if (!valid(banDays)) return;
+            const days = banDays.value === '' ? null : Number(banDays.value);
+            const reason = banReason.value.trim() || t('player.banDefaultReason');
+            const text = `${days ? t('player.banDaysText', { days }) : t('player.banForeverText')} ${t('player.banReasonText', { reason })}`;
+            if (!await confirmDialog({ title: t('player.banTitle', { name: card.name }), text, confirmLabel: t('player.ban') })) return;
+            await api.post('bans', { playerId: id, reason, days });
+            await done(t('player.banned', { name: card.name }));
+          }, { class: 'danger' })))),
+    h('div', { class: 'group' },
+      h('h3', null, t('player.groupAccount')),
+      h('div', { class: 'stack' },
+        h('div', { class: 'row' },
+          field(t('player.role'), role),
+          busyButton(t('player.setRole'), async () => {
+            await api.post(`players/${id}/role`, { role: role.value });
+            await done(t('player.roleSet', { name: card.name, role: roleName(role.value) }));
+          })),
+        h('div', { class: 'row' },
+          field(t('player.name'), newName),
+          field(t('player.faction'), newFaction),
+          busyButton(t('player.rename'), async () => {
+            if (!valid(newName, newFaction)) return;
+            await api.post(`players/${id}/rename`, { name: newName.value.trim(), factionName: newFaction.value.trim() || null });
+            await done(t('player.renamed', { name: newName.value.trim() }));
+          })),
+        h('div', { class: 'row' },
+          busyButton(card.peaceful ? t('player.peacefulOff') : t('player.peacefulOn'), async () => {
+            await api.post(`players/${id}/peaceful`, { peaceful: !card.peaceful });
+            await done(t('player.peacefulSet'));
+          })))),
+    h('div', { class: 'group danger-zone' },
+      h('h3', null, t('player.groupDanger')),
+      h('p', { class: 'muted' }, t('player.resetText')),
+      h('div', { class: 'row' },
+        busyButton(t('player.reset'), async () => {
+          if (!await confirmDialog({ title: t('player.resetTitle', { name: card.name }), text: t('player.resetText'), typeToConfirm: card.name, confirmLabel: t('player.reset') })) return;
+          await api.post(`players/${id}/reset`, {});
+          await done(t('player.resetDone', { name: card.name }));
+        }, { class: 'danger' }))));
 }
 
 async function savesBlock(card, done) {
@@ -147,18 +162,19 @@ async function savesBlock(card, done) {
     { label: t('player.created'), render: s => fmtDate(s.createdAt) },
     {
       label: '',
+      // Quiet in the list; the danger lives in the confirmation, which names the version.
       render: s => s.isCurrent ? null : busyButton(t('player.rollback'), async () => {
-        if (!await confirmDialog({ title: t('player.rollbackTitle', { version: s.version }), text: t('player.rollbackText') })) return;
+        if (!await confirmDialog({ title: t('player.rollbackTitle', { version: s.version }), text: t('player.rollbackText'), confirmLabel: t('player.rollbackTo', { version: s.version }) })) return;
         await api.post(`players/${card.id}/saves/${s.version}/rollback`, {});
         await done(t('player.rolledBack', { version: s.version }));
-      }, { class: 'danger' }),
+      }, { 'aria-label': t('player.rollbackTo', { version: s.version }) }),
     },
   ], versions);
 }
 
 async function economyBlock(card, done) {
   const [parcels, lots] = await Promise.all([api.get(`economy/parcels/${card.id}`), api.get(`economy/lots${query({ playerId: card.id })}`)]);
-  const delta = numberInput({ step: 1, placeholder: '+100 / -100' });
+  const delta = numberInput({ step: 1, placeholder: '+100 / -100', required: true });
   const reason = input({ placeholder: t('player.reason') });
   const refund = (kind, itemId) => busyButton(t('economy.refund'), async () => {
     if (!await confirmDialog({ title: t('economy.refundTitle', { id: itemId }), text: t('economy.refundText') })) return;
@@ -172,15 +188,21 @@ async function economyBlock(card, done) {
       field(t('player.delta'), delta),
       field(t('player.reason'), reason),
       busyButton(t('player.adjust'), async () => {
+        if (!valid(delta)) return;
         const value = Number(delta.value);
-        if (!Number.isInteger(value) || value === 0) return;
+        if (!Number.isInteger(value) || value === 0) {
+          delta.setCustomValidity(t('player.deltaInvalid'));
+          delta.reportValidity();
+          delta.setCustomValidity('');
+          return;
+        }
         const result = await api.post(`economy/wallet/${card.id}`, { delta: value, reason: reason.value.trim() || null });
         await done(t('player.balanceNow', { balance: fmtSilver(result.balance) }));
       })),
     h('h3', null, t('economy.parcels')),
     table([
       { label: '#', key: 'id' },
-      { label: t('economy.kind'), key: 'kind' },
+      { label: t('economy.kind'), render: p => tEnum('parcel', p.kind) },
       { label: t('economy.from'), render: p => playerLink(p.fromPlayerId) },
       { label: t('economy.silver'), render: p => fmtSilver(p.silver) },
       { label: t('player.created'), render: p => fmtDate(p.createdAt) },
@@ -192,7 +214,7 @@ async function economyBlock(card, done) {
       { label: '#', key: 'id' },
       { label: t('economy.summary'), render: l => l.summary ?? '' },
       { label: t('economy.price'), render: l => fmtSilver(l.price) },
-      { label: t('economy.status'), key: 'status' },
+      { label: t('economy.status'), render: l => tEnum('lot', l.status) },
       { label: t('economy.expires'), render: l => fmtDate(l.expiresAt) },
       { label: '', render: l => l.status === 'Open' ? refund('lot', l.id) : null },
     ], lots));
@@ -223,16 +245,16 @@ async function raidsBlock(id) {
       { label: '#', key: 'id' },
       { label: t('raids.attacker'), render: r => playerLink(r.attackerPlayerId) },
       { label: t('raids.target'), render: r => playerLink(r.targetPlayerId) },
-      { label: t('raids.state'), key: 'state' },
+      { label: t('raids.state'), render: r => tEnum('raid', r.state) },
       { label: t('player.created'), render: r => fmtDate(r.createdAt) },
     ], raids),
     h('h3', null, t('nav.live')),
     table([
       { label: '#', key: 'id' },
-      { label: t('live.kind'), key: 'kind' },
+      { label: t('live.kind'), render: s => tEnum('live', s.kind) },
       { label: t('live.host'), render: s => playerLink(s.hostPlayerId) },
       { label: t('live.guest'), render: s => playerLink(s.guestPlayerId) },
-      { label: t('raids.state'), key: 'state' },
+      { label: t('raids.state'), render: s => tEnum('live', s.state) },
       { label: t('player.created'), render: s => fmtDate(s.createdAt) },
     ], live));
 }

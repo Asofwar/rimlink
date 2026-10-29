@@ -39,3 +39,10 @@ export function t(key, params) {
   if (params) for (const [name, value] of Object.entries(params)) text = text.replaceAll(`{${name}}`, String(value));
   return text;
 }
+
+/** A server enum value (raid state, parcel kind, audit action…) in words; an unknown value shows as sent. */
+export function tEnum(group, value) {
+  if (value === null || value === undefined || value === '') return '';
+  return strings[`${group}.${value}`] ?? String(value);
+}
+

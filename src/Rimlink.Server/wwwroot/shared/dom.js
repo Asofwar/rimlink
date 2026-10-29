@@ -53,15 +53,15 @@ export function replace(el, ...children) {
   return append(clear(el), ...children);
 }
 
-/** A table in a horizontally scrolling wrapper. columns: [{ key, label, render?(row) }]. */
-export function table(columns, rows, emptyText) {
+/** A table in a horizontally scrolling wrapper. columns: [{ key, label, render?(row) }]; rowClass?(row) styles a row. */
+export function table(columns, rows, emptyText, rowClass) {
   const head = h('thead', null, h('tr', null, columns.map(c => h('th', null, c.label))));
   const body = h('tbody');
   if (rows.length === 0) {
     body.append(h('tr', null, h('td', { class: 'empty', colspan: columns.length }, emptyText ?? t('common.empty'))));
   }
   for (const row of rows) {
-    body.append(h('tr', null, columns.map(c => h('td', null, c.render ? c.render(row) : row[c.key] ?? ''))));
+    body.append(h('tr', { class: rowClass?.(row) || null }, columns.map(c => h('td', null, c.render ? c.render(row) : row[c.key] ?? ''))));
   }
   return h('div', { class: 'table-wrap' }, h('table', null, head, body));
 }
@@ -72,12 +72,14 @@ export function busyButton(label, action, attrs) {
   button.addEventListener('click', async () => {
     if (button.disabled) return;
     button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
     try {
       await action();
     } catch (error) {
       showError(error);
     } finally {
       button.disabled = false;
+      button.removeAttribute('aria-busy');
     }
   });
   return button;

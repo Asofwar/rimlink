@@ -15,7 +15,7 @@ export function render(root) {
         await load();
       }, { class: 'primary' }),
       refreshButton(load)),
-    h('p', { class: 'muted' }, t('backups.hint')),
+    h('p', { class: 'muted' }, t('backups.hint'), ' ', h('code', { class: 'mono' }, 'rimlink-tools restore --data <DataDir> --from <archive>')),
     list);
 
   async function load() {

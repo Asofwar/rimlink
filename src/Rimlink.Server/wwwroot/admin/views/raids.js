@@ -1,6 +1,6 @@
 import { api } from '../api.js';
 import { h, table, busyButton, section, field, banner, confirmDialog, showError, append, replace } from '../../shared/dom.js';
-import { t } from '../../shared/i18n.js';
+import { t, tEnum } from '../../shared/i18n.js';
 import { fmtDate } from '../../shared/format.js';
 import { playerLink, stat, input, refreshButton } from '../ui.js';
 import { freezeForm } from './economy.js';
@@ -12,7 +12,7 @@ export function render(root) {
   const freeze = h('div');
   const list = h('div');
   const filter = h('select', { 'aria-label': t('raids.state') }, h('option', { value: '' }, t('raids.all')));
-  const reason = input({ placeholder: t('player.reason') });
+  const reason = input({ placeholder: t('player.reasonOptional') });
   const returnPawns = h('input', { type: 'checkbox', id: 'return-pawns' });
   let raids = [];
 
@@ -33,18 +33,20 @@ export function render(root) {
       { label: '#', key: 'id' },
       { label: t('raids.attacker'), render: r => playerLink(r.attackerPlayerId) },
       { label: t('raids.target'), render: r => playerLink(r.targetPlayerId) },
-      { label: t('raids.state'), key: 'state' },
-      { label: t('raids.mode'), render: r => `${r.pawnMode} / ${r.timing}` },
+      { label: t('raids.state'), render: r => tEnum('raid', r.state) },
+      { label: t('raids.mode'), render: r => `${tEnum('pawnMode', r.pawnMode)} · ${tEnum('timing', r.timing)}` },
       { label: t('player.created'), render: r => fmtDate(r.createdAt) },
       { label: t('raids.resolved'), render: r => fmtDate(r.resolvedAt) },
       {
         label: '',
-        render: r => ACTIVE.includes(r.state) ? busyButton(t('raids.cancel'), async () => {
-          if (!await confirmDialog({ title: t('raids.cancelTitle', { id: r.id }), text: returnPawns.checked ? t('raids.cancelReturn') : t('raids.cancelKeep') })) return;
+        render: r => ACTIVE.includes(r.state) ? busyButton(t('raids.cancelConfirm'), async () => {
+          const why = reason.value.trim();
+          const text = `${returnPawns.checked ? t('raids.cancelReturn') : t('raids.cancelKeep')}${why ? ' ' + t('player.banReasonText', { reason: why }) : ''}`;
+          if (!await confirmDialog({ title: t('raids.cancelTitle', { id: r.id }), text, confirmLabel: t('raids.cancelConfirm') })) return;
           await api.post(`raids/${r.id}/cancel`, { reason: reason.value.trim() || null, returnPawns: returnPawns.checked });
           banner(t('raids.cancelled', { id: r.id }), 'info');
           await load();
-        }, { class: 'danger' }) : null,
+        }) : null,
       },
     ], filter.value ? raids.filter(r => r.state === filter.value) : raids));
   }
@@ -60,9 +62,9 @@ export function render(root) {
         stat(t('raids.resolvedToday'), s.resolvedToday),
         stat(t('raids.expired'), s.expired),
         stat(t('raids.cancelledCount'), s.cancelled));
-      replace(freeze, freezeForm('raids/freeze', s.frozen, s.freezeReason, load));
+      replace(freeze, freezeForm('raids/freeze', s.frozen, s.freezeReason, load, t('raids.freezeConfirm')));
       const chosen = filter.value;
-      replace(filter, h('option', { value: '' }, t('raids.all')), [...new Set(all.map(r => r.state))].sort().map(state => h('option', { value: state }, state)));
+      replace(filter, h('option', { value: '' }, t('raids.all')), [...new Set(all.map(r => r.state))].sort().map(state => h('option', { value: state }, tEnum('raid', state))));
       filter.value = chosen;
       draw();
     } catch (error) {

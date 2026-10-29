@@ -1,6 +1,6 @@
 import { api, query } from '../api.js';
 import { h, table, showError, append, replace } from '../../shared/dom.js';
-import { t } from '../../shared/i18n.js';
+import { t, tEnum } from '../../shared/i18n.js';
 import { fmtDate } from '../../shared/format.js';
 import { actorName, refreshButton } from '../ui.js';
 
@@ -19,10 +19,11 @@ export function render(root) {
       const page = await api.get(`actions${query({ limit: PAGE, before })}`);
       entries = reset ? page : entries.concat(page);
       more.disabled = page.length < PAGE;
+      more.textContent = more.disabled ? t('common.end') : t('common.loadMore');
       replace(list, table([
         { label: t('actions.at'), render: a => fmtDate(a.at) },
         { label: t('actions.actor'), render: actorName },
-        { label: t('actions.action'), key: 'action' },
+        { label: t('actions.action'), render: a => tEnum('action', a.action) },
         { label: t('actions.target'), render: a => a.targetName ?? (a.targetAccountId ? `#${a.targetAccountId}` : '') },
         { label: t('actions.details'), key: 'details' },
       ], entries));

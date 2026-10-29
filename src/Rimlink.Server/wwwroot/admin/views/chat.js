@@ -36,7 +36,7 @@ export function render(root) {
           banner(t('player.muted', { name: l.fromName ?? `#${l.fromPlayerId}` }), 'info');
         }) : null,
       },
-    ], lines));
+    ], lines, undefined, l => l.fromPlayerId ? null : 'system'));
   }
 
   async function load(reset) {
@@ -45,6 +45,7 @@ export function render(root) {
       const page = await api.get(`chat${query({ playerId: player.value || undefined, before, limit: PAGE })}`);
       lines = reset ? page : lines.concat(page);
       more.disabled = page.length < PAGE;
+      more.textContent = more.disabled ? t('common.end') : t('common.loadMore');
       draw();
     } catch (error) {
       showError(error);

@@ -2,7 +2,7 @@ import { api, query } from '../api.js';
 import { h, table, showError, append, replace } from '../../shared/dom.js';
 import { t } from '../../shared/i18n.js';
 import { fmtDate } from '../../shared/format.js';
-import { playerLink, badge, input } from '../ui.js';
+import { playerLink, badge, input, roleName } from '../ui.js';
 
 const PAGE = 50;
 
@@ -21,7 +21,7 @@ export function render(root) {
       replace(results, table([
         { label: t('player.name'), render: p => playerLink(p.id, p.name) },
         { label: t('player.faction'), key: 'factionName' },
-        { label: t('player.role'), key: 'role' },
+        { label: t('player.role'), render: p => roleName(p.role) },
         {
           label: t('players.state'),
           render: p => [

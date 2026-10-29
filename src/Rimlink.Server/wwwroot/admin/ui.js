@@ -1,12 +1,12 @@
 // Small building blocks shared by the admin screens.
 import { h, showError, replace } from '../shared/dom.js';
-import { t } from '../shared/i18n.js';
+import { t, tEnum } from '../shared/i18n.js';
 
 const ROLES = ['player', 'moderator', 'admin'];
 
 /** Role from either a name ("moderator") or the enum number some older routes return. */
 export function roleName(role) {
-  return typeof role === 'number' ? ROLES[role] ?? String(role) : role;
+  return tEnum('role', typeof role === 'number' ? ROLES[role] ?? String(role) : role);
 }
 
 export function playerLink(id, name) {
@@ -17,8 +17,9 @@ export function badge(text, kind = '') {
   return h('span', { class: `badge ${kind}` }, text);
 }
 
-export function stat(label, value) {
-  return h('div', { class: 'stat' }, h('div', { class: 'label' }, label), h('div', { class: 'value' }, value ?? '—'));
+/** A status tile; kind 'warn' marks a state that needs the owner's attention. */
+export function stat(label, value, kind = '') {
+  return h('div', { class: `stat ${kind}`.trim() }, h('div', { class: 'label' }, label), h('div', { class: 'value' }, value ?? '—'));
 }
 
 export function actorName(action) {
@@ -69,3 +70,15 @@ export function refreshButton(action) {
   });
   return button;
 }
+
+/** True when every control passes its own constraints (required, min…); otherwise the browser explains the first failure. */
+export function valid(...controls) {
+  for (const control of controls) {
+    if (!control.checkValidity()) {
+      control.reportValidity();
+      return false;
+    }
+  }
+  return true;
+}
+

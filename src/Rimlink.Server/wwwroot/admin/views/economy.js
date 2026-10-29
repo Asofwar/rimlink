@@ -23,7 +23,7 @@ export function render(root) {
         stat(t('economy.pendingParcels'), s.pendingParcels),
         stat(t('economy.tradesToday'), s.tradesToday),
         stat(t('economy.state'), s.frozen ? t('public.frozen') : t('public.running')));
-      replace(freeze, freezeForm('economy/freeze', s.frozen, s.freezeReason, load));
+      replace(freeze, freezeForm('economy/freeze', s.frozen, s.freezeReason, load, t('economy.freezeConfirm')));
       replace(lots, table([
         { label: '#', key: 'id' },
         { label: t('economy.seller'), render: l => playerLink(l.sellerPlayerId, l.sellerName) },
@@ -48,17 +48,17 @@ export function render(root) {
   load();
 }
 
-/** Freeze or unfreeze switch shared by the economy and raid screens. */
-export function freezeForm(path, frozen, reasonNow, reload) {
+/** Freeze or unfreeze switch shared by the economy and raid screens; confirmText says what the freeze stops. */
+export function freezeForm(path, frozen, reasonNow, reload, confirmText) {
   const reason = input({ placeholder: t('player.reason') });
   return h('div', { class: 'stack' },
     h('p', null, frozen ? t('economy.frozenNow', { reason: reasonNow || '—' }) : t('economy.runningNow')),
     h('div', { class: 'row' },
       frozen ? null : field(t('player.reason'), reason),
       busyButton(frozen ? t('economy.unfreeze') : t('economy.freeze'), async () => {
-        if (!frozen && !await confirmDialog({ title: t('economy.freezeConfirm') })) return;
+        if (!frozen && !await confirmDialog({ title: t('economy.freezeTitleConfirm'), text: confirmText, confirmLabel: t('economy.freeze'), danger: false })) return;
         await api.post(path, { frozen: !frozen, reason: frozen ? null : reason.value.trim() || null });
         banner(frozen ? t('economy.unfrozen') : t('economy.frozen'), 'info');
         await reload();
-      }, { class: frozen ? 'primary' : 'danger' })));
+      }, { class: frozen ? 'primary' : null })));
 }

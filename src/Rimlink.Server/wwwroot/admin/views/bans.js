@@ -2,7 +2,7 @@ import { api } from '../api.js';
 import { h, table, busyButton, section, field, banner, confirmDialog, showError, append, replace } from '../../shared/dom.js';
 import { t } from '../../shared/i18n.js';
 import { fmtDate } from '../../shared/format.js';
-import { input, numberInput, refreshButton } from '../ui.js';
+import { input, numberInput, refreshButton, valid } from '../ui.js';
 
 export function render(root) {
   const list = h('div');
@@ -10,9 +10,9 @@ export function render(root) {
     h('option', { value: 'playerId' }, t('bans.byPlayer')),
     h('option', { value: 'steamId' }, t('bans.bySteam')),
     h('option', { value: 'ip' }, t('bans.byIp')));
-  const target = input({ placeholder: t('bans.target') });
-  const days = numberInput({ min: 0, step: 'any', placeholder: t('player.banForever') });
-  const reason = input({ placeholder: t('player.reason') });
+  const target = input({ placeholder: t('bans.target'), required: true });
+  const days = numberInput({ min: 1, step: 'any', placeholder: t('player.banForever') });
+  const reason = input({ placeholder: t('player.reasonOptional') });
 
   append(root, 
     h('div', { class: 'toolbar' }, h('h1', { class: 'grow' }, t('nav.bans')), refreshButton(load)),
@@ -22,12 +22,13 @@ export function render(root) {
       field(t('player.banDays'), days),
       field(t('player.reason'), reason),
       busyButton(t('player.ban'), async () => {
+        if (!valid(target, days)) return;
         const value = target.value.trim();
-        if (!value) return;
         const body = { reason: reason.value.trim() || t('player.banDefaultReason'), days: days.value === '' ? null : Number(days.value) };
         // SteamIDs travel as strings: 17 digits exceed JavaScript's safe integers.
         body[kind.value] = kind.value === 'playerId' ? Number(value.replace(/^#/, '')) : value;
-        if (!await confirmDialog({ title: t('bans.confirm', { target: value }), text: body.days ? t('player.banDaysText', { days: body.days }) : t('player.banForeverText') })) return;
+        const text = `${body.days ? t('player.banDaysText', { days: body.days }) : t('player.banForeverText')} ${t('player.banReasonText', { reason: body.reason })}`;
+        if (!await confirmDialog({ title: t('bans.confirm', { target: value }), text, confirmLabel: t('player.ban') })) return;
         await api.post('bans', body);
         banner(t('bans.added'), 'info');
         target.value = '';
@@ -49,7 +50,7 @@ export function render(root) {
         {
           label: '',
           render: b => busyButton(t('bans.pardon'), async () => {
-            if (!await confirmDialog({ title: t('bans.pardonTitle', { id: b.id }), danger: false })) return;
+            if (!await confirmDialog({ title: t('bans.pardonTitle', { id: b.id }), danger: false, confirmLabel: t('bans.pardon') })) return;
             await api.del(`bans/${b.id}`);
             banner(t('bans.pardoned', { id: b.id }), 'info');
             await load();
