@@ -238,6 +238,8 @@
   <Rimlink.Live.CaravanVisit>Живой визит в колонию {0} (вы управляете своими пешками)...</Rimlink.Live.CaravanVisit>
   <Rimlink.Live.CaravanRaidGizmo>Живой рейд</Rimlink.Live.CaravanRaidGizmo>
   <Rimlink.Live.CaravanVisitGizmo>Живой визит</Rimlink.Live.CaravanVisitGizmo>
+  <Rimlink.Live.PodRaid>Живой рейд на колонию {0} (капсулы, вы управляете своими пешками)...</Rimlink.Live.PodRaid>
+  <Rimlink.Live.PodVisit>Живой визит в колонию {0} (капсулы, вы управляете своими пешками)...</Rimlink.Live.PodVisit>
   <Rimlink.Live.Proposed>Живая сессия предложена игроку {0}; ждём ответа.</Rimlink.Live.Proposed>
   <Rimlink.Live.Busy>Вы уже в живой сессии или в гостях.</Rimlink.Live.Busy>
   <Rimlink.Live.Waiting>Ждём ответа {0} на {1} ({2} с). При отказе или молчании рейд пойдёт как обычный, а пешки визита вернутся домой.</Rimlink.Live.Waiting>

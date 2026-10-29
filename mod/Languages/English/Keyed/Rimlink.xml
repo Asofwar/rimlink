@@ -238,6 +238,8 @@
   <Rimlink.Live.CaravanVisit>Live visit to {0}'s colony (you control your pawns)...</Rimlink.Live.CaravanVisit>
   <Rimlink.Live.CaravanRaidGizmo>Live raid</Rimlink.Live.CaravanRaidGizmo>
   <Rimlink.Live.CaravanVisitGizmo>Live visit</Rimlink.Live.CaravanVisitGizmo>
+  <Rimlink.Live.PodRaid>Live raid on {0}'s colony (pods, you control your pawns)...</Rimlink.Live.PodRaid>
+  <Rimlink.Live.PodVisit>Live visit to {0}'s colony (pods, you control your pawns)...</Rimlink.Live.PodVisit>
   <Rimlink.Live.Proposed>Live session proposed to {0}; waiting for their answer.</Rimlink.Live.Proposed>
   <Rimlink.Live.Busy>You are already in a live session or a visit.</Rimlink.Live.Busy>
   <Rimlink.Live.Waiting>Waiting for {0} to answer the {1} ({2} s). If they decline or do not answer, a raid goes on as a normal raid and a visit's pawns come home.</Rimlink.Live.Waiting>

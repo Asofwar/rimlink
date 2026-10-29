@@ -59,3 +59,60 @@ public sealed class CaravanArrivalAction_RimlinkLive : CaravanArrivalAction
         LiveGuest.ProposeFromCaravan(caravan, owner, kind, caravan.PawnsListForReading.ToList(), RaidTiming.TimingInstant);
     }
 }
+
+/// <summary>"Live raid"/"Live visit" by transport pods: on arrival the pawns inside are proposed for a live session (spec §2).</summary>
+public sealed class TransportersArrivalAction_RimlinkLive : TransportersArrivalAction
+{
+    private PlayerSettlement? settlement;
+    private LiveKind kind;
+
+    public TransportersArrivalAction_RimlinkLive() { }
+
+    public TransportersArrivalAction_RimlinkLive(PlayerSettlement settlement, LiveKind kind)
+    {
+        this.settlement = settlement;
+        this.kind = kind;
+    }
+
+    public override bool GeneratesMap => false;
+
+    public override FloatMenuAcceptanceReport StillValid(IEnumerable<IThingHolder> pods, PlanetTile destinationTile)
+    {
+        var report = base.StillValid(pods, destinationTile);
+        if (!report) return report;
+        if (settlement is null || !settlement.Spawned || settlement.Tile != destinationTile) return false;
+        return CaravanArrivalAction_RimlinkLive.CanPropose(settlement, kind);
+    }
+
+    public override void Arrived(List<ActiveTransporterInfo> transporters, PlanetTile tile)
+    {
+        var pawns = new List<Pawn>();
+        var cargo = new List<Thing>();
+        foreach (var pod in transporters)
+        {
+            foreach (var thing in pod.innerContainer.ToList())
+            {
+                pod.innerContainer.Remove(thing);
+                if (thing is Pawn pawn) pawns.Add(pawn); else cargo.Add(thing);
+            }
+        }
+        if (pawns.Count == 0) return;
+        // Loose cargo rides in the pawns' inventories: it goes to the host and back with them.
+        var carrier = pawns.FirstOrDefault(p => p.RaceProps.Humanlike) ?? pawns[0];
+        foreach (var thing in cargo) carrier.inventory.innerContainer.TryAdd(thing);
+        PlayerRef? owner = settlement is null ? null : RimlinkSession.State.Objects.TryGet(settlement.ObjectId)?.Owner;
+        if (owner is null || !RimlinkSession.Active)
+        {
+            Raids.RaidOutgoing.ReturnPodPawnsHome(pawns);
+            return;
+        }
+        LiveGuest.ProposeFromPods(pawns, owner, kind, RaidTiming.TimingInstant);
+    }
+
+    public override void ExposeData()
+    {
+        base.ExposeData();
+        Scribe_References.Look(ref settlement, "settlement");
+        Scribe_Values.Look(ref kind, "kind");
+    }
+}
