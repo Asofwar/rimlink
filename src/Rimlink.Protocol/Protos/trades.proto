@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+package rimlink.v1;
+option csharp_namespace = "Rimlink.Protocol.V1";
+import "google/protobuf/timestamp.proto";
+import "common.proto";
+import "economy.proto";
+
+// Two-way trades (safe trades spec §4). Each side's goods sit in server escrow; the revision grows with every change,
+// and the exchange happens once both sides confirmed the same revision.
+
+enum TradeStatus {
+  TRADE_OPEN = 0;
+  TRADE_COMPLETED = 1;
+  TRADE_CANCELLED = 2;
+  TRADE_EXPIRED = 3;
+}
+
+// In lists and events the blobs are stripped: descriptors only.
+message TradeSide {
+  ItemList items = 1;
+  PawnList pawns = 2;
+  int64 silver = 3;
+  string note = 4;
+  bool confirmed = 5;
+}
+
+message Trade {
+  int64 id = 1;
+  PlayerRef initiator = 2;
+  PlayerRef partner = 3;
+  TradeStatus status = 4;
+  int32 revision = 5;
+  TradeSide initiator_side = 6;
+  TradeSide partner_side = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp expires_at = 9;
+  google.protobuf.Timestamp closed_at = 10;
+  string close_reason = 11;
+}
+
+message TradeOpenRequest {
+  string client_request_id = 1;
+  int64 partner_id = 2;
+  ItemList items = 3;
+  PawnList pawns = 4;
+  int64 silver = 5;
+  string note = 6;
+  int64 game_tick = 7;
+}
+
+// silver and note are the side's new totals. return_goods: the escrowed goods come back by a TradeReturn parcel and
+// items/pawns replace them; otherwise items/pawns are added to what is already offered (a note-only change sends
+// neither and moves no goods).
+message TradeSideRequest {
+  string client_request_id = 1;
+  int64 trade_id = 2;
+  ItemList items = 3;
+  PawnList pawns = 4;
+  int64 silver = 5;
+  string note = 6;
+  int64 game_tick = 7;
+  bool return_goods = 8;
+}
+
+message TradeConfirmRequest { int64 trade_id = 1; int32 revision = 2; }
+message TradeRef { int64 trade_id = 1; }
+message TradeList { repeated Trade trades = 1; }
+
+service Trades {
+  rpc Open (TradeOpenRequest) returns (Trade);
+  rpc SetSide (TradeSideRequest) returns (Trade);
+  rpc Confirm (TradeConfirmRequest) returns (Trade);
+  rpc Cancel (TradeRef) returns (Trade);
+  // Open trades of the caller plus those closed within the last 7 days, newest first.
+  rpc List (Empty) returns (TradeList);
+}
+
+// Events carried by ServerEvent.
+message TradeUpdated { Trade trade = 1; }

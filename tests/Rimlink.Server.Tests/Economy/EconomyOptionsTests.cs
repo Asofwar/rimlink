@@ -36,4 +36,26 @@ public class EconomyOptionsTests
         Assert.Equal(10, o.MarketFeePercent);
         Assert.False(o.Enabled);
     }
+
+    [Fact]
+    public void SafeTradesDefaults()
+    {
+        var economy = new EconomyOptions();
+        Assert.Equal(7, economy.GiftDecisionDays);
+        Assert.Equal(7, economy.TradeLifetimeDays);
+        Assert.Equal(5, economy.MaxOpenTrades);
+        Assert.Equal(200, new SocialOptions().MaxBlocks);
+    }
+
+    [Theory]
+    [InlineData("Economy:MaxOpenTrades", "MaxOpenTrades")]
+    [InlineData("Economy:GiftDecisionDays", "GiftDecisionDays")]
+    [InlineData("Economy:TradeLifetimeDays", "TradeLifetimeDays")]
+    [InlineData("Social:MaxBlocks", "MaxBlocks")]
+    public void SafeTradesSettingsBelowOneFailAtStart(string key, string name)
+    {
+        using var fixture = new ServerFixture().WithSetting(key, "0");
+
+        Assert.Contains(name, Assert.ThrowsAny<Exception>(() => fixture.CreateClient()).ToString());
+    }
 }

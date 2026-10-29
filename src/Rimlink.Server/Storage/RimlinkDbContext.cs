@@ -27,6 +27,8 @@ public sealed class RimlinkDbContext(DbContextOptions<RimlinkDbContext> options)
     public DbSet<LiveSession> LiveSessions => Set<LiveSession>();
     public DbSet<ShopItem> ShopItems => Set<ShopItem>();
     public DbSet<PendingRemoval> PendingRemovals => Set<PendingRemoval>();
+    public DbSet<Trade> Trades => Set<Trade>();
+    public DbSet<PlayerBlock> PlayerBlocks => Set<PlayerBlock>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -102,6 +104,20 @@ public sealed class RimlinkDbContext(DbContextOptions<RimlinkDbContext> options)
             e.HasIndex(l => new { l.Status, l.ExpiresAt });
             e.HasIndex(l => l.SellerPlayerId);
             e.HasIndex(l => l.ClientRequestId).IsUnique().HasFilter("\"ClientRequestId\" IS NOT NULL");
+        });
+        model.Entity<Trade>(e =>
+        {
+            e.ToTable("trades");
+            e.HasIndex(t => t.Status);
+            e.HasIndex(t => t.InitiatorPlayerId);
+            e.HasIndex(t => t.PartnerPlayerId);
+            e.HasIndex(t => t.ClientRequestId).IsUnique().HasFilter("\"ClientRequestId\" IS NOT NULL");
+        });
+        model.Entity<PlayerBlock>(e =>
+        {
+            e.ToTable("player_blocks");
+            e.HasIndex(b => new { b.BlockerPlayerId, b.BlockedPlayerId }).IsUnique();
+            e.HasIndex(b => b.BlockedPlayerId);
         });
         model.Entity<Transfer>(e =>
         {

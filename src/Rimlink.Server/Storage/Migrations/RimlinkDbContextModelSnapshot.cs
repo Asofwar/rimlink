@@ -328,6 +328,9 @@ namespace Rimlink.Server.Storage.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("Decision")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTime?>("DeliveredAt")
                         .HasColumnType("TEXT");
 
@@ -402,6 +405,9 @@ namespace Rimlink.Server.Storage.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("AcceptGifts")
+                        .HasColumnType("INTEGER");
+
                     b.Property<long>("AccountId")
                         .HasColumnType("INTEGER");
 
@@ -438,6 +444,9 @@ namespace Rimlink.Server.Storage.Migrations
                     b.Property<DateTime?>("PeacefulOffAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("TradesClosed")
+                        .HasColumnType("INTEGER");
+
                     b.Property<bool>("VisitsClosed")
                         .HasColumnType("INTEGER");
 
@@ -456,6 +465,31 @@ namespace Rimlink.Server.Storage.Migrations
                         .IsUnique();
 
                     b.ToTable("players", (string)null);
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.PlayerBlock", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("BlockedPlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("BlockerPlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BlockedPlayerId");
+
+                    b.HasIndex("BlockerPlayerId", "BlockedPlayerId")
+                        .IsUnique();
+
+                    b.ToTable("player_blocks", (string)null);
                 });
 
             modelBuilder.Entity("Rimlink.Server.Storage.Entities.Raid", b =>
@@ -662,6 +696,90 @@ namespace Rimlink.Server.Storage.Migrations
                         {
                             t.HasCheckConstraint("CK_shop_items_count", "\"Count\" >= 0");
                         });
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.Trade", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ClientRequestId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CloseReason")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("InitiatorConfirmed")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<byte[]>("InitiatorItems")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("InitiatorNote")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("InitiatorPawns")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<long>("InitiatorPlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("InitiatorSilver")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("PartnerConfirmed")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<byte[]>("PartnerItems")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("PartnerNote")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("PartnerPawns")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<long>("PartnerPlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("PartnerSilver")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientRequestId")
+                        .IsUnique()
+                        .HasFilter("\"ClientRequestId\" IS NOT NULL");
+
+                    b.HasIndex("InitiatorPlayerId");
+
+                    b.HasIndex("PartnerPlayerId");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("trades", (string)null);
                 });
 
             modelBuilder.Entity("Rimlink.Server.Storage.Entities.Transfer", b =>

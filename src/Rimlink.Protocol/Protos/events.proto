@@ -12,6 +12,7 @@ import "economy.proto";
 import "raids.proto";
 import "live.proto";
 import "visits.proto";
+import "trades.proto";
 
 // One server-push stream per session; everything that changes arrives here.
 service Events {
@@ -48,6 +49,8 @@ message ServerEvent {
     LiveFallback live_fallback = 73;
     LivePeerLost live_peer_lost = 74;
     LivePeerBack live_peer_back = 75;
+    GiftRefused gift_refused = 76;
+    TradeUpdated trade_updated = 77;
   }
 }
 

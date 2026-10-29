@@ -47,6 +47,10 @@ public sealed class Player
     public long WealthItems { get; set; }
     /// <summary>Live sessions (3b): invitations are accepted without asking.</summary>
     public bool AutoAcceptLive { get; set; }
+    /// <summary>Gifts of other players arrive without asking (otherwise each waits for accept or refuse).</summary>
+    public bool AcceptGifts { get; set; }
+    /// <summary>New trade offers to this player are refused.</summary>
+    public bool TradesClosed { get; set; }
 }
 
 public sealed class SessionLog
@@ -129,7 +133,12 @@ public sealed class SaveVersion
     public bool IsCurrent { get; set; }
 }
 
-public enum ParcelKindDb { Gift = 0, Purchase = 1, LotReturn = 2, Withdraw = 3, Admin = 4, Loot = 5, RaidReturn = 6, Captive = 7 }
+public enum ParcelKindDb { Gift = 0, Purchase = 1, LotReturn = 2, Withdraw = 3, Admin = 4, Loot = 5, RaidReturn = 6, Captive = 7, GiftReturn = 8, Trade = 9, TradeReturn = 10 }
+
+/// <summary>A player's gift waits for the recipient's decision; every other parcel has none.</summary>
+public enum ParcelDecisionDb { None = 0, Awaiting = 1, Accepted = 2, Refused = 3 }
+
+public enum TradeStatusDb { Open = 0, Completed = 1, Cancelled = 2, Expired = 3 }
 
 public enum LotStatusDb { Open = 0, Sold = 1, Withdrawn = 2, Expired = 3 }
 
@@ -166,6 +175,45 @@ public sealed class Parcel
     public DateTime? DeliveredAt { get; set; }
     public long? DeliveredTick { get; set; }
     public string? ClientRequestId { get; set; }
+    public ParcelDecisionDb Decision { get; set; }
+}
+
+/// <summary>
+/// A two-way trade. Each side's goods (protobuf <c>ItemList</c>/<c>PawnList</c>) and silver sit here in escrow until the
+/// exchange or the close; the revision grows with every change so a confirmation always names what it agrees to.
+/// </summary>
+public sealed class Trade
+{
+    public long Id { get; set; }
+    public long InitiatorPlayerId { get; set; }
+    public long PartnerPlayerId { get; set; }
+    public TradeStatusDb Status { get; set; }
+    public int Revision { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime ExpiresAt { get; set; }
+    public DateTime? ClosedAt { get; set; }
+    public string? CloseReason { get; set; }
+    /// <summary>The initiator's <c>Open</c> request, to make its repeat a no-op.</summary>
+    public string? ClientRequestId { get; set; }
+    public byte[] InitiatorItems { get; set; } = [];
+    public byte[] InitiatorPawns { get; set; } = [];
+    public long InitiatorSilver { get; set; }
+    public string InitiatorNote { get; set; } = "";
+    public bool InitiatorConfirmed { get; set; }
+    public byte[] PartnerItems { get; set; } = [];
+    public byte[] PartnerPawns { get; set; } = [];
+    public long PartnerSilver { get; set; }
+    public string PartnerNote { get; set; } = "";
+    public bool PartnerConfirmed { get; set; }
+}
+
+/// <summary>The blocker gets no DMs, gifts, trade offers or public chat lines from the blocked player.</summary>
+public sealed class PlayerBlock
+{
+    public long Id { get; set; }
+    public long BlockerPlayerId { get; set; }
+    public long BlockedPlayerId { get; set; }
+    public DateTime CreatedAt { get; set; }
 }
 
 public sealed class Lot

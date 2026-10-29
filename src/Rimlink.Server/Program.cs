@@ -36,7 +36,12 @@ builder.Services.AddOptions<AdminOptions>().Bind(builder.Configuration.GetSectio
     .Validate(o => o.FeedBufferSize is >= 100 and <= 100000 && o.FeedPingSeconds is >= 1 and <= 300, "Admin:FeedBufferSize must be 100-100000 and Admin:FeedPingSeconds 1-300")
     .ValidateOnStart();
 builder.Services.Configure<BackupOptions>(builder.Configuration.GetSection(BackupOptions.Section));
-builder.Services.Configure<EconomyOptions>(builder.Configuration.GetSection(EconomyOptions.Section));
+builder.Services.AddOptions<EconomyOptions>().Bind(builder.Configuration.GetSection(EconomyOptions.Section))
+    .Validate(o => o.GiftDecisionDays >= 1 && o.TradeLifetimeDays >= 1 && o.MaxOpenTrades >= 1, "Economy:GiftDecisionDays, Economy:TradeLifetimeDays and Economy:MaxOpenTrades must be at least 1")
+    .ValidateOnStart();
+builder.Services.AddOptions<SocialOptions>().Bind(builder.Configuration.GetSection(SocialOptions.Section))
+    .Validate(o => o.MaxBlocks >= 1, "Social:MaxBlocks must be at least 1")
+    .ValidateOnStart();
 builder.Services.Configure<RaidOptions>(builder.Configuration.GetSection(RaidOptions.Section));
 builder.Services.Configure<LiveOptions>(builder.Configuration.GetSection(LiveOptions.Section));
 builder.Services.Configure<PanelOptions>(builder.Configuration.GetSection(PanelOptions.Section));

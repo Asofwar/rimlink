@@ -49,6 +49,10 @@ enum ParcelKind {
   PARCEL_LOOT = 5;
   PARCEL_RAID_RETURN = 6;
   PARCEL_CAPTIVE = 7;
+  // Safe trades: a refused gift going back, the other side of a completed trade, a side coming back from a trade.
+  PARCEL_GIFT_RETURN = 8;
+  PARCEL_TRADE = 9;
+  PARCEL_TRADE_RETURN = 10;
 }
 
 message Parcel {
@@ -63,6 +67,8 @@ message Parcel {
   bool redeliver = 8;
   int64 delivered_tick = 9;
   int32 size_bytes = 10;
+  // A player's gift waiting for Mailbox.Answer: the client does not drop it.
+  bool awaiting_decision = 11;
 }
 
 message ParcelList { repeated Parcel parcels = 1; }
@@ -115,6 +121,7 @@ message WithdrawRequest {
 }
 
 message ParcelRef { int64 parcel_id = 1; }
+message ParcelAnswer { int64 parcel_id = 1; bool accept = 2; }
 
 message DeliverRequest {
   int64 parcel_id = 1;
@@ -159,6 +166,8 @@ service Mailbox {
   rpc List (Empty) returns (ParcelList);
   rpc Get (ParcelRef) returns (Parcel);
   rpc Deliver (DeliverRequest) returns (Empty);
+  // The recipient accepts or refuses a gift awaiting a decision; a refused gift goes back to its sender.
+  rpc Answer (ParcelAnswer) returns (Empty);
 }
 
 service Market {
@@ -177,3 +186,5 @@ message ParcelArrived { Parcel parcel = 1; }
 message LotSold { int64 lot_id = 1; PlayerRef buyer = 2; int64 price = 3; int64 proceeds = 4; }
 message LotClosed { int64 lot_id = 1; string reason = 2; }
 message WalletChanged { int64 balance = 1; int64 delta = 2; string kind = 3; }
+// To the sender (a letter) and to the recipient (the parcel leaves its mailbox); expired: nobody answered in time.
+message GiftRefused { int64 parcel_id = 1; PlayerRef by = 2; string returned = 3; bool expired = 4; }

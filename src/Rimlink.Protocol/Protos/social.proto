@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package rimlink.v1;
+option csharp_namespace = "Rimlink.Protocol.V1";
+import "common.proto";
+import "raids.proto";
+
+// Personal block list and the gift/trade flags (safe trades spec §3).
+
+message BlockList { repeated PlayerRef players = 1; }
+message FlagRequest { bool on = 1; }
+
+service Social {
+  // Both answer with the caller's whole block list.
+  rpc Block (PlayerRef) returns (BlockList);
+  rpc Unblock (PlayerRef) returns (BlockList);
+  rpc ListBlocks (Empty) returns (BlockList);
+  rpc SetAcceptGifts (FlagRequest) returns (PlayerFlags);
+  rpc SetTradesClosed (FlagRequest) returns (PlayerFlags);
+}

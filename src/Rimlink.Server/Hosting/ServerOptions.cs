@@ -48,6 +48,20 @@ public sealed class EconomyOptions
     public int LotLifetimeDays { get; set; } = 30;
     public int MarketFeePercent { get; set; } = 0;
     public int SendCooldownSeconds { get; set; } = 5;
+    /// <summary>A gift without an answer for this long is refused and goes back to its sender.</summary>
+    public int GiftDecisionDays { get; set; } = 7;
+    /// <summary>An open trade expires after this long; both sides go back.</summary>
+    public int TradeLifetimeDays { get; set; } = 7;
+    /// <summary>Open trades a player may take part in at once.</summary>
+    public int MaxOpenTrades { get; set; } = 5;
+}
+
+/// <summary>Block list and the other personal social settings.</summary>
+public sealed class SocialOptions
+{
+    public const string Section = "Social";
+
+    public int MaxBlocks { get; set; } = 200;
 }
 
 /// <summary>Raid rules (sub-project 3a spec §3).</summary>

@@ -94,6 +94,9 @@ message PlayerFlags {
   bool visits_closed = 3;
   // Live sessions (3b): invitations are accepted without asking.
   bool auto_accept_live = 4;
+  // Safe trades: gifts arrive without asking; new trade offers are refused.
+  bool accept_gifts = 5;
+  bool trades_closed = 6;
 }
 
 service Raids {

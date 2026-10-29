@@ -153,4 +153,40 @@ public class SchemaTests : IDisposable
 
         Assert.Equal(2, db.WorldObjects.Count());
     }
+
+    [Fact]
+    public void SafeTradesTablesAndColumnsExist()
+    {
+        using var db = CreateContext();
+
+        string[] trades = ["Id", "InitiatorPlayerId", "PartnerPlayerId", "Status", "Revision", "CreatedAt", "ExpiresAt", "ClosedAt", "CloseReason", "ClientRequestId",
+            "InitiatorItems", "InitiatorPawns", "InitiatorSilver", "InitiatorNote", "InitiatorConfirmed",
+            "PartnerItems", "PartnerPawns", "PartnerSilver", "PartnerNote", "PartnerConfirmed"];
+        foreach (string column in trades) Assert.Contains(column, Columns("trades"));
+        foreach (string column in new[] { "BlockerPlayerId", "BlockedPlayerId", "CreatedAt" }) Assert.Contains(column, Columns("player_blocks"));
+        Assert.Contains("Decision", Columns("parcels"));
+        Assert.Contains("AcceptGifts", Columns("players"));
+        Assert.Contains("TradesClosed", Columns("players"));
+
+        var nova = new Player { Account = new Account { CreatedAt = DateTime.UtcNow }, Name = "Nova", FactionName = "Nova" };
+        var bob = new Player { Account = new Account { CreatedAt = DateTime.UtcNow }, Name = "Bob", FactionName = "Bob" };
+        db.Players.AddRange(nova, bob);
+        db.SaveChanges();
+        db.PlayerBlocks.Add(new PlayerBlock { BlockerPlayerId = nova.Id, BlockedPlayerId = bob.Id, CreatedAt = DateTime.UtcNow });
+        db.SaveChanges();
+        db.PlayerBlocks.Add(new PlayerBlock { BlockerPlayerId = nova.Id, BlockedPlayerId = bob.Id, CreatedAt = DateTime.UtcNow });
+
+        var ex = Assert.Throws<DbUpdateException>(() => db.SaveChanges());
+        Assert.Equal(19, Assert.IsType<SqliteException>(ex.InnerException).SqliteErrorCode);
+    }
+
+    private List<string> Columns(string table)
+    {
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = $"PRAGMA table_info({table})";
+        var columns = new List<string>();
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read()) columns.Add(reader.GetString(1));
+        return columns;
+    }
 }
