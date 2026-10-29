@@ -58,21 +58,26 @@ public static class MirrorMode
     {
         if (!ownershipPending || !Active || Map is null || Current.ProgramState != ProgramState.Playing) return;
         ownershipPending = false;
-        var player = Faction.OfPlayer;
         Applying = true;
         try
         {
             foreach (var pawn in Map.mapPawns.AllPawnsSpawned.ToList())
-            {
-                if (!OwnedIds.Contains(pawn.thingIDNumber)) continue;
-                if (pawn.GetLord() is { } lord) lord.Notify_PawnLost(pawn, PawnLostCondition.Undefined);
-                if (pawn.Faction != player) pawn.SetFaction(player);
-                PawnComponentsUtility.AddAndRemoveDynamicComponents(pawn);
-            }
+                if (OwnedIds.Contains(pawn.thingIDNumber)) Claim(pawn);
             Find.ColonistBar?.MarkColonistsDirty();
         }
         catch (Exception ex) { Log.Error("[Rimlink] mirror: own pawns could not be claimed: " + ex); }
         finally { Applying = false; }
+    }
+
+    /// <summary>
+    /// One of our pawns joins the player faction here: at the first frame, and again whenever the host's blob brings it back
+    /// (carried off and put down), since that blob carries the host's faction (the raiders').
+    /// </summary>
+    public static void Claim(Pawn pawn)
+    {
+        if (pawn.GetLord() is { } lord) lord.Notify_PawnLost(pawn, PawnLostCondition.Undefined);
+        if (pawn.Faction != Faction.OfPlayer) pawn.SetFaction(Faction.OfPlayer);
+        PawnComponentsUtility.AddAndRemoveDynamicComponents(pawn);
     }
 
     public static void Exit()

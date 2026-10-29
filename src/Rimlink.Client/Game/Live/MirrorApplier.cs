@@ -26,7 +26,13 @@ public static class MirrorApplier
             {
                 if (FindThing(id, map) is { } gone)
                 {
-                    if (gone is Pawn pawn) { PawnExit.Remove(pawn); continue; } // carried, dead (its corpse comes as a spawn) or gone: a later blob brings it back
+                    if (gone is Pawn pawn)
+                    {
+                        // Carried, dead (its corpse comes as a spawn) or gone: a later blob brings it back.
+                        PawnExit.Remove(pawn);
+                        RimlinkLog.Instance.Info($"mirror: pawn {pawn.LabelShort} ({id}) left the map{(pawn.Spawned ? ", but is still spawned" : "")}");
+                        continue;
+                    }
                     if (gone.Spawned) gone.DeSpawn();
                     if (!gone.Destroyed) gone.Destroy(DestroyMode.Vanish);
                 }
@@ -90,6 +96,13 @@ public static class MirrorApplier
             else return;
             ThingBlobs.ResetMapIndex(thing);
             GenSpawn.Spawn(thing, cell, map, WipeMode.VanishOrMoveAside);
+            if (thing is not Pawn pawn) return;
+            if (MirrorMode.OwnedIds.Contains(pawn.thingIDNumber))
+            {
+                MirrorMode.Claim(pawn);
+                Find.ColonistBar?.MarkColonistsDirty();
+            }
+            RimlinkLog.Instance.Info($"mirror: pawn {pawn.LabelShort} ({s.ThingId}) arrived{(MirrorMode.IsOwned(pawn) ? ", ours" : "")}");
         }
         catch (Exception ex)
         {
