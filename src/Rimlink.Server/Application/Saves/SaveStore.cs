@@ -18,7 +18,7 @@ public sealed class SaveRejected(string key, string reason, params object[] args
 }
 
 /// <summary>Versioned save storage: blobs under &lt;data&gt;/saves/&lt;playerId&gt;/&lt;n&gt;.rws.zst, metadata in save_versions.</summary>
-public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, EventBus events, ILogger<SaveStore> log)
+public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, EventBus events, Integrity.IntegrityService integrity, ILogger<SaveStore> log)
 {
     private static readonly SemaphoreSlim PerStoreLock = new(1, 1);
 
@@ -61,6 +61,8 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, EventBus 
             try
             {
                 int number = (await db.SaveVersions.Where(v => v.PlayerId == playerId).MaxAsync(v => (int?)v.Number) ?? 0) + 1;
+                // The integrity check compares with the version this upload replaces as current.
+                var baseVersion = await db.SaveVersions.AsNoTracking().FirstOrDefaultAsync(v => v.PlayerId == playerId && v.IsCurrent);
                 string final = Path.Combine(dir, $"{number}.rws.zst");
 
                 await using var tx = await db.Database.BeginTransactionAsync();
@@ -95,6 +97,9 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, EventBus 
 
                 await ApplyRetention(playerId);
                 log.LogInformation("Stored save v{Version} for player {PlayerId}: {Size} bytes, tick {Tick}", number, playerId, written, header.GameTick);
+                // Stored is stored: a failing check is logged and never refuses the upload.
+                try { await integrity.OnStored(playerId, baseVersion, version); }
+                catch (Exception ex) { log.LogError(ex, "Integrity check of save v{Version} for player {PlayerId} failed", number, playerId); }
                 return version;
             }
             finally

@@ -12,6 +12,9 @@ public sealed record Actor(long AccountId, long PlayerId, Role Role, string Name
 
     public static readonly Actor Panel = new(0, 0, Role.Admin, "panel");
 
+    /// <summary>The server itself (integrity checks).</summary>
+    public static readonly Actor System = new(0, 0, Role.Admin, "system");
+
     public static Actor From(Session session) => new(session.AccountId, session.PlayerId, session.Role, session.PlayerName);
 
     /// <summary>

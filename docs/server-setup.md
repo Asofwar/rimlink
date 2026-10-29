@@ -167,6 +167,22 @@ Settings under `Integrity` (defaults):
 - `StorytellerPolicy` `Locked`: every colony plays with the storyteller and difficulty the admin chose when creating the world
   (the new-colony page, the in-game storyteller page and every load of a colony hold them); `Free`: each player chooses.
 
+Every upload is checked after it is stored (a failing check never refuses a save):
+
+- Dev mode: the mod flags a save when dev mode was on in that game since the previous upload; the flag shows on the save in the
+  admin saves list (`saves` command, panel). A flagged save from a player who may not use dev mode freezes that player's trading
+  (6, "One player's trading") with the reason `dev mode was on in save vN`.
+- Wealth: net gain = the save's colony wealth − the previous current save's − the value of parcels delivered in between (silver,
+  item and pawn values), divided by the game days between the two saves (at least 1). At `WealthWarnPerDay` admins are warned; at
+  `WealthFreezePerDay` the player's trading is frozen too (an Admin is only warned). The first save, a save not later than the
+  previous one and a previous version stored before wealth was kept per version are not checked.
+- A frozen player raises no new alerts. Each alert is an audit entry by `system` (`integrity-devmode`, `integrity-wealth`) and an
+  admin-feed event `integrity.alert` `{player, kind: devmode|wealth-warn|wealth-freeze, version, net, days, rate, frozen}`, which
+  the Discord bot posts to its moderation channel.
+
+Both checks trust what the game reports: they catch spawning and duplication by an unmodified client (dev mode, bugs, exploits),
+not a modified client that lies about its wealth or its dev mode.
+
 ## 6. Administration
 
 - In game, moderators and admins type `/help` in chat.

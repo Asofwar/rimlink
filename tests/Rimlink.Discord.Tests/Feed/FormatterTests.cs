@@ -30,7 +30,25 @@ public class FormatterTests
         { FeedTypes.LotSold, new { lotId = 7, seller = P(1, "Nova"), buyer = P(2, "Bob"), price = 300, summary = "Steel ×50" } },
         { FeedTypes.ShopSold, new { host = P(2, "Bob"), buyer = P(1, "Nova"), item = "steel", count = 2, price = 200 } },
         { FeedTypes.AdminAction, new { action = "kick", actor = "api:discord-bot:discord:Mod (1)", target = P(2, "Bob"), details = "spam" } },
+        { FeedTypes.IntegrityAlert, new { player = P(1, "Nova"), kind = "devmode", version = 4, net = (long?)null, days = (double?)null, rate = (long?)null, frozen = true } },
     };
+
+    [Fact]
+    public void IntegrityAlertsNameThePlayerTheNumbersAndTheFreeze()
+    {
+        string warn = En.Format(Ev(FeedTypes.IntegrityAlert, new { player = P(1, "Nova"), kind = "wealth-warn", version = 7, net = 30000, days = 1.0, rate = 30000, frozen = false }))!;
+        string freeze = En.Format(Ev(FeedTypes.IntegrityAlert, new { player = P(1, "Nova"), kind = "wealth-freeze", version = 8, net = 300000, days = 2.0, rate = 150000, frozen = true }))!;
+        string dev = En.Format(Ev(FeedTypes.IntegrityAlert, new { player = P(1, "Nova"), kind = "devmode", version = 9, frozen = true }))!;
+
+        Assert.Contains("Nova", warn);
+        Assert.Contains("30000", warn);
+        Assert.Contains("v7", warn);
+        Assert.Contains("150000", freeze);
+        Assert.Contains("frozen", freeze);
+        Assert.Contains("dev mode", dev);
+        Assert.Contains("frozen", dev);
+        Assert.Equal(FeedGroup.Moderation, FeedTypes.GroupOf(FeedTypes.IntegrityAlert));
+    }
 
     [Theory]
     [MemberData(nameof(Samples))]

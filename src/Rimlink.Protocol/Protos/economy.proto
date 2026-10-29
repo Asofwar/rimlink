@@ -34,6 +34,8 @@ message PawnBlob {
   string label = 5;
   repeated SkillBrief skills = 6;
   bytes scribe_xml_zstd = 7;
+  // Market value × 100 when sent (0 from older clients); the wealth check counts it as imported.
+  int64 market_value_x100 = 8;
 }
 
 message ItemList { repeated ItemBlob items = 1; }

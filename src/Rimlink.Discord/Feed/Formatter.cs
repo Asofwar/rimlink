@@ -53,8 +53,17 @@ public sealed class Formatter(Strings s)
             FeedTypes.ShopSold => s.T("feed.shop.sold", Name(d, "buyer"), Text(d, "item"), Number(d, "count"), Name(d, "host"), Number(d, "price")),
             FeedTypes.AdminAction => s.T("feed.admin.action", Text(d, "actor"), Text(d, "action"),
                 Has(d, "target") ? s.T("feed.admin.target", Name(d, "target")) : "", Text(d, "details")),
+            FeedTypes.IntegrityAlert => Integrity(d),
             _ => null,
         };
+    }
+
+    private string Integrity(JsonElement d)
+    {
+        string line = Text(d, "kind") == "devmode"
+            ? s.T("feed.integrity.devmode", Name(d, "player"), Number(d, "version"))
+            : s.T("feed.integrity.wealth", Name(d, "player"), Number(d, "rate"), Number(d, "version"), Number(d, "net"), Number(d, "days"));
+        return Bool(d, "frozen") ? line + s.T("feed.integrity.frozen") : line;
     }
 
     private string Reason(JsonElement d) => Has(d, "reason") ? Text(d, "reason") : s.T("reason.none");

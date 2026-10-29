@@ -79,6 +79,7 @@ builder.Services.AddScoped<BanService>();
 builder.Services.AddScoped<LoginGate>();
 builder.Services.AddScoped<WorldService>();
 builder.Services.AddScoped<SaveStore>();
+builder.Services.AddScoped<Rimlink.Server.Application.Integrity.IntegrityService>();
 builder.Services.AddScoped<ModpackService>();
 builder.Services.AddScoped<ChatService>();
 builder.Services.AddScoped<Rimlink.Server.Application.Social.SocialService>();

@@ -22,6 +22,7 @@ public static class FeedTypes
     public const string ShopSold = "shop.sold";
     public const string AdminAction = "admin.action";
     public const string ChatMessage = "chat.message";
+    public const string IntegrityAlert = "integrity.alert";
 
     private static readonly Dictionary<string, FeedGroup> Groups = new()
     {
@@ -31,7 +32,7 @@ public static class FeedTypes
         [RaidLanded] = FeedGroup.Raids, [RaidResolved] = FeedGroup.Raids, [VisitStarted] = FeedGroup.Raids,
         [LiveStarted] = FeedGroup.Raids, [LiveEnded] = FeedGroup.Raids,
         [LotPosted] = FeedGroup.Market, [LotSold] = FeedGroup.Market, [ShopSold] = FeedGroup.Market,
-        [AdminAction] = FeedGroup.Moderation,
+        [AdminAction] = FeedGroup.Moderation, [IntegrityAlert] = FeedGroup.Moderation,
         [ChatMessage] = FeedGroup.Chat,
     };
 

@@ -22,11 +22,12 @@ public static class FeedTypes
     public const string ShopSold = "shop.sold";
     public const string AdminAction = "admin.action";
     public const string ChatMessage = "chat.message";
+    public const string IntegrityAlert = "integrity.alert";
 
     public static readonly IReadOnlySet<string> All = new HashSet<string>
     {
         ServerStarted, PlayerJoined, PlayerLeft, ColonyFounded, ColonyRemoved, Notice, ServerShutdown, EconomyFrozen, RaidsFrozen,
-        RaidLanded, RaidResolved, VisitStarted, LiveStarted, LiveEnded, LotPosted, LotSold, ShopSold, AdminAction, ChatMessage,
+        RaidLanded, RaidResolved, VisitStarted, LiveStarted, LiveEnded, LotPosted, LotSold, ShopSold, AdminAction, ChatMessage, IntegrityAlert,
     };
 }
 
@@ -57,5 +58,8 @@ public sealed record LotData(long LotId, FeedPlayer Seller, FeedPlayer? Buyer, l
 public sealed record ShopSoldData(FeedPlayer Host, FeedPlayer Buyer, string Item, int Count, long Price);
 
 public sealed record AdminActionData(string Action, string Actor, FeedPlayer? Target, string Details);
+
+/// <summary><c>kind</c>: devmode | wealth-warn | wealth-freeze; the numbers are null for devmode.</summary>
+public sealed record IntegrityAlertData(FeedPlayer Player, string Kind, int Version, long? Net, double? Days, long? Rate, bool Frozen);
 
 public sealed record ChatData(long Id, string Kind, FeedPlayer? From, string? Author, string Text);
