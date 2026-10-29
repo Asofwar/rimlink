@@ -66,7 +66,8 @@ public class TradeEscrowTests
         await AssertBothBack(nova, bob);
         var confirm = await Assert.ThrowsAsync<RpcException>(() => nova.C.Trades.ConfirmAsync(new TradeConfirmRequest { TradeId = trade.Id, Revision = closed.Revision }, nova.Auth).ResponseAsync);
         Assert.Equal(ErrorCode.TradeGone, confirm.ErrorDetail()?.Code);
-        Assert.Equal(cancelled + 1, TradeMetrics.Outcomes.WithLabels("cancelled").Value);
+        // The counter is process-wide and other test classes open, complete and cancel trades in parallel: at least one more.
+        Assert.True(TradeMetrics.Outcomes.WithLabels("cancelled").Value >= cancelled + 1);
     }
 
     [Fact]

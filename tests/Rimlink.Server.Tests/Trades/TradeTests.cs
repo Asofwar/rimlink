@@ -52,7 +52,8 @@ public class TradeTests
         Assert.Equal(trade.Id, pushed.Id);
         Assert.Equal(10, pushed.InitiatorSide.Items.Items[0].Count);
         Assert.True(pushed.InitiatorSide.Items.Items[0].ScribeXmlZstd.IsEmpty);
-        Assert.Equal(opened + 1, TradeMetrics.Outcomes.WithLabels("opened").Value);
+        // The counter is process-wide and other test classes open, complete and cancel trades in parallel: at least one more.
+        Assert.True(TradeMetrics.Outcomes.WithLabels("opened").Value >= opened + 1);
         using var scope = fixture.Services.CreateScope();
         Assert.Equal(640, (await scope.ServiceProvider.GetRequiredService<RimlinkDbContext>().Players.SingleAsync(p => p.Id == nova.Id)).LastOutgoingTick);
     }
@@ -213,7 +214,8 @@ public class TradeTests
         var pushed = new List<TradeStatus>();
         for (int i = 0; i < 3; i++) pushed.Add(await ReadEvent(novaStream, ServerEvent.BodyOneofCase.TradeUpdated, e => e.TradeUpdated.Trade.Status));
         Assert.Equal([TradeStatus.TradeOpen, TradeStatus.TradeOpen, TradeStatus.TradeCompleted], pushed);
-        Assert.Equal(completed + 1, TradeMetrics.Outcomes.WithLabels("completed").Value);
+        // The counter is process-wide and other test classes open, complete and cancel trades in parallel: at least one more.
+        Assert.True(TradeMetrics.Outcomes.WithLabels("completed").Value >= completed + 1);
     }
 
     [Fact]
