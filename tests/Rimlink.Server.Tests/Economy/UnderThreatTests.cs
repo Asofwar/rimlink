@@ -189,6 +189,44 @@ public class UnderThreatTests
         Assert.Equal(parcel.Id, (await p.B.Transfer.SendAsync(send, p.B.Auth)).Id);
     }
 
+    private static async Task SeedIncident(ServerFixture fixture, long buyer, long target, int kind, IncidentStateDb state)
+    {
+        using var scope = fixture.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<RimlinkDbContext>();
+        db.IncidentOrders.Add(new IncidentOrder
+        {
+            BuyerPlayerId = buyer, TargetPlayerId = target, EntryId = "x", IncidentDef = "RaidEnemy", Kind = kind, Level = 2, Price = 100, State = state,
+            CreatedAt = DateTime.UtcNow, ExpiresAt = DateTime.UtcNow.AddDays(7),
+        });
+        await db.SaveChangesAsync();
+    }
+
+    [Theory]
+    [InlineData(IncidentStateDb.Queued, true)]
+    [InlineData(IncidentStateDb.Announced, true)]
+    [InlineData(IncidentStateDb.Fired, false)]
+    public async Task AHostileIncidentWaitingBlocksOutflow(IncidentStateDb state, bool blocks)
+    {
+        var p = await Players();
+        using var fixture = p.Fixture;
+        await SeedIncident(fixture, p.Nova.Player.PlayerId, p.Bob.Player.PlayerId, kind: 0, state);
+
+        if (blocks) await AssertUnderThreat(() => Deposit(p.B));
+        else await Deposit(p.B);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task WeatherAndKindDoNotBlock(int kind)
+    {
+        var p = await Players();
+        using var fixture = p.Fixture;
+        await SeedIncident(fixture, p.Nova.Player.PlayerId, p.Bob.Player.PlayerId, kind, IncidentStateDb.Queued);
+
+        await Deposit(p.B);
+    }
+
     [Fact]
     public async Task InboundStaysOpenUnderThreat()
     {

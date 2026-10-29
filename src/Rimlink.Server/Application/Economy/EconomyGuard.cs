@@ -18,6 +18,7 @@ public sealed class EconomyGuard(RimlinkDbContext db, IOptions<EconomyOptions> o
 
     private static readonly RaidStateDb[] Incoming = [RaidStateDb.Queued, RaidStateDb.Announced, RaidStateDb.Landed];
     private static readonly LiveStateDb[] LiveOn = [LiveStateDb.Starting, LiveStateDb.Running, LiveStateDb.Waiting, LiveStateDb.Ending];
+    private static readonly IncidentStateDb[] IncidentsWaiting = [IncidentStateDb.Queued, IncidentStateDb.Announced];
 
     /// <summary>
     /// A raid waiting for, or landed in, this player's game; or an accepted live raid they host. A live raid's own row is
@@ -25,9 +26,11 @@ public sealed class EconomyGuard(RimlinkDbContext db, IOptions<EconomyOptions> o
     /// </summary>
     public async Task<bool> UnderThreat(long playerId)
     {
-        int live = (int)RaidController.ControllerLive, liveRaid = (int)LiveKind.LiveRaid;
+        int live = (int)RaidController.ControllerLive, liveRaid = (int)LiveKind.LiveRaid, hostile = (int)IncidentKind.IncidentHostile;
         return await db.Raids.AnyAsync(r => r.TargetPlayerId == playerId && r.Controller != live && Incoming.Contains(r.State))
-            || await db.LiveSessions.AnyAsync(s => s.HostPlayerId == playerId && s.Kind == liveRaid && LiveOn.Contains(s.State));
+            || await db.LiveSessions.AnyAsync(s => s.HostPlayerId == playerId && s.Kind == liveRaid && LiveOn.Contains(s.State))
+            // A paid hostile incident waiting for the colony is a raid to come (paid incidents spec §2).
+            || await db.IncidentOrders.AnyAsync(i => i.TargetPlayerId == playerId && i.Kind == hostile && IncidentsWaiting.Contains(i.State));
     }
 
     public async Task RequireNoThreat(long playerId)
