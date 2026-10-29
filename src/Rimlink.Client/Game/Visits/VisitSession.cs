@@ -262,10 +262,14 @@ public static class VisitSession
 /// <summary>Turns the loaded host save into a place to visit.</summary>
 public static class VisitLoader
 {
+    /// <summary>The faction the host's colony became in this copy (a live mirror gives it back to the host's things the host's blobs bring in).</summary>
+    public static Faction? HostFaction { get; private set; }
+
     public static void Apply(VisitPending pending)
     {
         var player = Faction.OfPlayer;
         var host = FactionGenerator.NewGeneratedFaction(new FactionGeneratorParms(FactionDefOf.OutlanderCivil, default, hidden: false));
+        HostFaction = host;
         host.Name = pending.HostName;
         Find.FactionManager.Add(host);
         if (pending.Live?.Kind == LiveKind.LiveRaid)

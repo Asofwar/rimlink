@@ -96,8 +96,11 @@ public static class MirrorApplier
             else return;
             ThingBlobs.ResetMapIndex(thing);
             GenSpawn.Spawn(thing, cell, map, WipeMode.VanishOrMoveAside);
+            bool ours = MirrorMode.OwnedIds.Contains(thing.thingIDNumber);
+            // The host's blob carries the host's factions: its colony's things are the player's there, but here the player is the guest.
+            if (!ours && thing.Faction == Faction.OfPlayer && Visits.VisitLoader.HostFaction is { } host && thing.def.CanHaveFaction) thing.SetFaction(host);
             if (thing is not Pawn pawn) return;
-            if (MirrorMode.OwnedIds.Contains(pawn.thingIDNumber))
+            if (ours)
             {
                 MirrorMode.Claim(pawn);
                 Find.ColonistBar?.MarkColonistsDirty();
