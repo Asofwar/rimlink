@@ -9,7 +9,10 @@
     <PackageReference Include="Microsoft.Extensions.Http" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Strings\Strings.*.json" LogicalName="Rimlink.Discord.Strings.%(Filename)%(Extension)" />
+    <Content Remove="Strings\Strings.*.json" />
+    <!-- Manifest names Rimlink.Discord.Strings.Strings.<language>.json, read by Text/Strings.cs. WithCulture=false: ".en"
+         in the file name is not a satellite-assembly culture here. -->
+    <EmbeddedResource Include="Strings\Strings.*.json" WithCulture="false" />
     <Content Include="Strings\commands.*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
