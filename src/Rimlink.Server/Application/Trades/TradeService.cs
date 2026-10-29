@@ -68,7 +68,8 @@ public sealed class TradeService(
                 InitiatorPawns = (r.Pawns ?? new PawnList()).ToByteArray(),
                 InitiatorSilver = r.Silver,
                 InitiatorNote = note,
-                InitiatorConfirmed = true,
+                // Not confirmed: an offer with nothing asked yet ("what will you give?") must not be taken by a bare Confirm.
+                InitiatorConfirmed = false,
                 PartnerItems = new ItemList().ToByteArray(),
                 PartnerPawns = new PawnList().ToByteArray(),
             };
@@ -132,7 +133,8 @@ public sealed class TradeService(
             side.Pawns = pawns.ToByteArray();
             side.Silver = r.Silver;
             side.Note = note;
-            side.Confirmed = true;
+            // Confirmed only when made on the current revision: a change made on an older view never agrees to an unseen other side.
+            side.Confirmed = r.BaseRevision == trade.Revision;
             other.Confirmed = false;
             trade.Revision++;
             if (HasGoods(r.Items, r.Pawns)) await transfers.StampOutgoing(playerId, r.GameTick);

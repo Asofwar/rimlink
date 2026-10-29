@@ -70,6 +70,7 @@ public class FixPassTests
         using var fixture = Server();
         var nova = await fixture.RegisterAndLogin("nova");
         var bob = await fixture.RegisterAndLogin("bob");
+        await SocialFixtures.AcceptGifts(fixture, bob.Player.PlayerId);
         var n = Clients(fixture, nova.SessionToken);
         for (int i = 0; i < 3; i++)
         {
@@ -109,6 +110,7 @@ public class FixPassTests
         using var fixture = Server().WithSetting("Economy:MaxPendingParcels", "1");
         var nova = await fixture.RegisterAndLogin("nova");
         var bob = await fixture.RegisterAndLogin("bob");
+        await SocialFixtures.AcceptGifts(fixture, bob.Player.PlayerId);
         await Fund(fixture, bob.Player.PlayerId, 1000);
         var n = Clients(fixture, nova.SessionToken);
         var b = Clients(fixture, bob.SessionToken);

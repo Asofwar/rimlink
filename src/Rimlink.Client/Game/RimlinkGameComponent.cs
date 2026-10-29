@@ -138,6 +138,7 @@ public sealed class RimlinkGameComponent : GameComponent
         HandleNotices();
         ReportPresence();
         Economy.Incoming.Tick();
+        Economy.GiftLetters.Tick();
         Raids.RaidIncoming.Tick();
         Raids.RaidResolver.Tick();
         Live.LiveHost.Tick();

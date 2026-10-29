@@ -61,6 +61,9 @@ message TradeSideRequest {
   string note = 6;
   int64 game_tick = 7;
   bool return_goods = 8;
+  // The trade revision the player made this change on. The change always applies (its goods already left the game), but
+  // the side counts as confirmed only when nothing changed since: a stale change never confirms an unseen other side.
+  int32 base_revision = 9;
 }
 
 message TradeConfirmRequest { int64 trade_id = 1; int32 revision = 2; }

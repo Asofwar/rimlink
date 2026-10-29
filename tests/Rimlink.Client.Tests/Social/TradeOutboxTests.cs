@@ -58,11 +58,12 @@ public class TradeOutboxTests : IDisposable
         var nova = await fixture.RegisterAndLogin("nova");
         var novaTrades = new Rimlink.Protocol.V1.Trades.TradesClient(fixture.CreateChannel());
         var trade = await novaTrades.OpenAsync(OpenTrade(bob.Login!.Player.PlayerId, Items(("Steel", 5))), Bearer(nova.SessionToken));
-        var request = TradeSide(trade.Id, Items(("Plasteel", 3)));
+        var request = TradeSide(trade.Id, Items(("Plasteel", 3)), baseRevision: trade.Revision);
         var bobSide = await new TradesClient(bob).SetSide(request, CancellationToken.None); // applied, the answer "lost"
         var outbox = Outbox();
         outbox.Add(request);
-        await novaTrades.ConfirmAsync(new TradeConfirmRequest { TradeId = trade.Id, Revision = bobSide.Revision }, Bearer(nova.SessionToken));
+        var done = await novaTrades.ConfirmAsync(new TradeConfirmRequest { TradeId = trade.Id, Revision = bobSide.Revision }, Bearer(nova.SessionToken));
+        Assert.Equal(TradeStatus.TradeCompleted, done.Status);
 
         var report = await outbox.Replay(ClientsOf(bob), CancellationToken.None);
 

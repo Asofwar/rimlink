@@ -53,6 +53,7 @@ public class ChoiceLetter_RimlinkGift : ChoiceLetter
 public static class GiftLetters
 {
     private static bool subscribed;
+    private static DateTime lastCheck = DateTime.MinValue;
 
     public static void Subscribe()
     {
@@ -64,7 +65,27 @@ public static class GiftLetters
 
     private static void OnArrived(Parcel parcel)
     {
-        if (!parcel.AwaitingDecision || Current.ProgramState != ProgramState.Playing) return;
+        if (!parcel.AwaitingDecision || Current.ProgramState != ProgramState.Playing || HasLetter(parcel.Id)) return;
+        Offer(parcel);
+    }
+
+    /// <summary>
+    /// Every few seconds on the colony: a gift waiting for us without a letter (it came while we were offline, or before the
+    /// map was loaded) gets one now, so it is not left to expire unnoticed. Called every frame by the game component.
+    /// </summary>
+    public static void Tick()
+    {
+        if (DateTime.UtcNow - lastCheck < TimeSpan.FromSeconds(5)) return;
+        lastCheck = DateTime.UtcNow;
+        if (!RimlinkSession.Active || Current.ProgramState != ProgramState.Playing || Visits.VisitSession.InVisit || Find.LetterStack is null) return;
+        foreach (var parcel in RimlinkSession.State.Economy.Pending.Where(p => p.AwaitingDecision && !HasLetter(p.Id)).ToList()) Offer(parcel);
+    }
+
+    private static bool HasLetter(long parcelId) =>
+        Find.LetterStack.LettersListForReading.Any(l => l is ChoiceLetter_RimlinkGift g && g.parcelId == parcelId);
+
+    private static void Offer(Parcel parcel)
+    {
         var letter = (ChoiceLetter_RimlinkGift)LetterMaker.MakeLetter(
             "Rimlink.Gifts.OfferLabel".Translate(parcel.From?.Name ?? "?"),
             "Rimlink.Gifts.OfferText".Translate(parcel.From?.Name ?? "?", Dialog_Economy.DescribeContents(parcel)),

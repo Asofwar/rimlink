@@ -32,7 +32,7 @@ public class TradeEscrowTests
     private static async Task<Trade> TwoSided(Party nova, Party bob)
     {
         var trade = await nova.C.Trades.OpenAsync(OpenTrade(bob.Id, Items(("Steel", 10)), Pawns(("Colonist", "Ann")), silver: 30), nova.Auth);
-        return await bob.C.Trades.SetSideAsync(TradeSide(trade.Id, Items(("Plasteel", 5)), silver: 20), bob.Auth);
+        return await bob.C.Trades.SetSideAsync(TradeSide(trade.Id, Items(("Plasteel", 5)), silver: 20, baseRevision: trade.Revision), bob.Auth);
     }
 
     private static async Task AssertBothBack(Party nova, Party bob)
@@ -95,7 +95,7 @@ public class TradeEscrowTests
         var nova = await Join(fixture, "nova", "Nova");
         var bob = await Join(fixture, "bob", "Bob");
         var trade = await nova.C.Trades.OpenAsync(OpenTrade(bob.Id, Items(("Steel", 10))), nova.Auth);
-        var request = TradeSide(trade.Id, Items(("Plasteel", 5)), silver: 20);
+        var request = TradeSide(trade.Id, Items(("Plasteel", 5)), silver: 20, baseRevision: trade.Revision);
         var bobSide = await bob.C.Trades.SetSideAsync(request, bob.Auth);
         await nova.C.Trades.ConfirmAsync(new TradeConfirmRequest { TradeId = trade.Id, Revision = bobSide.Revision }, nova.Auth);
 

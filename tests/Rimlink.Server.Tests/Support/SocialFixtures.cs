@@ -25,8 +25,10 @@ public static class SocialFixtures
         GameTick = tick,
     };
 
-    public static Protocol.V1.TradeSideRequest TradeSide(long tradeId, Protocol.V1.ItemList? items = null, Protocol.V1.PawnList? pawns = null, long silver = 0, string note = "", long tick = 100, bool returnGoods = false, string? requestId = null) => new()
+    /// <param name="baseRevision">The revision the side was made on; only then is the side confirmed (0: unknown, unconfirmed).</param>
+    public static Protocol.V1.TradeSideRequest TradeSide(long tradeId, Protocol.V1.ItemList? items = null, Protocol.V1.PawnList? pawns = null, long silver = 0, string note = "", long tick = 100, bool returnGoods = false, string? requestId = null, int baseRevision = 0) => new()
     {
+        BaseRevision = baseRevision,
         ClientRequestId = requestId ?? Guid.NewGuid().ToString("N"),
         TradeId = tradeId,
         Items = items ?? new Protocol.V1.ItemList(),

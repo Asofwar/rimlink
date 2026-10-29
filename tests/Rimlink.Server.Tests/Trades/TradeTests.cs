@@ -43,7 +43,7 @@ public class TradeTests
 
         Assert.Equal(TradeStatus.TradeOpen, trade.Status);
         Assert.Equal(1, trade.Revision);
-        Assert.True(trade.InitiatorSide.Confirmed);
+        Assert.False(trade.InitiatorSide.Confirmed); // an offer agrees to nothing until its maker confirms
         Assert.False(trade.PartnerSide.Confirmed);
         Assert.Equal("for your rifle", trade.InitiatorSide.Note);
         Assert.Equal("Bob", trade.Partner.Name);
@@ -112,7 +112,7 @@ public class TradeTests
         var second = await bob.C.Trades.SetSideAsync(TradeSide(trade.Id, Items(("Plasteel", 5)), silver: 20), bob.Auth);
         Assert.Equal(2, second.Revision);
         Assert.Empty(await Mailbox(bob));
-        var third = await bob.C.Trades.SetSideAsync(TradeSide(trade.Id, Items(("Gold", 3)), silver: 10, returnGoods: true), bob.Auth);
+        var third = await bob.C.Trades.SetSideAsync(TradeSide(trade.Id, Items(("Gold", 3)), silver: 10, returnGoods: true, baseRevision: second.Revision), bob.Auth);
 
         var back = Assert.Single(await Mailbox(bob));
         Assert.Equal(ParcelKind.ParcelTradeReturn, back.Kind);
@@ -134,7 +134,7 @@ public class TradeTests
         var bob = await Join(fixture, "bob", "Bob");
         var trade = await nova.C.Trades.OpenAsync(OpenTrade(bob.Id, Items(("Steel", 10)), silver: 30), nova.Auth);
 
-        var added = await nova.C.Trades.SetSideAsync(TradeSide(trade.Id, Items(("Steel", 5)), silver: 40), nova.Auth);
+        var added = await nova.C.Trades.SetSideAsync(TradeSide(trade.Id, Items(("Steel", 5)), silver: 40, baseRevision: trade.Revision), nova.Auth);
 
         Assert.Equal(15, added.InitiatorSide.Items.Items.Where(i => i.DefName == "Steel").Sum(i => i.Count));
         Assert.Equal(40, added.InitiatorSide.Silver);
@@ -151,7 +151,8 @@ public class TradeTests
         var nova = await Join(fixture, "nova", "Nova");
         var bob = await Join(fixture, "bob", "Bob");
         var trade = await nova.C.Trades.OpenAsync(OpenTrade(bob.Id, Items(("Steel", 10)), silver: 30), nova.Auth);
-        var bobSide = await bob.C.Trades.SetSideAsync(TradeSide(trade.Id, note: "what about a rifle?"), bob.Auth);
+        var bobSide = await bob.C.Trades.SetSideAsync(TradeSide(trade.Id, note: "what about a rifle?", baseRevision: trade.Revision), bob.Auth);
+        Assert.True(bobSide.PartnerSide.Confirmed);
 
         var noted = await nova.C.Trades.SetSideAsync(TradeSide(trade.Id, silver: 30, note: "no rifles"), nova.Auth);
 
@@ -190,7 +191,7 @@ public class TradeTests
         using var novaStream = events.Subscribe(new Empty(), nova.Auth);
         double completed = TradeMetrics.Outcomes.WithLabels("completed").Value;
         var trade = await nova.C.Trades.OpenAsync(OpenTrade(bob.Id, Items(("Steel", 10)), Pawns(("Colonist", "Ann")), silver: 30), nova.Auth);
-        var bobSide = await bob.C.Trades.SetSideAsync(TradeSide(trade.Id, Items(("Plasteel", 5)), silver: 20), bob.Auth);
+        var bobSide = await bob.C.Trades.SetSideAsync(TradeSide(trade.Id, Items(("Plasteel", 5)), silver: 20, baseRevision: trade.Revision), bob.Auth);
 
         var done = await nova.C.Trades.ConfirmAsync(new TradeConfirmRequest { TradeId = trade.Id, Revision = bobSide.Revision }, nova.Auth);
 
@@ -222,7 +223,7 @@ public class TradeTests
         var nova = await Join(fixture, "nova", "Nova");
         var bob = await Join(fixture, "bob", "Bob");
         var trade = await nova.C.Trades.OpenAsync(OpenTrade(bob.Id, Items(("Steel", 10))), nova.Auth);
-        var bobSide = await bob.C.Trades.SetSideAsync(TradeSide(trade.Id, Items(("Plasteel", 5))), bob.Auth);
+        var bobSide = await bob.C.Trades.SetSideAsync(TradeSide(trade.Id, Items(("Plasteel", 5)), baseRevision: trade.Revision), bob.Auth);
         var confirm = new TradeConfirmRequest { TradeId = trade.Id, Revision = bobSide.Revision };
         await nova.C.Trades.ConfirmAsync(confirm, nova.Auth);
 

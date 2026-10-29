@@ -42,7 +42,7 @@ public class TradeAdminTests
     private static async Task<Trade> TwoSided(Party nova, Party bob)
     {
         var trade = await nova.C.Trades.OpenAsync(OpenTrade(bob.Id, Items(("Steel", 10)), silver: 30), nova.Auth);
-        return await bob.C.Trades.SetSideAsync(TradeSide(trade.Id, Items(("Plasteel", 5)), silver: 20), bob.Auth);
+        return await bob.C.Trades.SetSideAsync(TradeSide(trade.Id, Items(("Plasteel", 5)), silver: 20, baseRevision: trade.Revision), bob.Auth);
     }
 
     private static async Task<Actor> Admin(ServerFixture fixture)

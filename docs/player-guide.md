@@ -101,9 +101,11 @@ and change hands only when both players confirmed the same offer. Start one with
 **Trade** in the Players window (an offline player works too: anyone with a settlement).
 
 - **Your offer** takes things and pawns from under the beacons, silver from your wallet and a short note; they leave
-  your colony at once, as when sending.
+  your colony at once, as when sending. An offer is not a promise yet: nothing changes hands until you confirm too.
 - **Change my side** adds more things to what you offered; tick **Take back what is already offered** to replace it
-  (the old goods come back by drop pod). Silver and note are the new totals. Any change unconfirms the other side.
+  (the old goods come back by drop pod). Silver and note are the new totals. Your changed side counts as confirmed,
+  the other side as not; if the other player changed something while your window was open, yours is not confirmed
+  either, so you never agree to an offer you have not seen.
 - **Confirm** agrees to the trade as you see it. When both sides confirmed, each gets the other side by drop pod.
 - **Cancel trade** (either player) sends each side back to its owner. An open trade expires after a week the same way.
 

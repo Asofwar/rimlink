@@ -22,7 +22,9 @@ public sealed class MailboxService(RimlinkDbContext db, EventBus events, WalletS
     {
         var recipient = await db.Players.AsNoTracking().Where(p => p.Id == toPlayerId).Select(p => new { p.AcceptGifts }).FirstOrDefaultAsync()
             ?? throw RpcErrors.With(StatusCode.NotFound, ErrorCode.RecipientUnknown, $"no player with id {toPlayerId}");
-        int pending = await db.Parcels.CountAsync(p => p.ToPlayerId == toPlayerId && p.DeliveredAt == null);
+        // Gifts waiting for an answer count against further gifts only: they must not lock purchases, returns or withdrawals.
+        bool gift = kind == ParcelKindDb.Gift;
+        int pending = await db.Parcels.CountAsync(p => p.ToPlayerId == toPlayerId && p.DeliveredAt == null && (gift || p.Decision != ParcelDecisionDb.Awaiting));
         // Returns of escrowed goods (lot withdrawn/expired) always land: refusing them would lose the seller's items.
         if (!ignoreMailboxLimit && pending >= options.Value.MaxPendingParcels)
             throw RpcErrors.Failed(ErrorCode.Unspecified, "recipient's mailbox is full");
@@ -56,9 +58,9 @@ public sealed class MailboxService(RimlinkDbContext db, EventBus events, WalletS
         events.SendTo(parcel.ToPlayerId, new ServerEvent { ParcelArrived = new ParcelArrived { Parcel = await ToProto(parcel, includeBlobs: false) } });
     }
 
-    /// <summary>One parcel of the player with its blobs.</summary>
+    /// <summary>One parcel of the player with its blobs; a gift waiting for a decision has none to give (a client that does not know decisions would drop it).</summary>
     public async Task<Parcel> Get(long playerId, long parcelId) =>
-        await db.Parcels.AsNoTracking().FirstOrDefaultAsync(p => p.Id == parcelId && p.ToPlayerId == playerId)
+        await db.Parcels.AsNoTracking().FirstOrDefaultAsync(p => p.Id == parcelId && p.ToPlayerId == playerId && p.Decision != ParcelDecisionDb.Awaiting)
         ?? throw new RpcException(new Status(StatusCode.NotFound, "no such parcel in your mailbox"));
 
     /// <summary>Undelivered parcels, plus delivered ones the player's current save predates (flagged for redelivery).</summary>

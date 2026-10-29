@@ -247,10 +247,13 @@ public sealed class AdminOperations(
         // A purchase or lot return has a paid counterpart; reversing it is wallet work for the admin.
         Parcel? back = null;
         long target;
+        bool refusedGift = false;
         switch (parcel.Kind)
         {
             case ParcelKindDb.Gift when parcel.FromPlayerId is { } sender:
                 target = sender;
+                // A gift still waiting for the recipient's answer is decided now: no answer or sweep may return it again.
+                if (parcel.Decision == ParcelDecisionDb.Awaiting) { parcel.Decision = ParcelDecisionDb.Refused; refusedGift = true; }
                 back = await mailbox.Create(sender, null, ParcelKindDb.Admin, ItemList.Parser.ParseFrom(parcel.Items), PawnList.Parser.ParseFrom(parcel.Pawns), 0, null, ignoreMailboxLimit: true);
                 if (parcel.Silver > 0) await wallet.Apply(sender, parcel.Silver, "refund", parcel.Id);
                 break;
@@ -269,6 +272,12 @@ public sealed class AdminOperations(
         await tx.CommitAsync();
         wallet.FlushEvents();
         if (back is not null) await mailbox.Announce(back);
+        if (refusedGift && await db.Players.AsNoTracking().FirstOrDefaultAsync(p => p.Id == parcel.ToPlayerId) is { } recipient)
+        {
+            // The recipient's client drops the gift from its mailbox and its letter.
+            string returned = Economy.TransferService.Summary(ItemList.Parser.ParseFrom(parcel.Items), PawnList.Parser.ParseFrom(parcel.Pawns), parcel.Silver);
+            events.SendTo(recipient.Id, new ServerEvent { GiftRefused = new GiftRefused { ParcelId = parcel.Id, By = recipient.ToRef(), Returned = returned } });
+        }
         await Audit(actor, "refund-parcel", null, $"parcel {parcelId} refunded to player {target}");
         return true;
     }

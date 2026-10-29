@@ -72,8 +72,10 @@ public static class Outgoing
         var taken = TakeFromMap(map, picks, pawns);
         if (taken is null) return;
         long tradeId = trade.Id;
+        // The revision the player saw: if the other side changed since, our side is applied but not confirmed.
+        int seen = trade.Revision;
         Run(taken, "Rimlink.Trades.SideChanged".Translate(),
-            (items, pawnList, tick) => new TradeSideRequest { ClientRequestId = EconomyClient.NewRequestId(), TradeId = tradeId, Items = items, Pawns = pawnList, Silver = silver, Note = note, GameTick = tick, ReturnGoods = returnGoods },
+            (items, pawnList, tick) => new TradeSideRequest { ClientRequestId = EconomyClient.NewRequestId(), TradeId = tradeId, Items = items, Pawns = pawnList, Silver = silver, Note = note, GameTick = tick, ReturnGoods = returnGoods, BaseRevision = seen },
             async request =>
             {
                 var changed = await RimlinkSession.Trades!.SetSide((TradeSideRequest)request, CancellationToken.None);

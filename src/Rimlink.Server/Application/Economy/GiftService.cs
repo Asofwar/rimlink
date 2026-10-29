@@ -24,11 +24,11 @@ public sealed class GiftService(RimlinkDbContext db, MailboxService mailbox, Wal
         var parcel = await db.Parcels.AsNoTracking().FirstOrDefaultAsync(p => p.Id == parcelId && p.ToPlayerId == playerId)
             ?? throw new RpcException(new Status(StatusCode.NotFound, "no such parcel in your mailbox"));
         if (parcel.Decision == ParcelDecisionDb.None) throw new RpcException(new Status(StatusCode.FailedPrecondition, "this parcel needs no decision"));
-        if (parcel.Decision != ParcelDecisionDb.Awaiting) return; // decided already: the same answer again changes nothing
+        if (parcel.Decision != ParcelDecisionDb.Awaiting || parcel.DeliveredAt is not null) return; // decided already: the same answer again changes nothing
 
         if (accept)
         {
-            int changed = await db.Parcels.Where(p => p.Id == parcelId && p.Decision == ParcelDecisionDb.Awaiting)
+            int changed = await db.Parcels.Where(p => p.Id == parcelId && p.Decision == ParcelDecisionDb.Awaiting && p.DeliveredAt == null)
                 .ExecuteUpdateAsync(s => s.SetProperty(p => p.Decision, ParcelDecisionDb.Accepted));
             if (changed == 1)
             {
@@ -45,7 +45,7 @@ public sealed class GiftService(RimlinkDbContext db, MailboxService mailbox, Wal
     {
         var before = now - TimeSpan.FromDays(options.Value.GiftDecisionDays);
         var due = await db.Parcels.AsNoTracking()
-            .Where(p => p.Decision == ParcelDecisionDb.Awaiting && p.CreatedAt < before)
+            .Where(p => p.Decision == ParcelDecisionDb.Awaiting && p.DeliveredAt == null && p.CreatedAt < before)
             .Select(p => p.Id).ToListAsync();
         int n = 0;
         foreach (long id in due)
@@ -59,7 +59,7 @@ public sealed class GiftService(RimlinkDbContext db, MailboxService mailbox, Wal
         Parcel parcel;
         await using (var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable))
         {
-            var found = await db.Parcels.FirstOrDefaultAsync(p => p.Id == parcelId && p.Decision == ParcelDecisionDb.Awaiting);
+            var found = await db.Parcels.FirstOrDefaultAsync(p => p.Id == parcelId && p.Decision == ParcelDecisionDb.Awaiting && p.DeliveredAt == null);
             if (found is null) return false; // answered meanwhile
             parcel = found;
             long sender = parcel.FromPlayerId ?? throw new InvalidOperationException($"gift {parcel.Id} has no sender");
