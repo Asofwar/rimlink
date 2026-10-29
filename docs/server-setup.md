@@ -122,14 +122,17 @@ and admins cannot be blocked. A block or a colony reset closes the open trades b
 player), each side going back to its owner.
 
 Economy hardening (same section): `ServerWealthPercent` 100 (0–1000) — the share of a player's server-held wealth
-(wallet if positive, open lots, undelivered parcels including their silver) that counts as colony wealth: in the loot cap
+(wallet if positive, open lots, undelivered parcels: their silver, and their items and pawns unless another player
+declared those values — gifts, loot, raid returns, captives) that counts as colony wealth: in the loot cap
 (`LootCapPercent` of items wealth plus this), in `MinColonyWealth` and, through the client, in the storyteller's threat
 points. `BlockOutflowUnderThreat` true — deposits, new lots and sends (wallet silver included, caravan hand-overs
 excluded) are refused with `UNDER_THREAT` while a raid on the player is queued, announced or landed, or an accepted live
 raid they host is under way. `StorageFeePercentPerDay` 0.5 (0 = off) and `StorageFreeDays` 3 — pawns and perishables in
 open lots and in undelivered gifts/purchases pay `value × percent × (days − free days)` when they leave the server
 (seller for lots, recipient for parcels; loot, returns, captives, withdrawals and admin parcels are free); the fee goes
-to the bank and may leave a debt, which refuses buying, posting and sending with `IN_DEBT` until paid. `economy stats`
+to the bank. A parcel's fee takes at most the recipient's balance; a lot's fee may leave the seller in debt, which refuses
+buying, posting and sending with `IN_DEBT` until deposits or sales pay it off. The forbidden list checks the declared
+item, stuff and pawn kind only: gear and inventory inside a pawn's blob are not seen. `economy stats`
 reports the fees collected.
 
 Forbidden defs: `PUT /api/admin/economy/forbidden-defs` with `{"defs": ["Gun_Revolver", …]}` (GET lists them), chat
