@@ -12,9 +12,11 @@ using Rimlink.Server.Storage.Entities;
 
 namespace Rimlink.Server.Application.Chat;
 
-public sealed class ChatService(RimlinkDbContext db, EventBus events, AdminFeed feed, Social.SocialService social, IServiceProvider services, ILogger<ChatService> log)
+public sealed class ChatService(RimlinkDbContext db, EventBus events, AdminFeed feed, Social.SocialService social, SessionRegistry sessions, IServiceProvider services, ILogger<ChatService> log)
 {
     public const int ExternalAuthorMaxLength = 32;
+    /// <summary>Tile numbers above any planet's (a world of a few hundred thousand tiles) and map cells above any map's (250×250 by default).</summary>
+    public const int MaxPingTile = 10_000_000, MaxPingCell = 1000;
 
     /// <summary>The game chat's rules for a line: trimmed, not empty, at most <see cref="Limits.ChatMaxLength"/>, no control characters but newlines.</summary>
     public static string CleanText(string text)
@@ -62,6 +64,18 @@ public sealed class ChatService(RimlinkDbContext db, EventBus events, AdminFeed 
             events.SendTo(toPlayerId, ev);
             if (toPlayerId != sender.PlayerId) events.SendTo(sender.PlayerId, ev);
         }
+    }
+
+    /// <summary>"Look here" for one online player (live UX spec §2): never stored, not in the history or the admin feed.</summary>
+    public async Task Ping(Session sender, long toPlayerId, int tile, MapCell? cell)
+    {
+        if (tile is < 0 or >= MaxPingTile) throw new RpcException(new Status(StatusCode.InvalidArgument, $"tile must be 0-{MaxPingTile - 1}"));
+        if (cell is not null && (cell.X is < 0 or >= MaxPingCell || cell.Z is < 0 or >= MaxPingCell))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, $"cell must be 0-{MaxPingCell - 1} on both axes"));
+        var from = await db.Players.AsNoTracking().FirstAsync(p => p.Id == sender.PlayerId);
+        if (from.MutedUntil is { } until && until > DateTime.UtcNow) throw RpcErrors.Failed(ErrorCode.Muted, $"you are muted until {until:u}");
+        if (toPlayerId == sender.PlayerId || sessions.ByPlayer(toPlayerId) is null) throw RpcErrors.Failed(ErrorCode.RecipientUnknown, "that player is not online");
+        events.SendTo(toPlayerId, new ServerEvent { Ping = new PingEvent { From = from.ToRef(), Tile = tile, Cell = cell } });
     }
 
     public async Task<List<ChatMessageEvent>> History(Session reader)

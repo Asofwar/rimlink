@@ -12,6 +12,12 @@ public sealed class ChatGrpcService(ChatService chat) : Protocol.V1.Chat.ChatBas
         return new Empty();
     }
 
+    public override async Task<Empty> Ping(PingRequest request, ServerCallContext context)
+    {
+        await chat.Ping(context.GetSession(), request.ToPlayerId, request.Tile, request.Cell);
+        return new Empty();
+    }
+
     public override async Task<ChatHistory> History(Empty request, ServerCallContext context)
     {
         var history = new ChatHistory();
