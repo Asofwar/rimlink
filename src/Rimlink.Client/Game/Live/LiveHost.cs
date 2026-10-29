@@ -36,6 +36,8 @@ public static class LiveHost
     private static DateTime lastResyncAt;
     private static DateTime lastGuestCheck;
     private static int emptyChecks;
+    /// <summary>Health signature of the last blob each guest pawn's mirror got (see <see cref="HealthSignature"/>).</summary>
+    private static readonly Dictionary<int, int> sentHealth = [];
     /// <summary>
     /// Sessions this game already reported or handed to the AI. The server's ended event for such a session arrives after the
     /// host ended it itself; it is not a pending end (a second, empty report would end a degraded raid with its escrow).
@@ -90,6 +92,7 @@ public static class LiveHost
         Map = map;
         lootCap = cap;
         emptyChecks = 0;
+        sentHealth.Clear();
         var owners = MapComponent_LiveOwners.Of(map);
         var spawned = new List<Pawn>();
         try
@@ -151,6 +154,7 @@ public static class LiveHost
             }
             int version = SaveSync.LastVersion;
             collector.Commit(baseline);
+            sentHealth.Clear(); // the guest loads its pawns from this snapshot
             lastDeltaTick = Find.TickManager.TicksGame;
             lastFullTick = lastDeltaTick;
             lastDeltaAt = DateTime.UtcNow;
@@ -252,19 +256,28 @@ public static class LiveHost
             var frames = DeltaCodec.Diff(collector.Current, next, MaxFrameBytes);
             if (collector.Damage.Count > 0) frames[0].Damage.AddRange(collector.Damage);
             if (collector.Cells.Count > 0) frames[0].Cells.AddRange(collector.Cells);
+            var healthSent = new List<(int Id, int Health)>();
             if (full)
             {
+                // The guest takes only the health from these blobs, and every reload of one logs vanilla warnings there (ideo
+                // fallback, replaced verbs): a pawn's blob goes only when its hediffs changed since the last one.
                 var owners = MapComponent_LiveOwners.Of(Map!);
                 foreach (var p in Map!.mapPawns.AllPawnsSpawned.Where(owners.IsOwned))
                 {
-                    try { frames[0].GuestPawnBlobs.Add(ThingBlobs.SerializePawn(p)); } catch { }
+                    int health = HealthSignature(p);
+                    if (sentHealth.TryGetValue(p.thingIDNumber, out int last) && last == health) continue;
+                    try { frames[0].GuestPawnBlobs.Add(ThingBlobs.SerializePawn(p)); healthSent.Add((p.thingIDNumber, health)); } catch { }
                 }
                 lastFullTick = tick;
             }
             bool all = true;
             foreach (var frame in frames) all &= live.Send(new LiveClientMsg { Delta = frame });
             // A frame the stream refused is not the guest's state: without the commit the next diff carries those changes again.
-            if (all) collector.Commit(next);
+            if (all)
+            {
+                collector.Commit(next);
+                foreach (var (id, health) in healthSent) sentHealth[id] = health;
+            }
             DeltasSent += frames.Count;
             lastDeltaTick = tick;
             lastDeltaAt = DateTime.UtcNow;
@@ -275,6 +288,19 @@ public static class LiveHost
             Log.Error("[Rimlink] live: delta collection failed: " + ex);
             lastDeltaTick = tick;
         }
+    }
+
+    /// <summary>The pawn's hediffs (kind, body part, severity in hundredths): what the guest's mirror takes from a pawn blob.</summary>
+    private static int HealthSignature(Pawn p)
+    {
+        var hash = new HashCode();
+        foreach (var h in p.health.hediffSet.hediffs)
+        {
+            hash.Add(h.def.shortHash);
+            hash.Add(h.Part?.Index ?? -1);
+            hash.Add((int)(h.Severity * 100f));
+        }
+        return hash.ToHashCode();
     }
 
     /// <summary>From the ExitMap hook: a guest pawn leaving the map is recorded with its load, as the 3a resolver does for raiders.</summary>
