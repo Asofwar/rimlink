@@ -1,6 +1,7 @@
 using Google.Protobuf;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Rimlink.Protocol.V1;
 using Rimlink.Server.Application.Live;
@@ -198,6 +199,66 @@ public class LiveRelayTests
         Assert.Equal(p.Session.Id, (await ReadEvent(bobEvents, ServerEvent.BodyOneofCase.LivePeerBack, e => e.LivePeerBack)).SessionId);
         Assert.Equal(LiveStateDb.Running, await StateOf(fixture, p.Session.Id));
         await keepAlive;
+    }
+
+    [Fact]
+    public async Task TheServersOwnTimeOnAFrameIsNotTheClientsSilence()
+    {
+        var slow = new SlowRunningWrite();
+        var p = await Started(LiveServer().WithSetting("Live:HeartbeatTimeoutSeconds", "1")
+            .WithServices(s => s.ConfigureDbContext<RimlinkDbContext>(o => o.AddInterceptors(slow))));
+        using var fixture = p.Fixture;
+        using var alive = new CancellationTokenSource();
+        using var host = await Open(p.Bob, p.Session.Id, LiveRelay.HostRole);
+        var hostBeats = Beat(host, p.Session.Id, alive.Token);
+        slow.Armed = true; // the guest's Hello writes Running: that write now takes longer than the heartbeat timeout
+
+        using var guest = await Open(p.Nova, p.Session.Id, LiveRelay.GuestRole);
+        var guestBeats = Beat(guest, p.Session.Id, alive.Token);
+
+        var before = new List<LiveServerMsg.MOneofCase>();
+        using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15)))
+        {
+            while (await host.ResponseStream.MoveNext(cts.Token) && host.ResponseStream.Current.MCase != LiveServerMsg.MOneofCase.PeerHello)
+                before.Add(host.ResponseStream.Current.MCase);
+        }
+        Assert.Equal(LiveServerMsg.MOneofCase.PeerHello, host.ResponseStream.Current.MCase);
+        Assert.True(slow.Delayed);
+        Assert.DoesNotContain(LiveServerMsg.MOneofCase.PeerLost, before);
+        Assert.Equal(LiveStateDb.Running, await StateOf(fixture, p.Session.Id));
+        alive.Cancel();
+        await Task.WhenAll(hostBeats, guestBeats);
+    }
+
+    private static Task Beat(AsyncDuplexStreamingCall<LiveClientMsg, LiveServerMsg> call, long sessionId, CancellationToken ct) => Task.Run(async () =>
+    {
+        try
+        {
+            while (true)
+            {
+                await Task.Delay(300, ct);
+                await call.RequestStream.WriteAsync(new LiveClientMsg { SessionId = sessionId, Heartbeat = new Empty() }, ct);
+            }
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or RpcException) { }
+    });
+
+    /// <summary>Once armed, holds the first save that moves a live session to Running for 2.5 s (a slow database).</summary>
+    private sealed class SlowRunningWrite : SaveChangesInterceptor
+    {
+        public volatile bool Armed;
+        public volatile bool Delayed;
+
+        public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        {
+            if (Armed && eventData.Context!.ChangeTracker.Entries<Rimlink.Server.Storage.Entities.LiveSession>().Any(e => e.State == EntityState.Modified && e.Entity.State == LiveStateDb.Running))
+            {
+                Armed = false;
+                await Task.Delay(2500, cancellationToken);
+                Delayed = true;
+            }
+            return result;
+        }
     }
 
     [Fact]
