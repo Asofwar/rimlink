@@ -140,6 +140,7 @@ public static class LiveGuest
     /// <summary>Called every frame by the game component.</summary>
     public static void Tick()
     {
+        ShowEndedNotice();
         if (Session is not { } session || RimlinkSession.Live is not { } live) return;
         if (!MirrorMode.Active)
         {
@@ -293,8 +294,24 @@ public static class LiveGuest
         wait = null;
         if (RimlinkSession.Live is { } live) { live.Ended -= OnStreamEnded; _ = live.Close(); }
         MirrorMode.Exit();
-        if (session is not null) Messages.Message(EndedText(session.Host?.Name ?? "?", reason), MessageTypeDefOf.NeutralEvent, historical: true);
+        if (session is not null)
+        {
+            string text = EndedText(session.Host?.Name ?? "?", reason);
+            // Inside the host's copy a message would go with the copy: it is shown once our own colony has loaded.
+            if (VisitSession.Active) endedNotice = (text, Verse.Current.Game);
+            else Messages.Message(text, MessageTypeDefOf.NeutralEvent, historical: true);
+        }
         if (VisitSession.Active) VisitSession.End(); // also after a failed resync: we are still inside the host's copy
+    }
+
+    private static (string Text, Verse.Game? ShownIn)? endedNotice;
+
+    /// <summary>The ended session's line, on the first frame of play in another game than the copy it ended in.</summary>
+    private static void ShowEndedNotice()
+    {
+        if (endedNotice is not { } notice || Verse.Current.Game == notice.ShownIn || Verse.Current.ProgramState != ProgramState.Playing || VisitSession.InVisit) return;
+        endedNotice = null;
+        Messages.Message(notice.Text, MessageTypeDefOf.NeutralEvent, historical: true);
     }
 
     /// <summary>What the guest reads when the session is over: its own line when the host ended it for lack of guest pawns.</summary>
