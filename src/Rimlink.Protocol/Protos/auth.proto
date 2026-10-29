@@ -35,6 +35,8 @@ message LoginRequest {
   }
   string server_password = 4;
   repeated ModRef mods = 5;
+  // Every Mod class of the running mods; the server compares the ones whose settings it shares.
+  repeated ModSettingsHash mod_settings = 6;
 }
 
 message RegisterRequest {
@@ -43,6 +45,7 @@ message RegisterRequest {
   string player_name = 3;
   // Registration logs the new account in, so it is checked against the modpack like a login.
   repeated ModRef mods = 4;
+  repeated ModSettingsHash mod_settings = 5;
 }
 
 message AtHomeRequest { bool at_home = 1; }

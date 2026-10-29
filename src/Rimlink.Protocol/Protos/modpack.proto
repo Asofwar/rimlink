@@ -11,6 +11,10 @@ service Modpack {
   rpc Set (ModpackList) returns (Empty);
   // Admin only. ThingDef/PawnKindDef names the modpack contains; blobs with other defs are refused. Empty = check off.
   rpc SetDefs (DefList) returns (Empty);
+  // Admin only. The settings files every player uses for these mods; an empty list turns the sharing off.
+  rpc SetConfigs (ModConfigList) returns (Empty);
+  // Admin only.
+  rpc GetConfigs (Empty) returns (ModConfigList);
 }
 
 message DefList {
@@ -31,16 +35,45 @@ message ModpackEntry {
   uint64 workshop_id = 4;
   string url = 5;
   EntryKind kind = 6;
+  // Hash of the admin's copy (ModContent.Scan); empty = the files of this mod are not compared.
+  string files_hash = 7;
 }
 
 message ModpackList {
   repeated ModpackEntry entries = 1;
 }
 
+// Who has to act on a difference.
+enum FixSide {
+  FIX_SIDE_PLAYER = 0;
+  FIX_SIDE_SERVER = 1;
+}
+
 message VersionMismatch {
   string package_id = 1;
   string client_version = 2;
   string server_version = 3;
+  // SERVER when the client's version is newer: the modpack is behind.
+  FixSide side = 4;
+}
+
+// Same version (or none pinned), different Defs/Patches/Assemblies files.
+message FileMismatch {
+  string package_id = 1;
+  string version = 2;
+}
+
+// One settings file shared by the server: handle = the mod's Mod class name, content = the file as the admin uploaded it.
+message ModConfig {
+  string package_id = 1;
+  string handle = 2;
+  bytes content = 3;
+  // Lower-case hex SHA-256 of content, computed by the server.
+  string hash = 4;
+}
+
+message ModConfigList {
+  repeated ModConfig configs = 1;
 }
 
 // Returned in LoginReply when the client's mods do not match; the token is empty in that case.
@@ -49,4 +82,9 @@ message ModpackDiff {
   repeated ModRef extra = 2;
   repeated VersionMismatch wrong_version = 3;
   repeated ModpackEntry server_list = 4;
+  // The mods match but the required ones load in another relative order.
+  bool order_differs = 5;
+  repeated FileMismatch files = 6;
+  // The server's settings for the mods whose settings file differs, whole, so the client can use them without a session.
+  repeated ModConfig configs = 7;
 }

@@ -18,4 +18,9 @@ public static class Limits
     public const int EconomyMaxParcelBytes = 900 * 1024;
     public const int EconomyMaxItemsPerParcel = 200;
     public const int EconomyMaxPawnsPerParcel = 10;
+
+    // Shared mod settings travel inside the login reply (ModpackDiff.configs): the total stays below MaxMessageBytes.
+    public const int MaxModConfigBytes = 256 * 1024;
+    public const int MaxModConfigsTotalBytes = 768 * 1024;
+    public const int MaxModConfigs = 64;
 }

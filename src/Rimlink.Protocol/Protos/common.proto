@@ -47,6 +47,9 @@ enum ErrorCode {
   TRADE_GONE = 34;
   TRADE_CHANGED = 35;
   TRADE_LIMIT = 36;
+  // Modpack join (sub-project modpack-join): a mod settings set the admin uploaded was refused (size, mod not in the
+  // modpack, mod loaded before Rimlink).
+  MODPACK_CONFIGS_INVALID = 37;
 }
 
 // Attached to failed calls as the "rimlink-error-bin" trailer.
@@ -66,4 +69,19 @@ message PlayerRef {
 message ModRef {
   string package_id = 1;
   string version = 2;
+  // Place in the client's load order (0 = first).
+  int32 position = 3;
+  // Hash of the mod's Defs/Patches/Assemblies files (ModContent.Scan); empty = an older client, content unknown.
+  string files_hash = 4;
+  bool has_defs = 5;
+  bool has_patches = 6;
+  bool has_assemblies = 7;
+}
+
+// The settings file one Mod class of a running mod uses: handle = the class name, hash = lower-case hex SHA-256 of the
+// file in effect, or "none" when the mod has not written one.
+message ModSettingsHash {
+  string package_id = 1;
+  string handle = 2;
+  string hash = 3;
 }
