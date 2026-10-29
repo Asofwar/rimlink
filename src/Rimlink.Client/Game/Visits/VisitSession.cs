@@ -239,7 +239,7 @@ public static class VisitSession
         try
         {
             using var file = File.OpenRead(path);
-            var missing = Rimlink.Client.Visits.SaveMods.Missing(file, ModsConfig.IsActive);
+            var missing = Rimlink.Client.Visits.SaveMods.Missing(file, id => ModLister.GetActiveModWithIdentifier(id, ignorePostfix: true) is not null);
             return missing.Count == 0 ? null : string.Join(", ", missing);
         }
         catch (Exception ex)

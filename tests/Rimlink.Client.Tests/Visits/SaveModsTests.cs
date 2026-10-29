@@ -61,6 +61,16 @@ public class SaveModsTests
     }
 
     [Fact]
+    public void TheSteamPostfixOfAModIdIsIgnored()
+    {
+        // A host with both a local and a Workshop copy of a mod plays the Workshop one as "<id>_steam"; the visitor runs "<id>".
+        string steam = Header.Replace("<li>brrainz.harmony</li>", "<li>brrainz.harmony_STEAM</li>");
+        var active = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "brrainz.harmony", "ludeon.rimworld", "local.s2testdef", "asofwar.rimlink" };
+
+        Assert.Empty(SaveMods.Missing(Save(steam), active.Contains));
+    }
+
+    [Fact]
     public void NothingIsMissingWhenEveryModRuns()
     {
         Assert.Empty(SaveMods.Missing(Save(Header), _ => true));

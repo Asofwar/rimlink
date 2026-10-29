@@ -25,11 +25,18 @@ public static class SaveMods
             var missing = new List<string>();
             for (int i = 0; i < ids.Count; i++)
             {
-                if (ids[i].Length == 0 || isActive(ids[i])) continue;
+                if (ids[i].Length == 0 || isActive(WithoutSteamPostfix(ids[i]))) continue;
                 missing.Add(i < names.Count && names[i].Length > 0 ? names[i] : ids[i]);
             }
             return missing;
         }
         return [];
     }
+
+    /// <summary>
+    /// The game names the Workshop copy of a mod also installed locally "&lt;id&gt;_steam" and writes that into the save: the same mod as
+    /// "&lt;id&gt;" for a visitor with only one copy.
+    /// </summary>
+    private static string WithoutSteamPostfix(string id) =>
+        id.EndsWith("_steam", StringComparison.OrdinalIgnoreCase) ? id[..^"_steam".Length] : id;
 }
