@@ -87,9 +87,12 @@ public sealed class LiveClient(RimlinkConnection connection, ILog log)
     /// <summary>Ends the session for both sides (the server relays the end and marks the session Ending), then closes. A Close that follows waits for the frame to leave.</summary>
     public Task End(LiveEndReason reason) => ending = EndCore(reason);
 
+    private LiveEndReason? requestedEnd;
+
     private async Task EndCore(LiveEndReason reason)
     {
         if (loop is null) return;
+        requestedEnd = reason;
         Send(new LiveClientMsg { End = new EndMsg { Reason = reason } });
         var until = DateTime.UtcNow + TimeSpan.FromSeconds(2);
         while (DateTime.UtcNow < until)
@@ -148,6 +151,7 @@ public sealed class LiveClient(RimlinkConnection connection, ILog log)
                 return;
             }
             IsOpen = true;
+            requestedEnd = null;
             if (first) opened.TrySetResult();
             else { lost = DateTime.MinValue; log.Info("live: stream reconnected"); Reconnected?.Invoke(); }
             first = false;
@@ -170,7 +174,9 @@ public sealed class LiveClient(RimlinkConnection connection, ILog log)
                     }
                     if (ended is not null) break;
                 }
-                // A stream that completes without an End frame (a relay timeout, a server restart) is a drop: the reconnect's Hello learns whether the session is gone.
+                // A stream that completes without an End frame is a drop (a relay timeout, a server restart): the reconnect's Hello learns
+                // whether the session is gone. After our own End the server closes the stream: that is the end we asked for.
+                if (ended is null && requestedEnd is { } requested) ended = requested.ToString();
             }
             catch (RpcException ex) when (ex.StatusCode == StatusCode.Aborted) { ended = "replaced"; }
             catch (RpcException ex) when (ex.StatusCode == StatusCode.FailedPrecondition || ex.StatusCode == StatusCode.PermissionDenied) { ended = ex.Status.Detail; }
