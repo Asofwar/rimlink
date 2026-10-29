@@ -83,7 +83,8 @@ the goods are already in someone else's mailbox, so an older file would duplicat
 
 If the server does not answer a transfer (connection lost, trading paused), the goods are neither sent nor put back:
 the request waits in `Saves/Rimlink/<server>_<player>/outbox.json` and is sent again, as the same request, at your
-next login or reconnect. A request the server then refuses comes back to your colony by drop pod.
+next login or reconnect. A request the server then refuses comes back to your colony by drop pod; one that took nothing
+from the colony (wallet silver only, a raid by copies) is simply dropped.
 
 ## 5. Raids and visits
 
