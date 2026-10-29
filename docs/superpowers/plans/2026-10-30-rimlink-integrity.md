@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Protocol only grows: `ErrorCode.PLAYER_FROZEN = 32`; `SaveHeader.dev_mode = 8`; `PawnBlob.market_value_x100 = 8`; `LoginReply.dev_mode_allowed = 10`; `WorldParams.difficulty_values = 12` (zstd Scribe XML of `Difficulty`); `WorldInfo.storyteller_locked = 4`. Other branches may take the same numbers: the branch that lands later renumbers at rebase.
+- Protocol only grows: `ErrorCode.PLAYER_FROZEN = 38` (32–37 went to the safe-trades and modpack-join branches); `SaveHeader.dev_mode = 8`; `PawnBlob.market_value_x100 = 8`; `LoginReply.dev_mode_allowed = 10`; `WorldParams.difficulty_values = 12` (zstd Scribe XML of `Difficulty`); `WorldInfo.storyteller_locked = 4`. Other branches may take the same numbers: the branch that lands later renumbers at rebase.
 - Options section `Integrity` (`IntegrityOptions`, env `Rimlink__Integrity__*`): `DevMode = AdminsOnly | Everyone` (default `AdminsOnly`), `WealthWarnPerDay = 20000`, `WealthFreezePerDay = 100000` (0 disables either; both > 0 → freeze ≥ warn), `StorytellerPolicy = Locked | Free` (default `Locked`). Every key in `deploy/appsettings.example.json` and `docs/server-setup.md`.
 - One EF migration named `Integrity`: `Player.EconomyFrozenAt` (`DateTime?`), `Player.EconomyFreezeReason` (`string?`), `SaveVersion.DevMode` (bool), `SaveVersion.WealthTotal`, `SaveVersion.WealthItems` (long). `dotnet ef migrations add Integrity --project src/Rimlink.Server` (no `-nologo`).
 - Wealth formula (spec §4): `imported` = parcels to the player with `DeliveredTick` in (`base.GameTick`, `new.GameTick`]: silver + Σ item `market_value_x100 × count / 100` + Σ pawn `market_value_x100 / 100`; `net = new.WealthTotal − base.WealthTotal − imported`; `days = max(1, (new.GameTick − base.GameTick) / 60000.0)`; `rate = net / days`. Skip: no base, `new.GameTick ≤ base.GameTick`, `base.WealthTotal == 0`, player frozen. Role Admin: warn only, never frozen.
@@ -85,7 +85,7 @@
 ### Task 3: Per-player economy freeze in the gate and the services
 
 **Files:**
-- Modify: `src/Rimlink.Protocol/Protos/common.proto` (`PLAYER_FROZEN = 32`)
+- Modify: `src/Rimlink.Protocol/Protos/common.proto` (`PLAYER_FROZEN = 38`)
 - Create: `src/Rimlink.Server/Application/Economy/PlayerFreeze.cs` (scoped; registered in `Program.cs`)
 - Modify: `src/Rimlink.Server/Application/Economy/EconomyGate.cs` (inject `RimlinkDbContext`; new `RequireOpenFor`)
 - Modify: `TransferService.Send`, `WalletService.Deposit` / `Withdraw`, `MarketService.Post` / `Buy` / `List`, `ShopService.Buy`, `RaidService.Launch` — replace `gate.RequireOpen()` with `await gate.RequireOpenFor(<initiator>)`; `MarketService.Withdraw`, `RaidService.Announce` and the wallet `Get`/`History` keep `RequireOpen()`
