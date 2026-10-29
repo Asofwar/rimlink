@@ -142,7 +142,7 @@
     - `PanelSession? Find(string? id)` — null when unknown or expired; expired sessions are removed;
     - `void End(string id)`;
     - `bool IsLockedOut(string ip, out TimeSpan retryAfter)`, `void RecordFailure(string ip)`.
-    - The failure window starts at the first failure of the window.
+    - The failure window starts at the first failure of the window. A successful login does not reset the IP's counter (spec §3).
     - Thread-safe (`ConcurrentDictionary` or a lock).
   - `PanelEndpoints`:
     - constants `CookieName = "rimlink_panel"`, `PanelHeader = "X-Rimlink-Panel"`;
@@ -163,6 +163,7 @@
   - `LoginTrimsTheToken` — token `" test-admin-token\n"` → 200.
   - `WrongTokenIs401AndTheSixthAttemptIs429` — five wrong → 401 each; the sixth with the right token → 429 with a `Retry-After` header.
   - `LockoutEndsAfterTheWindow` — after the lockout, `clock.Advance(10 min + 1 s)` → right token → 200.
+  - `SuccessDoesNotResetTheFailureCount` — four wrong, one right (200), one wrong (401); the next right → 429.
   - `LogoutEndsTheSession` — logout → 200; then GET `/api/admin/players/online` and GET `/api/panel/session` with the old cookie → 401.
   - `SessionExpiresAfterSessionHours` — `clock.Advance(12 h + 1 s)` → GET `/api/panel/session` → 401.
   - `TwentyFirstLoginEvictsTheOldest` — 21 logins; the first cookie → 401, the last → 200.

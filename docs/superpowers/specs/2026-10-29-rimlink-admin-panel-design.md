@@ -81,7 +81,8 @@ wwwroot/
 
 Код сервера:
 - `Hosting/PanelOptions.cs` — опции панели.
-- `Hosting/ServerCertificate.cs` — singleton с загруженным сертификатом Kestrel и его отпечатком.
+- `Hosting/ServerCertificate.cs` — singleton, который загружает тот же сертификат, что Kestrel (тот же PEM или
+  `server.pfx`), и отдаёт его отпечаток.
 - `Rest/PanelEndpoints.cs` — вход, выход, сессия.
 - `Rest/PublicEndpoints.cs` — публичный статус.
 - `Rest/AdminDirectoryEndpoints.cs` — новые admin-маршруты, чтобы не раздувать `AdminEndpoints.cs`.
@@ -182,8 +183,8 @@ Bearer-запросы этих проверок не проходят: у них
   сертификат задаётся `Tls:CertificatePath`/`KeyPath` (раздел в `server-setup.md`).
 - Публичная страница показывает отпечаток в том же формате, что окно доверия клиента:
   `HEX(SHA256(RawData))`, как `CertificatePinStore.Fingerprint`.
-- `KestrelSetup` отдаёт загруженный сертификат в `ServerCertificate`; признак самоподписанного — сертификат не
-  из `Tls:CertificatePath`.
+- `ServerCertificate` читает тот же файл, что `KestrelSetup`; признак самоподписанного — сертификат не из
+  `Tls:CertificatePath`.
 
 **Публичные данные.** В `/api/public/status` нет IP, SteamID, логинов и id аккаунтов. Имена игроков — только при
 `PublicPlayerNames=true`.
@@ -356,7 +357,7 @@ xUnit в `tests/Rimlink.Server.Tests` против настоящего серв
 | `Panel/PublicStatusTests` | без авторизации; в теле нет IP и SteamID; `PublicPlayerNames=false` → `players: null`; `Panel:Public=false` → 404 |
 | `Panel/StaticFilesTests` | `/` и `/admin/` отдают HTML с CSP и `nosniff`; `/api/admin/*` с `no-store`; gRPC-вызов на том же сервере работает; `Panel:Enabled=false` → 404 на статику |
 | `Panel/FrontendGuardTests` | в `wwwroot/**/*.js` нет запрещённых вызовов (§3); наборы ключей `en.json` и `ru.json` совпадают; каждый ключ `t('…')` из JS есть в `en.json` |
-| `Tools/*` | новые команды CLI против тестового сервера, как у существующих |
+| `Tools/AdminCommandTests` | новые команды CLI против тестового сервера: разбор команд выносится в `AdminCommand.Run(RestClient, …)`, `RestClient` получает конструктор от готового `HttpClient` |
 
 JS-кода юнит-тестами не покрываем: Node в репозитории нет. Каждый экран проверяется вручную во встроенном
 браузере против локального сервера с данными; онлайн-игрок берётся из запущенной через GABS игры (кик и мут из
