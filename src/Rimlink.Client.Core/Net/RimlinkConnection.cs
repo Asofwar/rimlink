@@ -33,6 +33,7 @@ public sealed class RimlinkConnection : IAsyncDisposable
     private readonly ILog log;
     private readonly ConnectionTransport transport;
     private readonly GrpcChannel channel;
+    private readonly NetworkDropHandler drop;
     private readonly CancellationTokenSource lifetime = new();
     private volatile string? token;
     private Task? eventLoop;
@@ -52,9 +53,10 @@ public sealed class RimlinkConnection : IAsyncDisposable
             return Task.CompletedTask;
         });
         bool insecure = this.transport.Address.Scheme == Uri.UriSchemeHttp;
+        drop = new NetworkDropHandler(this.transport.Handler);
         channel = GrpcChannel.ForAddress(this.transport.Address, new GrpcChannelOptions
         {
-            HttpHandler = this.transport.Handler,
+            HttpHandler = drop,
             DisposeHttpClient = true,
             Credentials = ChannelCredentials.Create(insecure ? ChannelCredentials.Insecure : ChannelCredentials.SecureSsl, callCredentials),
             UnsafeUseInsecureChannelCallCredentials = insecure,
@@ -82,6 +84,12 @@ public sealed class RimlinkConnection : IAsyncDisposable
     public static CertificatePinStore Pins { get; set; } = new(Path.Combine(AppContext.BaseDirectory, "rimlink-pins.json"));
 
     private PinCheck? pendingPin;
+
+    /// <summary>
+    /// Dev tooling only: this client loses its connection for <paramref name="duration"/> (open streams break, calls fail)
+    /// and then reconnects the usual way. The machine's network is not touched.
+    /// </summary>
+    public void DropNetwork(TimeSpan duration) => drop.Drop(duration);
 
     public ServerEndpoint Endpoint => endpoint;
     public ConnectionState State => state;

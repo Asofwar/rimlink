@@ -180,4 +180,38 @@ public class RimlinkConnectionTests
         Assert.Empty(await scope.ServiceProvider.GetRequiredService<AdminOperations>().ListOnline(Actor.Api));
         await connection.DisposeAsync();
     }
+
+    [Fact]
+    public async Task DroppedNetworkBreaksTheStreamAndReconnectsWhenItIsBack()
+    {
+        using var fixture = Server();
+        await fixture.RegisterAndLogin("nova", playerName: "Nova");
+        var credentials = new PasswordCredentials("nova", "pw");
+        await using var connection = Connect(fixture, credentials);
+        await connection.ConnectAsync(CancellationToken.None);
+
+        // Dev-only outage: the open event stream breaks as on a real network loss, then the usual reconnect runs.
+        connection.DropNetwork(TimeSpan.FromSeconds(2));
+        await WaitForState(connection, ConnectionState.Reconnecting);
+        await WaitForState(connection, ConnectionState.Connected, TimeSpan.FromSeconds(20));
+        var notice = WaitFor(connection, ServerEvent.BodyOneofCase.Notice);
+        fixture.Services.GetRequiredService<EventBus>().Broadcast(new ServerEvent { Notice = new Notice { Text = "back" } });
+
+        Assert.Equal("back", (await notice).Notice.Text);
+        Assert.True(credentials.Calls >= 2);
+    }
+
+    [Fact]
+    public async Task CallsFailWhileTheNetworkIsDown()
+    {
+        using var fixture = Server();
+        await fixture.RegisterAndLogin("nova");
+        await using var connection = Connect(fixture, new PasswordCredentials("nova", "pw"));
+        await connection.ConnectAsync(CancellationToken.None);
+
+        connection.DropNetwork(TimeSpan.FromSeconds(30));
+
+        var ex = await Assert.ThrowsAsync<Grpc.Core.RpcException>(() => connection.World.GetAsync(new Empty()).ResponseAsync);
+        Assert.Equal(Grpc.Core.StatusCode.Unavailable, ex.StatusCode);
+    }
 }
