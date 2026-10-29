@@ -107,8 +107,11 @@ waits for a dropped side), `GuestPauses` 10 and `GuestPauseSeconds` 60 (the gues
 player (`LIVE_ACTIVE`); the raid rules of 5b (cooldowns, protection, peaceful mode, loot caps) apply to live raids, which hold a
 raid row with the escrowed pawns. A declined or unanswered invitation falls back: the raid goes on as an asynchronous raid with
 the timing the attacker chose, a visit's pawns come home by parcel. A lost guest's raid is handed to the host's AI after the wait;
-a lost host leaves the session in `Ending` until the host's next login, which reports it (`pending_live_ends`); an admin can end
-any session (`live end`). Every pawn or thing movement still ends as a mailbox parcel, as in 5a/5b.
+a lost host leaves the session in `Ending` until the host's next login, which reports it (`pending_live_ends`); a session whose
+host or guest never opened its stream (a crash before the snapshot, a server restart) ends the same way after the wait; an admin
+can end any session (`live end`), and ending one that already waits for the host's report sends the escrowed pawns home as they
+left. A guest may ask the host for a fresh snapshot twice in a burst and then once per ten seconds. Every pawn or thing movement
+still ends as a mailbox parcel, as in 5a/5b.
 
 ## 6. Administration
 
@@ -125,8 +128,9 @@ any session (`live end`). Every pawn or thing movement still ends as a mailbox p
   Cancelling a raid that has not landed returns the pawns to the attacker; a landed one stays with the defender's map
   unless `--return` sends the attacker's originals home as well (the copies on the defender's map are not touched).
 - Live sessions: chat `/live list [player]`, `/live end <id> [reason]`; the same via `rimlink-tools admin live list [playerId]|end <id> [reason]`
-  and REST `GET /api/admin/live[?playerId=]`, `POST /api/admin/live/{id}/end` (body `{"reason": "..."}`). Ending a session reports
-  the guest's pawns as they stand on the host's map at the host's next report (a live raid is not continued by the AI).
+  and REST `GET /api/admin/live[?playerId=]`, `POST /api/admin/live/{id}/end` (body `{"reason": "..."}`). Ending a running session makes
+  the host report the guest's pawns as they stand (a live raid is not continued by the AI); ending one that is already waiting for
+  that report returns the escrowed pawns to the guest instead.
 - Every admin action is logged (`/actions`).
 
 ## 7. Backups
