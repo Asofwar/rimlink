@@ -166,7 +166,10 @@ public static class LiveGuest
             return;
         }
         MirrorMode.ClaimOwnPawns();
-        for (int i = 0; i < 64 && live.Incoming.TryDequeue(out var frame); i++)
+        // A slow frame (the game in the background, a host at full speed) must not let the queue overflow: past the first 64
+        // frames the drain goes on for a few milliseconds more.
+        var drainUntil = DateTime.UtcNow + TimeSpan.FromMilliseconds(8);
+        for (int i = 0; (i < 64 || DateTime.UtcNow < drainUntil) && live.Incoming.TryDequeue(out var frame); i++)
         {
             switch (frame!.MCase)
             {
@@ -199,6 +202,12 @@ public static class LiveGuest
                     RimlinkLog.Instance.Warn("live: " + frame.Notice.Text);
                     break;
             }
+        }
+        // A dropped delta is a change this mirror never saw (a pawn carried off stays where it lay): only a snapshot repairs it.
+        if (live.Incoming.TakeDroppedDeltas() is > 0 and int dropped && !Loading)
+        {
+            RimlinkLog.Instance.Warn($"live: {dropped} deltas dropped while the mirror fell behind; asking for a resync");
+            live.Send(new LiveClientMsg { ResyncRequest = new Empty() });
         }
     }
 
