@@ -86,6 +86,7 @@ public static class ThingBlobs
             ArrivalIdeo = null;
         }
         if (newIds) RegenerateIds(pawn);
+        ForgetJobs(pawn);
         if (pawn.Faction != joins) pawn.SetFaction(joins);
         if (pawn.RaceProps.Humanlike) PawnComponentsUtility.AddAndRemoveDynamicComponents(pawn);
         // References into the sender's game (their policies) did not travel either and resolve to null: point them at ours.
@@ -93,6 +94,21 @@ public static class ThingBlobs
         if (pawn.drugs is not null && pawn.drugs.CurrentPolicy is null) pawn.drugs.CurrentPolicy = Current.Game.drugPolicyDatabase.DefaultDrugPolicy();
         if (pawn.foodRestriction is not null && pawn.foodRestriction.CurrentFoodPolicy is null) pawn.foodRestriction.CurrentFoodPolicy = Current.Game.foodRestrictionDatabase.DefaultFoodRestriction();
         return pawn;
+    }
+
+    /// <summary>
+    /// A pawn serialised while spawned carries the job it had on the sender's map (a raider's or a guest's <c>Wait</c>). Unspawned pawns
+    /// still tick their job (a drop pod does), and <c>JobDriver_Wait</c> reads <c>pawn.Map</c>, which is null there: the pawn arrives
+    /// without a job, as vanilla's <c>DeSpawn</c> leaves it. Dropped by assignment: <c>StopAll</c> would drop carried things and release
+    /// reservations on maps of this game the job never had.
+    /// </summary>
+    private static void ForgetJobs(Pawn pawn)
+    {
+        if (pawn.jobs is not { } jobs) return;
+        jobs.ClearDriver();
+        jobs.curJob = null;
+        jobs.jobQueue = new Verse.AI.JobQueue();
+        if (!pawn.Downed) jobs.posture = PawnPosture.Standing;
     }
 
     /// <summary>New thing IDs for the object and everything it holds (apparel, equipment, inventory, carried), new hediff IDs for pawns.</summary>
