@@ -100,7 +100,7 @@ public static class Outgoing
             {
                 caravan.RemovePawn(pawn);
                 taken.Add(new Taken(null, ThingBlobs.SerializePawn(pawn), p => PawnExit.BackToCaravan(caravan, (Pawn)p)));
-                PawnExit.Remove(pawn);
+                PawnExit.Leave(pawn);
             }
             foreach (var thing in things)
             {
@@ -132,7 +132,7 @@ public static class Outgoing
             {
                 caravan.RemovePawn(pawn);
                 taken.Add(new Taken(null, ThingBlobs.SerializePawn(pawn), p => PawnExit.BackToCaravan(caravan, (Pawn)p)));
-                PawnExit.Remove(pawn);
+                PawnExit.Leave(pawn);
             }
         }
         catch (Exception ex)
@@ -166,7 +166,7 @@ public static class Outgoing
                     var home = Find.AnyPlayerHomeMap;
                     if (home is not null) DropPodUtility.DropThingsNear(DropCellFinder.TradeDropSpot(home), home, [p], openDelay: 110, canInstaDropDuringInit: false, leaveSlag: false, canRoofPunch: false, forbid: false);
                 }));
-                PawnExit.Remove(pawn);
+                PawnExit.Leave(pawn);
             }
         }
         catch (Exception ex)
@@ -225,11 +225,11 @@ public static class Outgoing
         {
             case TransferRequest send:
                 foreach (var i in send.Items.Items) things.Add(ThingBlobs.DeserializeItem(i));
-                foreach (var p in send.Pawns.Pawns) things.Add(ThingBlobs.DeserializePawn(p));
+                foreach (var p in send.Pawns.Pawns) things.Add(RelationLedger.Rejoin(ThingBlobs.DeserializePawn(p)));
                 break;
             case PostRequest post:
                 if (post.Items is not null) foreach (var i in post.Items.Items) things.Add(ThingBlobs.DeserializeItem(i));
-                if (post.Pawn is not null) things.Add(ThingBlobs.DeserializePawn(post.Pawn));
+                if (post.Pawn is not null) things.Add(RelationLedger.Rejoin(ThingBlobs.DeserializePawn(post.Pawn)));
                 break;
             case DepositRequest deposit:
                 things.AddRange(Incoming.SilverStacks(deposit.Silver));
@@ -238,7 +238,7 @@ public static class Outgoing
                 things.AddRange(Raids.RaidOutgoing.Contents(launch));
                 break;
             case LiveProposal proposal:
-                foreach (var p in proposal.Pawns.Pawns) things.Add(ThingBlobs.DeserializePawn(p));
+                foreach (var p in proposal.Pawns.Pawns) things.Add(RelationLedger.Rejoin(ThingBlobs.DeserializePawn(p)));
                 break;
             case RaidReport report:
                 // Only the loot is ours to return; the raiders belong to the attacker and come home through the server.
@@ -266,7 +266,7 @@ public static class Outgoing
                 var cell = pawn.Position;
                 if (pawn.Spawned) pawn.DeSpawn();
                 taken.Add(new Taken(null, ThingBlobs.SerializePawn(pawn), p => GenSpawn.Spawn(p, cell, map)));
-                PawnExit.Remove(pawn);
+                PawnExit.Leave(pawn);
             }
             return taken;
         }
@@ -356,7 +356,7 @@ public static class Outgoing
             try
             {
                 if (t.Item is not null) t.PutBack(ThingBlobs.DeserializeItem(t.Item));
-                else if (t.Pawn is not null) t.PutBack(ThingBlobs.DeserializePawn(t.Pawn));
+                else if (t.Pawn is not null) t.PutBack(RelationLedger.Rejoin(ThingBlobs.DeserializePawn(t.Pawn)));
             }
             catch (Exception ex)
             {

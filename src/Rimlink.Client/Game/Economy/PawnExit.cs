@@ -18,6 +18,16 @@ public static class PawnExit
     /// <summary>The world pawn GC's quiet discard: the play log and tale entries about the pawn go without a warning each.</summary>
     private static readonly MethodInfo? DiscardPawn = AccessTools.Method(typeof(WorldPawns), "DiscardPawn", [typeof(Pawn), typeof(bool)]);
 
+    /// <summary>
+    /// A pawn of this colony leaving for good: its relations are recorded first, so they come back with it
+    /// (<see cref="RelationLedger"/>). Foreign pawns and copies leave through <see cref="Remove"/>.
+    /// </summary>
+    public static void Leave(Pawn pawn)
+    {
+        RelationLedger.Record(pawn);
+        Remove(pawn);
+    }
+
     public static void Remove(Pawn pawn)
     {
         if (pawn.Discarded) return;

@@ -90,9 +90,10 @@ public static class BlobDebugActions
                     var blob = ThingBlobs.SerializePawn(pawn);
                     string label = pawn.LabelCap;
                     // Leave first, as a pawn sent away does: destroying the original after the same-id copy is spawned
-                    // passes it to the world pawns, and the copy (equal by id) is then taken for a world pawn.
-                    PawnExit.Remove(pawn);
-                    var again = ThingBlobs.DeserializePawn(blob);
+                    // passes it to the world pawns, and the copy (equal by id) is then taken for a world pawn. The copy
+                    // comes home as a refused transfer does, with the relations the original left behind.
+                    PawnExit.Leave(pawn);
+                    var again = RelationLedger.Rejoin(ThingBlobs.DeserializePawn(blob));
                     GenSpawn.Spawn(again, cell, map);
                     Log.Message($"[Rimlink] blob round-trip ok: {label} → {again.LabelCap} {blob.ScribeXmlZstd.Length} B, skills {blob.Skills.Count}, hediffs {again.health.hediffSet.hediffs.Count}, apparel {again.apparel?.WornApparelCount ?? 0}");
                 }

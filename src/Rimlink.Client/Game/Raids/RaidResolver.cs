@@ -214,7 +214,7 @@ public static class RaidResolver
             foreach (var p in captives)
             {
                 RimlinkFactions.Raiders.kidnapped.RemoveKidnappedPawn(p);
-                if (p == captive) PawnExit.Remove(p);
+                if (p == captive) PawnExit.Leave(p);
                 else GenSpawn.Spawn(p, CellFinder.RandomEdgeCell(map), map);
             }
             raid.Lord?.Cleanup();
