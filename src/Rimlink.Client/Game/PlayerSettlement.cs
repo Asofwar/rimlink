@@ -96,7 +96,7 @@ public sealed class PlayerSettlement : WorldObject
         foreach (var kind in new[] { Rimlink.Protocol.V1.LiveKind.LiveRaid, Rimlink.Protocol.V1.LiveKind.LiveVisit })
         {
             foreach (var option in TransportersArrivalActionUtility.GetFloatMenuOptions(
-                         () => Live.CaravanArrivalAction_RimlinkLive.CanPropose(this, kind),
+                         () => Live.TransportersArrivalAction_RimlinkLive.CanPropose(pods, this, kind),
                          () => new Live.TransportersArrivalAction_RimlinkLive(this, kind),
                          (kind == Rimlink.Protocol.V1.LiveKind.LiveRaid ? "Rimlink.Live.PodRaid" : "Rimlink.Live.PodVisit").Translate(OwnerName),
                          launchAction, Tile))

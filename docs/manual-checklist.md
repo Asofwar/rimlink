@@ -171,7 +171,8 @@
   Найдено и исправлено 2026-10-29: у капсул не было пунктов «Live raid/visit» (`LiveGuest.ProposeFromPods` никто не вызывал) — добавлены
   `TransportersArrivalAction_RimlinkLive` и два пункта меню капсул. BT-стенд: Latch капсулами → «Live raid on bt-admin's colony (pods, …)»
   → сейв гостя, `Player 2 proposed a LiveRaid to player 1 (live session 6)` → хозяин принял → `1 guest pawns of Nova-bt spawned (LiveRaid)`
-  у точки высадки капсул (`FindRaidDropCenterDistant`) → `running`.
+  у точки высадки капсул (`FindRaidDropCenterDistant`) → `running`. После ревью: капсулы только с грузом теряли его на «Live raid»
+  (620 → 610 серебра) — пункты живой сессии теперь требуют колониста в капсулах (как визит), груз без пешек летит домой; повтор: пункта нет.
 - [x] **Отказ приглашения → откат в 3a.** «Отклонить» или молчание `Live:InviteSeconds` → `LiveFallback`, рейд идёт как обычный с выбранным
   таймингом; визит — пешки домой посылкой.
 - [x] **Лимит пауз гостя.** `Live:GuestPauses` пауз по `Live:GuestPauseSeconds`; после лимита пауза гостя не действует, хозяин паузит свободно.

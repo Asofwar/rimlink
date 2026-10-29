@@ -82,12 +82,12 @@ public sealed class WorldTools
         return Targets.Act(option.action, $"'{option.Label}' ordered", new { caravan = c.GetUniqueLoadID() });
     });
 
-    [Tool("rimlink/pods_launch", Description = "Load our pawns (and items) into a transport pod group and launch it at a tile with one of that tile's pod options by label (raid, visit, live). Dev shortcut: no launcher building or fuel; instant = the pods arrive at the next world-object tick (step about 120 game ticks or unpause)",
+    [Tool("rimlink/pods_launch", Description = "Load our pawns and/or items into a transport pod group and launch it at a tile with one of that tile's pod options by label (raid, visit, live). Dev shortcut: no launcher building or fuel; instant = the pods arrive at the next world-object tick (step about 120 game ticks or unpause). An option that refuses (a wrong label, or one the game turns down on click) puts everything back",
         ResultDescription = "success/started; on arrival the option's window or proposal follows")]
     public Task<object> PodsLaunch(IRimBridgeContext ctx,
-        [ToolParameter(Description = "Comma-separated pawn ids or names", Required = true)] string pawns,
         [ToolParameter(Description = "Target tile id", Required = true)] int tile,
         [ToolParameter(Description = "Pod option label or a unique part of it; a wrong one lists the options", Required = true)] string label,
+        [ToolParameter(Description = "Comma-separated pawn ids or names")] string? pawns = null,
         [ToolParameter(Description = "Items as def:count, comma-separated")] string? items = null,
         [ToolParameter(Description = "Take items from anywhere on the map")] bool anywhere = true,
         [ToolParameter(Description = "Arrive at the next world-object tick instead of flying the distance")] bool instant = true) => Bridge.OnMain(ctx, () =>
@@ -95,7 +95,13 @@ public sealed class WorldTools
         if (Targets.NotPlaying() is { } no) return no;
         var map = Find.CurrentMap;
         if (tile < 0 || tile >= Find.WorldGrid.Surface.TilesCount) return Bridge.Fail($"no tile {tile}");
-        if (Targets.Pawns(pawns, out string? error) is not { } chosen) return Bridge.Fail(error!);
+        if (string.IsNullOrWhiteSpace(pawns) && string.IsNullOrWhiteSpace(items)) return Bridge.Fail("give pawns, items or both");
+        List<Pawn> chosen = [];
+        if (!string.IsNullOrWhiteSpace(pawns))
+        {
+            if (Targets.Pawns(pawns, out string? error) is not { } found) return Bridge.Fail(error!);
+            chosen = found;
+        }
         List<Rimlink.Client.Game.Economy.Outgoing.Pick> picks = [];
         if (!string.IsNullOrWhiteSpace(items))
         {
@@ -103,42 +109,58 @@ public sealed class WorldTools
             picks = found;
         }
 
-        // Loaded the way a launcher's pods are: the things leave the map into the pod's container.
+        // Loaded the way a launcher's pods are: the things leave the map into the pod's container (unmerged, so each
+        // stack can go back to its own cell).
         var pod = new ActiveTransporterInfo();
         var origins = new List<(Thing Thing, IntVec3 Cell)>();
         foreach (var pawn in chosen)
         {
             origins.Add((pawn, pawn.Position));
             pawn.DeSpawn();
-            pod.innerContainer.TryAdd(pawn);
+            pod.innerContainer.TryAdd(pawn, canMergeWithExistingStacks: false);
         }
         foreach (var pick in picks)
         {
             var cell = pick.Thing.Position;
             var thing = pick.Thing.SplitOff(pick.Count);
             origins.Add((thing, cell));
-            pod.innerContainer.TryAdd(thing);
+            pod.innerContainer.TryAdd(thing, canMergeWithExistingStacks: false);
         }
-
-        var options = new List<FloatMenuOption>();
-        foreach (var obj in Find.WorldObjects.AllWorldObjects.Where(o => (int)o.Tile == tile).ToList())
-            options.AddRange(obj.GetTransportersFloatMenuOptions([pod], (destination, arrival) => Launch(map, pod, destination, arrival, instant)));
-        if (Pick(options, label, out string? pickError) is not { } option)
+        void PutBack()
         {
             foreach (var (thing, cell) in origins)
             {
                 pod.innerContainer.Remove(thing);
-                GenSpawn.Spawn(thing, cell, map);
+                if (thing is Pawn) GenSpawn.Spawn(thing, cell, map);
+                else GenPlace.TryPlaceThing(thing, cell, map, ThingPlaceMode.Near);
             }
+        }
+
+        bool launched = false;
+        var options = new List<FloatMenuOption>();
+        foreach (var obj in Find.WorldObjects.AllWorldObjects.Where(o => (int)o.Tile == tile).ToList())
+            options.AddRange(obj.GetTransportersFloatMenuOptions([pod], (destination, arrival) => launched = Launch(map, pod, destination, arrival, instant)));
+        if (Pick(options, label, out string? pickError) is not { } option)
+        {
+            PutBack();
             return Bridge.Fail(pickError!, new { options = Options(options) });
         }
+        // An option the game turns down when clicked (peaceful mode, host offline) is enabled in the menu and only shows
+        // a message: nothing launched, so the pod's contents go back to the map.
+        int frame = GameMessages.Frame;
         option.action();
+        if (!launched)
+        {
+            PutBack();
+            return Bridge.Fail(GameMessages.RejectionSince(frame) ?? $"'{option.Label}' did not launch");
+        }
         return Targets.Started($"pods launched: '{option.Label}'", new { pawns = chosen.Select(p => p.LabelShort).ToList(), items = picks.Sum(p => p.Count), instant });
     });
 
-    /// <summary>As <see cref="FlyShipLeaving"/> hands its pods to the world map.</summary>
-    private static void Launch(Map map, ActiveTransporterInfo pod, PlanetTile destination, TransportersArrivalAction arrival, bool instant)
+    /// <summary>As <see cref="FlyShipLeaving"/> hands its pods to the world map. False when there is nothing left to send.</summary>
+    private static bool Launch(Map map, ActiveTransporterInfo pod, PlanetTile destination, TransportersArrivalAction arrival, bool instant)
     {
+        if (pod.innerContainer.Count == 0) return false;
         var travelling = (TravellingTransporters)WorldObjectMaker.MakeWorldObject(WorldObjectDefOf.TravellingTransporters);
         travelling.SetFaction(Faction.OfPlayer);
         travelling.destinationTile = destination;
@@ -147,6 +169,7 @@ public sealed class WorldTools
         Find.WorldObjects.Add(travelling);
         travelling.AddTransporter(pod, justLeftTheMap: true);
         if (instant) AccessTools.Field(typeof(TravellingTransporters), "traveledPct").SetValue(travelling, 1f);
+        return true;
     }
 
     private static Caravan? FindCaravan(string idOrName) =>

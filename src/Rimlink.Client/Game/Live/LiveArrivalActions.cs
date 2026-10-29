@@ -81,6 +81,13 @@ public sealed class TransportersArrivalAction_RimlinkLive : TransportersArrivalA
         var report = base.StillValid(pods, destinationTile);
         if (!report) return report;
         if (settlement is null || !settlement.Spawned || settlement.Tile != destinationTile) return false;
+        return CanPropose(pods, settlement, kind);
+    }
+
+    /// <summary>Someone has to control the pawns: pods without an able colonist (cargo only) are not offered.</summary>
+    public static FloatMenuAcceptanceReport CanPropose(IEnumerable<IThingHolder> pods, PlayerSettlement settlement, LiveKind kind)
+    {
+        if (!TransportersArrivalActionUtility.AnyNonDownedColonist(pods)) return false;
         return CaravanArrivalAction_RimlinkLive.CanPropose(settlement, kind);
     }
 
@@ -96,7 +103,13 @@ public sealed class TransportersArrivalAction_RimlinkLive : TransportersArrivalA
                 if (thing is Pawn pawn) pawns.Add(pawn); else cargo.Add(thing);
             }
         }
-        if (pawns.Count == 0) return;
+        if (pawns.Count == 0)
+        {
+            // Not offered without a colonist; should it still happen, the cargo flies home instead of vanishing with the pods.
+            var home = Find.AnyPlayerHomeMap;
+            if (home is not null && cargo.Count > 0) DropPodUtility.DropThingsNear(DropCellFinder.TradeDropSpot(home), home, cargo, openDelay: 110, canInstaDropDuringInit: false, leaveSlag: false, canRoofPunch: false, forbid: false);
+            return;
+        }
         // Loose cargo rides in the pawns' inventories: it goes to the host and back with them.
         var carrier = pawns.FirstOrDefault(p => p.RaceProps.Humanlike) ?? pawns[0];
         foreach (var thing in cargo) carrier.inventory.innerContainer.TryAdd(thing);
