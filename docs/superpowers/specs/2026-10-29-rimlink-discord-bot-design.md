@@ -103,10 +103,8 @@
 **Добавляет этот спек:**
 
 - **Чат.**
-  - `GET /api/admin/chat` получает параметр `after=<id>`: при нём строки идут по возрастанию `id`, старше `after`
-    (прямой курсор; `before` и `after` вместе — 400). Ответ получает поле `author` (автор строки из Discord, иначе
-    `null`); `kind` получает значение `external`. Бот в обычной работе берёт чат из ленты; курсор — для проверки и
-    панели.
+  - `GET /api/admin/chat` панели (с её курсорами `before=`/`after=`) получает поле `author` (автор строки из
+    Discord, иначе `null`); `kind` получает значение `external`. Бот в обычной работе берёт чат из ленты.
   - `POST /api/admin/chat {author, text}` (скоуп `chat`) — строка из Discord. `author`: 1–32 символа без управляющих;
     `text`: те же правила, что у игрового чата (`Trim`, не пусто, ≤ `Limits.ChatMaxLength`, без
     управляющих символов кроме `\n`). Сохраняется `ChatMessage { FromPlayerId = null, Kind = External,
@@ -203,8 +201,8 @@ Guild-команды регистрируются на сервер `Discord:Gui
 - Ответы публичных запросов — в канал; модераторских и админских — эфемерно. Бот шлёт в `X-Rimlink-Actor`
   подпись `discord:<username> (<userId>)`; само действие попадает в `moderation` через `admin.action` с
   `actor = api:<имя токена>:discord:<username> (<userId>)`.
-- Ошибки: 403 → «у бота нет на это права» (токену не хватает скоупа); прочие 4xx → эфемерно текст `detail`
-  сервера; 5xx, таймаут (10 с), обрыв → «сервер не ответил».
+- Ошибки: 403 → `cmd.forbidden` с названием недостающего скоупа (раздел 6), без текста ошибки; прочие 4xx →
+  эфемерно текст `detail` сервера; 5xx, таймаут (10 с), обрыв → «сервер не ответил».
 
 ### Язык
 
@@ -235,13 +233,18 @@ backoff (без падения).
 Деплой: `deploy/Dockerfile.discord` (тот же двухстадийный шаблон, что у сервера, без `curl`);
 сервис `rimlink-discord` в `deploy/docker-compose.yml` (`image: ghcr.io/asofwar/rimlink-discord:latest`,
 закомментированный `build:`, `depends_on: rimlink`, `restart: unless-stopped`, секреты `DISCORD_TOKEN` и
-`RIMLINK_BOT_TOKEN` из `.env`; тот же `RIMLINK_BOT_TOKEN` сервер получает как запись `Admin:Tokens` с именем
-`discord-bot`).
+`RIMLINK_BOT_TOKEN` из `.env`; тот же `RIMLINK_BOT_TOKEN` (не короче 24 символов) сервер получает как
+запись `Admin:Tokens` с именем `discord-bot`).
 
-**Скоупы токена бота.** Все функции: `read` (лента, списки, автодополнение), `chat` (Discord → игра),
-`moderate` (команды Moderator), `admin` (команды Admin и подтверждаемые). Это и есть минимум для полного набора
-команд; сервер, которому не нужны админ-команды из Discord, выдаёт `read`, `chat`, `moderate` — такие команды
-тогда отвечают «у бота нет на это права». Без `chat` мост работает только из игры в Discord. Пример конфига — `deploy/discord.appsettings.example.json`.
+**Скоупы токена бота** (таблица маршрутов — спек панели): `admin` включает все скоупы, `moderate` включает `read`,
+`chat` стоит отдельно.
+- По функциям: лента, автодополнение, `/online`, `/status`, `/market`, `/raids list|stats`, `/live list`,
+  `/economy stats` — `read`; `/player` (карточка), `/kick`, `/mute`, `/unmute`, `/broadcast`, `/bans`, `/actions` —
+  `moderate`; команды уровня Admin и подтверждаемые — `admin`; Discord → игра — `chat`.
+- Профили: полный бот — `admin`; модераторский без админ-команд — `moderate` + `chat`; только объявления и
+  публичные запросы — `read` (+ `chat` для моста).
+- Команда, на которую у токена нет скоупа, отвечает «у токена бота на этом сервере нет прав `<скоуп>`» (ключ
+  `cmd.forbidden`, en/ru). Без `chat` мост работает только из игры в Discord (сообщения из Discord получают ❌). Пример конфига — `deploy/discord.appsettings.example.json`.
 `Package-Release.ps1` бот не собирает: он поставляется образом.
 
 ## 7. Мод
@@ -259,7 +262,7 @@ backoff (без падения).
     live, лот выставлен и продан, магазин, broadcast, shutdown, заморозки, `admin.action` с `actor` для
     REST с подписью, без неё и для `/`-команды); ЛС и `raid.queued` в ленту не попадают.
   - REST: `POST /chat` (валидация автора и текста, `EXTERNAL` доходит до тестовой сессии с автором,
-    `/`-строка не исполняется), `GET /chat?after=` (порядок, `author`, `before`+`after` → 400), поля лотов.
+    `/`-строка не исполняется), `GET /chat` отдаёт `author` и `kind=external`, скоупы `read`/`chat` на маршрутах бота, поля лотов.
   - Схема: колонка `ChatMessages.ExternalAuthor`.
 - `Rimlink.Discord.Tests` (новый проект, в `Rimlink.sln`):
   - `FeedReader` против реального тестового сервера: события приходят, обрыв → продолжение без потерь и
@@ -284,7 +287,7 @@ backoff (без падения).
    плана панели — из `main` после их слияния или ребейзом на ветку панели.
 1. Сервер: сводка лотов (`sellerName`, `summary`).
 2. Сервер: `AdminFeed`, SSE-эндпоинт, публикация во всех источниках.
-3. Сервер: `POST /chat`, `after=` и `author` в `GET /chat`, `EXTERNAL`, миграция, событие ленты, CLI `say`;
+3. Сервер: `POST /chat`, `author` и `kind=external` в `GET /chat`, `EXTERNAL`, миграция, событие ленты, CLI `say`;
    мод: отрисовка `[Discord]`, версия.
 4. Бот: проект, `BotOptions`, `RimlinkApi`, `FeedReader`, тестовый проект.
 5. Бот: `FeedRouter`, `Formatter`, `Strings`, `OutboundQueue`, `ChatBridge`.
@@ -296,10 +299,11 @@ backoff (без падения).
 
 Владение маршрутами согласовано через родительскую сессию:
 - спек панели владеет актором из запроса, `X-Rimlink-Actor`, `admin_actions.ActorName`, `GET /players`,
-  `GET /players/{id}`, `GET /status` (с `certificateFingerprint`) и `GET /chat` (`before=`); этот спек ссылается
+  `GET /players/{id}`, `GET /status` (с `certificateFingerprint`), `GET /chat` (`before=`, `after=`), токенами
+  `Admin:Tokens` со скоупами и таблицей «маршрут → скоуп»; этот спек ссылается
   на них и их не переопределяет;
-- этот спек владеет лентой событий (`GET /events`), `POST /chat` с `EXTERNAL`, прямым курсором `after=` и полем
-  `author` в `GET /chat`, полями `sellerName`/`summary` лотов.
+- этот спек владеет лентой событий (`GET /events`), `POST /chat` с `EXTERNAL`, полем `author` и значением
+  `kind=external` в `GET /chat`, полями `sellerName`/`summary` лотов.
 Панель в текущем объёме обновляется опросом; если позже возьмёт ленту, то ту же: новые типы событий
 добавляются, старые не меняются. Отдельные токены со скоупами владелец одобрил; механизм вводит задача 2 плана
 панели, этот спек только назначает скоупы своим маршрутам (`/events` — `read`, `POST /chat` — `chat`) и
