@@ -32,8 +32,8 @@ public class EconomyClientTests
 
         var parcel = await n.Transfer.SendAsync(Send(bob.Login!.Player.PlayerId, Items(("Steel", 10))), n.Auth);
 
-        await ClientFixtures.WaitUntil(() => state.Economy.Pending.Count == 1);
-        Assert.Equal(parcel.Id, state.Economy.Pending[0].Id);
+        await ClientFixtures.WaitUntil(() => arrived == 1); // the event thread lists the parcel first, then raises the event
+        Assert.Equal(parcel.Id, Assert.Single(state.Economy.Pending).Id);
         state.Apply(new ServerEvent { ParcelArrived = new ParcelArrived { Parcel = state.Economy.Pending[0] } }); // replay
         Assert.Single(state.Economy.Pending);
         Assert.Equal(1, arrived);
