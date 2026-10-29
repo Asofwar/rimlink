@@ -27,7 +27,7 @@ public sealed class AuthGrpcService(AuthService auth, WorldService worlds, SaveS
 
     public override async Task<LoginReply> Register(RegisterRequest request, ServerCallContext context)
     {
-        var ctx = new LoginContext(Protocol.ProtocolVersion.Current, null, request.Mods, context.ClientIp());
+        var ctx = new LoginContext(Protocol.ProtocolVersion.Current, null, request.Mods, context.ClientIp()) { ModSettings = request.ModSettings };
         return await ToReply(await auth.Register(request.Login, request.Password, request.PlayerName, ctx), context);
     }
 

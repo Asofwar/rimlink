@@ -21,7 +21,7 @@ public sealed class LoginGate(BanService bans, SessionRegistry sessions, WorldSe
             return new LoginResult.Failure(StatusCode.FailedPrecondition, ErrorCode.Banned, $"banned {until}: {ban.Reason}");
         }
 
-        if (account.Role != Storage.Entities.Role.Admin && ModpackComparer.Compare(await modpack.Get(), ctx.Mods) is { } diff)
+        if (account.Role != Storage.Entities.Role.Admin && ModpackComparer.Compare(await modpack.Get(), ctx.Mods, await modpack.GetConfigs(), ctx.ModSettings) is { } diff)
             return new LoginResult.ModpackMismatch(diff);
 
         // Until an admin has created the world only admins may enter (they create it).

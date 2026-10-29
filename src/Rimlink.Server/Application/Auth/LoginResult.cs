@@ -8,8 +8,11 @@ namespace Rimlink.Server.Application.Auth;
 /// <summary>What the client sent with the login request, beyond the credential itself.</summary>
 public sealed record LoginContext(int ProtocolVersion, string? ServerPassword, IReadOnlyList<ModRef> Mods, string Ip)
 {
+    /// <summary>The settings file hashes of the client's Mod classes (newer clients); empty = settings are not compared.</summary>
+    public IReadOnlyList<ModSettingsHash> ModSettings { get; init; } = [];
+
     public static LoginContext From(LoginRequest request, string ip) =>
-        new(request.ProtocolVersion, request.ServerPassword, request.Mods, ip);
+        new(request.ProtocolVersion, request.ServerPassword, request.Mods, ip) { ModSettings = request.ModSettings };
 }
 
 public abstract record LoginResult
