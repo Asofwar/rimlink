@@ -16,7 +16,7 @@ public class AdminFeedRestTests
         .WithToken(0, "chatter", ChatToken, "chat");
 
     /// <summary>Reads SSE items (pings included) until <paramref name="until"/> holds or 10 s pass.</summary>
-    private static async Task<List<SseItem<string>>> Read(HttpClient client, string url, Func<List<SseItem<string>>, bool> until, string? lastEventId = null)
+    private static async Task<List<SseItem<string>>> Read(HttpClient client, string url, Func<List<SseItem<string>>, bool> until, string? lastEventId = null, Action<List<SseItem<string>>>? onItem = null)
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
@@ -30,6 +30,7 @@ public class AdminFeedRestTests
         await foreach (var item in SseParser.Create(stream).EnumerateAsync(cts.Token))
         {
             items.Add(item);
+            onItem?.Invoke(items);
             if (until(items)) break;
         }
         return items;
@@ -58,10 +59,9 @@ public class AdminFeedRestTests
         var feed = fixture.Services.GetRequiredService<AdminFeed>();
         var client = fixture.Rest();
 
-        var reading = Read(client, "/api/admin/events", items => items.Any(i => i.EventType == "test"));
-        await Task.Delay(300);
-        feed.Publish("test", new { n = 1 });
-        var items = await reading;
+        // Publish once the stream is open (its first item is the immediate ping): earlier, the subscription may not exist yet.
+        var items = await Read(client, "/api/admin/events", items => items.Any(i => i.EventType == "test"),
+            onItem: items => { if (items.Count == 1) feed.Publish("test", new { n = 1 }); });
 
         var ev = items.Single(i => i.EventType == "test");
         Assert.Matches(@"^\d+:\d+$", ev.EventId!);

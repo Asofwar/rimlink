@@ -304,6 +304,7 @@ public class FeedSourcesTests
         var n = Clients(fixture, nova.SessionToken);
         await n.Transfer.SendAsync(Send(bob.Player.PlayerId, Items(("Steel", 5)), silver: 100), n.Auth);
 
-        Assert.Empty((await DrainAndCheck(probe)).Where(e => e.Type != FeedTypes.ChatMessage));
+        // A slow presence announcement of the logins (player.joined and its chat line) may still arrive; nothing else may.
+        Assert.DoesNotContain(await DrainAndCheck(probe), e => e.Type is not (FeedTypes.ChatMessage or FeedTypes.PlayerJoined));
     }
 }
