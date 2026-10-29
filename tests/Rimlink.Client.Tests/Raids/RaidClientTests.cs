@@ -40,8 +40,8 @@ public class RaidClientTests : IDisposable
 
         var raid = await n.Raids.LaunchAsync(Launch(bob.Login.Player.PlayerId), n.Auth);
 
-        await ClientFixtures.WaitUntil(() => state.Raids.Incoming.Count == 1);
-        Assert.Equal(raid.Id, state.Raids.Incoming[0].Id);
+        await ClientFixtures.WaitUntil(() => queued == 1); // the event thread lists the raid first, then raises the event
+        Assert.Equal(raid.Id, Assert.Single(state.Raids.Incoming).Id);
         state.Apply(new ServerEvent { RaidQueued = new RaidQueued { Raid = state.Raids.Incoming[0] } }); // replay
         Assert.Single(state.Raids.Incoming);
         Assert.Equal(1, queued);
