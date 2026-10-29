@@ -49,10 +49,13 @@ public class LiveClientTests : IDisposable
         return new Setup(fixture, nova, bob, session);
     }
 
-    private static async Task<AsyncDuplexStreamingCall<LiveClientMsg, LiveServerMsg>> OpenHost(LiveClients c, long sessionId)
+    /// <summary>The host's raw stream, attached: a guest Hello that reached the server first would never come to the host as PeerHello.</summary>
+    private static async Task<AsyncDuplexStreamingCall<LiveClientMsg, LiveServerMsg>> OpenHost(ServerFixture fixture, LiveClients c, long sessionId)
     {
         var call = c.Live.Stream(c.Auth);
         await call.RequestStream.WriteAsync(new LiveClientMsg { SessionId = sessionId, Hello = new Hello { Role = LiveRelay.HostRole } });
+        var relay = fixture.Services.GetRequiredService<LiveRelay>();
+        await ClientFixtures.WaitUntil(() => relay.IsAttached(sessionId, c.PlayerId));
         return call;
     }
 
@@ -96,7 +99,7 @@ public class LiveClientTests : IDisposable
         var s = await Started(LiveServer().WithSetting("Live:HeartbeatTimeoutSeconds", "3"));
         using var fixture = s.Fixture;
         await using var nova = s.Nova;
-        using var host = await OpenHost(s.Bob, s.Session.Id);
+        using var host = await OpenHost(s.Fixture, s.Bob, s.Session.Id);
         var guest = new LiveClient(nova, new ConsoleLog());
         using var alive = new CancellationTokenSource();
         var keepAlive = KeepAlive(host, s.Session.Id, alive.Token);
@@ -119,7 +122,7 @@ public class LiveClientTests : IDisposable
         var s = await Started();
         using var fixture = s.Fixture;
         await using var nova = s.Nova;
-        using var host = await OpenHost(s.Bob, s.Session.Id);
+        using var host = await OpenHost(s.Fixture, s.Bob, s.Session.Id);
         var guest = new LiveClient(nova, new ConsoleLog());
         await guest.Open(s.Session.Id, LiveRelay.GuestRole, 1, CancellationToken.None);
         await Read(host, LiveServerMsg.MOneofCase.PeerHello);
@@ -141,7 +144,7 @@ public class LiveClientTests : IDisposable
         var s = await Started(LiveServer().WithSetting("Live:HeartbeatTimeoutSeconds", "3"));
         using var fixture = s.Fixture;
         await using var nova = s.Nova;
-        using var host = await OpenHost(s.Bob, s.Session.Id);
+        using var host = await OpenHost(s.Fixture, s.Bob, s.Session.Id);
         var guest = new LiveClient(nova, new ConsoleLog());
         int reconnected = 0;
         guest.Reconnected += () => reconnected++;
@@ -168,7 +171,7 @@ public class LiveClientTests : IDisposable
         var s = await Started();
         using var fixture = s.Fixture;
         await using var nova = s.Nova;
-        using var host = await OpenHost(s.Bob, s.Session.Id);
+        using var host = await OpenHost(s.Fixture, s.Bob, s.Session.Id);
         var guest = new LiveClient(nova, new ConsoleLog());
         LiveEndReason? ended = null;
         guest.Ended += r => ended = r;
@@ -180,7 +183,7 @@ public class LiveClientTests : IDisposable
         await ClientFixtures.WaitUntil(() => ended is not null);
         Assert.Equal(LiveEndReason.EndHostAborted, ended);
         Assert.False(guest.IsOpen);
-        Assert.True(guest.Incoming.TryDequeue(out var frame) && frame!.MCase == LiveServerMsg.MOneofCase.End);
+        Assert.Equal(LiveEndReason.EndHostAborted, (await Next(guest, LiveServerMsg.MOneofCase.End)).End.Reason); // the host's Hello may be queued first
     }
 
     [Fact]
@@ -249,7 +252,7 @@ public class LiveClientTests : IDisposable
     private static async Task<(Setup S, AsyncDuplexStreamingCall<LiveClientMsg, LiveServerMsg> Host, LiveClient Guest)> GuestStreaming(ServerFixture? fixture = null)
     {
         var s = await Started(fixture);
-        var host = await OpenHost(s.Bob, s.Session.Id);
+        var host = await OpenHost(s.Fixture, s.Bob, s.Session.Id);
         var guest = new LiveClient(s.Nova, new ConsoleLog());
         await guest.Open(s.Session.Id, LiveRelay.GuestRole, 1, CancellationToken.None);
         await Read(host, LiveServerMsg.MOneofCase.PeerHello);
@@ -273,16 +276,16 @@ public class LiveClientTests : IDisposable
     [Fact]
     public async Task DeltasTheServerDropsAreNoticedByTheGuest()
     {
-        // The server passes Live:DeltasPerSecond deltas per stream (20) and drops the rest silently: a burst of 40 loses some.
-        var (s, host, guest) = await GuestStreaming();
+        // The server passes Live:DeltasPerSecond deltas per stream and drops the rest silently: at one a second, a burst of ten loses most.
+        var (s, host, guest) = await GuestStreaming(LiveServer().WithSetting("Live:DeltasPerSecond", "1"));
         using var fixture = s.Fixture;
         await using var nova = s.Nova;
         using var _host = host;
 
-        for (long seq = 1; seq <= 40; seq++)
+        for (long seq = 1; seq <= 10; seq++)
             await host.RequestStream.WriteAsync(new LiveClientMsg { SessionId = s.Session.Id, Delta = new Delta { Tick = seq, DeltaSeq = seq } });
-        await Task.Delay(1200); // the bucket refills; the next delta passes and shows the guest what it missed
-        await host.RequestStream.WriteAsync(new LiveClientMsg { SessionId = s.Session.Id, Delta = new Delta { Tick = 41, DeltaSeq = 41 } });
+        await Task.Delay(1500); // the bucket refills; the next delta passes and shows the guest what it missed
+        await host.RequestStream.WriteAsync(new LiveClientMsg { SessionId = s.Session.Id, Delta = new Delta { Tick = 11, DeltaSeq = 11 } });
 
         await Read(host, LiveServerMsg.MOneofCase.ResyncRequest);
         Assert.True(guest.IsOpen);

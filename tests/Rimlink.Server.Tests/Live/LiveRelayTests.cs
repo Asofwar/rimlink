@@ -177,12 +177,13 @@ public class LiveRelayTests
         using var fixture = p.Fixture;
         using var bobEvents = p.Bob.Subscribe();
         using var host = await Open(p.Bob, p.Session.Id, LiveRelay.HostRole);
-        var guest = await Open(p.Nova, p.Session.Id, LiveRelay.GuestRole);
-        await Read(host, LiveServerMsg.MOneofCase.PeerHello);
+        // The host's heartbeats start at once: with a 1 s timeout a slow PeerHello would otherwise time the host out first.
         var keepAlive = Task.Run(async () =>
         {
-            for (int i = 0; i < 20; i++) { await Task.Delay(400); try { await host.RequestStream.WriteAsync(new LiveClientMsg { SessionId = p.Session.Id, Heartbeat = new Empty() }); } catch { return; } }
+            for (int i = 0; i < 25; i++) { await Task.Delay(400); try { await host.RequestStream.WriteAsync(new LiveClientMsg { SessionId = p.Session.Id, Heartbeat = new Empty() }); } catch { return; } }
         });
+        var guest = await Open(p.Nova, p.Session.Id, LiveRelay.GuestRole);
+        await Read(host, LiveServerMsg.MOneofCase.PeerHello);
 
         // The guest goes silent (no heartbeat) without closing anything.
         Assert.Equal(LiveServerMsg.MOneofCase.PeerLost, (await Read(host, LiveServerMsg.MOneofCase.PeerLost, TimeSpan.FromSeconds(8))).MCase);
