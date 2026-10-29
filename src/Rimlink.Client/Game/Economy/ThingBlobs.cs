@@ -65,14 +65,30 @@ public static class ThingBlobs
     /// <summary>A thing serialised while spawned remembers its map; it must forget it before it is spawned on the mirror.</summary>
     public static void ResetMapIndex(Thing t) => HarmonyLib.Traverse.Create(t).Field("mapIndexOrState").SetValue((sbyte)-1);
 
-    public static Pawn DeserializePawn(PawnBlob b, bool newIds = false)
+    /// <summary>The ideo the game's load fallback gives a pawn being deserialised (see <see cref="Patches.Patch_Pawn_IdeoTracker_FallbackIdeo"/>); null outside <see cref="DeserializePawn"/>.</summary>
+    public static Ideo? ArrivalIdeo { get; private set; }
+
+    /// <param name="joins">The faction the pawn arrives in (the player's by default); the pawn also takes its primary ideo.</param>
+    public static Pawn DeserializePawn(PawnBlob b, bool newIds = false, Faction? joins = null)
     {
-        var pawn = Load<Pawn>(b.ScribeXmlZstd.ToByteArray());
+        joins ??= Faction.OfPlayer;
+        // The pawn's ideo reference never resolves (no ideo travels in a blob), so the game assigns a fallback while loading: the primary ideo
+        // of whichever local faction carries the sender's faction id, or a random one. Setting it afterwards would record an ideo change
+        // (apostasy thoughts) and leave the fallback in the pawn's previous ideos, so the fallback itself is pointed at the joined faction's.
+        ArrivalIdeo = joins.ideos?.PrimaryIdeo;
+        Pawn pawn;
+        try
+        {
+            pawn = Load<Pawn>(b.ScribeXmlZstd.ToByteArray());
+        }
+        finally
+        {
+            ArrivalIdeo = null;
+        }
         if (newIds) RegenerateIds(pawn);
-        if (pawn.Faction != Faction.OfPlayer) pawn.SetFaction(Faction.OfPlayer);
+        if (pawn.Faction != joins) pawn.SetFaction(joins);
         if (pawn.RaceProps.Humanlike) PawnComponentsUtility.AddAndRemoveDynamicComponents(pawn);
-        // References into the sender's game (their ideo, their policies) did not travel: point them at ours.
-        if (pawn.ideo is not null && pawn.Ideo is null && Faction.OfPlayer.ideos?.PrimaryIdeo is { } ideo) pawn.ideo.SetIdeo(ideo);
+        // References into the sender's game (their policies) did not travel either and resolve to null: point them at ours.
         if (pawn.outfits is not null && pawn.outfits.CurrentApparelPolicy is null) pawn.outfits.CurrentApparelPolicy = Current.Game.outfitDatabase.DefaultOutfit();
         if (pawn.drugs is not null && pawn.drugs.CurrentPolicy is null) pawn.drugs.CurrentPolicy = Current.Game.drugPolicyDatabase.DefaultDrugPolicy();
         if (pawn.foodRestriction is not null && pawn.foodRestriction.CurrentFoodPolicy is null) pawn.foodRestriction.CurrentFoodPolicy = Current.Game.foodRestrictionDatabase.DefaultFoodRestriction();

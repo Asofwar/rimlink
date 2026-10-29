@@ -288,8 +288,8 @@ public static class VisitLoader
         if (!RCellFinder.TryFindRandomPawnEntryCell(out var entry, target, CellFinder.EdgeRoadChance_Neutral)) entry = CellFinder.RandomEdgeCell(target);
         foreach (var blob in pending.Guests)
         {
-            var guest = ThingBlobs.DeserializePawn(blob, newIds: true);
-            guest.SetFaction(player);
+            // The visitor's ideo did not travel: guests take this save's player ideo, the host's.
+            var guest = ThingBlobs.DeserializePawn(blob, newIds: true, joins: player);
             GenSpawn.Spawn(guest, CellFinder.RandomClosewalkCellNear(entry, target, 4), target);
         }
         Find.TickManager.Pause();

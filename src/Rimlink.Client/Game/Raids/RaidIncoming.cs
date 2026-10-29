@@ -129,8 +129,7 @@ public static class RaidIncoming
         try
         {
             faction = RimlinkFactions.Raiders;
-            pawns = raid.Pawns.Pawns.Select(b => ThingBlobs.DeserializePawn(b, newIds: true)).ToList();
-            foreach (var pawn in pawns) pawn.SetFaction(faction);
+            pawns = raid.Pawns.Pawns.Select(b => ThingBlobs.DeserializePawn(b, newIds: true, joins: faction)).ToList();
         }
         catch (Exception ex)
         {
