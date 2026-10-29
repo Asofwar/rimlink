@@ -22,13 +22,16 @@ public sealed class ColonyTools
         [ToolParameter(Description = "Starting tile id; default a random free one")] int tile = -1,
         [ToolParameter(Description = "Seconds to wait for the whole flow (world generation included)")] int timeoutSec = 300)
     {
-        if (!Bridge.TryEnterFlow("start_colony")) return Bridge.Fail($"{Bridge.RunningFlow} is already running");
+        if (timeoutSec < 1) return Bridge.Fail("timeoutSec must be at least 1");
+        if (!Bridge.TryEnterFlow("start_colony")) return Bridge.Fail($"{Bridge.RunningFlow} is still running");
         try
         {
             var deadline = DateTime.UtcNow.AddSeconds(timeoutSec);
             var refused = await Bridge.OnMain<object?>(ctx, () =>
             {
                 if (!RimlinkSession.Active) return Bridge.Fail("no Rimlink session: call rimlink/connect first");
+                // A login still loading the world or a save (its wait dialog is open) would load over the new colony.
+                if (Find.WindowStack.IsOpen<Rimlink.Client.UI.Dialog_Wait>()) return Bridge.Fail("a Rimlink login is still in progress");
                 if (Current.ProgramState != ProgramState.Entry) return Bridge.Fail($"a new colony starts from the main menu; the game is in {Current.ProgramState}");
                 if (!RimlinkSession.IsAdmin && RimlinkSession.World is not { Exists: true })
                     return Bridge.Fail("the server has no world yet: an admin starts the first colony");

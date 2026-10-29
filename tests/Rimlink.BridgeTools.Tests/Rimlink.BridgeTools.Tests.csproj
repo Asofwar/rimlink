@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The game-free parts of tools/Rimlink.BridgeTools, compiled in by link: the companion itself needs the game
+    (not in the solution), these files do not.
+  -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>Rimlink.BridgeTools.Tests</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\tools\Rimlink.BridgeTools\Support\ItemSpec.cs" Link="Linked\ItemSpec.cs" />
+    <Compile Include="..\..\tools\Rimlink.BridgeTools\Support\FlowGuard.cs" Link="Linked\FlowGuard.cs" />
+  </ItemGroup>
+</Project>

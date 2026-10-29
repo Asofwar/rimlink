@@ -19,6 +19,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rimlink.Client.Core", "src\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rimlink.Client.Tests", "tests\Rimlink.Client.Tests\Rimlink.Client.Tests.csproj", "{A9A57164-6136-423C-B417-26989F2A5098}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rimlink.BridgeTools.Tests", "tests\Rimlink.BridgeTools.Tests\Rimlink.BridgeTools.Tests.csproj", "{AF04337F-22FB-4050-AABC-766CB8DC6EA3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -101,6 +103,18 @@ Global
 		{A9A57164-6136-423C-B417-26989F2A5098}.Release|x64.Build.0 = Release|Any CPU
 		{A9A57164-6136-423C-B417-26989F2A5098}.Release|x86.ActiveCfg = Release|Any CPU
 		{A9A57164-6136-423C-B417-26989F2A5098}.Release|x86.Build.0 = Release|Any CPU
+		{AF04337F-22FB-4050-AABC-766CB8DC6EA3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AF04337F-22FB-4050-AABC-766CB8DC6EA3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AF04337F-22FB-4050-AABC-766CB8DC6EA3}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{AF04337F-22FB-4050-AABC-766CB8DC6EA3}.Debug|x64.Build.0 = Debug|Any CPU
+		{AF04337F-22FB-4050-AABC-766CB8DC6EA3}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{AF04337F-22FB-4050-AABC-766CB8DC6EA3}.Debug|x86.Build.0 = Debug|Any CPU
+		{AF04337F-22FB-4050-AABC-766CB8DC6EA3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AF04337F-22FB-4050-AABC-766CB8DC6EA3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AF04337F-22FB-4050-AABC-766CB8DC6EA3}.Release|x64.ActiveCfg = Release|Any CPU
+		{AF04337F-22FB-4050-AABC-766CB8DC6EA3}.Release|x64.Build.0 = Release|Any CPU
+		{AF04337F-22FB-4050-AABC-766CB8DC6EA3}.Release|x86.ActiveCfg = Release|Any CPU
+		{AF04337F-22FB-4050-AABC-766CB8DC6EA3}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -112,5 +126,6 @@ Global
 		{BAE915F3-8DE6-4962-B74E-413A1585D022} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{C97A6A4B-2A22-404E-9C3A-0AECA0513762} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{A9A57164-6136-423C-B417-26989F2A5098} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{AF04337F-22FB-4050-AABC-766CB8DC6EA3} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 EndGlobal

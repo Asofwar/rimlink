@@ -36,8 +36,8 @@ public sealed class EconomyTools
             chosen = p;
         }
         if (picks.Count == 0 && chosen.Count == 0 && silver <= 0) return Bridge.Fail("nothing to send: give items, pawns or silver");
-        Outgoing.SendItems(map, to.PlayerId, to.Name, picks, chosen, silver);
-        return Targets.Started($"transfer to {to.Name} started", new { items = picks.Sum(x => x.Count), pawns = chosen.Count, silver });
+        return Targets.Act(() => Outgoing.SendItems(map, to.PlayerId, to.Name, picks, chosen, silver),
+            $"transfer to {to.Name} started", new { items = picks.Sum(x => x.Count), pawns = chosen.Count, silver });
     });
 
     [Tool("rimlink/post_lot", Description = "Post a market lot: items or one pawn, for a price in silver",
@@ -55,12 +55,10 @@ public sealed class EconomyTools
         if (!string.IsNullOrWhiteSpace(pawn))
         {
             if (Targets.Pawns(pawn, out string? pawnError) is not { Count: 1 } one) return Bridge.Fail(pawnError ?? "give one pawn");
-            Outgoing.PostLot(map, [], one[0], price);
-            return Targets.Started($"lot with {one[0].LabelShort} for {price} posted");
+            return Targets.Act(() => Outgoing.PostLot(map, [], one[0], price), $"lot with {one[0].LabelShort} for {price} posted");
         }
         if (Targets.Items(map, items!, anywhere, out string? error) is not { } picks) return Bridge.Fail(error!);
-        Outgoing.PostLot(map, picks, null, price);
-        return Targets.Started($"lot of {picks.Sum(x => x.Count)} things for {price} posted");
+        return Targets.Act(() => Outgoing.PostLot(map, picks, null, price), $"lot of {picks.Sum(x => x.Count)} things for {price} posted");
     });
 
     [Tool("rimlink/deposit", Description = "Deposit silver from under the beacons (or anywhere in dev mode) into the wallet",
@@ -74,9 +72,8 @@ public sealed class EconomyTools
         if (anywhere && !Prefs.DevMode) return Bridge.Fail("anywhere needs dev mode");
         bool before = BlobDebugActions.PickAnywhere;
         BlobDebugActions.PickAnywhere = anywhere;
-        try { Outgoing.Deposit(Find.CurrentMap, silver); }
+        try { return Targets.Act(() => Outgoing.Deposit(Find.CurrentMap, silver), $"deposit of {silver} started"); }
         finally { BlobDebugActions.PickAnywhere = before; }
-        return Targets.Started($"deposit of {silver} started");
     });
 
     [Tool("rimlink/market", Description = "List market lots, optionally of one seller",

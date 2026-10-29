@@ -57,13 +57,12 @@ public static class Targets
                 : TradeUtility.AllLaunchableThingsForTrade(map))
             .ToList();
         var picks = new List<Rimlink.Client.Game.Economy.Outgoing.Pick>();
-        var problems = new List<string>();
-        foreach (string token in csv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        // One entry per def: two passes over the same stacks would pick one stack twice.
+        var wanted = ItemSpec.Parse(csv, out var problems);
+        foreach (var (name, count) in wanted)
         {
-            string[] parts = token.Split(':', StringSplitOptions.TrimEntries);
-            if (parts.Length != 2 || !int.TryParse(parts[1], out int count) || count <= 0) { problems.Add($"'{token}' is not def:count"); continue; }
-            var def = DefDatabase<ThingDef>.AllDefs.FirstOrDefault(d => string.Equals(d.defName, parts[0], StringComparison.OrdinalIgnoreCase));
-            if (def is null) { problems.Add($"unknown def '{parts[0]}'"); continue; }
+            var def = DefDatabase<ThingDef>.AllDefs.FirstOrDefault(d => string.Equals(d.defName, name, StringComparison.OrdinalIgnoreCase));
+            if (def is null) { problems.Add($"unknown def '{name}'"); continue; }
             int left = count;
             foreach (var stack in source.Where(t => t.def == def))
             {
@@ -87,4 +86,15 @@ public static class Targets
     }
 
     public static object Started(string message, object? details = null) => new { success = true, started = true, message, details };
+
+    /// <summary>
+    /// Runs a game entry point that refuses with a RejectInput message (busy, limits, a save that cannot be written now)
+    /// and reports that refusal instead of "started".
+    /// </summary>
+    public static object Act(Action action, string message, object? details = null)
+    {
+        int frame = GameMessages.Frame;
+        action();
+        return GameMessages.RejectionSince(frame) is { } refusal ? Bridge.Fail(refusal, details) : Started(message, details);
+    }
 }

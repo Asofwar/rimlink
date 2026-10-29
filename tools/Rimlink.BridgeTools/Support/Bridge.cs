@@ -7,10 +7,10 @@ namespace Rimlink.BridgeTools;
 /// <summary>Shared plumbing of the rimlink/* tools: main-thread access, frame-paced waits, failure results, one flow at a time.</summary>
 public static class Bridge
 {
-    private static int flowRunning;
+    public static FlowGuard Flows { get; } = new();
 
     /// <summary>The connect/start_colony flow in progress, for the refusal text.</summary>
-    public static string? RunningFlow { get; private set; }
+    public static string? RunningFlow => Flows.Running;
 
     /// <summary>Game objects are touched only here: whatever thread the bridge runs the tool on.</summary>
     public static Task<T> OnMain<T>(IRimBridgeContext ctx, Func<T> func) => ctx.MainThread.InvokeAsync(func);
@@ -32,18 +32,9 @@ public static class Bridge
 
     public static object Fail(string error, object? details = null) => new { success = false, error, details };
 
-    public static bool TryEnterFlow(string name)
-    {
-        if (Interlocked.CompareExchange(ref flowRunning, 1, 0) != 0) return false;
-        RunningFlow = name;
-        return true;
-    }
+    public static bool TryEnterFlow(string name) => Flows.TryEnter(name);
 
-    public static void ExitFlow()
-    {
-        RunningFlow = null;
-        Interlocked.Exchange(ref flowRunning, 0);
-    }
+    public static void ExitFlow() => Flows.Exit();
 
     /// <summary>
     /// Main thread only. The topmost real window: <see cref="ImmediateWindow"/>s (tooltips, the time and

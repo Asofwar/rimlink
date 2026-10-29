@@ -30,7 +30,9 @@ public sealed class ConnectTools
     {
         if (string.IsNullOrWhiteSpace(login) || string.IsNullOrEmpty(password)) return Bridge.Fail("login and password are required");
         if (register is not ("auto" or "never")) return Bridge.Fail("register must be auto or never");
-        if (!Bridge.TryEnterFlow("connect")) return Bridge.Fail($"{Bridge.RunningFlow} is already running");
+        if (timeoutSec < 1) return Bridge.Fail("timeoutSec must be at least 1");
+        if (!Bridge.TryEnterFlow("connect")) return Bridge.Fail($"{Bridge.RunningFlow} is still running");
+        Task<LoginOutcome>? abandoned = null;
         try
         {
             var clock = Stopwatch.StartNew();
@@ -52,7 +54,12 @@ public sealed class ConnectTools
             if (started is not Task<LoginOutcome> flow) return started;
 
             if (await Task.WhenAny(flow, Task.Delay(TimeSpan.FromSeconds(timeoutSec))) != flow)
-                return Bridge.Fail($"login did not finish in {timeoutSec} s", new { topWindow = await Bridge.OnMain(ctx, Bridge.TopWindowType) });
+            {
+                // The login keeps running; the guard stays until it ends, so no second login or new colony starts beside it.
+                abandoned = flow;
+                return Bridge.Fail($"login did not finish in {timeoutSec} s; it goes on, and connect/start_colony wait for it",
+                    new { topWindow = await Bridge.OnMain(ctx, Bridge.TopWindowType) });
+            }
 
             var outcome = flow.Result;
             bool success = outcome.Kind is LoginOutcomeKind.Loading or LoginOutcomeKind.NewColony;
@@ -78,7 +85,8 @@ public sealed class ConnectTools
         }
         finally
         {
-            Bridge.ExitFlow();
+            if (abandoned is not null) Bridge.Flows.ExitWhen(abandoned);
+            else Bridge.ExitFlow();
         }
     }
 

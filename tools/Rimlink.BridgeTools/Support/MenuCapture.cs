@@ -72,13 +72,13 @@ public static class Pages
             AccessTools.Method(page.GetType(), "CanDoNext").Invoke(page, null);
             return true;
         }
-        int before = Time.frameCount;
+        int before = GameMessages.Frame;
         if ((bool)AccessTools.Method(page.GetType(), "CanDoNext").Invoke(page, null)!)
         {
             AccessTools.Method(page.GetType(), "DoNext").Invoke(page, null);
             return true;
         }
-        refusal = NewestMessage(before) ?? "the page refused to go on";
+        refusal = GameMessages.RejectionSince(before) ?? "the page refused to go on";
         return false;
     }
 
@@ -87,12 +87,5 @@ public static class Pages
         if (!CanBack(page)) return false;
         AccessTools.Method(page.GetType(), "DoBack").Invoke(page, null);
         return true;
-    }
-
-    private static string? NewestMessage(int sinceFrame)
-    {
-        var live = (List<Message>)AccessTools.Field(typeof(Messages), "liveMessages").GetValue(null)!;
-        var newest = live.LastOrDefault();
-        return newest is not null && newest.startingFrame >= sinceFrame ? newest.text : null;
     }
 }

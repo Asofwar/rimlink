@@ -15,6 +15,7 @@ core, and a Harmony mod. Nothing here may be copied from other multiplayer mods 
 | `tools/Rimlink.BridgeTools` | dev-only RimBridgeServer companion: `rimlink/*` tools that drive the game from GABS. Built against the game, never shipped | no |
 | `tests/Rimlink.Server.Tests` | xUnit against the real server (`WebApplicationFactory`, fixtures in `Support/`) | yes |
 | `tests/Rimlink.Client.Tests` | xUnit for the client core, talking to a real test server | yes |
+| `tests/Rimlink.BridgeTools.Tests` | xUnit for the game-free parts of `tools/Rimlink.BridgeTools` (compiled in by link) | yes |
 | `mod/` | mod metadata (`About/About.xml`), defs, `Languages/` (English + Russian keyed strings) | — |
 | `docs/` | `player-guide.md`, `server-setup.md`, `manual-checklist.md`, `superpowers/specs`, `superpowers/plans` | — |
 | `deploy/` | Dockerfile, docker-compose, `appsettings.example.json` (every config key with its default) | — |

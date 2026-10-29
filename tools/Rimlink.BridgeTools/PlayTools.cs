@@ -28,10 +28,10 @@ public sealed class PlayTools
         if (timing is not ("instant" or "warned")) return Bridge.Fail("timing must be instant or warned");
         if (Targets.Player(player) is not { } target) return Bridge.Fail($"unknown player '{player}'");
         if (Targets.Pawns(pawns, out string? error) is not { } chosen) return Bridge.Fail(error!);
-        RaidOutgoing.LaunchFromCaravanless(Find.CurrentMap, target, chosen,
-            mode == "real" ? PawnMode.PawnReal : PawnMode.PawnSnapshot,
-            timing == "warned" ? RaidTiming.TimingWarned : RaidTiming.TimingInstant);
-        return Targets.Started($"{mode} raid on {target.Name} launched", new { pawns = chosen.Select(p => p.LabelShort).ToList() });
+        return Targets.Act(() => RaidOutgoing.LaunchFromCaravanless(Find.CurrentMap, target, chosen,
+                mode == "real" ? PawnMode.PawnReal : PawnMode.PawnSnapshot,
+                timing == "warned" ? RaidTiming.TimingWarned : RaidTiming.TimingInstant),
+            $"{mode} raid on {target.Name} launched", new { pawns = chosen.Select(p => p.LabelShort).ToList() });
     });
 
     [Tool("rimlink/visit", Description = "Visit another player's colony (a copy of their save) with our pawns on the current map",
@@ -44,8 +44,8 @@ public sealed class PlayTools
         if (VisitSession.InVisit) return Bridge.Fail("a visit is already running");
         if (Targets.Player(player) is not { } host) return Bridge.Fail($"unknown player '{player}'");
         if (Targets.Pawns(pawns, out string? error) is not { } chosen) return Bridge.Fail(error!);
-        VisitSession.Begin(host, chosen);
-        return Targets.Started($"visit to {host.Name} started", new { pawns = chosen.Select(p => p.LabelShort).ToList() });
+        return Targets.Act(() => VisitSession.Begin(host, chosen),
+            $"visit to {host.Name} started", new { pawns = chosen.Select(p => p.LabelShort).ToList() });
     });
 
     [Tool("rimlink/visit_end", Description = "Leave the visited colony, as the visit overlay's End visit button does: our own save loads again",
@@ -70,8 +70,8 @@ public sealed class PlayTools
         if (kind is not ("raid" or "visit")) return Bridge.Fail("kind must be raid or visit");
         if (Targets.Player(player) is not { } host) return Bridge.Fail($"unknown player '{player}'");
         if (Targets.Pawns(pawns, out string? error) is not { } chosen) return Bridge.Fail(error!);
-        LiveGuest.ProposeFromMap(Find.CurrentMap, host, kind == "visit" ? LiveKind.LiveVisit : LiveKind.LiveRaid, chosen, RaidTiming.TimingInstant);
-        return Targets.Started($"live {kind} proposed to {host.Name}", new { pawns = chosen.Select(p => p.LabelShort).ToList() });
+        return Targets.Act(() => LiveGuest.ProposeFromMap(Find.CurrentMap, host, kind == "visit" ? LiveKind.LiveVisit : LiveKind.LiveRaid, chosen, RaidTiming.TimingInstant),
+            $"live {kind} proposed to {host.Name}", new { pawns = chosen.Select(p => p.LabelShort).ToList() });
     });
 
     [Tool("rimlink/live_answer", Description = "Accept or decline the open live-session invitation (host side)",
@@ -94,6 +94,9 @@ public sealed class PlayTools
         if (!RimlinkSession.Active) return Bridge.Fail("no Rimlink session");
         if (speed is < 0 or > 3) return Bridge.Fail("speed must be 0..3");
         if (!LiveHost.Active && LiveGuest.Session is null) return Bridge.Fail("no live session");
+        // A guest's speed only reaches the host through the mirror; before it (proposal pending, settling in) the setter
+        // would just change the guest's own game.
+        if (!LiveHost.Active && (!MirrorMode.Active || MirrorMode.SettlingIn)) return Bridge.Fail("the live session has not started on this side yet");
         // The setter, not TogglePaused: the live patches turn it into the host's wish or the guest's order.
         Find.TickManager.CurTimeSpeed = (TimeSpeed)speed;
         return Targets.Started(speed == 0 ? "pause requested" : $"speed {speed} requested");
