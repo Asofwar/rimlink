@@ -156,6 +156,17 @@ still ends as a mailbox parcel, as in 5a/5b. The tempo (both players' speed wish
 forwarded to the guest) travels inside the relayed frames: the server neither reads nor stores it, and nothing in it needs a
 setting.
 
+## 5d. Integrity
+
+Settings under `Integrity` (defaults):
+
+- `DevMode` `AdminsOnly`: while connected, only the Admin role may use dev mode; the mod switches it off for everyone else at
+  login and gives it back when they leave. `Everyone` lifts the rule (servers among friends, test setups).
+- `WealthWarnPerDay` 20000 and `WealthFreezePerDay` 100000: thresholds of the wealth check (below); 0 disables one. When both are
+  set, the freeze threshold must not be below the warning threshold, or the server refuses to start.
+- `StorytellerPolicy` `Locked`: every colony plays with the storyteller and difficulty the admin chose when creating the world
+  (the new-colony page, the in-game storyteller page and every load of a colony hold them); `Free`: each player chooses.
+
 ## 6. Administration
 
 - In game, moderators and admins type `/help` in chat.

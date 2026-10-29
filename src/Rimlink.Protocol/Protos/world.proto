@@ -27,6 +27,8 @@ message WorldParams {
   // Faction defs chosen at world creation; NPC settlement placement depends on them.
   repeated string faction_defs = 10;
   int32 landmark_density = 11;
+  // The admin's Difficulty values (Scribe XML, zstd); the only source for a Custom difficulty. Empty for worlds created before it.
+  bytes difficulty_values = 12;
 }
 
 message CreateWorldRequest {
@@ -39,6 +41,8 @@ message WorldInfo {
   bool exists = 1;
   WorldParams params = 2;
   repeated int32 npc_tiles = 3;
+  // Integrity:StorytellerPolicy = Locked: every colony plays with the storyteller and difficulty above.
+  bool storyteller_locked = 4;
 }
 
 message WorldObject {

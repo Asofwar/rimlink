@@ -45,6 +45,9 @@ builder.Services.AddOptions<SocialOptions>().Bind(builder.Configuration.GetSecti
 builder.Services.Configure<RaidOptions>(builder.Configuration.GetSection(RaidOptions.Section));
 builder.Services.Configure<LiveOptions>(builder.Configuration.GetSection(LiveOptions.Section));
 builder.Services.Configure<PanelOptions>(builder.Configuration.GetSection(PanelOptions.Section));
+builder.Services.AddOptions<IntegrityOptions>().Bind(builder.Configuration.GetSection(IntegrityOptions.Section))
+    .Validate(IntegrityOptions.IsValid, "Integrity:WealthFreezePerDay must be 0 or at least Integrity:WealthWarnPerDay, and neither negative")
+    .ValidateOnStart();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.ConfigureHttpJsonOptions(json => json.SerializerOptions.Converters.Add(new UtcDateTimeConverter()));
 // Built from the bound options (test settings are not visible to the values read above before Build()).

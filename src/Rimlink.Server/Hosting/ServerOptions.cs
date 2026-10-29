@@ -125,3 +125,26 @@ public sealed class ApiTokenOptions
     public string Token { get; set; } = "";
     public string[] Scopes { get; set; } = [];
 }
+
+public enum DevModePolicy { AdminsOnly, Everyone }
+
+public enum StorytellerPolicy { Locked, Free }
+
+/// <summary>Integrity rules (integrity spec §1): who may use dev mode, wealth-jump thresholds, the world's storyteller for every colony.</summary>
+public sealed class IntegrityOptions
+{
+    public const string Section = "Integrity";
+
+    public DevModePolicy DevMode { get; set; } = DevModePolicy.AdminsOnly;
+    /// <summary>Net wealth gain per game day that alerts admins; 0 disables.</summary>
+    public long WealthWarnPerDay { get; set; } = 20000;
+    /// <summary>Net wealth gain per game day that also freezes the player's economy; 0 disables.</summary>
+    public long WealthFreezePerDay { get; set; } = 100000;
+    public StorytellerPolicy StorytellerPolicy { get; set; } = StorytellerPolicy.Locked;
+
+    public static bool IsValid(IntegrityOptions o) =>
+        o.WealthWarnPerDay >= 0 && o.WealthFreezePerDay >= 0
+        && (o.WealthWarnPerDay == 0 || o.WealthFreezePerDay == 0 || o.WealthFreezePerDay >= o.WealthWarnPerDay);
+
+    public bool DevModeAllowed(Storage.Entities.Role role) => DevMode == DevModePolicy.Everyone || role == Storage.Entities.Role.Admin;
+}

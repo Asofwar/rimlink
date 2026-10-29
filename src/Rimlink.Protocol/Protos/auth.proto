@@ -63,4 +63,6 @@ message LoginReply {
   repeated PlayerRef online = 8;
   // Live sessions in Ending where this player is the host: their game still has to report the guest pawns.
   repeated LiveSession pending_live_ends = 9;
+  // Integrity: this player may use dev mode while connected (role Admin, or Integrity:DevMode = Everyone).
+  bool dev_mode_allowed = 10;
 }
