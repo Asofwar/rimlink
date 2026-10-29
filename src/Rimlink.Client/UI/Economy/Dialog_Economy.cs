@@ -314,7 +314,9 @@ public sealed class Dialog_Economy : Window
     private void DrawRaids(Rect rect)
     {
         var raids = RimlinkSession.State.Raids;
-        bool peaceful = raids.Flags.Peaceful, closed = raids.Flags.VisitsClosed;
+        // A pending switch-off (still peaceful until then) shows unticked; ticking it again cancels the switch-off.
+        var offAt = raids.Flags.PeacefulOffAt?.ToDateTime();
+        bool peaceful = raids.Flags.Peaceful && offAt is null, closed = raids.Flags.VisitsClosed;
         bool wantPeaceful = peaceful, wantClosed = closed;
         Widgets.CheckboxLabeled(new Rect(0f, rect.y, 300f, 26f), "Rimlink.Raids.Peaceful".Translate(), ref wantPeaceful);
         Widgets.CheckboxLabeled(new Rect(320f, rect.y, 300f, 26f), "Rimlink.Raids.CloseVisits".Translate(), ref wantClosed);
@@ -323,8 +325,8 @@ public sealed class Dialog_Economy : Window
         bool autoAccept = raids.Flags.AutoAcceptLive, wantAutoAccept = autoAccept;
         Widgets.CheckboxLabeled(new Rect(0f, rect.y + 28f, 620f, 26f), "Rimlink.Live.AutoAccept".Translate(), ref wantAutoAccept);
         if (wantAutoAccept != autoAccept && RimlinkSession.Live is { } liveClient) SetFlag(() => liveClient.SetAutoAccept(wantAutoAccept, CancellationToken.None));
-        if (raids.Flags.PeacefulOffAt is { } until)
-            Widgets.Label(new Rect(0f, rect.y + 56f, rect.width, 22f), "Rimlink.Raids.PeacefulOffAt".Translate(until.ToDateTime().ToLocalTime().ToString("g")));
+        if (offAt is { } until && until > DateTime.UtcNow) // the server sends nothing when the delay runs out
+            Widgets.Label(new Rect(0f, rect.y + 56f, rect.width, 22f), "Rimlink.Raids.PeacefulOffAt".Translate(until.ToLocalTime().ToString("g")));
 
         var list = new Rect(0f, rect.y + 84f, rect.width, rect.height - 84f);
         var liveState = RimlinkSession.State.Live;

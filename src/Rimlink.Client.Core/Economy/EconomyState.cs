@@ -13,7 +13,8 @@ public sealed class EconomyState
     public List<Lot> MyLots { get; } = [];
 
     public event Action<Parcel>? ParcelArrived;
-    public event Action<LotSold>? LotSold;
+    /// <summary>The sale and the lot as this client knew it (null when it was not among <see cref="MyLots"/>).</summary>
+    public event Action<LotSold, Lot?>? LotSold;
     public event Action<LotClosed>? LotClosed;
     public event Action<WalletChanged>? WalletChanged;
 
@@ -48,8 +49,9 @@ public sealed class EconomyState
                 if (AddPending(ev.ParcelArrived.Parcel)) ParcelArrived?.Invoke(ev.ParcelArrived.Parcel);
                 break;
             case ServerEvent.BodyOneofCase.LotSold:
+                var lot = MyLots.FirstOrDefault(l => l.Id == ev.LotSold.LotId);
                 MyLots.RemoveAll(l => l.Id == ev.LotSold.LotId);
-                LotSold?.Invoke(ev.LotSold);
+                LotSold?.Invoke(ev.LotSold, lot);
                 break;
             case ServerEvent.BodyOneofCase.LotClosed:
                 MyLots.RemoveAll(l => l.Id == ev.LotClosed.LotId);

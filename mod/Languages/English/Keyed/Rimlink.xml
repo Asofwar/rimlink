@@ -75,7 +75,7 @@
   <Rimlink.Economy.Tab.Shops>Shops</Rimlink.Economy.Tab.Shops>
   <Rimlink.Raids.Peaceful>Peaceful mode (no raids either way; a day to switch off)</Rimlink.Raids.Peaceful>
   <Rimlink.Raids.CloseVisits>Do not receive visitors</Rimlink.Raids.CloseVisits>
-  <Rimlink.Raids.PeacefulOffAt>Peaceful mode ends at {0}.</Rimlink.Raids.PeacefulOffAt>
+  <Rimlink.Raids.PeacefulOffAt>Peaceful mode ends at {0}. Tick it again to stay peaceful.</Rimlink.Raids.PeacefulOffAt>
   <Rimlink.Raids.Incoming>Raids coming at you: {0}</Rimlink.Raids.Incoming>
   <Rimlink.Raids.Mine>Your raids: {0}</Rimlink.Raids.Mine>
   <Rimlink.Raids.None>none</Rimlink.Raids.None>
@@ -101,6 +101,8 @@
   <Rimlink.Economy.Bought>Bought. The goods arrive by drop pod.</Rimlink.Economy.Bought>
   <Rimlink.Economy.Withdraw>Withdraw</Rimlink.Economy.Withdraw>
   <Rimlink.Economy.Withdrawn>Lot withdrawn. The goods come back by drop pod.</Rimlink.Economy.Withdrawn>
+  <Rimlink.Economy.LotSold>Your lot {0} was bought by {1} for {2} silver; {3} silver went to your wallet.</Rimlink.Economy.LotSold>
+  <Rimlink.Economy.LotNumber>#{0}</Rimlink.Economy.LotNumber>
   <Rimlink.Economy.PriceLabel>Price (silver)</Rimlink.Economy.PriceLabel>
   <Rimlink.Economy.PostLot>Post lot</Rimlink.Economy.PostLot>
   <Rimlink.Economy.Posted>Posted for {0} silver.</Rimlink.Economy.Posted>
@@ -149,6 +151,8 @@
   <Rimlink.Economy.CaravanTransfer>Transfer to {0}...</Rimlink.Economy.CaravanTransfer>
   <Rimlink.Save.Stale>This save is older than your last transfer; the server will not take it (what you sent is already with another player). Go back to the menu and log in again to get the server copy, or keep playing without uploads.</Rimlink.Save.Stale>
   <Rimlink.Save.KeepPlaying>Keep playing (no uploads)</Rimlink.Save.KeepPlaying>
+  <Rimlink.Save.EndedByLoad>You loaded another save, so the Rimlink session ended. Your multiplayer colony was saved on this computer and goes to the server at your next login.</Rimlink.Save.EndedByLoad>
+  <Rimlink.Save.EndedByLoadUnsaved>You loaded another save, so the Rimlink session ended. The server keeps your multiplayer colony as it was last uploaded.</Rimlink.Save.EndedByLoadUnsaved>
   <Rimlink.Economy.CaravanTransferGizmo>Hand over</Rimlink.Economy.CaravanTransferGizmo>
   <Rimlink.Raid.CaravanRaid>Raid {0}'s colony...</Rimlink.Raid.CaravanRaid>
   <Rimlink.Raid.CaravanRaidGizmo>Raid</Rimlink.Raid.CaravanRaidGizmo>
@@ -205,6 +209,8 @@
   <Rimlink.Shop.Bought>Bought {0}× {1} for {2} silver; it will drop at your colony.</Rimlink.Shop.Bought>
   <Rimlink.Shop.Refused>Purchase refused: {0}.</Rimlink.Shop.Refused>
   <Rimlink.Shop.Removed>{0} sold item(s) were collected from your stockpiles.</Rimlink.Shop.Removed>
+  <Rimlink.Shop.Sold>{0} bought {1}× {2} from your shop for {3} silver.</Rimlink.Shop.Sold>
+  <Rimlink.Shop.SoldUnknown>{0} bought {1} item(s) from your shop for {2} silver.</Rimlink.Shop.SoldUnknown>
   <Rimlink.Raid.Failed>A raid could not be unpacked ({0}); it will try again at your next login.</Rimlink.Raid.Failed>
 
   <Rimlink.Live.KindRaid>live raid</Rimlink.Live.KindRaid>

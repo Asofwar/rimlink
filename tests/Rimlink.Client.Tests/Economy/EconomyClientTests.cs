@@ -66,8 +66,10 @@ public class EconomyClientTests
         var lot = await economy.Post(new PostRequest { ClientRequestId = EconomyClient.NewRequestId(), Items = Items(("Steel", 2)), Price = 40, GameTick = 1 }, CancellationToken.None);
         var nova = await fixture.RegisterAndLogin("nova", playerName: "Nova");
         await Fund(fixture, nova.Player.PlayerId, 100);
+        state.Economy.MyLots.Add(lot);
         LotSold? sold = null;
-        state.Economy.LotSold += s => sold = s;
+        Lot? soldLot = null;
+        state.Economy.LotSold += (s, l) => { sold = s; soldLot = l; };
 
         await Clients(fixture, nova.SessionToken).Market.BuyAsync(new LotRef { LotId = lot.Id }, Bearer(nova.SessionToken));
 
@@ -76,6 +78,8 @@ public class EconomyClientTests
         Assert.Equal(40, sold.Price);
         Assert.Equal("Nova", sold.Buyer.Name);
         Assert.Equal(40, state.Economy.Balance);
+        Assert.Equal(lot.Id, soldLot!.Id); // the sold lot as the seller knew it, for the notice
+        Assert.Empty(state.Economy.MyLots);
     }
 
     [Fact]

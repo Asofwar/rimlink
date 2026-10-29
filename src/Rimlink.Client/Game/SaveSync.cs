@@ -39,21 +39,23 @@ public static class SaveSync
 
     /// <summary>
     /// Writes the multiplayer file now (main thread) and marks it as not yet on the server. Used when the session is
-    /// about to end without an upload (connection lost, replaced, player loads another save).
+    /// about to end without an upload (connection lost, replaced, player loads another save). False when nothing was saved.
     /// </summary>
-    public static void SaveLocallyForLater(string reason)
+    public static bool SaveLocallyForLater(string reason)
     {
-        if (!RimlinkSession.Active || Current.Game == null || Current.ProgramState != ProgramState.Playing || Visits.VisitSession.InVisit) return; // a visit's game is the host's copy; the own colony is already uploaded
+        if (!RimlinkSession.Active || Current.Game == null || Current.ProgramState != ProgramState.Playing || Visits.VisitSession.InVisit) return false; // a visit's game is the host's copy; the own colony is already uploaded
         var pending = Pending;
         try
         {
             GameDataSaveLoader.SaveGame(SaveFileName); // the postfix starts an upload that fails or is cancelled; the flag below covers both
             pending.Set();
             RimlinkLog.Instance.Info($"saved locally for a later upload ({reason})");
+            return true;
         }
         catch (Exception ex)
         {
             Log.Error("[Rimlink] local save failed: " + ex);
+            return false;
         }
     }
 

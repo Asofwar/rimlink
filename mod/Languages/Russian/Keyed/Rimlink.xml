@@ -74,7 +74,7 @@
   <Rimlink.Economy.Tab.Shops>Магазины</Rimlink.Economy.Tab.Shops>
   <Rimlink.Raids.Peaceful>Мирный режим (рейды запрещены в обе стороны; выключение через сутки)</Rimlink.Raids.Peaceful>
   <Rimlink.Raids.CloseVisits>Не принимать гостей</Rimlink.Raids.CloseVisits>
-  <Rimlink.Raids.PeacefulOffAt>Мирный режим закончится {0}.</Rimlink.Raids.PeacefulOffAt>
+  <Rimlink.Raids.PeacefulOffAt>Мирный режим закончится {0}. Поставьте галочку снова, чтобы остаться в нём.</Rimlink.Raids.PeacefulOffAt>
   <Rimlink.Raids.Incoming>Рейды на вас: {0}</Rimlink.Raids.Incoming>
   <Rimlink.Raids.Mine>Ваши рейды: {0}</Rimlink.Raids.Mine>
   <Rimlink.Raids.None>нет</Rimlink.Raids.None>
@@ -101,6 +101,8 @@
   <Rimlink.Economy.Bought>Куплено. Товар прилетит дроп-подом.</Rimlink.Economy.Bought>
   <Rimlink.Economy.Withdraw>Снять</Rimlink.Economy.Withdraw>
   <Rimlink.Economy.Withdrawn>Лот снят. Товар вернётся дроп-подом.</Rimlink.Economy.Withdrawn>
+  <Rimlink.Economy.LotSold>Ваш лот {0} куплен игроком {1} за {2} серебра; в кошелёк зачислено {3}.</Rimlink.Economy.LotSold>
+  <Rimlink.Economy.LotNumber>№{0}</Rimlink.Economy.LotNumber>
   <Rimlink.Economy.PriceLabel>Цена (серебро)</Rimlink.Economy.PriceLabel>
   <Rimlink.Economy.PostLot>Выставить лот</Rimlink.Economy.PostLot>
   <Rimlink.Economy.Posted>Выставлено за {0} серебра.</Rimlink.Economy.Posted>
@@ -149,6 +151,8 @@
   <Rimlink.Economy.CaravanTransfer>Передать игроку {0}...</Rimlink.Economy.CaravanTransfer>
   <Rimlink.Save.Stale>Этот сейв старше вашей последней передачи; сервер его не примет (отправленное уже у другого игрока). Выйдите в меню и войдите снова, чтобы получить копию с сервера, или играйте дальше без выгрузки.</Rimlink.Save.Stale>
   <Rimlink.Save.KeepPlaying>Играть дальше (без выгрузки)</Rimlink.Save.KeepPlaying>
+  <Rimlink.Save.EndedByLoad>Вы загрузили другой сейв, поэтому сессия Rimlink завершена. Мультиплеерная колония сохранена на этом компьютере и уйдёт на сервер при следующем входе.</Rimlink.Save.EndedByLoad>
+  <Rimlink.Save.EndedByLoadUnsaved>Вы загрузили другой сейв, поэтому сессия Rimlink завершена. На сервере остаётся колония в том виде, в каком она была выгружена последний раз.</Rimlink.Save.EndedByLoadUnsaved>
   <Rimlink.Raid.CaravanRaid>Напасть на колонию {0}...</Rimlink.Raid.CaravanRaid>
   <Rimlink.Raid.CaravanRaidGizmo>Рейд</Rimlink.Raid.CaravanRaidGizmo>
   <Rimlink.Raid.PodRaid>Напасть на колонию {0} (капсулы)...</Rimlink.Raid.PodRaid>
@@ -204,6 +208,8 @@
   <Rimlink.Shop.Bought>Куплено {0}× {1} за {2} серебра; посылка прилетит в вашу колонию.</Rimlink.Shop.Bought>
   <Rimlink.Shop.Refused>Покупка отклонена: {0}.</Rimlink.Shop.Refused>
   <Rimlink.Shop.Removed>Проданное ({0}) забрано со складов.</Rimlink.Shop.Removed>
+  <Rimlink.Shop.Sold>Игрок {0} купил в вашем магазине {1}× {2} за {3} серебра.</Rimlink.Shop.Sold>
+  <Rimlink.Shop.SoldUnknown>Игрок {0} купил в вашем магазине вещи ({1} шт.) за {2} серебра.</Rimlink.Shop.SoldUnknown>
   <Rimlink.Raid.Failed>Рейд не удалось распаковать ({0}); попытка повторится при следующем входе.</Rimlink.Raid.Failed>
   <Rimlink.Economy.CaravanTransferGizmo>Передать</Rimlink.Economy.CaravanTransferGizmo>
 

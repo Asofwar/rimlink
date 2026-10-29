@@ -116,19 +116,74 @@ public static class ThingBlobs
     public static int SizeOf(ItemList? items, PawnList? pawns) =>
         (items?.Items.Sum(i => i.ScribeXmlZstd.Length) ?? 0) + (pawns?.Pawns.Sum(p => p.ScribeXmlZstd.Length) ?? 0);
 
+    /// <summary>Cross-reference warnings swallowed in the current blob pass, by xml node (save) or referenced type (load); null outside a pass.</summary>
+    [ThreadStatic] private static Dictionary<string, int>? crossRefs;
+
+    /// <summary>
+    /// True for Scribe's warnings about references leaving the blob, while a blob is saved or loaded: on save "Object with load
+    /// ID … is referenced … but is not deep-saved" (dev mode only), on load "Could not resolve reference to …". Counted for the
+    /// pass's summary line; everything else is logged as usual.
+    /// </summary>
+    public static bool SwallowCrossRefWarning(string text)
+    {
+        if (crossRefs is null || text is null || CrossRefKey(text) is not { } key) return false;
+        crossRefs[key] = crossRefs.GetValueOrDefault(key) + 1;
+        return true;
+    }
+
+    private static string? CrossRefKey(string text)
+    {
+        const string NotDeepSaved = "Object with load ID ", NodeName = " is referenced (xml node name: ";
+        const string Unresolved = "Could not resolve reference to object with loadID ", OfType = " of type ";
+        if (text.StartsWith(NotDeepSaved, StringComparison.Ordinal) && text.IndexOf(NodeName, StringComparison.Ordinal) is var n and >= 0)
+        {
+            int start = n + NodeName.Length, end = text.IndexOf(')', start);
+            return end > start ? text[start..end] : "?";
+        }
+        if (text.StartsWith(Unresolved, StringComparison.Ordinal))
+        {
+            int t = text.IndexOf(OfType, StringComparison.Ordinal), start = t + OfType.Length, end = t < 0 ? -1 : text.IndexOf(". ", start, StringComparison.Ordinal);
+            if (end <= start) return "?";
+            string type = text[start..end];
+            return type[(type.LastIndexOf('.') + 1)..];
+        }
+        if (text.StartsWith("Could not resolve reference to Thing with loadID ", StringComparison.Ordinal)) return "Thing (by id)"; // resolved by thing id after all
+        return null;
+    }
+
+    private static void BeginCrossRefs() => crossRefs = [];
+
+    /// <summary>The last summary per blob pass ("blob loaded Human12"): a live mirror reloads the same pawns every refresh.</summary>
+    private static readonly Dictionary<string, string> lastSummary = [];
+
+    /// <summary>Ends the pass and logs one line when anything was swallowed and it differs from this thing's previous line.</summary>
+    private static void EndCrossRefs(string what)
+    {
+        var counted = crossRefs;
+        crossRefs = null;
+        if (counted is not { Count: > 0 }) return;
+        string details = string.Join(", ", counted.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key} ×{kv.Value}"));
+        if (lastSummary.TryGetValue(what, out var previous) && previous == details) return;
+        if (lastSummary.Count >= 1000) lastSummary.Clear();
+        lastSummary[what] = details;
+        RimlinkLog.Instance.Info($"{what}: {counted.Values.Sum()} references outside the blob ({details})");
+    }
+
     private static byte[] Save(Thing thing)
     {
         string path = TempPath();
         try
         {
             Scribe.saver.InitSaving(path, Root);
+            BeginCrossRefs();
             try
             {
                 Scribe_Deep.Look(ref thing, saveDestroyedThings: true, Node);
             }
             finally
             {
-                Scribe.saver.FinalizeSaving();
+                try { Scribe.saver.FinalizeSaving(); } // reports the references not saved with the blob
+                finally { EndCrossRefs($"blob saved {thing.ThingID}"); }
             }
             using var compressor = new Compressor(3);
             return compressor.Wrap(File.ReadAllBytes(path)).ToArray();
@@ -150,6 +205,7 @@ public static class ThingBlobs
             }
             T? thing = null;
             Scribe.loader.InitLoading(path);
+            BeginCrossRefs();
             try
             {
                 Scribe_Deep.Look(ref thing, saveDestroyedThings: true, Node);
@@ -157,8 +213,9 @@ public static class ThingBlobs
             }
             finally
             {
-                // Resolves references inside the blob and runs PostLoadInit; references to things outside it are dropped (logged by the game).
-                Scribe.loader.FinalizeLoading();
+                // Resolves references inside the blob and runs PostLoadInit; references to things outside it are dropped (counted, one summary line).
+                try { Scribe.loader.FinalizeLoading(); }
+                finally { EndCrossRefs($"blob loaded {(thing?.def is null ? typeof(T).Name : thing.ThingID)}"); }
             }
             return thing ?? throw new InvalidDataException("blob did not contain a " + typeof(T).Name);
         }

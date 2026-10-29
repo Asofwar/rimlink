@@ -13,7 +13,8 @@ public static class Patch_GameDataSaveLoader_SaveGame
 
 /// <summary>
 /// Loading any other save while a session is active ends the session first (the colony is saved locally and uploaded at
-/// the next login), so a single-player game never runs with multiplayer patches redirecting its autosaves.
+/// the next login), so a single-player game never runs with multiplayer patches redirecting its autosaves. The player is
+/// told so once the loaded game runs.
 /// </summary>
 [HarmonyPatch(typeof(GameDataSaveLoader), nameof(GameDataSaveLoader.LoadGame), typeof(string))]
 public static class Patch_GameDataSaveLoader_LoadGame
@@ -22,8 +23,9 @@ public static class Patch_GameDataSaveLoader_LoadGame
     {
         if (!RimlinkSession.Active || saveFileName == SaveSync.SaveFileName || Visits.VisitSession.IsVisitSave(saveFileName)) return;
         RimlinkLog.Instance.Info($"loading '{saveFileName}' outside the session: ending it");
-        SaveSync.SaveLocallyForLater("another save is being loaded");
+        bool saved = SaveSync.SaveLocallyForLater("another save is being loaded");
         RimlinkGameComponent.EndSession();
+        RimlinkGameComponent.NoticeAfterLoad(saved ? "Rimlink.Save.EndedByLoad" : "Rimlink.Save.EndedByLoadUnsaved");
     }
 }
 

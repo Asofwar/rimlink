@@ -204,6 +204,30 @@ public class RaidTests
     }
 
     [Fact]
+    public async Task PeacefulOnAgainCancelsAPendingSwitchOff()
+    {
+        var p = await NovaAndBob();
+        using var fixture = p.Fixture;
+        await MakeTargetRaidable(fixture, p.Nova.Player.PlayerId);
+        await p.B.Raids.SetPeacefulAsync(new PeacefulRequest { Peaceful = true }, p.B.Auth);
+        var pending = await p.B.Raids.SetPeacefulAsync(new PeacefulRequest { Peaceful = false }, p.B.Auth);
+        Assert.NotNull(pending.PeacefulOffAt);
+
+        var back = await p.B.Raids.SetPeacefulAsync(new PeacefulRequest { Peaceful = true }, p.B.Auth);
+
+        Assert.True(back.Peaceful);
+        Assert.Null(back.PeacefulOffAt);
+        var flags = await p.B.Raids.FlagsAsync(new Empty(), p.B.Auth);
+        Assert.True(flags.Peaceful);
+        Assert.Null(flags.PeacefulOffAt);
+        var refused = await Assert.ThrowsAsync<RpcException>(() => p.N.Raids.LaunchAsync(Launch(p.Bob.Player.PlayerId), p.N.Auth).ResponseAsync);
+        Assert.Equal(ErrorCode.PeacefulMode, refused.ErrorDetail()!.Code);
+        // Switching off again starts a full delay, not the cancelled one.
+        var again = await p.B.Raids.SetPeacefulAsync(new PeacefulRequest { Peaceful = false }, p.B.Auth);
+        Assert.True(again.PeacefulOffAt.ToDateTime() > DateTime.UtcNow + TimeSpan.FromHours(23));
+    }
+
+    [Fact]
     public async Task AnnounceSetsLandAtTickAndIsIdempotent()
     {
         var p = await NovaAndBob();

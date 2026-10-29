@@ -41,7 +41,9 @@ Rimlink needs the exact server version it was built with (the server tells you w
   under other names stay local and are not sent to the server.
 - If the connection is lost for good or your account logs in elsewhere, the game saves locally and returns to the menu;
   that save is sent to the server at your next login, before anything is downloaded. Loading another (single-player)
-  save from inside a multiplayer game ends the session the same way.
+  save from inside a multiplayer game ends the session the same way: a message in the loaded game says the session
+  ended and the colony goes to the server at your next login (during a visit nothing is saved: the server keeps the
+  colony as it was uploaded before the visit).
 - **Chat / Players** buttons in the top-right corner: global chat, direct messages (click a player → Message),
   who is online. Moderators and admins type `/help` in chat for commands.
 - Settling, abandoning or losing a settlement is reported to the server; other players see it on their map.
@@ -55,6 +57,7 @@ Items you can send are the ones under a powered **orbital trade beacon**, exactl
 - **Market**: lots posted by every player. **Buy** pays from your wallet; the goods arrive by drop pod.
 - **My lots**: tick items (or one colonist/animal), set a price, **Post lot**. The goods leave your colony and wait on the
   server in escrow; **Withdraw** brings them back by drop pod. Lots expire after 30 days (the server returns them).
+  When a lot sells while you play, a message names the lot, the buyer, the price and what reached your wallet.
 - **Send**: a gift to another player — items, pawns and silver from your wallet. They get it next time they are in
   their colony, whether or not they are online now.
 - **Wallet**: your silver on the server. **Deposit** takes silver from under the beacons; **Withdraw** drops it in
@@ -94,14 +97,16 @@ copy of the host's colony.
   target's game; what they steal arrives in your mailbox, capped by the target's wealth and the server's limit.
 - **Being raided**: a letter announces the raid; captured raiders are yours, what they carry away is gone. The
   **Raids** tab of the Rimlink window lists raids coming at you and your own.
-- **Peaceful mode** (Raids tab): nobody can raid you and you cannot raid; switching it off takes a day. New or poor
+- **Peaceful mode** (Raids tab): nobody can raid you and you cannot raid; switching it off takes a day. While it is
+  switching off the box is unticked and shows when peaceful mode ends; tick it again to stay peaceful. New or poor
   colonies are protected by the server anyway.
 - **Visit**: with a caravan (or pods) at another player's settlement choose **Visit**. Your own colony is saved and
   uploaded, then a copy of the host's colony loads with copies of your pawns walking in. Nothing taken there goes
   home; things the host marked **For sale** show a **Buy** button, paid from your wallet and delivered to your colony
   by drop pod after the visit. **End visit** brings your own colony back. Tick **Do not receive visitors** to opt out.
 - **Selling**: in your colony select an item and use **For sale...**; the shelf is published with your next save and
-  sold things are collected from your stockpiles at your next login.
+  sold things are collected from your stockpiles at your next login. A sale while you play shows a message with the
+  buyer, the item and the price.
 
 ## 6. Live raids and visits
 

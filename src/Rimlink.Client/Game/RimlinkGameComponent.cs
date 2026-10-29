@@ -28,6 +28,7 @@ public sealed class RimlinkGameComponent : GameComponent
         ForeignSettlements.Subscribe();
         ForeignSettlements.RebuildFromState();
         SubscribeLive();
+        Economy.SaleNotices.Subscribe();
         // A visit's game is the host's colony: removing "sold" things there would strip the guest's copy, not the home map.
         if (!Visits.VisitSession.InVisit) Shop.ShopSync.ApplyRemovals();
         if (!Visits.VisitSession.InVisit) SettleLiveSessionsAfterLoad();
@@ -100,8 +101,30 @@ public sealed class RimlinkGameComponent : GameComponent
 
     public override void GameComponentOnGUI() => UI.Overlay.Draw();
 
+    private static string? afterLoadNotice;
+    private static Verse.Game? noticeSetIn;
+
+    /// <summary>
+    /// A message for the game being loaded: loading disposes this game and reloads the scene, so it is shown on the first
+    /// frame of the next game (which runs without a session, hence before the session check below).
+    /// </summary>
+    public static void NoticeAfterLoad(string key)
+    {
+        afterLoadNotice = key;
+        noticeSetIn = Current.Game;
+    }
+
+    private static void ShowNoticeAfterLoad()
+    {
+        if (afterLoadNotice is not { } key || Current.Game == noticeSetIn || Current.ProgramState != ProgramState.Playing) return;
+        afterLoadNotice = null;
+        noticeSetIn = null;
+        Find.WindowStack.Add(new Dialog_MessageBox(key.Translate()));
+    }
+
     public override void GameComponentUpdate()
     {
+        ShowNoticeAfterLoad();
         if (!RimlinkSession.Active) return;
 
         RimlinkSession.Inbox.DrainTo(RimlinkSession.State.Apply);
