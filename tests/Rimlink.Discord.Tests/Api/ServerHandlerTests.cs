@@ -9,11 +9,27 @@ namespace Rimlink.Discord.Tests.Api;
 
 public class ServerHandlerTests
 {
-    private static X509Certificate2 SelfSigned()
+    private static X509Certificate2 SelfSigned(string name = "rimlink")
     {
         using var rsa = RSA.Create(2048);
-        var request = new CertificateRequest("CN=rimlink", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        var request = new CertificateRequest($"CN={name}", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        var san = new SubjectAlternativeNameBuilder();
+        san.AddDnsName(name);
+        request.CertificateExtensions.Add(san.Build());
         return request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(30));
+    }
+
+    [Fact]
+    public void RealCertificateIsCheckedAgainstItsPublicName()
+    {
+        // Compose reaches the server as https://rimlink:25560; a real certificate is issued for the public name.
+        var cert = SelfSigned("play.example.com");
+        var server = new ServerSection { CertificateName = "play.example.com" };
+
+        Assert.True(ServerHandler.Accepts(server, cert, SslPolicyErrors.RemoteCertificateNameMismatch));
+        Assert.False(ServerHandler.Accepts(new ServerSection { CertificateName = "other.example.com" }, cert, SslPolicyErrors.RemoteCertificateNameMismatch));
+        Assert.False(ServerHandler.Accepts(server, cert, SslPolicyErrors.RemoteCertificateNameMismatch | SslPolicyErrors.RemoteCertificateChainErrors));
+        Assert.False(ServerHandler.Accepts(new ServerSection(), cert, SslPolicyErrors.RemoteCertificateNameMismatch));
     }
 
     private static string Pin(X509Certificate2 cert) => Convert.ToHexString(SHA256.HashData(cert.RawData));

@@ -10,6 +10,9 @@ RUN dotnet publish src/Rimlink.Discord/Rimlink.Discord.csproj -c Release -r linu
 FROM mcr.microsoft.com/dotnet/runtime:10.0
 WORKDIR /app
 COPY --from=build /app .
-# Configuration comes from the environment (RimlinkBot__Section__Key); nothing is written to disk.
+# Configuration comes from the environment (RimlinkBot__Section__Key). /data holds only the last feed id
+# (RimlinkBot__StateFile); a named volume takes the owner below.
+RUN mkdir -p /data && chown app:app /data
+VOLUME /data
 USER app
 ENTRYPOINT ["dotnet", "rimlink-discord.dll"]

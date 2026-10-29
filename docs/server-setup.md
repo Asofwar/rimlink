@@ -238,10 +238,12 @@ Discord roles. It talks to the server only through the admin REST API, with a to
    - `moderate` + `chat`: no admin commands (they answer "this server's bot token has no admin rights");
    - `read` + `chat`: events, the chat bridge and `/online`, `/status`, `/market`; `/player` needs `moderate`.
    Without `chat` the bridge works only from the game into Discord.
-4. **Certificate.** With the self-signed certificate set `RIMLINK_CERT_SHA256` to `certificateFingerprint` from
-   `rimlink-tools admin status` (or `GET /api/admin/status`); the bot trusts exactly that certificate. With a real
-   certificate leave it empty. `RimlinkBot:Server:Insecure=true` skips the check and is only acceptable inside the compose
-   network.
+4. **Certificate.** The bot reaches the server as `https://rimlink:25560` inside the compose network.
+   - Self-signed certificate: set `RIMLINK_CERT_SHA256` to `certificateFingerprint` from `rimlink-tools admin status` (or
+     `GET /api/admin/status`); the bot trusts exactly that certificate.
+   - Real certificate (`Tls:CertificatePath`): set `RIMLINK_CERT_NAME` to the name it is issued for (`play.example.com`);
+     the chain is checked as usual, the name against that one. Renewals need no change.
+   - `RimlinkBot:Server:Insecure=true` skips the check and is only acceptable inside the compose network.
 5. **Run.** `docker compose -f docker-compose.yml -f docker-compose.discord.yml up -d` with the values above in `.env`
    (the file lists every variable); `deploy/discord.appsettings.example.json` shows the same settings as JSON. The bot
    stops at start when a token is missing; a channel it cannot write to or a role it cannot find only turns that part off
@@ -256,7 +258,13 @@ Commands (Discord bot spec §5):
 | Admin role | `/ban`, `/pardon`, `/wallet`, `/refund lot\|parcel`, `/economy freeze\|unfreeze`, `/raids cancel\|freeze\|unfreeze`, `/live end`, `/peaceful`, `/saves` |
 | Admin role, with a confirm button | `/shutdown`, `/rollback`, `/reset`, `/recreateworld` |
 
-The server runs every bot call as the bot's token, so the Discord roles are the only thing that tells a moderator from
-any member: give the roles carefully. Each action shows in the audit log as `api:discord-bot:discord:<user> (<id>)`.
-The feed survives short outages: the bot resumes where it stopped, says "the server is unreachable" in the server channel
-after a minute without the server and "reachable again" when it is back.
+Every member sees every command; one without the role gets "You may not use this command" and nothing reaches the server.
+To hide the moderator and admin commands, restrict them in Discord (Server Settings → Integrations → the bot) to the
+moderator and admin roles. The server runs every bot call as the bot's token, so the Discord roles are the only thing that
+tells a moderator from any member: give the roles carefully. Each action shows in the audit log as
+`api:discord-bot:discord:<user> (<id>)`. Player-name autocomplete suggests names only, never a match by login or SteamID.
+
+The bot keeps the last feed event id in `RimlinkBot:StateFile` (compose: the `rimlink-discord-state` volume), so after a
+restart it posts what happened while it was down, as long as the server's buffer (`Admin:FeedBufferSize`) still holds it.
+It says "the server is unreachable" in the server channel after a minute without the server and "reachable again" when it
+is back.

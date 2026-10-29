@@ -32,7 +32,8 @@ public static class BotHost
 
     public static IHost Create(string[] args, IConfiguration? overrides = null)
     {
-        var builder = Host.CreateApplicationBuilder(args);
+        // Content root = the bot's folder, the same one Check reads appsettings.json from, wherever the bot is started.
+        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { Args = args, ContentRootPath = AppContext.BaseDirectory });
         if (overrides is not null) builder.Configuration.AddConfiguration(overrides);
         var section = builder.Configuration.GetSection(BotOptions.Section);
         var options = section.Get<BotOptions>() ?? new BotOptions();
@@ -51,8 +52,12 @@ public static class BotHost
         s.AddSingleton(TimeProvider.System);
         s.AddSingleton(sp => new RimlinkApi(sp.GetRequiredService<IHttpClientFactory>().CreateClient("api")));
         s.AddSingleton(new FeedReaderOptions());
+        s.AddSingleton(sp => new FeedState(options.StateFile, sp.GetRequiredService<ILogger<FeedState>>()));
         s.AddSingleton(sp => new FeedReader(() => sp.GetRequiredService<IHttpClientFactory>().CreateClient("feed"),
-            sp.GetRequiredService<FeedReaderOptions>(), sp.GetRequiredService<ILogger<FeedReader>>()));
+            sp.GetRequiredService<FeedReaderOptions>(), sp.GetRequiredService<ILogger<FeedReader>>())
+        {
+            LastId = sp.GetRequiredService<FeedState>().Load(), // a restarted bot resumes where it stopped
+        });
         s.AddSingleton(new Strings(options.Discord.Language is "ru" ? "ru" : "en"));
         s.AddSingleton<Formatter>();
         var c = options.Discord.Channels;

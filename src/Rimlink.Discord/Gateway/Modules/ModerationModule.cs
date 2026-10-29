@@ -1,12 +1,10 @@
-using Discord;
 using Discord.Interactions;
 using Rimlink.Discord.Commands;
 using Rimlink.Discord.Text;
 
 namespace Rimlink.Discord.Gateway.Modules;
 
-/// <summary>Moderator commands. Hidden from members without Manage Server; the role check in the handlers is the real gate.</summary>
-[DefaultMemberPermissions(GuildPermission.ManageGuild)]
+/// <summary>Moderator commands. Visible to every member; the level check in the handlers refuses the others.</summary>
 public sealed class ModerationModule(CommandHandlers h, Permissions permissions, Strings s) : RimlinkModule(permissions, s)
 {
     [SlashCommand("kick", "Disconnect a player")]

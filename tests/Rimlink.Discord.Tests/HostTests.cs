@@ -62,8 +62,25 @@ public class HostTests
             Assert.Matches("^[a-z0-9_-]{1,32}$", command.Name);
             Assert.All(command.Parameters, p => Assert.Matches("^[a-z0-9_-]{1,32}$", p.Name));
             Assert.InRange(command.Description.Length, 1, 100);
+            // A default member permission would make Discord refuse the command to a moderator without it; the roles are the gate.
+            Assert.Null(command.DefaultMemberPermissions);
+            Assert.Null(command.Module.DefaultMemberPermissions);
         }
         Assert.Equal(2, interactions.ComponentCommands.Count); // confirm:* and cancel:*
+    }
+
+    [Fact]
+    public void StateFileSeedsTheReader()
+    {
+        string file = Path.Combine(Path.GetTempPath(), "rimlink-bot-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+        File.WriteAllText(file, "1700000000:42");
+        var config = new ConfigurationBuilder().AddConfiguration(Valid()).AddInMemoryCollection(new Dictionary<string, string?> { ["RimlinkBot:StateFile"] = file }).Build();
+
+        using var host = BotHost.Create([], config);
+
+        Assert.Equal("1700000000:42", host.Services.GetRequiredService<Rimlink.Discord.Api.FeedReader>().LastId);
+        File.Delete(file);
     }
 
     [Fact]

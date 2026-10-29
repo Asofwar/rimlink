@@ -26,8 +26,10 @@ public sealed class Confirmations(TimeProvider time, Strings s)
         return new Confirmation(id, description);
     }
 
-    public async Task<Reply> Press(string id, ulong userId, bool confirm)
+    /// <param name="level">The presser's level now: a member who lost the admin role since the command cannot confirm it.</param>
+    public async Task<Reply> Press(string id, ulong userId, Level level, bool confirm)
     {
+        if (level < Level.Admin) return Ephemeral("cmd.denied");
         if (!pending.TryGetValue(id, out var entry)) return Ephemeral("cmd.confirm.expired");
         if (time.GetUtcNow() - entry.At > Lifetime)
         {

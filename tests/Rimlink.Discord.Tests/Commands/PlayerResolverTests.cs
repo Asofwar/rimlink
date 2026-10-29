@@ -41,6 +41,20 @@ public class PlayerResolverTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task APrefixOnATruncatedPageIsAmbiguous()
+    {
+        // 300 players match "jo"; the first page holds one name starting with it, the next pages may hold more.
+        var api = new Rimlink.Discord.Api.RimlinkApi(new HttpClient(new StubHandler(
+            """{"total":300,"items":[{"id":1,"name":"John","factionName":"","online":true},{"id":2,"name":"Ajo","factionName":"","online":true}]}"""))
+            { BaseAddress = new Uri("https://rimlink:25560/api/admin/") });
+
+        var (player, error) = await new PlayerResolver(api, new Strings("en")).Resolve("jo", CancellationToken.None);
+
+        Assert.Null(player);
+        Assert.Contains("John", error);
+    }
+
+    [Fact]
     public async Task UnknownIsAnError()
     {
         var (player, error) = await resolver.Resolve("zz", CancellationToken.None);

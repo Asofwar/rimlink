@@ -18,11 +18,16 @@ services:
     container_name: rimlink-discord
     restart: unless-stopped
     depends_on: [rimlink]
+    volumes:
+      - rimlink-discord-state:/data
     environment:
+      RimlinkBot__StateFile: "/data/feed-state"
       RimlinkBot__Server__Url: "https://rimlink:25560"
       RimlinkBot__Server__ApiToken: "${RIMLINK_BOT_TOKEN:?set RIMLINK_BOT_TOKEN in .env}"
-      # certificateFingerprint from `rimlink-tools admin status` for the self-signed certificate; empty with a real one.
+      # Self-signed certificate: its certificateFingerprint from `rimlink-tools admin status`.
       RimlinkBot__Server__CertificateSha256: "${RIMLINK_CERT_SHA256:-}"
+      # Real certificate (Tls:CertificatePath): the name it is issued for, e.g. play.example.com.
+      RimlinkBot__Server__CertificateName: "${RIMLINK_CERT_NAME:-}"
       RimlinkBot__Discord__Token: "${DISCORD_TOKEN:?set DISCORD_TOKEN in .env}"
       RimlinkBot__Discord__GuildId: "${DISCORD_GUILD_ID:?set DISCORD_GUILD_ID in .env}"
       RimlinkBot__Discord__Language: "${DISCORD_LANGUAGE:-en}"
@@ -33,3 +38,7 @@ services:
       RimlinkBot__Discord__Channels__Market: "${DISCORD_CHANNEL_MARKET:-0}"
       RimlinkBot__Discord__Channels__Moderation: "${DISCORD_CHANNEL_MODERATION:-0}"
       RimlinkBot__Discord__Channels__Chat: "${DISCORD_CHANNEL_CHAT:-0}"
+
+volumes:
+  # The bot's last feed id, so a restarted bot posts what it missed.
+  rimlink-discord-state:

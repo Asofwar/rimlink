@@ -1,4 +1,3 @@
-using Discord;
 using Discord.Interactions;
 using Rimlink.Discord.Commands;
 using Rimlink.Discord.Text;
@@ -7,7 +6,7 @@ namespace Rimlink.Discord.Gateway.Modules;
 
 // A command group lives in one module: its moderator and admin subcommands sit together, the handlers check the level.
 
-[Group("raids", "Raids between colonies"), DefaultMemberPermissions(GuildPermission.ManageGuild)]
+[Group("raids", "Raids between colonies")]
 public sealed class RaidsModule(CommandHandlers h, Permissions permissions, Strings s) : RimlinkModule(permissions, s)
 {
     [SlashCommand("list", "Recent raids")]
@@ -27,7 +26,7 @@ public sealed class RaidsModule(CommandHandlers h, Permissions permissions, Stri
     public Task Unfreeze() => Answer(c => h.RaidsFreeze(c, false, null));
 }
 
-[Group("live", "Live raids and visits"), DefaultMemberPermissions(GuildPermission.ManageGuild)]
+[Group("live", "Live raids and visits")]
 public sealed class LiveModule(CommandHandlers h, Permissions permissions, Strings s) : RimlinkModule(permissions, s)
 {
     [SlashCommand("list", "Recent live sessions")]
@@ -38,7 +37,7 @@ public sealed class LiveModule(CommandHandlers h, Permissions permissions, Strin
         Answer(c => h.LiveEnd(c, session, reason));
 }
 
-[Group("economy", "Silver and trading"), DefaultMemberPermissions(GuildPermission.ManageGuild)]
+[Group("economy", "Silver and trading")]
 public sealed class EconomyModule(CommandHandlers h, Permissions permissions, Strings s) : RimlinkModule(permissions, s)
 {
     [SlashCommand("stats", "Silver, lots and trades")]
@@ -51,7 +50,7 @@ public sealed class EconomyModule(CommandHandlers h, Permissions permissions, St
     public Task Unfreeze() => Answer(c => h.EconomyFreeze(c, false, null));
 }
 
-[Group("refund", "Undo a trade"), DefaultMemberPermissions(GuildPermission.ManageGuild)]
+[Group("refund", "Undo a trade")]
 public sealed class RefundModule(CommandHandlers h, Permissions permissions, Strings s) : RimlinkModule(permissions, s)
 {
     [SlashCommand("lot", "Return an open lot to its seller")]

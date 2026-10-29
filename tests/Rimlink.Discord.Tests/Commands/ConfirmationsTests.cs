@@ -28,17 +28,17 @@ public class ConfirmationsTests
     {
         var c = Create();
 
-        var stranger = await confirmations.Press(c.Id, 5, confirm: true);
+        var stranger = await confirmations.Press(c.Id, 5, Level.Admin, confirm: true);
         Assert.Equal(S.T("cmd.confirm.notyours"), stranger.Text);
         Assert.True(stranger.Ephemeral);
         Assert.Equal(0, runs);
 
-        Assert.Equal("ran", (await confirmations.Press(c.Id, Owner.UserId, confirm: true)).Text);
-        Assert.Equal(S.T("cmd.confirm.expired"), (await confirmations.Press(c.Id, Owner.UserId, confirm: true)).Text);
+        Assert.Equal("ran", (await confirmations.Press(c.Id, Owner.UserId, Level.Admin, confirm: true)).Text);
+        Assert.Equal(S.T("cmd.confirm.expired"), (await confirmations.Press(c.Id, Owner.UserId, Level.Admin, confirm: true)).Text);
         Assert.Equal(1, runs);
 
         var twice = Create();
-        await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => Task.Run(() => confirmations.Press(twice.Id, Owner.UserId, confirm: true))));
+        await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => Task.Run(() => confirmations.Press(twice.Id, Owner.UserId, Level.Admin, confirm: true))));
         Assert.Equal(2, runs);
     }
 
@@ -48,7 +48,17 @@ public class ConfirmationsTests
         var c = Create();
         time.Advance(TimeSpan.FromSeconds(61));
 
-        Assert.Equal(S.T("cmd.confirm.expired"), (await confirmations.Press(c.Id, Owner.UserId, confirm: true)).Text);
+        Assert.Equal(S.T("cmd.confirm.expired"), (await confirmations.Press(c.Id, Owner.UserId, Level.Admin, confirm: true)).Text);
+        Assert.Equal(0, runs);
+    }
+
+    [Fact]
+    public async Task DemotedOwnerCannotConfirm()
+    {
+        var c = Create();
+
+        // The owner lost the admin role between the command and the button (bot spec §5: the level is checked on every interaction).
+        Assert.Equal(S.T("cmd.denied"), (await confirmations.Press(c.Id, Owner.UserId, Level.Moderator, confirm: true)).Text);
         Assert.Equal(0, runs);
     }
 
@@ -57,8 +67,8 @@ public class ConfirmationsTests
     {
         var c = Create();
 
-        Assert.Equal(S.T("cmd.confirm.cancelled"), (await confirmations.Press(c.Id, Owner.UserId, confirm: false)).Text);
-        Assert.Equal(S.T("cmd.confirm.expired"), (await confirmations.Press(c.Id, Owner.UserId, confirm: true)).Text);
+        Assert.Equal(S.T("cmd.confirm.cancelled"), (await confirmations.Press(c.Id, Owner.UserId, Level.Admin, confirm: false)).Text);
+        Assert.Equal(S.T("cmd.confirm.expired"), (await confirmations.Press(c.Id, Owner.UserId, Level.Admin, confirm: true)).Text);
         Assert.Equal(0, runs);
     }
 }

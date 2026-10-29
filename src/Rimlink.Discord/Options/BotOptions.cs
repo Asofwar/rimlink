@@ -7,6 +7,8 @@ public sealed class BotOptions
 
     public ServerSection Server { get; set; } = new();
     public DiscordSection Discord { get; set; } = new();
+    /// <summary>File keeping the last admin feed id across restarts (compose: on the bot's volume); empty = start with new events.</summary>
+    public string? StateFile { get; set; }
 
     /// <summary>Problems that stop the bot at start; empty when the options are usable.</summary>
     public static List<string> Validate(BotOptions o)
@@ -29,6 +31,11 @@ public sealed class ServerSection
     public string ApiToken { get; set; } = "";
     /// <summary>HEX(SHA256) of the server certificate; a match is trusted without the chain and name checks.</summary>
     public string? CertificateSha256 { get; set; }
+    /// <summary>
+    /// The name a real (CA-issued) certificate is issued for, when <see cref="Url"/> uses another one (compose: rimlink): the
+    /// chain is still checked, the name against this one.
+    /// </summary>
+    public string? CertificateName { get; set; }
     /// <summary>Accept any certificate. Only inside the compose network.</summary>
     public bool Insecure { get; set; }
 }

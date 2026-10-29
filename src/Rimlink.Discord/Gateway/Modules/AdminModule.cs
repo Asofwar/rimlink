@@ -1,4 +1,3 @@
-using Discord;
 using Discord.Interactions;
 using Rimlink.Discord.Commands;
 using Rimlink.Discord.Text;
@@ -6,7 +5,6 @@ using Rimlink.Discord.Text;
 namespace Rimlink.Discord.Gateway.Modules;
 
 /// <summary>Admin commands; the last four only run after their confirm button.</summary>
-[DefaultMemberPermissions(GuildPermission.ManageGuild)]
 public sealed class AdminModule(CommandHandlers h, Permissions permissions, Strings s) : RimlinkModule(permissions, s)
 {
     [SlashCommand("ban", "Ban a player")]

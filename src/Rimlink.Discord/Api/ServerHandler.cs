@@ -11,7 +11,11 @@ public static class ServerHandler
     public static bool Accepts(ServerSection server, X509Certificate2? certificate, SslPolicyErrors errors)
     {
         if (errors == SslPolicyErrors.None || server.Insecure) return true;
-        if (certificate is null || string.IsNullOrEmpty(server.CertificateSha256)) return false;
+        if (certificate is null) return false;
+        // A real certificate reached under the compose name (rimlink): its chain is valid, only the name differs.
+        if (errors == SslPolicyErrors.RemoteCertificateNameMismatch && !string.IsNullOrEmpty(server.CertificateName))
+            return certificate.MatchesHostname(server.CertificateName);
+        if (string.IsNullOrEmpty(server.CertificateSha256)) return false;
         return string.Equals(Convert.ToHexString(SHA256.HashData(certificate.RawData)), server.CertificateSha256, StringComparison.OrdinalIgnoreCase);
     }
 

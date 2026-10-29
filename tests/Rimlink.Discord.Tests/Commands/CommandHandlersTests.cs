@@ -94,7 +94,7 @@ public class CommandHandlersTests
         Assert.Contains("Nova", reply.Confirm!.Description);
         Assert.DoesNotContain(await api.Actions(10), a => a.Action == "reset");
 
-        var done = await confirmations.Press(reply.Confirm.Id, Admin.UserId, confirm: true);
+        var done = await confirmations.Press(reply.Confirm.Id, Admin.UserId, Level.Admin, confirm: true);
         Assert.Equal(S.T("cmd.done"), done.Text);
         Assert.Contains(await api.Actions(10), a => a.Action == "reset");
     }

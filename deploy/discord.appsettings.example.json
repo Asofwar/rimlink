@@ -1,9 +1,11 @@
 {
   "RimlinkBot": {
+    "StateFile": "/data/feed-state",
     "Server": {
       "Url": "https://rimlink:25560",
       "ApiToken": "the discord-bot token from the server's Admin:Tokens (24+ characters)",
       "CertificateSha256": "",
+      "CertificateName": "",
       "Insecure": false
     },
     "Discord": {

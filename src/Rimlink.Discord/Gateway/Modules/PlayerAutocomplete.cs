@@ -13,12 +13,21 @@ public sealed class PlayerAutocomplete(RimlinkApi api) : AutocompleteHandler
         string typed = autocompleteInteraction.Data.Current.Value?.ToString() ?? "";
         try
         {
-            var page = await api.Players(typed, 25);
-            return AutocompletionResult.FromSuccess(page.Items.Select(p => new AutocompleteResult(p.Name, p.Name)));
+            return AutocompletionResult.FromSuccess((await Suggestions(api, typed, CancellationToken.None)).Select(n => new AutocompleteResult(n, n)));
         }
         catch (RimlinkApiException)
         {
             return AutocompletionResult.FromSuccess();
         }
+    }
+
+    /// <summary>
+    /// Names containing what was typed. The bot's token searches logins, SteamIDs and <c>#id</c>s too, and any member may type
+    /// here: a match only by those must not reveal whose they are.
+    /// </summary>
+    public static async Task<List<string>> Suggestions(RimlinkApi api, string typed, CancellationToken ct)
+    {
+        var page = await api.Players(typed, 25, ct);
+        return page.Items.Where(p => p.Name.Contains(typed, StringComparison.OrdinalIgnoreCase)).Select(p => p.Name).ToList();
     }
 }
