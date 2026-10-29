@@ -26,8 +26,17 @@ public static class Outgoing
 
     private static DateTime lastReturn = DateTime.MinValue;
 
+    /// <summary>During a visit the map is the host's copy: nothing on it is ours to send, post or deposit (wallet silver still goes).</summary>
+    private static bool RefusedInVisit(int fromTheMap)
+    {
+        if (fromTheMap == 0 || !Visits.VisitSession.InVisit) return false;
+        Messages.Message("Rimlink.Visit.WalletOnly".Translate(), MessageTypeDefOf.RejectInput, historical: false);
+        return true;
+    }
+
     public static void SendItems(Map map, long toPlayerId, string toName, IReadOnlyList<Pick> picks, IReadOnlyList<Pawn> pawns, long silver)
     {
+        if (RefusedInVisit(picks.Count + pawns.Count)) return;
         if (CheckLimits(picks.Count, pawns.Count) is { } limit) { Messages.Message(limit, MessageTypeDefOf.RejectInput, historical: false); return; }
         var taken = TakeFromMap(map, picks, pawns);
         if (taken is null) return;
@@ -39,6 +48,7 @@ public static class Outgoing
     public static void PostLot(Map map, IReadOnlyList<Pick> picks, Pawn? pawn, long price)
     {
         IReadOnlyList<Pawn> pawns = pawn is null ? [] : [pawn];
+        if (RefusedInVisit(picks.Count + pawns.Count)) return;
         if (CheckLimits(picks.Count, pawns.Count) is { } limit) { Messages.Message(limit, MessageTypeDefOf.RejectInput, historical: false); return; }
         var taken = TakeFromMap(map, picks, pawns);
         if (taken is null) return;
@@ -59,6 +69,7 @@ public static class Outgoing
     /// <summary>Silver under the beacons goes into the wallet.</summary>
     public static void Deposit(Map map, int silver)
     {
+        if (RefusedInVisit(silver)) return;
         var picks = new List<Pick>();
         int left = silver;
         var source = BlobDebugActions.PickAnywhere && Prefs.DevMode
@@ -305,6 +316,10 @@ public static class Outgoing
             return;
         }
 
+        // Silver from the wallet alone leaves nothing on the map: no save to secure and no tick to stamp (during a visit this
+        // game is the host's copy, whose tick is not ours and which is never saved).
+        if (taken.Count == 0) { Submit(0); return; }
+
         // The save that no longer holds these things must reach the server before they can exist anywhere else.
         if (!SaveSync.TriggerSave("transfer"))
         {
@@ -322,7 +337,11 @@ public static class Outgoing
                 SaveSync.TriggerSave("transfer-restore");
                 return;
             }
-            long tick = Find.TickManager.TicksGame;
+            Submit(Find.TickManager.TicksGame);
+        });
+
+        void Submit(long tick)
+        {
             var request = build(items, pawnList, tick);
             var outbox = RimlinkSession.Outbox;
             var entry = outbox?.Add(request);
@@ -354,7 +373,7 @@ public static class Outgoing
                     MainThread.Post(() => Messages.Message("Rimlink.Economy.Unanswered".Translate(reason), MessageTypeDefOf.NegativeEvent, historical: false));
                 }
             });
-        });
+        }
     }
 
     /// <summary>Puts everything back where it was taken from (main thread).</summary>

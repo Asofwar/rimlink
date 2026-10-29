@@ -141,6 +141,7 @@
   <Rimlink.Economy.TooManyPawns>At most {0} pawns per transfer.</Rimlink.Economy.TooManyPawns>
   <Rimlink.Economy.TooBig>Too much data for one transfer (limit {0} KB).</Rimlink.Economy.TooBig>
   <Rimlink.Economy.SaveBusy>Another save is in progress; try again in a moment.</Rimlink.Economy.SaveBusy>
+  <Rimlink.Visit.WalletOnly>During a visit only silver from your wallet can be sent: the things on this map are the host's.</Rimlink.Visit.WalletOnly>
   <Rimlink.Economy.Unanswered>The server did not answer ({0}). The transfer is kept and will be settled at the next login.</Rimlink.Economy.Unanswered>
   <Rimlink.Economy.Returned>A refused transfer is coming back by drop pod: {0}.</Rimlink.Economy.Returned>
   <Rimlink.Economy.KeepOneColonist>At least one colonist must stay with the caravan.</Rimlink.Economy.KeepOneColonist>
