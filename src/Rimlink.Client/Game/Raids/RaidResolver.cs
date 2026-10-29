@@ -96,12 +96,16 @@ public static class RaidResolver
     private static bool IsOver(ActiveRaid raid, Map map)
     {
         if (Find.TickManager.TicksGame >= raid.LandedTick + TimeoutTicks) return true;
-        return NoneCanAct(raid.PawnIds, raid.Exits, map);
+        return raid.PawnIds.All(id => raid.Exits.Any(e => e.PawnId == id) || FindRaider(id, map) is not { } p || p.Dead || p.IsPrisonerOfColony || !OnTheMap(p));
     }
 
-    /// <summary>No raider can still act: each one left the map, died, is a prisoner, or is simply gone (a downed one on the map, or carried, still may be captured).</summary>
-    public static bool NoneCanAct(IEnumerable<int> ids, IEnumerable<RaiderExit> exits, Map map) =>
-        ids.All(id => exits.Any(e => e.PawnId == id) || FindRaider(id, map) is not { } p || p.Dead || p.IsPrisonerOfColony || !OnTheMap(p));
+    /// <summary>
+    /// A live session's guest has no pawn left to play: each one left the map, died, is a prisoner of the colony or is gone without a
+    /// trace. One alive anywhere else keeps the guest in the game: downed or carried on the map, in a casket or a pod, held by another
+    /// faction (the report would call it dead, so the session must not end while it can still come back).
+    /// </summary>
+    public static bool NoneLeft(IEnumerable<int> ids, IEnumerable<RaiderExit> exits, Map map) =>
+        ids.All(id => exits.Any(e => e.PawnId == id) || FindRaider(id, map) is not { } p || p.Dead || p.IsPrisonerOfColony);
 
     /// <summary>Spawned, or held by something spawned (a carrier, a drop pod or its skyfaller).</summary>
     private static bool OnTheMap(Pawn p) => p.SpawnedOrAnyParentSpawned;
