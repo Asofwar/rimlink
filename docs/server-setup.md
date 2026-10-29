@@ -96,6 +96,20 @@ save to the visitor (only while a visit is open; a ticket nobody ended stops wor
 what a host priced in their colony and sells it from the visitor's copy, the host's game removes the sold things at its
 next login.
 
+## 5c. Live raids and visits
+
+When both players are online, a raid or a visit can run live: the guest's pawns act on the host's live map and the guest
+controls them from a mirrored copy, the server only relays frames between the two streams. Settings under `Live` (defaults):
+`Enabled` true, `InviteSeconds` 60 (time the host has to answer an invitation), `ReconnectWaitMinutes` 5 (how long a session
+waits for a dropped side), `GuestPauses` 10 and `GuestPauseSeconds` 60 (the guest's pause budget per session), `MaxFrameBytes`
+262144, `DeltasPerSecond` 20, `OrdersPerSecond` 30 (frames above these limits are dropped with a notice), `HeartbeatTimeoutSeconds`
+10, `SweepSeconds` 5. The host must be online and at their colony (`HOST_OFFLINE` otherwise); one live session or visit per
+player (`LIVE_ACTIVE`); the raid rules of 5b (cooldowns, protection, peaceful mode, loot caps) apply to live raids, which hold a
+raid row with the escrowed pawns. A declined or unanswered invitation falls back: the raid goes on as an asynchronous raid with
+the timing the attacker chose, a visit's pawns come home by parcel. A lost guest's raid is handed to the host's AI after the wait;
+a lost host leaves the session in `Ending` until the host's next login, which reports it (`pending_live_ends`); an admin can end
+any session (`live end`). Every pawn or thing movement still ends as a mailbox parcel, as in 5a/5b.
+
 ## 6. Administration
 
 - In game, moderators and admins type `/help` in chat.
@@ -110,6 +124,9 @@ next login.
   `{"reason": "...", "returnPawns": true}`), `/api/admin/players/{id}/peaceful`, `/api/admin/shop/{id}[/removals]`.
   Cancelling a raid that has not landed returns the pawns to the attacker; a landed one stays with the defender's map
   unless `--return` sends the attacker's originals home as well (the copies on the defender's map are not touched).
+- Live sessions: chat `/live list [player]`, `/live end <id> [reason]`; the same via `rimlink-tools admin live list [playerId]|end <id> [reason]`
+  and REST `GET /api/admin/live[?playerId=]`, `POST /api/admin/live/{id}/end` (body `{"reason": "..."}`). Ending a session reports
+  the guest's pawns as they stand on the host's map at the host's next report (a live raid is not continued by the AI).
 - Every admin action is logged (`/actions`).
 
 ## 7. Backups
@@ -120,7 +137,8 @@ next login.
 
 ## 8. Monitoring
 
-`GET /health` (used by the Docker health check) and Prometheus metrics at `GET /metrics` (economy: `rimlink_trades_total{kind}`, `rimlink_silver_moved_total`, `rimlink_parcels_pending`, `rimlink_economy_errors_total{code}`; raids: `rimlink_raids_total{outcome}`, `rimlink_raids_active`, `rimlink_visits_total`, `rimlink_shop_sales_total`). Logs go to the console
+`GET /health` (used by the Docker health check) and Prometheus metrics at `GET /metrics` (economy: `rimlink_trades_total{kind}`, `rimlink_silver_moved_total`, `rimlink_parcels_pending`, `rimlink_economy_errors_total{code}`; raids: `rimlink_raids_total{outcome}`, `rimlink_raids_active`, `rimlink_visits_total`, `rimlink_shop_sales_total`; live sessions:
+`rimlink_live_proposed_total{kind}`, `rimlink_live_sessions_total{kind,end_reason}`, `rimlink_live_frames_total{dir}`, `rimlink_live_active`). Logs go to the console
 and `logs/server-<date>.log`.
 
 ## 9. Limits (built in)

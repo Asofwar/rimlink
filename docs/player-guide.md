@@ -97,7 +97,31 @@ copy of the host's colony.
 - **Selling**: in your colony select an item and use **For sale...**; the shelf is published with your next save and
   sold things are collected from your stockpiles at your next login.
 
-## 6. When something goes wrong
+## 6. Live raids and visits
+
+When both players are online, a raid or a visit can happen live: your pawns walk onto the host's map while the host plays,
+you see their map through a mirrored copy and give orders to your own pawns. The host's game decides everything; you see
+the result a moment later.
+
+- **Starting**: with a caravan (or pods) at another player's settlement choose **Live raid** or **Live visit**. The host gets
+  an invitation and a minute to answer. Declined or unanswered: a live raid goes on as a normal raid with the timing you chose,
+  a live visit's pawns come home by parcel. The host must be online and at their colony.
+- **As the host**: a letter says who arrived; raiders are hostile and your colonists fight them as usual, visitors are
+  friendly. Your game pauses until the guest's view is ready, then runs at your speed; the panel in the top right shows the
+  state and **Abort session**. You cannot select or command the guest's pawns.
+- **As the guest**: your own colony is saved and uploaded, then the host's snapshot loads. The panel shows the session, the
+  tick and your pauses. Your pawns are in the colonist bar: select, draft, move, attack, give jobs, set work priorities and
+  the schedule; everything else on the map is view only. You may pause a limited number of times (the server's limit, 10
+  pauses of a minute by default); the host pauses freely. If your view falls behind, it asks the host for a fresh snapshot
+  and reloads it.
+- **Ending**: **End session** (guest) or **Abort session** (host). Your pawns come home by parcel as they are, with their
+  wounds and inventory; a raid's loot follows the normal raid rules. If a connection drops, the other side waits a few
+  minutes: a lost guest's raid is then handed to the host's AI, a lost host's session ends and the host's game reports it at
+  their next login.
+- **Auto-accept live sessions** (Raids tab) accepts invitations without the dialog. Peaceful mode and **Do not receive
+  visitors** refuse live sessions as well.
+
+## 7. When something goes wrong
 
 | What you see | What it means / what to do |
 |---|---|
@@ -118,6 +142,11 @@ copy of the host's colony.
 | `The raid by X is over: …` | Your colony reported the outcome; the attacker gets their parcels. |
 | `The visit could not start: …` | The host closed visits, has no colony yet, or their save could not load on your side (missing mods); your own colony is reloaded. |
 | `Purchase refused: …` | Sold out meanwhile or not enough silver; nothing was paid. |
+| `Invitation: live raid` / `live visit` | Another player wants to play on your map right now. Decline or wait: a raid goes on as a normal raid, a visit's pawns go home. |
+| `X is not online at their colony.` | A live session needs the host online and in their colony. Make a normal raid or visit, or try later. |
+| `Order refused (…)` | The host's game could not carry out that order (pawn dead or downed, target gone); the view shows the host's state. |
+| `Connection to X lost; waiting for them.` | The other side dropped. The host's game pauses for a few minutes; then the session ends (a raid goes to the AI, a visit's pawns come home). |
+| `The live session with X is over (…)` | Ended by a player, by a limit or by an admin. A guest's pawns come home by parcel once the host reports. |
 | `A parcel could not be unpacked` | A mod needed by that item is missing or broken on your side; the parcel stays in your mailbox for later. |
 | `The server refused this settlement` | The tile was taken meanwhile or you already have a settlement. Choose another tile. |
 | Save upload failed (message in the log) | The upload is retried at your next login; do not delete `Saves/Rimlink/`. |

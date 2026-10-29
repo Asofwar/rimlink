@@ -251,4 +251,14 @@
   <Rimlink.Live.EndSession>Закончить сессию</Rimlink.Live.EndSession>
   <Rimlink.Live.EndSessionConfirm>Закончить живую сессию? Пешки вернутся посылкой как есть.</Rimlink.Live.EndSessionConfirm>
   <Rimlink.Live.HostOffline>{0} не в сети у своей колонии.</Rimlink.Live.HostOffline>
+  <Rimlink.Live.AutoAccept>Принимать живые рейды и визиты автоматически (без диалога приглашения)</Rimlink.Live.AutoAccept>
+  <Rimlink.Live.ListCurrent>Живая сессия: {0}, хозяин {1}, гость {2}, {3}</Rimlink.Live.ListCurrent>
+  <Rimlink.Live.ListPendingEnds>Живых сессий, ждущих вашего отчёта: {0} (отправляется после этого входа).</Rimlink.Live.ListPendingEnds>
+  <Rimlink.Live.State.LiveProposed>ждёт ответа на приглашение</Rimlink.Live.State.LiveProposed>
+  <Rimlink.Live.State.LiveStarting>запускается</Rimlink.Live.State.LiveStarting>
+  <Rimlink.Live.State.LiveRunning>идёт</Rimlink.Live.State.LiveRunning>
+  <Rimlink.Live.State.LiveWaiting>ждёт переподключения</Rimlink.Live.State.LiveWaiting>
+  <Rimlink.Live.State.LiveEnding>завершается, ждёт отчёта</Rimlink.Live.State.LiveEnding>
+  <Rimlink.Live.State.LiveEnded>завершена</Rimlink.Live.State.LiveEnded>
+  <Rimlink.Live.State.LiveFallback>отклонена, продолжилась как обычный рейд</Rimlink.Live.State.LiveFallback>
 </LanguageData>

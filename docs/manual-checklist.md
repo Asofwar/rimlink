@@ -90,3 +90,41 @@
 - [ ] **Пленный рейдер.** Захват → `CAPTURED`, остаётся у защитника.
 - [ ] **Визит при смене модпака хозяина.** Копия не грузится → `Visit.Failed`, своя колония возвращается. Запись в outbox, получатель сброшен админом (`reset`), вход отправителя: сообщение
   «Отклонённая передача возвращается капсулой», под с содержимым, запись удалена.
+
+## Живые сессии (прогон 2026-10-29, два клиента: хозяин admin в полном экране, гость Nova через `-savedatafolder`, dev-ярлыки «Live raid/visit a player with selected pawns», сервер с `Rimlink__Live__ReconnectWaitMinutes=1`)
+
+- [x] **Живой рейд: приглашение и старт.** Nova → admin: сервер `Player 2 proposed a LiveRaid to player 1 (live session 5)`, у хозяина
+  диалог «Приглашение: живой рейд», «Принять» → `Live session 5 starting`; хозяин: `1 guest pawns of Nova spawned (LiveRaid)`,
+  `saving (live-snapshot)`, `snapshot v25 announced`; гость: `loading admin's snapshot v25` → `mirror: entered live session 5 … (snapshot v25)`;
+  сервер: `player 1 attached as host`, `player 2 attached as guest`, `Live session 5 running`.
+- [x] **Зеркало и приказы.** HUD гостя «живой рейд у admin», тик идёт, ~10 дельт/с (`live: sent 101 frames (tick 665, 37 pawns, 950 things)`),
+  хозяин без заметных лагов; Lloyd в панели колонистов, выбирается, «К бою!», ПКМ по клетке — пешка идёт на карте хозяина и в зеркале;
+  `mirror: unknown` — 0, `Order refused` — 0.
+- [x] **Конец гостем.** «Закончить сессию» → подтверждение → `Live session 5 ending: EndNormal` → хозяин `raid 6 resolved: dead 0 … alive 1`,
+  `saving (raid-resolved)` → сервер `Raid 6 resolved by player 1: {alive: 1}`, `Live session 5 ended` → гость: своя колония загружена,
+  `parcel 6 dropped: 1 things` (Lloyd вернулся), `saving (delivery)`.
+- [x] **Обрыв хозяина (и гостя) во время сессии.** Оба клиента закрыты в сессии 4: `player 2 detached (closed)`, `waiting: player 2 is gone`,
+  через `ReconnectWaitMinutes` → `Live session 4 ending: EndGuestLost`; следующий вход admin: `live session 4: reporting its end after the host's
+  return`, `reporting 1 guest pawns`, `raid 5 resolved: … alive 1` → `Live session 4 ended`; у Nova при входе `parcel 5 dropped: 1 things`.
+- [x] **Resync.** Гость запросил снимок (`ResyncRequest`) → хозяин `saving (live-snapshot)` → гость перезагрузил копию и вернулся в сессию
+  (прогон 3; найденная при этом гонка `detached`/`MarkWaiting` исправлена в `LiveRelay.Detach`).
+- [x] **Прерывание хозяином, потеря гостя.** «Прервать сессию» → `Report 200` → `Ended`; `GuestLost` → рейд передан ИИ (`Degrade`,
+  лорд штурма) (прогоны 1–3).
+- [x] **Найдено и исправлено в прогоне.** Рейдеры без лорда уходили с карты за секунды (`{dead:1}` во всех отчётах) → idle-лорд
+  `LordJob_RimlinkGuests`; копия пешки из `guest_pawn_blobs` после `Destroy` попадала в `WorldPawns` (в 1.7 `Thing`/`Pawn` равны по id) →
+  `Cannot select world pawns` → копия отбрасывается без `Destroy`; пустая панель колонистов → смена фракции на первом кадре игры;
+  `PawnTextureAtlas.GC` бросал `KeyNotFoundException` каждый кадр после смены игры → атлас освобождается, безопасный свип; пауза после
+  загрузки считалась паузой гостя → 3 с льготы; `End` терялся при закрытии стрима → сброс перед закрытием; Steam должен быть запущен
+  (Workshop-Harmony иначе не виден: `Could not load type HarmonyLib.HarmonyPatch`).
+- [ ] **Живой визит.** «Live visit» → дружественные гости, приоритеты работ, покупка в магазине, подарок; конец → посылка.
+- [ ] **Капсулы.** Запуск капсул на поселение → «Live raid» → дроп-поды у цели (хозяин спавнит в точке высадки).
+- [ ] **Отказ приглашения → откат в 3a.** «Отклонить» или молчание `Live:InviteSeconds` → `LiveFallback`, рейд идёт как обычный с выбранным
+  таймингом; визит — пешки домой посылкой.
+- [ ] **Лимит пауз гостя.** `Live:GuestPauses` пауз по `Live:GuestPauseSeconds`; после лимита пауза гостя не действует, хозяин паузит свободно.
+- [ ] **Обрыв гостя с возвратом.** Сеть гостя оборвана короче `ReconnectWaitMinutes`: `PeerLost` у хозяина (пауза), переподключение →
+  `PeerBack`, сессия продолжается (проверено только в `LiveClientTests`).
+- [ ] **Бой.** Атака по приказу гостя, ранение/смерть/плен гостевой пешки, исход с лутом в пределах лимита, посылки.
+- [ ] **Авто-приём.** Галочка «Принимать живые рейды и визиты автоматически» во вкладке «Рейды» → приглашение принимается без диалога.
+- [ ] **Приказ мёртвой пешке / `ResyncRequest` во время паузы гостя / два `Propose` подряд (`LIVE_ACTIVE`).**
+- Замечание: сейв Nova содержит дубли `Hediff_10…15`, `Gene_128/129` — мёртвые копии отправленных пешек остаются в `WorldPawns`
+  (`Outgoing` → `Destroy`, поведение 3a), не 3b; на игру не влияет, но даёт красные строки при каждой загрузке.

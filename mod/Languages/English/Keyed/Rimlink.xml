@@ -251,4 +251,14 @@
   <Rimlink.Live.EndSession>End session</Rimlink.Live.EndSession>
   <Rimlink.Live.EndSessionConfirm>End the live session? Your pawns come home by parcel as they are now.</Rimlink.Live.EndSessionConfirm>
   <Rimlink.Live.HostOffline>{0} is not online at their colony.</Rimlink.Live.HostOffline>
+  <Rimlink.Live.AutoAccept>Accept live raids and visits automatically (no invitation dialog)</Rimlink.Live.AutoAccept>
+  <Rimlink.Live.ListCurrent>Live session: {0}, host {1}, guest {2}, {3}</Rimlink.Live.ListCurrent>
+  <Rimlink.Live.ListPendingEnds>{0} live session(s) await your report (sent after this login).</Rimlink.Live.ListPendingEnds>
+  <Rimlink.Live.State.LiveProposed>invitation pending</Rimlink.Live.State.LiveProposed>
+  <Rimlink.Live.State.LiveStarting>starting</Rimlink.Live.State.LiveStarting>
+  <Rimlink.Live.State.LiveRunning>running</Rimlink.Live.State.LiveRunning>
+  <Rimlink.Live.State.LiveWaiting>waiting for a reconnect</Rimlink.Live.State.LiveWaiting>
+  <Rimlink.Live.State.LiveEnding>ending, report pending</Rimlink.Live.State.LiveEnding>
+  <Rimlink.Live.State.LiveEnded>ended</Rimlink.Live.State.LiveEnded>
+  <Rimlink.Live.State.LiveFallback>declined, went on as a normal raid</Rimlink.Live.State.LiveFallback>
 </LanguageData>

@@ -318,15 +318,30 @@ public sealed class Dialog_Economy : Window
         bool wantPeaceful = peaceful, wantClosed = closed;
         Widgets.CheckboxLabeled(new Rect(0f, rect.y, 300f, 26f), "Rimlink.Raids.Peaceful".Translate(), ref wantPeaceful);
         Widgets.CheckboxLabeled(new Rect(320f, rect.y, 300f, 26f), "Rimlink.Raids.CloseVisits".Translate(), ref wantClosed);
-        if (wantPeaceful != peaceful) SetFlag(c => c.SetPeaceful(wantPeaceful, CancellationToken.None));
-        if (wantClosed != closed) SetFlag(c => c.SetVisitsClosed(wantClosed, CancellationToken.None));
+        if (wantPeaceful != peaceful && RimlinkSession.Raids is { } raidsClient) SetFlag(() => raidsClient.SetPeaceful(wantPeaceful, CancellationToken.None));
+        if (wantClosed != closed && RimlinkSession.Raids is { } raidsClient2) SetFlag(() => raidsClient2.SetVisitsClosed(wantClosed, CancellationToken.None));
+        bool autoAccept = raids.Flags.AutoAcceptLive, wantAutoAccept = autoAccept;
+        Widgets.CheckboxLabeled(new Rect(0f, rect.y + 28f, 620f, 26f), "Rimlink.Live.AutoAccept".Translate(), ref wantAutoAccept);
+        if (wantAutoAccept != autoAccept && RimlinkSession.Live is { } liveClient) SetFlag(() => liveClient.SetAutoAccept(wantAutoAccept, CancellationToken.None));
         if (raids.Flags.PeacefulOffAt is { } until)
-            Widgets.Label(new Rect(0f, rect.y + 28f, rect.width, 22f), "Rimlink.Raids.PeacefulOffAt".Translate(until.ToDateTime().ToLocalTime().ToString("g")));
+            Widgets.Label(new Rect(0f, rect.y + 56f, rect.width, 22f), "Rimlink.Raids.PeacefulOffAt".Translate(until.ToDateTime().ToLocalTime().ToString("g")));
 
-        var list = new Rect(0f, rect.y + 56f, rect.width, rect.height - 56f);
-        int rows = raids.Incoming.Count + raids.Mine.Count + 4;
+        var list = new Rect(0f, rect.y + 84f, rect.width, rect.height - 84f);
+        var liveState = RimlinkSession.State.Live;
+        int rows = raids.Incoming.Count + raids.Mine.Count + 6;
         Widgets.BeginScrollView(list, ref raidsScroll, new Rect(0f, 0f, list.width - 16f, Math.Max(list.height, rows * 28f)));
         float y = 0f, w = list.width - 16f;
+        if (liveState.Current is { } session)
+        {
+            string kind = (session.Kind == LiveKind.LiveRaid ? "Rimlink.Live.KindRaid" : "Rimlink.Live.KindVisit").Translate();
+            Widgets.Label(new Rect(0f, y, w, 26f), "Rimlink.Live.ListCurrent".Translate(kind, session.Host?.Name ?? "?", session.Guest?.Name ?? "?", ("Rimlink.Live.State." + session.State).Translate()));
+            y += 28f;
+        }
+        if (liveState.PendingEnds.Count > 0)
+        {
+            Widgets.Label(new Rect(0f, y, w, 26f), "Rimlink.Live.ListPendingEnds".Translate(liveState.PendingEnds.Count));
+            y += 28f;
+        }
         Widgets.Label(new Rect(0f, y, w, 26f), "Rimlink.Raids.Incoming".Translate(raids.Incoming.Count));
         y += 28f;
         if (raids.Incoming.Count == 0) { Widgets.Label(new Rect(16f, y, w, 26f), "Rimlink.Raids.None".Translate()); y += 28f; }
@@ -353,16 +368,15 @@ public sealed class Dialog_Economy : Window
 
     private static string StateLabel(RaidState state) => ("Rimlink.Raids.State." + state).Translate();
 
-    private void SetFlag(Func<Rimlink.Client.Raids.RaidClient, Task<PlayerFlags>> call)
+    private void SetFlag(Func<Task<PlayerFlags>> call)
     {
-        var raids = RimlinkSession.Raids;
-        if (raids is null || busy) return;
+        if (busy) return;
         busy = true;
         _ = Task.Run(async () =>
         {
             try
             {
-                var flags = await call(raids);
+                var flags = await call();
                 MainThread.Post(() => { RimlinkSession.State.Raids.Apply(new ServerEvent { PlayerFlagsChanged = new PlayerFlagsChanged { Flags = flags } }); busy = false; });
             }
             catch (Exception ex)
