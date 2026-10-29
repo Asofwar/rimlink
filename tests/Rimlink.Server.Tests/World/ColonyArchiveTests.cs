@@ -257,6 +257,8 @@ public class ColonyArchiveTests
     {
         using var fixture = HygieneServer();
         var nova = await Settled(fixture, "nova", tile: 100);
+        var sessions = fixture.Services.GetRequiredService<Application.Sessions.SessionRegistry>();
+        sessions.End(sessions.ByPlayer(nova.PlayerId)!.Token); // the sweep only archives players who are offline
         using var probe = fixture.Probe();
 
         var archived = Assert.IsType<ArchiveOutcome.Archived>(await Archive(fixture, nova.PlayerId, reason: "auto"));

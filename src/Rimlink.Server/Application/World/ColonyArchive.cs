@@ -18,6 +18,8 @@ public abstract record ArchiveOutcome
 {
     public sealed record Archived(long ArchiveId) : ArchiveOutcome;
     public sealed record NoColony : ArchiveOutcome;
+    /// <summary>An automatic archive found the player online after all (a login won the race).</summary>
+    public sealed record PlayerOnline : ArchiveOutcome;
 }
 
 public abstract record RestoreOutcome
@@ -55,6 +57,7 @@ public sealed class ColonyArchive(
     public async Task<ArchiveOutcome> Archive(long playerId, string reason, Actor actor)
     {
         using var held = await locks.Hold(playerId);
+        if (reason == "auto" && sessions.ByPlayer(playerId) is not null) return new ArchiveOutcome.PlayerOnline();
         var settlement = await db.WorldObjects.Include(o => o.Owner).ThenInclude(p => p.Account)
             .FirstOrDefaultAsync(o => o.OwnerPlayerId == playerId && o.Type == WorldObjectTypes.Settlement);
         if (settlement is null) return new ArchiveOutcome.NoColony();
@@ -123,7 +126,54 @@ public sealed class ColonyArchive(
         long? playerId = await db.ArchivedColonies.Where(c => c.Id == archiveId).Select(c => (long?)c.PlayerId).FirstOrDefaultAsync();
         if (playerId is null) return new RestoreOutcome.NotFound();
         using var held = await locks.Hold(playerId.Value);
-        var row = await db.ArchivedColonies.Include(c => c.Player).FirstAsync(c => c.Id == archiveId);
+        return await RestoreHeld(archiveId, restoredBy);
+    }
+
+    /// <summary>
+    /// At login, before the reply is built: the player's latest archived colony comes back if they have no colony now.
+    /// When it cannot (tile taken, damaged files) the player starts a new colony, which begins at tick 0, so the transfer stamp
+    /// and redelivery marks of the old one are cleared as on a reset. Null when there was nothing to restore.
+    /// </summary>
+    public async Task<ColonyRestore?> RestoreOnLogin(long playerId)
+    {
+        using var held = await locks.Hold(playerId); // waits for an archive of this player still in progress
+        if (await db.WorldObjects.AnyAsync(o => o.OwnerPlayerId == playerId && o.Type == WorldObjectTypes.Settlement)) return null;
+        var latest = await db.ArchivedColonies.AsNoTracking()
+            .Where(c => c.PlayerId == playerId && c.State == ArchiveState.Archived)
+            .OrderByDescending(c => c.ArchivedAt).ThenByDescending(c => c.Id)
+            .FirstOrDefaultAsync();
+        if (latest is null) return null;
+
+        var reply = new ColonyRestore
+        {
+            Name = latest.Name,
+            Tile = latest.Tile,
+            ArchivedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(DateTime.SpecifyKind(latest.ArchivedAt, DateTimeKind.Utc)),
+        };
+        switch (await RestoreHeld(latest.Id, "player"))
+        {
+            case RestoreOutcome.Restored:
+                reply.Restored = true;
+                return reply;
+            case RestoreOutcome.TileTaken:
+                reply.Reason = "tile_taken";
+                break;
+            case RestoreOutcome.Damaged:
+                reply.Reason = "damaged";
+                log.LogError("Archived colony #{Id} of player {PlayerId} could not be restored: its files are missing or damaged", latest.Id, playerId);
+                break;
+            default:
+                return null;
+        }
+        await db.Players.Where(p => p.Id == playerId).ExecuteUpdateAsync(s => s.SetProperty(p => p.LastOutgoingTick, 0L));
+        await db.Parcels.Where(p => p.ToPlayerId == playerId && p.DeliveredAt != null).ExecuteUpdateAsync(s => s.SetProperty(p => p.DeliveredTick, 0L));
+        return reply;
+    }
+
+    private async Task<RestoreOutcome> RestoreHeld(long archiveId, string restoredBy)
+    {
+        var row = await db.ArchivedColonies.Include(c => c.Player).FirstOrDefaultAsync(c => c.Id == archiveId);
+        if (row is null) return new RestoreOutcome.NotFound();
         if (row.State == ArchiveState.Restored) return new RestoreOutcome.AlreadyRestored();
         if (await db.WorldObjects.AnyAsync(o => o.OwnerPlayerId == row.PlayerId && o.Type == WorldObjectTypes.Settlement)
             || await db.SaveVersions.AnyAsync(v => v.PlayerId == row.PlayerId))

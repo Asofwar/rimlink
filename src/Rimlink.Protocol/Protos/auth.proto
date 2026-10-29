@@ -6,6 +6,7 @@ option csharp_namespace = "Rimlink.Protocol.V1";
 import "common.proto";
 import "modpack.proto";
 import "live.proto";
+import "google/protobuf/timestamp.proto";
 
 service Auth {
   rpc Login (LoginRequest) returns (LoginReply);
@@ -65,4 +66,15 @@ message LoginReply {
   repeated LiveSession pending_live_ends = 9;
   // Integrity: this player may use dev mode while connected (role Admin, or Integrity:DevMode = Everyone).
   bool dev_mode_allowed = 10;
+  // Set when the player had a colony in the archive: brought back with this login, or not (its tile is taken, or its files are damaged).
+  ColonyRestore colony_restore = 11;
+}
+
+message ColonyRestore {
+  bool restored = 1;
+  string name = 2;
+  int32 tile = 3;
+  google.protobuf.Timestamp archived_at = 4;
+  // When not restored: "tile_taken" or "damaged".
+  string reason = 5;
 }
