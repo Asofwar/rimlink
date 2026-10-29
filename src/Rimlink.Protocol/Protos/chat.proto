@@ -11,6 +11,24 @@ service Chat {
   rpc Send (SendRequest) returns (Empty);
   // The last 50 public messages plus direct messages involving the caller.
   rpc History (Empty) returns (ChatHistory);
+  // "Look here" for one online player: a world tile, with a map cell when the sender pings a map. Not stored, not in the history.
+  rpc Ping (PingRequest) returns (Empty);
+}
+
+// A map cell (live.proto's Cell cannot be imported here: live.proto pulls in economy and raids).
+message MapCell { int32 x = 1; int32 z = 2; }
+
+message PingRequest {
+  int64 to_player_id = 1;
+  int32 tile = 2;
+  // Unset for a world-map ping.
+  MapCell cell = 3;
+}
+
+message PingEvent {
+  PlayerRef from = 1;
+  int32 tile = 2;
+  MapCell cell = 3;
 }
 
 enum MessageKind {

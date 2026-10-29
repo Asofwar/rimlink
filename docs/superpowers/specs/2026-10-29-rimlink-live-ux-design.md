@@ -37,7 +37,7 @@
   `message PingEvent { PlayerRef from = 1; int32 tile = 2; Cell cell = 3; }`.
   `Cell` из `live.proto` в `chat.proto` не импортируется (`live.proto` тянет экономику и рейды): в `chat.proto` своя
   `message MapCell { int32 x = 1; int32 z = 2; }`, и поля выше имеют тип `MapCell`.
-- `events.proto`: `PingEvent ping = 76;` в `oneof body`.
+- `events.proto`: `PingEvent ping = 78;` в `oneof body` (76 и 77 заняли `gift_refused` и `trade_updated` безопасных обменов; перенумеровано при ребейзе).
 
 **Сервер** (`ChatService.Ping`). Отправитель не muted (`MUTED`), получатель — другой игрок и онлайн (`RECIPIENT_UNKNOWN`), `tile` в
 `[0, 10 000 000)`, клетка, если есть, в `[0, 1000)` по обеим осям (иначе `InvalidArgument`). Частота — строка
@@ -121,7 +121,7 @@ Colony (Hosta)», если на тайле поселение этого мир�
 |---|---|
 | `common.proto` | `ErrorDetail.key = 3`, `ErrorDetail.args = 4` |
 | `chat.proto` | `rpc Ping`, `PingRequest`, `PingEvent`, `MapCell` |
-| `events.proto` | `ServerEvent.ping = 76` |
+| `events.proto` | `ServerEvent.ping = 78` |
 | `live.proto` | `enum LetterPause`, `Hello.letter_pause = 3`, `Order.letter_pause = 14`, `GuestMessage.label = 4`, `GuestMessage.letter_def = 5`, `Delta.host_wish = 15`, `Delta.guest_wish = 16` |
 
 Номера могут совпасть с параллельными ветками: ветка, которая вливается позже, перенумеровывает при ребейзе. Несовместимых изменений

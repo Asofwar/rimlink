@@ -51,6 +51,7 @@ message ServerEvent {
     LivePeerBack live_peer_back = 75;
     GiftRefused gift_refused = 76;
     TradeUpdated trade_updated = 77;
+    PingEvent ping = 78;
   }
 }
 

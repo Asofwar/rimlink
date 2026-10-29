@@ -73,7 +73,11 @@ message ThingChanged { int64 thing_id = 1; Cell cell = 2; int32 stack_count = 3;
 message CellChange { Cell cell = 1; string kind = 2; string value = 3; }
 message FireChange { Cell cell = 1; float size = 2; bool gone = 3; }
 message DamageEvent { int64 attacker_id = 1; int64 victim_id = 2; float amount = 3; string body_part_def = 4; string damage_def = 5; }
-message GuestMessage { string text = 1; Target look = 2; bool letter = 3; }
+// A host letter for the guest's mirror (threat letters): label, text, the letter def's name, what it points at.
+message GuestMessage { string text = 1; Target look = 2; bool letter = 3; string label = 4; string letter_def = 5; }
+
+// Which host letters pause a live session for this player: none, major threats (ThreatBig), any threat (ThreatBig, ThreatSmall).
+enum LetterPause { LETTER_PAUSE_NEVER = 0; LETTER_PAUSE_MAJOR = 1; LETTER_PAUSE_ANY = 2; }
 
 // Host → guest, every 6 ticks (once a second while paused): what changed since the previous delta.
 message Delta {
@@ -95,6 +99,9 @@ message Delta {
   // 1, 2, 3… per frame the host queued in this stream (0 from older hosts). Deltas are diffs: a gap means the guest missed changes
   // (dropped by a limit or a queue on the way) and asks for a snapshot.
   int64 delta_seq = 14;
+  // The speed each side asked for (0 paused, 1..3); the game runs at the slower one.
+  int32 host_wish = 15;
+  int32 guest_wish = 16;
 }
 
 message TakeJob { string job_def = 1; Target a = 2; Target b = 3; Target c = 4; int32 count = 5; bool force = 6; }
@@ -117,12 +124,15 @@ message Order {
     int64 drop = 11;
     int32 set_speed = 12;
     bool pause = 13;
+    // The guest changed its letter-pause threshold during the session.
+    LetterPause letter_pause = 14;
   }
 }
 message OrderResult { int64 seq = 1; bool ok = 2; string reason = 3; }
 
 // role: 1 host, 2 guest.
-message Hello { int32 role = 1; int32 snapshot_seq = 2; }
+// letter_pause: the sender's threshold (the guest's reaches the host; NEVER from older clients).
+message Hello { int32 role = 1; int32 snapshot_seq = 2; LetterPause letter_pause = 3; }
 message SnapshotReady { int32 save_version = 1; }
 message EndMsg { LiveEndReason reason = 1; }
 // A relay refusal (frame too big or too frequent); events.proto's Notice cannot be imported here without a cycle.

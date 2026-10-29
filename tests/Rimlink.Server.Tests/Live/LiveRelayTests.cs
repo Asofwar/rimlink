@@ -33,10 +33,10 @@ public class LiveRelayTests
         return new Pair(fixture, nova, bob, session);
     }
 
-    private static async Task<AsyncDuplexStreamingCall<LiveClientMsg, LiveServerMsg>> Open(LiveClients c, long sessionId, int role, int snapshotSeq = 0)
+    private static async Task<AsyncDuplexStreamingCall<LiveClientMsg, LiveServerMsg>> Open(LiveClients c, long sessionId, int role, int snapshotSeq = 0, LetterPause letterPause = LetterPause.Never)
     {
         var call = c.Live.Stream(c.Auth);
-        await call.RequestStream.WriteAsync(new LiveClientMsg { SessionId = sessionId, Hello = new Hello { Role = role, SnapshotSeq = snapshotSeq } });
+        await call.RequestStream.WriteAsync(new LiveClientMsg { SessionId = sessionId, Hello = new Hello { Role = role, SnapshotSeq = snapshotSeq, LetterPause = letterPause } });
         return call;
     }
 
@@ -86,6 +86,27 @@ public class LiveRelayTests
         await host.RequestStream.WriteAsync(new LiveClientMsg { SessionId = p.Session.Id, OrderResult = new OrderResult { Seq = 1, Ok = true } });
         Assert.True((await Read(guest, LiveServerMsg.MOneofCase.OrderResult)).OrderResult.Ok);
         Assert.DoesNotContain(await Drain(host, TimeSpan.FromMilliseconds(500)), f => f.MCase == LiveServerMsg.MOneofCase.Delta); // the host never gets its own delta back
+    }
+
+    [Fact]
+    public async Task RelayCarriesTheTempoFieldsUnchanged()
+    {
+        var p = await Started();
+        using var fixture = p.Fixture;
+        using var host = await Open(p.Bob, p.Session.Id, LiveRelay.HostRole);
+        using var guest = await Open(p.Nova, p.Session.Id, LiveRelay.GuestRole, letterPause: LetterPause.Any);
+        Assert.Equal(LetterPause.Any, (await Read(host, LiveServerMsg.MOneofCase.PeerHello)).PeerHello.LetterPause);
+
+        var delta = new Delta { Tick = 60, Speed = 1, PausedBy = 3, HostWish = 2, GuestWish = 1 };
+        delta.Messages.Add(new GuestMessage { Label = "Raid", LetterDef = "ThreatBig", Letter = true, Text = "Raiders arrive." });
+        await host.RequestStream.WriteAsync(new LiveClientMsg { SessionId = p.Session.Id, Delta = delta });
+        await guest.RequestStream.WriteAsync(new LiveClientMsg { SessionId = p.Session.Id, Order = new Order { Seq = 1, LetterPause = LetterPause.Major } });
+
+        var got = (await Read(guest, LiveServerMsg.MOneofCase.Delta)).Delta;
+        Assert.Equal((3, 2, 1), (got.PausedBy, got.HostWish, got.GuestWish));
+        var letter = Assert.Single(got.Messages);
+        Assert.Equal(("Raid", "ThreatBig", true), (letter.Label, letter.LetterDef, letter.Letter));
+        Assert.Equal(LetterPause.Major, (await Read(host, LiveServerMsg.MOneofCase.Order)).Order.LetterPause);
     }
 
     [Fact]

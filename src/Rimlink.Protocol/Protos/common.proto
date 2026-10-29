@@ -56,6 +56,10 @@ enum ErrorCode {
 message ErrorDetail {
   ErrorCode code = 1;
   string message = 2;
+  // Keyed string the client shows in the player's language ("Live.OwnSession" → Rimlink.Refusal.Live.OwnSession); empty from older servers.
+  string key = 3;
+  // The keyed string's arguments in order (names, numbers, dates as text).
+  repeated string args = 4;
 }
 
 message PlayerRef {
