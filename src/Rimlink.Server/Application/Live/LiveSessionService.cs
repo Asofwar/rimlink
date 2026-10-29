@@ -221,6 +221,28 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
         log.LogInformation("Live session {Id} waiting: player {Lost} is gone", session.Id, lostPlayerId);
     }
 
+    /// <summary>
+    /// Ends every open session of the player as an admin's end would (kick, archive): a proposal is declined, a running one
+    /// starts ending; a session already ending waits for the host's report.
+    /// </summary>
+    public async Task EndAllOf(long playerId, LiveEndReason reason)
+    {
+        var open = await db.LiveSessions.AsNoTracking()
+            .Where(s => (s.HostPlayerId == playerId || s.GuestPlayerId == playerId)
+                && (s.State == LiveStateDb.Proposed || s.State == LiveStateDb.Starting || s.State == LiveStateDb.Running || s.State == LiveStateDb.Waiting))
+            .ToListAsync();
+        foreach (var row in open)
+        {
+            if (row.State == LiveStateDb.Proposed)
+            {
+                // Answered or expired since the query (LiveGone): then it is started or over, and the end below takes what is left.
+                try { await Respond(row.HostPlayerId, row.Id, accept: false); continue; }
+                catch (RpcException ex) when (ex.StatusCode == StatusCode.FailedPrecondition) { }
+            }
+            await MarkEnding(row.Id, reason);
+        }
+    }
+
     public async Task MarkEnding(long sessionId, LiveEndReason reason)
     {
         var session = await db.LiveSessions.FirstOrDefaultAsync(s => s.Id == sessionId);

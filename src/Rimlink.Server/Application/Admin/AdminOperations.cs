@@ -54,6 +54,7 @@ public sealed class AdminOperations(
     Backup.BackupService backups,
     AdminFeed feed,
     PlayerFreeze playerFreeze,
+    AdminAudit audit,
     ILogger<AdminOperations> log,
     ForbiddenDefsService forbiddenStore,
     ForbiddenDefs forbidden)
@@ -345,21 +346,8 @@ public sealed class AdminOperations(
         if (session.Role > actor.Role) throw RpcErrors.PermissionDenied("cannot kick someone with a higher role");
 
         // A live session needs both players online, and the kicked client logs in again at once: it ends as an admin's end
-        // would, while the kicked player's event stream still carries the end. A session already ending waits for the host's report.
-        var open = await db.LiveSessions.AsNoTracking()
-            .Where(s => (s.HostPlayerId == playerId || s.GuestPlayerId == playerId)
-                && (s.State == LiveStateDb.Proposed || s.State == LiveStateDb.Starting || s.State == LiveStateDb.Running || s.State == LiveStateDb.Waiting))
-            .ToListAsync();
-        foreach (var row in open)
-        {
-            if (row.State == LiveStateDb.Proposed)
-            {
-                // Answered or expired since the query (LiveGone): then it is started or over, and the end below takes what is left.
-                try { await live.Respond(row.HostPlayerId, row.Id, accept: false); continue; }
-                catch (RpcException ex) when (ex.StatusCode == StatusCode.FailedPrecondition) { }
-            }
-            await live.MarkEnding(row.Id, LiveEndReason.EndAdmin);
-        }
+        // would, while the kicked player's event stream still carries the end.
+        await live.EndAllOf(playerId, LiveEndReason.EndAdmin);
         events.SendTo(playerId, new ServerEvent { Notice = new Notice { Text = $"You were kicked: {reason}" } });
         sessions.End(session.Token);
         await Audit(actor, "kick", player.AccountId, reason);
@@ -573,14 +561,5 @@ public sealed class AdminOperations(
         return list;
     }
 
-    private async Task Audit(Actor actor, string action, long? targetAccountId, string details)
-    {
-        db.AdminActions.Add(new AdminAction { ActorAccountId = actor.AccountId, ActorName = actor.Name, Action = action, TargetAccountId = targetAccountId, Details = details, At = DateTime.UtcNow });
-        await db.SaveChangesAsync();
-        log.LogInformation("Admin {Actor}: {Action} {Target} {Details}", actor.Name, action, targetAccountId, details);
-        FeedPlayer? target = targetAccountId is { } accountId
-            ? await db.Players.AsNoTracking().Where(p => p.AccountId == accountId).Select(p => new FeedPlayer(p.Id, p.Name)).FirstOrDefaultAsync()
-            : null;
-        feed.Publish(FeedTypes.AdminAction, new AdminActionData(action, actor.Name, target, details));
-    }
+    private Task Audit(Actor actor, string action, long? targetAccountId, string details) => audit.Write(actor, action, targetAccountId, details);
 }

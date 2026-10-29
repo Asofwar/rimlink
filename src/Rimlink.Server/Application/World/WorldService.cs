@@ -119,6 +119,8 @@ public sealed class WorldService(RimlinkDbContext db, EventBus events, AdminFeed
         Payload = ByteString.CopyFrom(o.Payload),
     };
 
+    public static IEnumerable<int> NpcTilesOf(WorldEntity world) => ParseTiles(world.NpcTiles);
+
     private static IEnumerable<int> ParseTiles(string csv) =>
         csv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(int.Parse);
 }

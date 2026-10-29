@@ -8,6 +8,8 @@ public static class FeedTypes
     public const string PlayerLeft = "player.left";
     public const string ColonyFounded = "colony.founded";
     public const string ColonyRemoved = "colony.removed";
+    public const string ColonyArchived = "colony.archived";
+    public const string ColonyRestored = "colony.restored";
     public const string Notice = "notice";
     public const string ServerShutdown = "server.shutdown";
     public const string EconomyFrozen = "economy.frozen";
@@ -26,7 +28,7 @@ public static class FeedTypes
 
     public static readonly IReadOnlySet<string> All = new HashSet<string>
     {
-        ServerStarted, PlayerJoined, PlayerLeft, ColonyFounded, ColonyRemoved, Notice, ServerShutdown, EconomyFrozen, RaidsFrozen,
+        ServerStarted, PlayerJoined, PlayerLeft, ColonyFounded, ColonyRemoved, ColonyArchived, ColonyRestored, Notice, ServerShutdown, EconomyFrozen, RaidsFrozen,
         RaidLanded, RaidResolved, VisitStarted, LiveStarted, LiveEnded, LotPosted, LotSold, ShopSold, AdminAction, ChatMessage, IntegrityAlert,
     };
 }
@@ -38,6 +40,12 @@ public sealed record ServerStartedData(string Version);
 public sealed record PlayerData(FeedPlayer Player, string Faction);
 
 public sealed record ColonyData(FeedPlayer Player, string Colony, int? Tile);
+
+/// <summary><paramref name="Reason"/> is <c>auto</c> (the sweep) or <c>admin</c>; <paramref name="Actor"/> the audit actor name.</summary>
+public sealed record ColonyArchivedData(FeedPlayer Player, string Colony, int Tile, string Reason, string Actor);
+
+/// <summary><paramref name="Actor"/> is <c>player</c> for the restore at login, otherwise the admin actor name.</summary>
+public sealed record ColonyRestoredData(FeedPlayer Player, string Colony, int Tile, string Actor);
 
 public sealed record NoticeData(string Text);
 

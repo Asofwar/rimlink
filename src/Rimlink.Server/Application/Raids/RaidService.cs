@@ -259,11 +259,14 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
         return await Close(raid, RaidStateDb.Cancelled, returnPawns: returnPawns || raid.State != RaidStateDb.Landed, reason);
     }
 
-    /// <summary>The player's colony is gone (reset): raids at them give the pawns back, their own raids are dropped.</summary>
-    public async Task CancelAllOf(long playerId, string reason)
+    /// <summary>
+    /// The player's colony is gone: raids at them give the pawns back to their attackers. Their own raids are dropped on a reset,
+    /// or return the pawns to them (<paramref name="returnOwnPawns"/>) when the colony goes to the archive and may come back.
+    /// </summary>
+    public async Task CancelAllOf(long playerId, string reason, bool returnOwnPawns = false)
     {
         foreach (var raid in await db.Raids.Where(r => (r.TargetPlayerId == playerId || r.AttackerPlayerId == playerId) && !FinalStates.Contains(r.State)).ToListAsync())
-            await Close(raid, RaidStateDb.Cancelled, returnPawns: raid.TargetPlayerId == playerId, reason);
+            await Close(raid, RaidStateDb.Cancelled, returnPawns: returnOwnPawns || raid.TargetPlayerId == playerId, reason);
     }
 
     /// <summary>False when the raid reached a final state between the caller's read and this transaction (a report that came in meanwhile).</summary>
