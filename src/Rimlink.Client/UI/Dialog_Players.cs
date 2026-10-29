@@ -104,8 +104,8 @@ public sealed class Dialog_Players : Window
             }
             catch (Exception ex)
             {
-                string reason = ex is RpcException rpc ? EconomyClient.MessageOf(rpc) : ex.Message;
-                MainThread.Post(() => Messages.Message("Rimlink.Economy.Failed".Translate(reason), MessageTypeDefOf.RejectInput, historical: false));
+                var refusal = Rimlink.Client.Net.RpcErrorDetail.Read(ex);
+                MainThread.Post(() => Messages.Message("Rimlink.Economy.Failed".Translate(RefusalText.Of(refusal)), MessageTypeDefOf.RejectInput, historical: false));
             }
         });
     }

@@ -118,9 +118,9 @@ public static class GiftLetters
             }
             catch (Exception ex)
             {
-                string reason = ex is RpcException rpc ? EconomyClient.MessageOf(rpc) : ex.Message;
-                RimlinkLog.Instance.Warn($"gift {parcelId} answer not delivered: {reason}");
-                MainThread.Post(() => Messages.Message("Rimlink.Economy.Failed".Translate(reason), MessageTypeDefOf.RejectInput, historical: false));
+                var refusal = Rimlink.Client.Net.RpcErrorDetail.Read(ex);
+                RimlinkLog.Instance.Warn($"gift {parcelId} answer not delivered: {refusal.Message}");
+                MainThread.Post(() => Messages.Message("Rimlink.Economy.Failed".Translate(Rimlink.Client.UI.RefusalText.Of(refusal)), MessageTypeDefOf.RejectInput, historical: false));
             }
         });
     }

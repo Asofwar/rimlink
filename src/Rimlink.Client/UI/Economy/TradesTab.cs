@@ -130,8 +130,8 @@ public sealed class TradesTab
             catch (Exception ex)
             {
                 // TRADE_CHANGED: the newer version came with the TradeUpdated event; the card already shows it.
-                string reason = ex is RpcException rpc ? EconomyClient.MessageOf(rpc) : ex.Message;
-                MainThread.Post(() => { status = reason; busy = false; });
+                var refusal = Rimlink.Client.Net.RpcErrorDetail.Read(ex);
+                MainThread.Post(() => { status = RefusalText.Of(refusal); busy = false; });
             }
         });
     }
