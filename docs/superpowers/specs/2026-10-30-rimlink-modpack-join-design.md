@@ -64,7 +64,8 @@ Rimlink). Номера полей и кодов могут столкнутьс�
 - `ModpackEntry.FilesHash` — nullable string.
 - Таблица `ModpackConfigs`: `Id`, `PackageId`, `Handle`, `Content` (blob), `Hash`; уникальный индекс `(PackageId, Handle)`.
 
-Лимиты (константы в `Protocol.Limits`): файл настроек ≤ 256 KB, всего ≤ 2 MB, не больше 64 записей.
+Лимиты (константы в `Protocol.Limits`): файл настроек ≤ 256 KB, всего ≤ 768 KB (настройки уходят в ответе на вход, а он не
+больше `Limits.MaxMessageBytes` = 1 MB), не больше 64 записей.
 
 REST: `GET /api/admin/modpack/configs` (scope чтения) возвращает `[{packageId, handle, hash, size}]` без содержимого;
 `PUT /api/admin/modpack/configs` (scope админа) — `{configs: [{packageId, handle, contentBase64}]}`. CLI зеркалит (раздел 8).
