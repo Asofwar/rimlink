@@ -40,7 +40,9 @@ public static class PingMarkers
     {
         if (marks.Count == 0 || Find.CurrentMap is not { } map) return;
         foreach (var m in marks)
-            if (m.Until > DateTime.UtcNow && m.Cell is { } cell && m.Tile == map.Tile) GenDraw.DrawCircleOutline(cell.ToVector3Shifted(), 1.5f * Pulse, SimpleColor.Yellow);
+            // At the overlay altitude: at altitude 0 the ring is under the terrain.
+            if (m.Until > DateTime.UtcNow && m.Cell is { } cell && m.Tile == map.Tile)
+                GenDraw.DrawCircleOutline(cell.ToVector3ShiftedWithAltitude(AltitudeLayer.MetaOverlays), 1.5f * Pulse, SimpleColor.Yellow);
     }
 
     public static void DrawOnWorld()

@@ -61,8 +61,12 @@ public sealed class Dialog_Chat : Window
             float x = 12f;
             foreach (var card in rows[i].Cards)
             {
-                if (Widgets.ButtonText(new Rect(x, rowY + textHeight, 150f, CardButtonHeight), CardLabel(card.Tile).Truncate(146f))) JumpTo(card.Tile);
-                x += 154f;
+                // As wide as the label (the owner's name tells two colonies apart), cut only at the row's end.
+                string label = CardLabel(card.Tile);
+                float w = Math.Min(Text.CalcSize(label).x + 16f, width - x);
+                if (w < 40f) break;
+                if (Widgets.ButtonText(new Rect(x, rowY + textHeight, w, CardButtonHeight), label.Truncate(w - 4f))) JumpTo(card.Tile);
+                x += w + 4f;
             }
             rowY += heights[i];
         }
@@ -121,18 +125,18 @@ public sealed class Dialog_Chat : Window
     private static string CardLabel(int tile)
     {
         if (Find.World is not { } world || tile < 0 || tile >= world.grid.TilesCount) return "Rimlink.Chat.CardTileBare".Translate(tile);
+        // A player's colony is Rimlink's own world object, not a vanilla Settlement: its name and owner come from the server's index.
+        if (RimlinkSession.State.Objects.All.FirstOrDefault(o => o.Tile == tile && o.Owner is not null) is { } colony)
+            return "Rimlink.Chat.CardSettlement".Translate(colony.Name, colony.Owner.Name);
         if (Find.WorldObjects.SettlementAt(tile) is { } settlement)
-        {
-            string owner = RimlinkSession.State.Objects.All.FirstOrDefault(o => o.Tile == tile && o.Owner is not null)?.Owner.Name ?? settlement.Faction?.Name ?? "?";
-            return "Rimlink.Chat.CardSettlement".Translate(settlement.LabelCap, owner);
-        }
+            return "Rimlink.Chat.CardSettlement".Translate(settlement.LabelCap, settlement.Faction?.Name ?? "?");
         return "Rimlink.Chat.CardTile".Translate(tile, world.grid[tile].PrimaryBiome?.label ?? "?");
     }
 
     private static void JumpTo(int tile)
     {
         if (Find.World is not { } world || tile < 0 || tile >= world.grid.TilesCount) return;
-        if (Find.WorldObjects.SettlementAt(tile) is { } settlement) CameraJumper.TryJumpAndSelect(new GlobalTargetInfo(settlement));
+        if (Find.WorldObjects.ObjectsAt(tile).FirstOrDefault() is { } place) CameraJumper.TryJumpAndSelect(new GlobalTargetInfo(place));
         else CameraJumper.TryJump(new GlobalTargetInfo((PlanetTile)tile));
     }
 
