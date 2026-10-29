@@ -7,10 +7,10 @@ using Rimlink.Protocol.V1;
 
 namespace Rimlink.Client.Economy;
 
-public enum OutboxKind { Send, Post, Deposit, Deliver, Launch, Land, Report, Buy, AckRemoval, Propose }
+public enum OutboxKind { Send, Post, Deposit, Deliver, Launch, Land, Report, Buy, AckRemoval, Propose, TradeOpen, TradeSetSide }
 
 /// <summary>The typed clients a replay needs; a null client leaves entries of its kinds waiting.</summary>
-public sealed record OutboxClients(EconomyClient Economy, Raids.RaidClient? Raids, Visits.ShopClient? Shop, Live.LiveClient? Live = null);
+public sealed record OutboxClients(EconomyClient Economy, Raids.RaidClient? Raids, Visits.ShopClient? Shop, Live.LiveClient? Live = null, Social.TradesClient? Trades = null);
 
 /// <summary>One request whose answer has not been seen yet. The payload is the request itself, so it can be replayed or its contents returned.</summary>
 public sealed class OutboxEntry
@@ -63,6 +63,8 @@ public sealed class TransferOutbox
         BuyRequest => Add(OutboxKind.Buy, request),
         RemovalAck => Add(OutboxKind.AckRemoval, request),
         LiveProposal => Add(OutboxKind.Propose, request),
+        TradeOpenRequest => Add(OutboxKind.TradeOpen, request),
+        TradeSideRequest => Add(OutboxKind.TradeSetSide, request),
         _ => throw new ArgumentException("not an outbox request: " + request.GetType().Name),
     };
 
@@ -123,6 +125,8 @@ public sealed class TransferOutbox
         OutboxKind.Buy => BuyRequest.Parser.ParseFrom(entry.Payload),
         OutboxKind.AckRemoval => RemovalAck.Parser.ParseFrom(entry.Payload),
         OutboxKind.Propose => LiveProposal.Parser.ParseFrom(entry.Payload),
+        OutboxKind.TradeOpen => TradeOpenRequest.Parser.ParseFrom(entry.Payload),
+        OutboxKind.TradeSetSide => TradeSideRequest.Parser.ParseFrom(entry.Payload),
         _ => throw new InvalidDataException("unknown outbox entry kind " + entry.Kind),
     };
 
@@ -182,6 +186,7 @@ public sealed class TransferOutbox
         OutboxKind.Launch or OutboxKind.Land or OutboxKind.Report => clients.Raids is not null,
         OutboxKind.Buy or OutboxKind.AckRemoval => clients.Shop is not null,
         OutboxKind.Propose => clients.Live is not null,
+        OutboxKind.TradeOpen or OutboxKind.TradeSetSide => clients.Trades is not null,
         _ => true,
     };
 
@@ -203,6 +208,8 @@ public sealed class TransferOutbox
             LaunchRequest launch => launch.PawnMode != PawnMode.PawnReal || (launch.Pawns?.Pawns.Count ?? 0) == 0,
             LiveProposal proposal => (proposal.Pawns?.Pawns.Count ?? 0) == 0,
             RaidReport report => (report.Loot?.Items.Count ?? 0) == 0 && (report.Captives?.Pawns.Count ?? 0) == 0,
+            TradeOpenRequest open => (open.Items?.Items.Count ?? 0) == 0 && (open.Pawns?.Pawns.Count ?? 0) == 0,
+            TradeSideRequest side => (side.Items?.Items.Count ?? 0) == 0 && (side.Pawns?.Pawns.Count ?? 0) == 0,
             _ => false,
         };
     }
@@ -230,6 +237,8 @@ public sealed class TransferOutbox
                 case OutboxKind.Buy: await clients.Shop!.Buy(BuyRequest.Parser.ParseFrom(entry.Payload), ct); break;
                 case OutboxKind.AckRemoval: await clients.Shop!.AckRemoval(RemovalAck.Parser.ParseFrom(entry.Payload), ct); break;
                 case OutboxKind.Propose: await clients.Live!.Propose(LiveProposal.Parser.ParseFrom(entry.Payload), ct); break;
+                case OutboxKind.TradeOpen: await clients.Trades!.Open(TradeOpenRequest.Parser.ParseFrom(entry.Payload), ct); break;
+                case OutboxKind.TradeSetSide: await clients.Trades!.SetSide(TradeSideRequest.Parser.ParseFrom(entry.Payload), ct); break;
             }
             log.Info($"outbox: {entry.Kind} {entry.Id} answered on replay");
             return true;

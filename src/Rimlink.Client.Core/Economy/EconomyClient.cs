@@ -19,6 +19,9 @@ public sealed class EconomyClient(RimlinkConnection connection)
     /// <summary>Descriptors only; <see cref="Get"/> fetches the blobs of one parcel.</summary>
     public Task<ParcelList> Pending(CancellationToken ct) => connection.MailboxApi.ListAsync(new Empty(), deadline: Until, cancellationToken: ct).ResponseAsync;
     public Task<Parcel> Get(long parcelId, CancellationToken ct) => connection.MailboxApi.GetAsync(new ParcelRef { ParcelId = parcelId }, deadline: Until, cancellationToken: ct).ResponseAsync;
+    /// <summary>Accept or refuse a gift awaiting a decision; a refused one goes back to its sender.</summary>
+    public Task Answer(long parcelId, bool accept, CancellationToken ct) =>
+        connection.MailboxApi.AnswerAsync(new ParcelAnswer { ParcelId = parcelId, Accept = accept }, deadline: Until, cancellationToken: ct).ResponseAsync;
     public Task Deliver(long parcelId, long gameTick, CancellationToken ct) =>
         connection.MailboxApi.DeliverAsync(new DeliverRequest { ParcelId = parcelId, GameTick = gameTick }, deadline: Until, cancellationToken: ct).ResponseAsync;
 

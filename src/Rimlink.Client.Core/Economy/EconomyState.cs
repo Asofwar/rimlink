@@ -28,10 +28,15 @@ public sealed class EconomyState
         MyLots.AddRange(myLots.Lots);
     }
 
-    /// <summary>False when the parcel is already known (replayed event).</summary>
+    /// <summary>False when the parcel is already known (replayed event, or a gift whose decision changed: replaced in place).</summary>
     public bool AddPending(Parcel parcel)
     {
-        if (!pendingIds.Add(parcel.Id)) return false;
+        if (!pendingIds.Add(parcel.Id))
+        {
+            int at = pending.FindIndex(p => p.Id == parcel.Id);
+            if (at >= 0) pending[at] = parcel;
+            return false;
+        }
         pending.Add(parcel);
         return true;
     }
@@ -60,6 +65,9 @@ public sealed class EconomyState
             case ServerEvent.BodyOneofCase.WalletChanged:
                 Balance = ev.WalletChanged.Balance;
                 WalletChanged?.Invoke(ev.WalletChanged);
+                break;
+            case ServerEvent.BodyOneofCase.GiftRefused:
+                MarkDelivered(ev.GiftRefused.ParcelId); // a gift to us that was refused leaves the mailbox; ours is not in it
                 break;
         }
     }
