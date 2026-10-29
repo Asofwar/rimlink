@@ -155,7 +155,7 @@ public static class VisitSession
         });
     }
 
-    /// <summary>After the host's save finished loading: their colony becomes a friendly faction, the guests walk in.</summary>
+    /// <summary>After the host's save finished loading: their colony becomes another faction (friendly, hostile in a live raid), the guests walk in.</summary>
     public static void OnGameLoaded()
     {
         if (Pending is not { } pending) return;
@@ -268,7 +268,15 @@ public static class VisitLoader
         var host = FactionGenerator.NewGeneratedFaction(new FactionGeneratorParms(FactionDefOf.OutlanderCivil, default, hidden: false));
         host.Name = pending.HostName;
         Find.FactionManager.Add(host);
-        host.TryAffectGoodwillWith(player, 100, canSendMessage: false, canSendHostilityLetter: false);
+        if (pending.Live?.Kind == LiveKind.LiveRaid)
+        {
+            // A live raid's mirror: the host's colony is the enemy. A drafted pawn's right-click offers attacks on hostile targets
+            // only, so a friendly host would leave the guest nothing but "go here".
+            host.RelationWith(player).baseGoodwill = -100;
+            player.RelationWith(host).baseGoodwill = -100;
+            host.Notify_GoodwillSituationsChanged(player, canSendHostilityLetter: false, null, null);
+        }
+        else host.TryAffectGoodwillWith(player, 100, canSendMessage: false, canSendHostilityLetter: false);
 
         foreach (var map in Find.Maps)
         {
