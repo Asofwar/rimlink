@@ -89,7 +89,7 @@ Every result is `{success, error?, ...}`; the action tools return as soon as the
 | `rimlink/chat {count}`, `rimlink/chat_send {text, to}` | chat history as received, send public or to one player |
 | `rimlink/caravan_form {pawns, items}`, `rimlink/caravan_move {caravan, tile, instant}`, `rimlink/caravan_options {caravan, tile}`, `rimlink/caravan_order {caravan, label}` | a caravan of our pawns (items in its inventory, no forming walk), a dev teleport (or a real route) to a tile, the real right-click options there ("Transfer to …", "Raid …", "Visit …", "Live raid …", "Enter Colony") and choosing one; on its own tile the arrival and the window it opens follow at once. The windows (`Dialog_Economy`, `Dialog_Raid`) are ordinary: drive them with `get_ui_layout`/`click_ui_target`, confirmations with `press_accept` |
 | `rimlink/pods_launch {tile, label, pawns, items, instant}` | pawns and/or items into a transport pod group launched at a tile with that tile's pod option by label ("Raid … (pods)", "Live raid … (pods …)"); a wrong label lists the options, and a wrong label or an option the game refuses on click (peaceful mode, host offline) puts everything back. Dev shortcut: no launcher or fuel; `instant` lands at the next world-object tick (step ~120 ticks) |
-| `rimlink/net_drop {seconds}` | dev only: this client loses its server connection for N s (streams break, calls fail, the machine's network is untouched), then reconnects as after a real outage (`PeerLost` → `PeerBack` in a live session); above ~110 s the 2-minute reconnect budget runs out and the connection ends `Failed` |
+| `rimlink/net_drop {seconds}` | dev only: this client loses its server connection for N s (streams break, calls fail, the machine's network is untouched), then reconnects as after a real outage (`PeerLost` → `PeerBack` in a live session). Attempts go on every 60 s with no end; from 2 minutes the game offers the menu (`rimlink/status` shows `reconnectingForSec`, `outageIsLong`, and `failureReason` after a refusal) |
 | `rimlink/live_resync`, `rimlink/work_priority {pawn, work, priority}`, `rimlink/schedule {pawn, hour, assignment}`, `rimlink/capture {pawn}` | live details: the guest asks for a fresh snapshot (as after dropped deltas); set or read (priority -1, no assignment) a Work/Schedule cell as the tabs do, which the mirror turns into orders; dev capture of a downed pawn by the colony without a prisoner room |
 | `rimlink/map_pawns {faction}`, `rimlink/select {things}`, `rimlink/faction_ideo {faction}` | debug: every pawn on the map with faction, kind, ideo and previous ideos; select any things by load id (for dev actions on the selection); give a faction a newly generated primary ideo (`RimlinkRaiders` creates the raider faction), since a classic world shares one ideo among all factions |
 
@@ -101,7 +101,10 @@ so `rimworld/list_colonists` is empty for the first seconds (`rimworld/play_for`
 
 Runs that must not touch another agent's games use a separate stand: a copy of the game folder (about 1 GB) with the branch's mod
 and companion deployed into it, its own `-savedatafolder`s, its own server port (`Rimlink__Server__Port`), and two extra entries in
-`~/.gabs/config.json`. `-logFile` is ignored: every instance still writes into the one `Player.log`.
+`~/.gabs/config.json`. `-logFile` is ignored: every instance still writes into the one `Player.log`, and a new instance truncates
+it. Each GABS game keeps its own stdout in `~/.gabs/<gameId>/launch.log` (overwritten only when that game starts again): copy both
+before a risky call. A game that dies with no trace there, no `.NET Runtime` event and GABS answering `Game '<id>' not found` for a
+call that never ran was ended from outside (see the `caravan_order` investigation in `docs/manual-checklist.md`).
 
 ## How work is organised (the workflow and the skills behind it)
 

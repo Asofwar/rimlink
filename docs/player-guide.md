@@ -151,7 +151,8 @@ the result a moment later.
 | `login already taken` / `player name already taken` | Pick another login or player name. |
 | Certificate fingerprint changed | Ask the admin. Accept only if they confirm a new certificate. |
 | `Your mods do not match the server` | Follow the dialog (subscribe / download, apply the server order, restart). |
-| `Connection to the server lost, reconnecting...` | The game pauses and reconnects for up to 2 minutes (same session). After that (`Could not reconnect …`) it returns to the menu; your save is kept locally and uploaded at the next login. |
+| `Connection to the server lost, reconnecting...` | The game pauses and keeps reconnecting (first after 1 s, then less often, at the latest every minute); the corner shows how long it has been. After 2 minutes a window offers to keep waiting or go back to the menu: the attempts go on behind it, and it closes by itself when the server is back. Back in the menu your save is kept locally and uploaded at the next login. |
+| `The server refused to reconnect: …` | The server turned the login down for good (ban, changed password or server password, new server version, an untrusted new certificate): back to the menu, your save is kept locally. |
 | `This account logged in from another place` | Someone used your account elsewhere; the colony continues there. This copy is paused and disconnected, nothing from it is uploaded; "Back to main menu" leaves it. |
 | `An admin restored your save to version N` | Return to the menu and log in again to load that version. |
 | `This save is older than your last transfer` | You loaded a save from before something you sent. Go back to the menu and log in to get the server copy, or keep playing without uploads. The refused file is kept as `*.stale-<date>.rws`. |

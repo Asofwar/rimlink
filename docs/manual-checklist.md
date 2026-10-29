@@ -37,6 +37,14 @@
 - [x] **Отложенная выгрузка.** Если выгрузка не удалась, при следующем входе сейв уходит на сервер до загрузки игры.
 - [x] **Чат и игроки.** Сообщение видно в окне чата; строки истории не дублируются; окно «Игроки» показывает себя.
 - [x] **Обрыв сети.** Перезапуск сервера: игра ставится на паузу, «Связь с сервером потеряна», после возврата сервера — «Связь восстановлена», сессия та же.
+- [x] **Долгий обрыв (дольше 2 минут), 2026-10-29.** BT-стенд, ветка `asofwar/long-outage`: `rimlink/net_drop {seconds: 180}` у
+  гостя (сервер: `Nova-bt disconnected` 21:43:47). Во время обрыва `rimlink/send` 5 серебра → outbox 1. `reconnectingForSec` растёт,
+  на 129 с `outageIsLong: true`, состояние всё ещё `Reconnecting`, окно «No connection to the server for two minutes … Back to main
+  menu / Keep waiting». Сеть вернулась → `Login Nova-bt` 21:46:50 (3 мин 3 с), outbox переигран: `Player 2 sent parcel 15 to
+  player 1: 5 silver`, посылка доставлена; у гостя `Connected`, outbox 0, окно предложения закрылось само.
+- [x] **Окончательный отказ при переподключении.** Бан гостя через `POST /api/admin/bans` (бан закрывает сессию) → клиент сразу
+  `Failed` без попыток каждую минуту, `failureReason` «banned until …: reconnect refusal check», окно «The server refused to
+  reconnect: Banned until … Your save stays on this computer …». Бан снят `DELETE /api/admin/bans/1`.
 - [x] **Уведомления сервера.** `admin broadcast` виден в игре; `admin shutdown 90` показывает предупреждение и запускает сохранение с выгрузкой.
 - [x] **Модпак-дифф.** Задать модпак на сервере, убрать один мод у клиента: диалог со списком, «Использовать порядок сервера» пишет `ModsConfig.xml` (бэкап `ModsConfig.rimlink-backup.xml`).
 - [x] **Вход с другого места.** Второй клиент тем же аккаунтом: первый получает «вход с другого места» и уходит в меню без переподключения.
@@ -76,6 +84,12 @@
   Прогон 2026-10-29, BT-стенд (:25570, сборка ветки `asofwar/bt-caravans-pods`), через GABS: караван Nova-bt (Latch, 30 серебра)
   телепортом на тайл bt-admin → «Transfer to bt-admin...» → окно с «Caravan inventory: Silver ×30» и «Latch» → галочка серебра → Send →
   `sent parcel 12 to player 1: 30x Silver`; караван на тайле, меню ПКМ по-прежнему доступно.
+  Однократная смерть гостя на `caravan_order` в том прогоне (ветка `asofwar/long-outage`, 2026-10-29): не повторилась за 7 попыток
+  (`Transfer` ×2, `Transfer (Dev: instantly)` ×2, `Raid` ×2, `Visit (Dev: instantly)` + `visit_end`, перед каждой копия `Player.log` и
+  `~/.gabs/rimlink-bt-*/launch.log` в `D:\Build\rimlink-bt\logs`). Свидетельства исходного случая: GABS ответил на `caravan_order`,
+  `step_game_ticks` и `status` «Game 'rimlink-bt-guest' not found» — приказ до игры не дошёл; сервер записал `Nova-bt disconnected` в
+  ту же секунду; ни события `.NET Runtime`/`Application Error`, ни минидампа для этого процесса нет (событие 1023 в 18:34:06 —
+  другой экземпляр, на минуту раньше); каталоги всех игр в `~/.gabs` изменены в ту же минуту. Вывод: процесс завершён снаружи, не модом.
 - [x] **Повторная доставка после крэша.** Убить игру сразу после приземления пода (до автосейва): при следующем входе под прилетает ещё раз, второго дубля нет.
   Прогон 2026-10-29 (стенд s2): окно между дропом и `Deliver` открыто блокировкой записи в SQLite сервера (`BEGIN IMMEDIATE` из
   скрипта после `Saves/Download` гостя; чтение `Mailbox/Get` в WAL идёт, запись `Deliver` ждёт). Посылка 11 (77 серебра): `parcel 11
