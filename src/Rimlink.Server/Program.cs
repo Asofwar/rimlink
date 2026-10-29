@@ -95,6 +95,7 @@ builder.Services.AddScoped<EconomyGate>();
 builder.Services.AddScoped<PlayerFreeze>();
 builder.Services.AddScoped<ParcelValidator>();
 builder.Services.AddScoped<WalletService>();
+builder.Services.AddScoped<ServerWealth>();
 builder.Services.AddScoped<MailboxService>();
 builder.Services.AddScoped<TransferService>();
 builder.Services.AddScoped<MarketService>();
