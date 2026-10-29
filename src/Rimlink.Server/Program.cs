@@ -109,6 +109,7 @@ app.Services.GetRequiredService<PresenceNotifier>(); // subscribes to session ev
 
 app.UseSerilogRequestLogging();
 app.UseHttpMetrics();
+app.UsePanelStaticFiles();
 app.MapHealthChecks("/health");
 app.MapMetrics("/metrics");
 app.MapGrpcService<AuthGrpcService>();
