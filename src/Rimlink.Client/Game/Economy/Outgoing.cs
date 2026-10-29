@@ -398,7 +398,11 @@ public static class Outgoing
                 {
                     await call(request);
                     if (entry is not null) outbox!.Remove(entry.Id);
-                    MainThread.Post(() => Messages.Message(successMessage, MessageTypeDefOf.PositiveEvent, historical: false));
+                    MainThread.Post(() =>
+                    {
+                        RimlinkSession.State.Economy.MarkWealthStale();
+                        Messages.Message(successMessage, MessageTypeDefOf.PositiveEvent, historical: false);
+                    });
                 }
                 catch (RpcException ex) when (TransferOutbox.IsDefinitive(ex))
                 {

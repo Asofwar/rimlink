@@ -110,6 +110,7 @@ public static class Incoming
             {
                 await economy.Deliver(id, tick, CancellationToken.None);
                 if (entry is not null) outbox!.Remove(entry.Id);
+                MainThread.Post(() => RimlinkSession.State.Economy.MarkWealthStale());
             }
             catch (RpcException ex) when (TransferOutbox.IsDefinitive(ex))
             {

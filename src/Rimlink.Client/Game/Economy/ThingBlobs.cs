@@ -30,6 +30,8 @@ public static class ThingBlobs
             MaxHitPoints = t.def.useHitPoints ? t.MaxHitPoints : 0,
             MarketValueX100 = (long)(t.MarketValue * 100f),
             Label = t.LabelCapNoCount,
+            // Rotting things kept on the server cost a storage fee.
+            Perishable = t.TryGetComp<CompRottable>() is not null,
             ScribeXmlZstd = ByteString.CopyFrom(Save(t)),
         };
         return blob;
@@ -41,10 +43,10 @@ public static class ThingBlobs
         {
             KindDef = p.kindDef.defName,
             Name = p.Name?.ToStringFull ?? p.LabelShort,
+            MarketValueX100 = (long)(p.MarketValue * 100f),
             Humanlike = p.RaceProps.Humanlike,
             AgeYears = p.ageTracker.AgeBiologicalYears,
             Label = p.LabelCap,
-            MarketValueX100 = (long)(p.MarketValue * 100f),
             ScribeXmlZstd = ByteString.CopyFrom(Save(p)),
         };
         if (p.RaceProps.Humanlike && p.skills is not null)

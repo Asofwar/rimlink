@@ -47,6 +47,9 @@ public sealed class EconomyState
         WealthStale = false;
     }
 
+    /// <summary>This client's own call changed what the server holds (a lot, a deposit, a delivery): refresh the wallet.</summary>
+    public void MarkWealthStale() => WealthStale = true;
+
     /// <summary>False when the parcel is already known (replayed event, or a gift whose decision changed: replaced in place).</summary>
     public bool AddPending(Parcel parcel)
     {

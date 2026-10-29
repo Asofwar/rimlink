@@ -209,7 +209,10 @@ public static class LoginFlow
             var live = RimlinkSession.Live ?? new Rimlink.Client.Live.LiveClient(connection, RimlinkLog.Instance);
             var trades = new Rimlink.Client.Social.TradesClient(connection);
             if (outbox is not null) await outbox.Replay(new Rimlink.Client.Economy.OutboxClients(economy, raids, new Rimlink.Client.Visits.ShopClient(connection), live, trades), ct);
-            RimlinkSession.State.Economy.Load(await economy.Wallet(ct), await economy.Pending(ct), await economy.Lots(new MarketQuery { SellerPlayerId = me }, ct));
+            Rimlink.Protocol.V1.EconomyRules? rules = null;
+            try { rules = await economy.Rules(ct); }
+            catch (RpcException ex) { RimlinkLog.Instance.Warn("economy rules not loaded: " + Rimlink.Client.Economy.EconomyClient.MessageOf(ex)); }
+            RimlinkSession.State.Economy.Load(await economy.Wallet(ct), await economy.Pending(ct), await economy.Lots(new MarketQuery { SellerPlayerId = me }, ct), rules);
             RimlinkSession.State.Raids.Load(await raids.Pending(ct), await raids.Mine(ct), await raids.Flags(ct));
             RimlinkSession.State.Social.Load(await trades.List(ct), await new Rimlink.Client.Social.SocialClient(connection).ListBlocks(ct));
             LiveSession? current = null;

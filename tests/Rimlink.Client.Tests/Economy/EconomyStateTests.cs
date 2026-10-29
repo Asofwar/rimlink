@@ -64,6 +64,17 @@ public class EconomyStateTests
     }
 
     [Fact]
+    public void OwnCallsMarkWealthStale()
+    {
+        // A lot posted or a deposit made changes what the server holds before any event says so.
+        var state = Loaded();
+
+        state.MarkWealthStale();
+
+        Assert.True(state.WealthStale);
+    }
+
+    [Fact]
     public void NegativeBalanceIsDebt()
     {
         var state = Loaded();
