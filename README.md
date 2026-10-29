@@ -30,6 +30,9 @@ a personal block list (DMs, gifts, trades, public chat lines), and two-way trade
 and double confirmation. Integrity: dev mode only for admins while connected, saves made with dev mode flagged, a
 wealth-jump check per save (admin alert, then a freeze of that player's trading), the world's storyteller and difficulty
 held for every colony, and the colony saved and uploaded when the game is closed.
+World hygiene: abandoned young, poor colonies move to a restorable
+archive (with their saves) under configurable conditions and come back when their player logs in; a "while you were away" letter at
+login; other players' settlements show an online light, a wealth tier and their age.
 
 - Players: `docs/player-guide.md`
 - Server admins: `docs/server-setup.md`

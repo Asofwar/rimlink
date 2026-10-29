@@ -202,6 +202,24 @@ Every upload is checked after it is stored (a failing check never refuses a save
 Both checks trust what the game reports: they catch spawning and duplication by an unmodified client (dev mode, bugs, exploits),
 not a modified client that lies about its wealth or its dev mode.
 
+## 5d. World hygiene: archive, away letter, map markers
+
+- Abandoned colonies go to an archive when every enabled condition holds. Settings under `Hygiene` (defaults):
+  `ArchiveAfterDays` 14 (days since the later of the last login and the end of the last session; `0` turns the archive off),
+  `ArchiveMaxWealth` 100000 (only poorer colonies; `0` ignores wealth), `ArchiveMaxColonyDays` 60 (only colonies younger than
+  this many game days, from the current save's tick; `0` ignores age), `SweepHours` 6 (1–168). Online players are never
+  archived. A colony with a save whose wealth was never reported is skipped; a settlement without any save counts as poor and young.
+- Archiving moves the settlement out of the world (its tile is free for others), moves the save files to
+  `<DataDir>/archive/colony-<playerId>-<time>/` with `manifest.json`, cancels raids to and from the player (escrowed pawns go home
+  by parcel), ends visits and live sessions. Wallet, lots, parcels and the shop stay. Nothing is deleted.
+- The player's next login restores the colony automatically when its tile is still free. When the tile was taken, the player
+  is told so and starts a new colony; the old one stays archived for an admin to restore once the tile is free (the player
+  must not have a colony then).
+- `WealthTiers` (default `[50000, 150000, 400000, 1000000]`, four increasing numbers): other players see a wealth tier 1–5 on a
+  settlement, never the exact wealth, plus an online light, the owner's last day seen and the colony's age in game days.
+- At login after an absence the game shows one letter with what happened since the last session: raids, visits, parcels, lot and
+  shop sales, chat mentions (the player's name as a word, or a direct message; the server keeps 500 chat lines) and admin actions.
+
 ## 6. Administration
 
 - In game, moderators and admins type `/help` in chat.
@@ -241,6 +259,11 @@ not a modified client that lies about its wealth or its dev mode.
   - server: `POST /saveall`, `GET /status`, `GET /config` (secrets shown as `set`), `GET /chat?playerId=&before=|after=&limit=`
     (public channel only), `GET /actions?before=`;
   - backups: `GET /backups`, `POST /backups` (make one now; 409 while one runs), `GET /backups/{name}` (download).
+  - archive (5d): `GET /archive?state=archived|restored|all` (scope `moderate`, newest first, up to 500),
+    `POST /players/{id}/archive` and `POST /archive/{id}/restore` (scope `admin`); refusals are 404 `unknown archive` and 409
+    `no colony`, `already restored`, `player has a colony`, `tile taken`, `archive damaged`. Chat command `/archive list | <player> |
+    restore <id>`; CLI `rimlink-tools admin archived [state] | archive <playerId> | restore-colony <id>`. Every archive and restore
+    by an admin is in the audit log (`archive`, `restore`; the sweep acts as `system:hygiene`).
   - names next to ids (`null` when no player has that id any more): `GET /raids` `attackerName`, `targetName`;
     `GET /live` `hostName`, `guestName`; `GET /economy/parcels/{id}` `fromName`, `toPlayerId`, `toName`
     (`GET /economy/lots` carries `sellerName` and `summary`, below).
@@ -309,7 +332,8 @@ revocable on its own and named in the audit log:
 `GET /health` (used by the Docker health check) and Prometheus metrics at `GET /metrics` (economy: `rimlink_trades_total{kind}`, `rimlink_silver_moved_total`, `rimlink_parcels_pending`, `rimlink_economy_errors_total{code}`; gifts and trades: `rimlink_gifts_refused_total`, `rimlink_player_trades_total{outcome}` (`opened|completed|cancelled|expired`);
 raids: `rimlink_raids_total{outcome}`, `rimlink_raids_active`, `rimlink_visits_total`, `rimlink_shop_sales_total`; live sessions:
 `rimlink_live_proposed_total{kind}`, `rimlink_live_sessions_total{kind,end_reason}`, `rimlink_live_frames_total{dir}`, `rimlink_live_active`;
-admin feed: `rimlink_admin_feed_subscribers`). Logs go to the console
+admin feed: `rimlink_admin_feed_subscribers`; archive: `rimlink_colonies_archived_total{reason}` (auto, admin, failed),
+`rimlink_colonies_restored_total{by}` (player, admin)). Logs go to the console
 and `logs/server-<date>.log`.
 
 ## 9. Limits (built in)

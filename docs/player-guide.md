@@ -85,6 +85,15 @@ links (subscribe before the first connection), the login modes, the address to a
   with the reason; sending, the wallet, the market, shops, trades and raids are refused ("Your trading is frozen: …", nothing
   leaves your colony), parcels for you still arrive and you can take your own lots back or cancel a trade. Only an admin opens it again.
 - Settling, abandoning or losing a settlement is reported to the server; other players see it on their map.
+- **Other players on the world map**: a green light on a settlement means its owner is online now, grey means offline; the bar
+  under it shows their wealth tier (1–5, not the exact wealth). Select the settlement for its owner, faction, when they were last
+  seen and how many game days the colony has lived.
+- **While you were away**: after a login the game shows one letter with what happened since your last session — raids on you
+  and your own raids, visitors, parcels, market and shop sales, chat lines naming you or sent to you, and admin actions on your
+  account. Nothing happened, no letter.
+- **A long absence**: a young, poor colony whose owner has not played for two weeks (the server's settings decide) is moved to
+  the server's archive, not deleted. Log in and it comes back by itself. If someone settled its tile meanwhile, you start a new
+  colony and an admin can bring the old one back once the tile is free.
 - If the server shuts down, you get a warning; the game saves and uploads before the server stops.
 
 ## 4. Trading and gifts
