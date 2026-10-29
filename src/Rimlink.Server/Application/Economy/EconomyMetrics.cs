@@ -10,6 +10,7 @@ public static class EconomyMetrics
     public static readonly Counter SilverMoved = Metrics.CreateCounter("rimlink_silver_moved_total", "Silver moved between wallets and parcels");
     public static readonly Gauge ParcelsPending = Metrics.CreateGauge("rimlink_parcels_pending", "Parcels not yet delivered");
     public static readonly Counter Errors = Metrics.CreateCounter("rimlink_economy_errors_total", "Refused economy operations by error code", "code");
+    public static readonly Counter GiftsRefused = Metrics.CreateCounter("rimlink_gifts_refused_total", "Gifts refused by the recipient or left unanswered");
 
     public static void Trade(string kind, long silver = 0)
     {

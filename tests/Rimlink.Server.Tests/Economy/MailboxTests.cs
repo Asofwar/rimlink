@@ -16,6 +16,7 @@ public class MailboxTests
         using var fixture = EconomyServer();
         var nova = await fixture.RegisterAndLogin("nova");
         var bob = await fixture.RegisterAndLogin("bob");
+        await SocialFixtures.AcceptGifts(fixture, bob.Player.PlayerId);
         var parcel = await Clients(fixture, nova.SessionToken).Transfer.SendAsync(Send(bob.Player.PlayerId, Items(("Steel", 3))), Bearer(nova.SessionToken));
         var c = Clients(fixture, bob.SessionToken);
 
@@ -36,6 +37,7 @@ public class MailboxTests
         using var fixture = EconomyServer();
         var nova = await fixture.RegisterAndLogin("nova");
         var bob = await fixture.RegisterAndLogin("bob");
+        await SocialFixtures.AcceptGifts(fixture, bob.Player.PlayerId);
         await Fund(fixture, nova.Player.PlayerId, 100);
         var n = Clients(fixture, nova.SessionToken);
         var b = Clients(fixture, bob.SessionToken);
@@ -55,6 +57,7 @@ public class MailboxTests
         using var fixture = EconomyServer();
         var nova = await fixture.RegisterAndLogin("nova");
         var bob = await fixture.RegisterAndLogin("bob", playerName: "Bob");
+        await SocialFixtures.AcceptGifts(fixture, bob.Player.PlayerId);
         var parcel = await Clients(fixture, nova.SessionToken).Transfer.SendAsync(Send(bob.Player.PlayerId, Items(("Steel", 3))), Bearer(nova.SessionToken));
         var b = Clients(fixture, bob.SessionToken);
         await b.Mailbox.DeliverAsync(new DeliverRequest { ParcelId = parcel.Id, GameTick = 900 }, b.Auth);

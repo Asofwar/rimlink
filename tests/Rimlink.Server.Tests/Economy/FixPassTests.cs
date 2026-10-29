@@ -53,6 +53,7 @@ public class FixPassTests
         var actor = await Admin(fixture);
         var nova = await fixture.RegisterAndLogin("nova");
         var bob = await fixture.RegisterAndLogin("bob");
+        await SocialFixtures.AcceptGifts(fixture, bob.Player.PlayerId);
         var parcel = await Clients(fixture, nova.SessionToken).Transfer.SendAsync(Send(bob.Player.PlayerId, Items(("Steel", 1))), Bearer(nova.SessionToken));
         var b = Clients(fixture, bob.SessionToken);
         await b.Mailbox.DeliverAsync(new DeliverRequest { ParcelId = parcel.Id, GameTick = 5000 }, b.Auth);

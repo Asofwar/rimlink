@@ -20,8 +20,8 @@ public sealed class MailboxService(RimlinkDbContext db, EventBus events, WalletS
     /// <summary>Creates a parcel inside the caller's transaction and announces it; the caller saves.</summary>
     public async Task<Parcel> Create(long toPlayerId, long? fromPlayerId, ParcelKindDb kind, ItemList? items, PawnList? pawns, long silver, string? clientRequestId, bool ignoreMailboxLimit = false)
     {
-        if (!await db.Players.AnyAsync(p => p.Id == toPlayerId))
-            throw RpcErrors.With(StatusCode.NotFound, ErrorCode.RecipientUnknown, $"no player with id {toPlayerId}");
+        var recipient = await db.Players.AsNoTracking().Where(p => p.Id == toPlayerId).Select(p => new { p.AcceptGifts }).FirstOrDefaultAsync()
+            ?? throw RpcErrors.With(StatusCode.NotFound, ErrorCode.RecipientUnknown, $"no player with id {toPlayerId}");
         int pending = await db.Parcels.CountAsync(p => p.ToPlayerId == toPlayerId && p.DeliveredAt == null);
         // Returns of escrowed goods (lot withdrawn/expired) always land: refusing them would lose the seller's items.
         if (!ignoreMailboxLimit && pending >= options.Value.MaxPendingParcels)
@@ -40,6 +40,10 @@ public sealed class MailboxService(RimlinkDbContext db, EventBus events, WalletS
             SizeBytes = ParcelValidator.SizeOf(items, pawns),
             CreatedAt = DateTime.UtcNow,
             ClientRequestId = clientRequestId,
+            // A player's gift waits for the recipient's decision unless they take gifts without asking.
+            Decision = kind == ParcelKindDb.Gift && fromPlayerId is not null
+                ? recipient.AcceptGifts ? ParcelDecisionDb.Accepted : ParcelDecisionDb.Awaiting
+                : ParcelDecisionDb.None,
         };
         db.Parcels.Add(parcel);
         await db.SaveChangesAsync();
@@ -73,6 +77,7 @@ public sealed class MailboxService(RimlinkDbContext db, EventBus events, WalletS
         await using var tx = await db.Database.BeginTransactionAsync();
         var parcel = await db.Parcels.FirstOrDefaultAsync(p => p.Id == parcelId && p.ToPlayerId == playerId)
             ?? throw new RpcException(new Status(StatusCode.NotFound, "no such parcel in your mailbox"));
+        if (parcel.Decision == ParcelDecisionDb.Awaiting) throw new RpcException(new Status(StatusCode.FailedPrecondition, "the gift awaits a decision"));
         if (parcel.DeliveredAt is null)
         {
             parcel.DeliveredAt = DateTime.UtcNow;
@@ -129,6 +134,7 @@ public sealed class MailboxService(RimlinkDbContext db, EventBus events, WalletS
             Redeliver = redeliver,
             DeliveredTick = p.DeliveredTick ?? 0,
             SizeBytes = p.SizeBytes,
+            AwaitingDecision = p.Decision == ParcelDecisionDb.Awaiting,
         };
         if (p.FromPlayerId is { } fromId)
         {

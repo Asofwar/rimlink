@@ -66,6 +66,7 @@ public class AntiDupeTests
         using var fixture = EconomyServer();
         var nova = await fixture.RegisterAndLogin("nova");
         var bob = await fixture.RegisterAndLogin("bob");
+        await SocialFixtures.AcceptGifts(fixture, bob.Player.PlayerId);
         var n = Clients(fixture, nova.SessionToken);
         var b = Clients(fixture, bob.SessionToken);
         var parcel = await n.Transfer.SendAsync(Send(bob.Player.PlayerId, Items(("Steel", 1))), n.Auth);

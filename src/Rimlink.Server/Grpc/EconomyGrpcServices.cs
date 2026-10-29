@@ -34,7 +34,7 @@ public sealed class WalletGrpcService(WalletService wallet, EconomyGate gate, Tr
     }
 }
 
-public sealed class MailboxGrpcService(MailboxService mailbox) : Protocol.V1.Mailbox.MailboxBase
+public sealed class MailboxGrpcService(MailboxService mailbox, GiftService gifts) : Protocol.V1.Mailbox.MailboxBase
 {
     public override async Task<ParcelList> List(Empty request, ServerCallContext context)
     {
@@ -50,6 +50,12 @@ public sealed class MailboxGrpcService(MailboxService mailbox) : Protocol.V1.Mai
     public override async Task<Empty> Deliver(DeliverRequest request, ServerCallContext context)
     {
         await mailbox.Deliver(context.GetSession().PlayerId, request.ParcelId, request.GameTick);
+        return new Empty();
+    }
+
+    public override async Task<Empty> Answer(ParcelAnswer request, ServerCallContext context)
+    {
+        await gifts.Answer(context.GetSession().PlayerId, request.ParcelId, request.Accept);
         return new Empty();
     }
 }

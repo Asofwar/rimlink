@@ -94,6 +94,8 @@ builder.Services.AddScoped<MailboxService>();
 builder.Services.AddScoped<TransferService>();
 builder.Services.AddScoped<MarketService>();
 builder.Services.AddHostedService<LotExpiryService>();
+builder.Services.AddScoped<GiftService>();
+builder.Services.AddHostedService<SafeTradesSweep>();
 builder.Services.AddScoped<Rimlink.Server.Application.Raids.RaidGate>();
 builder.Services.AddScoped<Rimlink.Server.Application.Raids.RaidRules>();
 builder.Services.AddScoped<Rimlink.Server.Application.Raids.RaidService>();

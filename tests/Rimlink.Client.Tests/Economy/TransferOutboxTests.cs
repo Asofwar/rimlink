@@ -67,6 +67,7 @@ public class TransferOutboxTests : IDisposable
     {
         using var fixture = EconomyServer();
         await using var bob = await ClientFixtures.Connected(fixture, "bob");
+        await Rimlink.Server.Tests.Support.SocialFixtures.AcceptGifts(fixture, bob.Login!.Player.PlayerId);
         var nova = await fixture.RegisterAndLogin("nova");
         var n = Clients(fixture, nova.SessionToken);
         var parcel = await n.Transfer.SendAsync(Send(bob.Login!.Player.PlayerId, Items(("Steel", 5))), n.Auth);
