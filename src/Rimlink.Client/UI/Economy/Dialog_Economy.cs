@@ -490,12 +490,18 @@ public sealed class Dialog_Economy : Window
 
     public static string Describe(Parcel p)
     {
+        string from = p.From is not null ? p.From.Name : ("Rimlink.Economy.Kind." + p.Kind).Translate();
+        return $"{from}: {DescribeContents(p)}";
+    }
+
+    /// <summary>What the parcel holds, without the sender.</summary>
+    public static string DescribeContents(Parcel p)
+    {
         var parts = new List<string>();
         if (p.Items.Items.Count > 0) parts.Add(Describe(p.Items));
         foreach (var pawn in p.Pawns.Pawns) parts.Add(pawn.Label);
         if (p.Silver > 0) parts.Add("Rimlink.Economy.SilverAmount".Translate(p.Silver));
-        string from = p.From is not null ? p.From.Name : ("Rimlink.Economy.Kind." + p.Kind).Translate();
-        return $"{from}: {string.Join(", ", parts)}";
+        return string.Join(", ", parts);
     }
 
     private static string Describe(ItemList items) => string.Join(", ", items.Items.Select(i => i.Count > 1 ? $"{i.Label} ×{i.Count}" : i.Label));

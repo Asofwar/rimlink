@@ -64,11 +64,12 @@ Items you can send are the ones under a powered **orbital trade beacon**, exactl
   server in escrow; **Withdraw** brings them back by drop pod. Lots expire after 30 days (the server returns them).
   When a lot sells while you play, a message names the lot, the buyer, the price and what reached your wallet.
 - **Send**: a gift to another player — items, pawns and silver from your wallet. They get it next time they are in
-  their colony, whether or not they are online now.
+  their colony, whether or not they are online now. A gift waits for the recipient's answer (see *Gifts* below).
 - **Wallet**: your silver on the server. **Deposit** takes silver from under the beacons; **Withdraw** drops it in
   your colony. Sales are credited here, purchases are paid from here.
 - **Mailbox**: parcels waiting for you (gifts, purchases, returned lots). They drop automatically while you are on
-  your colony map; **Accept now** does it immediately.
+  your colony map; **Accept now** does it immediately. A gift from a player waits for your **Accept** or **Refuse**.
+- **Trades**: two-way trades with another player (see *Trades* below).
 - **Caravan**: right-click another player's settlement on the world map with a caravan selected and choose
   **Transfer to <player>…**. On arrival the same window opens with the caravan's inventory and members; the caravan
   stays there afterwards.
@@ -85,6 +86,36 @@ away; relations it started in another colony, and what your colonists remembered
 Every transfer first saves your game and uploads the save (a short "Sending your last save…" pause). If the upload
 fails, nothing is sent and the goods are put back. After a transfer the server refuses any **older** save from you:
 the goods are already in someone else's mailbox, so an older file would duplicate them.
+
+### Gifts
+
+A gift from another player arrives as a letter: **Accept** lets it land by drop pod, **Refuse** sends everything back to
+the sender (things by drop pod, silver to their wallet), **Postpone** keeps the letter. The Mailbox tab has the same two
+buttons. A gift nobody answers goes back on its own after a week, and the sender gets a letter either way. Tick **Accept
+gifts without asking** (Raids tab, next to peaceful mode) to have gifts drop at once, as before.
+
+### Trades
+
+A trade is an exchange with another player that needs no trust and no market: both sides go into escrow on the server
+and change hands only when both players confirmed the same offer. Start one with **New trade** in the Trades tab or
+**Trade** in the Players window (an offline player works too: anyone with a settlement).
+
+- **Your offer** takes things and pawns from under the beacons, silver from your wallet and a short note; they leave
+  your colony at once, as when sending.
+- **Change my side** adds more things to what you offered; tick **Take back what is already offered** to replace it
+  (the old goods come back by drop pod). Silver and note are the new totals. Any change unconfirms the other side.
+- **Confirm** agrees to the trade as you see it. When both sides confirmed, each gets the other side by drop pod.
+- **Cancel trade** (either player) sends each side back to its owner. An open trade expires after a week the same way.
+
+Tick **Not accepting trades** (Raids tab) to refuse new offers; open trades go on.
+
+### Blocking
+
+**Block** in the Players window: that player's direct messages, gifts and trade offers to you are refused, their lines
+in the public chat no longer reach you, and open trades between you end (each side gets its things back). Gifts already
+waiting stay, so you can refuse them. You cannot message, gift or trade with someone you blocked either; **Unblock**
+(also for blocked players who are offline, listed at the bottom) lifts it. Moderators and admins cannot be blocked.
+Blocking does not affect the market, raids or visits.
 
 If the server does not answer a transfer (connection lost, trading paused), the goods are neither sent nor put back:
 the request waits in `Saves/Rimlink/<server>_<player>/outbox.json` and is sent again, as the same request, at your

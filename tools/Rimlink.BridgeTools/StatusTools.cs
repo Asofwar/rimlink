@@ -42,6 +42,23 @@ public sealed class StatusTools
                 .Select(o => new { owner = o.Owner.Name, ownerId = o.Owner.PlayerId, tile = o.Tile, name = o.Name }).ToList(),
             economy = new { balance = state.Economy.Balance, pendingParcels = state.Economy.Pending.Count, myLots = state.Economy.MyLots.Count },
             raids = new { incoming = state.Raids.Incoming.Count, mine = state.Raids.Mine.Count, peaceful = state.Raids.Flags.Peaceful },
+            social = new
+            {
+                flags = new { acceptGifts = state.Raids.Flags.AcceptGifts, tradesClosed = state.Raids.Flags.TradesClosed },
+                blocks = state.Social.Blocks.Select(b => b.Name).ToList(),
+                awaitingGifts = state.Economy.Pending.Where(p => p.AwaitingDecision)
+                    .Select(p => new { id = p.Id, from = p.From?.Name, items = p.Items.Items.Select(i => $"{i.DefName} x{i.Count}").ToList(), pawns = p.Pawns.Pawns.Select(x => x.Name).ToList(), silver = p.Silver }).ToList(),
+                trades = state.Social.Trades.Select(t => new
+                {
+                    id = t.Id,
+                    partner = (t.Initiator?.PlayerId == me ? t.Partner?.Name : t.Initiator?.Name),
+                    status = t.Status.ToString(),
+                    revision = t.Revision,
+                    closeReason = t.CloseReason,
+                    mine = SideOf(SocialTools.Mine(t)),
+                    theirs = SideOf(SocialTools.Theirs(t)),
+                }).ToList(),
+            },
             live = new
             {
                 invite = state.Live.PendingInvite?.Session.Id,
@@ -57,4 +74,13 @@ public sealed class StatusTools
             outbox = RimlinkSession.Outbox?.Entries.Count ?? 0,
         };
     }
+
+    private static object SideOf(Protocol.V1.TradeSide side) => new
+    {
+        items = side.Items?.Items.Select(i => $"{i.DefName} x{i.Count}").ToList(),
+        pawns = side.Pawns?.Pawns.Select(p => p.Name).ToList(),
+        silver = side.Silver,
+        note = side.Note,
+        confirmed = side.Confirmed,
+    };
 }

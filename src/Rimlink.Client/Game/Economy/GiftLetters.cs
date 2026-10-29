@@ -67,7 +67,7 @@ public static class GiftLetters
         if (!parcel.AwaitingDecision || Current.ProgramState != ProgramState.Playing) return;
         var letter = (ChoiceLetter_RimlinkGift)LetterMaker.MakeLetter(
             "Rimlink.Gifts.OfferLabel".Translate(parcel.From?.Name ?? "?"),
-            "Rimlink.Gifts.OfferText".Translate(parcel.From?.Name ?? "?", Dialog_Economy.Describe(parcel)),
+            "Rimlink.Gifts.OfferText".Translate(parcel.From?.Name ?? "?", Dialog_Economy.DescribeContents(parcel)),
             DefDatabase<LetterDef>.GetNamed("Rimlink_GiftOffer"));
         letter.parcelId = parcel.Id;
         Find.LetterStack.ReceiveLetter(letter);

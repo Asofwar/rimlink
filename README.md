@@ -21,7 +21,9 @@ relays frames and falls back to the asynchronous raid when the host declines. We
 `/admin/` (every admin operation, player directory, chat history, backups, modpack editor; English and Russian) and a
 public status page at `/`; integrations use named API tokens with scopes. Discord bot: server events in Discord
 channels, the public chat bridged both ways, public queries and role-gated admin commands, through the admin event feed
-(Server-Sent Events) and the REST API with a scoped token.
+(Server-Sent Events) and the REST API with a scoped token. Safe trades: a player's gift waits for accept or refuse,
+a personal block list (DMs, gifts, trades, public chat lines), and two-way trades on server escrow with counter-offers
+and double confirmation.
 
 - Players: `docs/player-guide.md`
 - Server admins: `docs/server-setup.md`
