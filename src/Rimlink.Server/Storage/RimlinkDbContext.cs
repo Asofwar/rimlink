@@ -24,6 +24,7 @@ public sealed class RimlinkDbContext(DbContextOptions<RimlinkDbContext> options)
     public DbSet<Raid> Raids => Set<Raid>();
     public DbSet<RaidOutcome> RaidOutcomes => Set<RaidOutcome>();
     public DbSet<Visit> Visits => Set<Visit>();
+    public DbSet<LiveSession> LiveSessions => Set<LiveSession>();
     public DbSet<ShopItem> ShopItems => Set<ShopItem>();
     public DbSet<PendingRemoval> PendingRemovals => Set<PendingRemoval>();
 
@@ -125,6 +126,13 @@ public sealed class RimlinkDbContext(DbContextOptions<RimlinkDbContext> options)
         {
             e.ToTable("raid_outcomes");
             e.HasIndex(o => o.RaidId);
+        });
+        model.Entity<LiveSession>(e =>
+        {
+            e.ToTable("live_sessions");
+            e.HasIndex(s => new { s.HostPlayerId, s.State });
+            e.HasIndex(s => new { s.GuestPlayerId, s.State });
+            e.HasIndex(s => new { s.GuestPlayerId, s.ClientRequestId }).IsUnique().HasFilter("\"ClientRequestId\" IS NOT NULL");
         });
         model.Entity<Visit>(e =>
         {

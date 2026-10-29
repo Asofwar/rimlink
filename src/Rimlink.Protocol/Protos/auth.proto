@@ -5,12 +5,15 @@ option csharp_namespace = "Rimlink.Protocol.V1";
 
 import "common.proto";
 import "modpack.proto";
+import "live.proto";
 
 service Auth {
   rpc Login (LoginRequest) returns (LoginReply);
   // Only when the server enables password accounts (Auth:AllowPassword).
   rpc Register (RegisterRequest) returns (LoginReply);
   rpc Logout (Empty) returns (Empty);
+  // Presence for live sessions: true while the player is on their home map.
+  rpc SetAtHome (AtHomeRequest) returns (Empty);
 }
 
 enum Role {
@@ -42,6 +45,8 @@ message RegisterRequest {
   repeated ModRef mods = 4;
 }
 
+message AtHomeRequest { bool at_home = 1; }
+
 message LoginReply {
   string session_token = 1;
   PlayerRef player = 2;
@@ -53,4 +58,6 @@ message LoginReply {
   ModpackDiff modpack_diff = 7;
   // Everyone with a live session at login time, this player included; later changes arrive as PlayerJoined/PlayerLeft.
   repeated PlayerRef online = 8;
+  // Live sessions in Ending where this player is the host: their game still has to report the guest pawns.
+  repeated LiveSession pending_live_ends = 9;
 }

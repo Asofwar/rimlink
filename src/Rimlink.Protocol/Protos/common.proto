@@ -36,6 +36,11 @@ enum ErrorCode {
   LOOT_OVER_CAP = 25;
   VISITS_CLOSED = 26;
   ITEM_SOLD = 27;
+  // Live sessions (3b).
+  HOST_OFFLINE = 28;
+  LIVE_ACTIVE = 29;
+  LIVE_GONE = 30;
+  LIVE_DISABLED = 31;
 }
 
 // Attached to failed calls as the "rimlink-error-bin" trailer.

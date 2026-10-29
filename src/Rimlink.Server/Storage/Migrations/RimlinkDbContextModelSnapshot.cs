@@ -155,6 +155,61 @@ namespace Rimlink.Server.Storage.Migrations
                     b.ToTable("chat_messages", (string)null);
                 });
 
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.LiveSession", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ClientRequestId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("EndReason")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("EndedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("GuestPlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("HostPlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<byte[]>("Pawns")
+                        .HasColumnType("BLOB");
+
+                    b.Property<long?>("RaidId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("SnapshotVersion")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("State")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GuestPlayerId", "ClientRequestId")
+                        .IsUnique()
+                        .HasFilter("\"ClientRequestId\" IS NOT NULL");
+
+                    b.HasIndex("GuestPlayerId", "State");
+
+                    b.HasIndex("HostPlayerId", "State");
+
+                    b.ToTable("live_sessions", (string)null);
+                });
+
             modelBuilder.Entity("Rimlink.Server.Storage.Entities.Lot", b =>
                 {
                     b.Property<long>("Id")
@@ -336,6 +391,9 @@ namespace Rimlink.Server.Storage.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<long>("AccountId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("AutoAcceptLive")
                         .HasColumnType("INTEGER");
 
                     b.Property<uint>("ColorArgb")

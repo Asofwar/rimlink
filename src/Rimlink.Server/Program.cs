@@ -36,6 +36,7 @@ builder.Services.Configure<AdminOptions>(builder.Configuration.GetSection(AdminO
 builder.Services.Configure<BackupOptions>(builder.Configuration.GetSection(BackupOptions.Section));
 builder.Services.Configure<EconomyOptions>(builder.Configuration.GetSection(EconomyOptions.Section));
 builder.Services.Configure<RaidOptions>(builder.Configuration.GetSection(RaidOptions.Section));
+builder.Services.Configure<LiveOptions>(builder.Configuration.GetSection(LiveOptions.Section));
 
 builder.WebHost.ConfigureKestrel(kestrel => KestrelSetup.Configure(kestrel, serverOptions, tlsOptions));
 

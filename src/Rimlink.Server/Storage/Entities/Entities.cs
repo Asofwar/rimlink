@@ -45,6 +45,8 @@ public sealed class Player
     public DateTime? FirstSaveAt { get; set; }
     public long WealthTotal { get; set; }
     public long WealthItems { get; set; }
+    /// <summary>Live sessions (3b): invitations are accepted without asking.</summary>
+    public bool AutoAcceptLive { get; set; }
 }
 
 public sealed class SessionLog
@@ -230,6 +232,26 @@ public sealed class RaidOutcome
     public long RaidId { get; set; }
     public int Index { get; set; }
     public int Outcome { get; set; }
+}
+
+public enum LiveStateDb { Proposed = 0, Starting = 1, Running = 2, Waiting = 3, Ending = 4, Ended = 5, Fallback = 6 }
+
+/// <summary>A live raid or visit between an online host and guest (3b). A LiveRaid's escrow and rules live in its <see cref="Raid"/> row; a LiveVisit escrows its pawns here.</summary>
+public sealed class LiveSession
+{
+    public long Id { get; set; }
+    public int Kind { get; set; }
+    public long HostPlayerId { get; set; }
+    public long GuestPlayerId { get; set; }
+    public LiveStateDb State { get; set; }
+    public long? RaidId { get; set; }
+    public byte[]? Pawns { get; set; }
+    public int? SnapshotVersion { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? StartedAt { get; set; }
+    public DateTime? EndedAt { get; set; }
+    public int? EndReason { get; set; }
+    public string? ClientRequestId { get; set; }
 }
 
 public sealed class Visit

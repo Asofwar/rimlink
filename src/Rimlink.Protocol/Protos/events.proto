@@ -10,6 +10,7 @@ import "saves.proto";
 import "chat.proto";
 import "economy.proto";
 import "raids.proto";
+import "live.proto";
 import "visits.proto";
 
 // One server-push stream per session; everything that changes arrives here.
@@ -41,6 +42,12 @@ message ServerEvent {
     ItemSold item_sold = 64;
     VisitStarted visit_started = 65;
     PlayerFlagsChanged player_flags_changed = 66;
+    LiveInvite live_invite = 70;
+    LiveStarted live_started = 71;
+    LiveEnded live_ended = 72;
+    LiveFallback live_fallback = 73;
+    LivePeerLost live_peer_lost = 74;
+    LivePeerBack live_peer_back = 75;
   }
 }
 

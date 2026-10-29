@@ -73,6 +73,23 @@ public sealed class RaidOptions
     public int VisitHours { get; set; } = 12;
 }
 
+/// <summary>Live raids and visits (sub-project 3b spec §6).</summary>
+public sealed class LiveOptions
+{
+    public const string Section = "Live";
+
+    public bool Enabled { get; set; } = true;
+    public int InviteSeconds { get; set; } = 60;
+    public int ReconnectWaitMinutes { get; set; } = 5;
+    public int GuestPauses { get; set; } = 10;
+    public int GuestPauseSeconds { get; set; } = 60;
+    public int MaxFrameBytes { get; set; } = 262144;
+    public int DeltasPerSecond { get; set; } = 20;
+    public int OrdersPerSecond { get; set; } = 30;
+    /// <summary>A live stream without any frame for this long counts as lost (tests lower it).</summary>
+    public int HeartbeatTimeoutSeconds { get; set; } = 10;
+}
+
 public sealed class AdminOptions
 {
     public const string Section = "Admin";

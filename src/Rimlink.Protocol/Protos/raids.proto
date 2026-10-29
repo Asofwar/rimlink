@@ -90,6 +90,8 @@ message PlayerFlags {
   // Set while a peaceful-off request is pending; the player counts as peaceful until then.
   google.protobuf.Timestamp peaceful_off_at = 2;
   bool visits_closed = 3;
+  // Live sessions (3b): invitations are accepted without asking.
+  bool auto_accept_live = 4;
 }
 
 service Raids {

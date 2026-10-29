@@ -14,4 +14,6 @@ public sealed class Session
     public CancellationTokenSource Cts { get; } = new();
     public Events.EventQueue Events { get; } = new();
     public DateTime StartedAt { get; } = DateTime.UtcNow;
+    /// <summary>Presence for live sessions: the client reports whether the player is on their home map.</summary>
+    public volatile bool AtHome;
 }

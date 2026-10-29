@@ -1,0 +1,167 @@
+syntax = "proto3";
+
+package rimlink.v1;
+option csharp_namespace = "Rimlink.Protocol.V1";
+
+import "google/protobuf/timestamp.proto";
+import "common.proto";
+import "economy.proto";
+import "raids.proto";
+
+// Live sessions (sub-project 3b): when both players are online, a guest controls their own pawns on the
+// host's live map through a mirrored view and relayed vanilla orders. The host's game is the only
+// simulation; the server relays frames between the two streams without interpreting them.
+
+enum LiveKind { LIVE_RAID = 0; LIVE_VISIT = 1; }
+enum LiveState { LIVE_PROPOSED = 0; LIVE_STARTING = 1; LIVE_RUNNING = 2; LIVE_WAITING = 3; LIVE_ENDING = 4; LIVE_ENDED = 5; LIVE_FALLBACK = 6; }
+enum LiveEndReason { END_NORMAL = 0; END_GUEST_LOST = 1; END_HOST_LOST = 2; END_HOST_ABORTED = 3; END_GUEST_CANCELLED = 4; END_ADMIN = 5; }
+
+message LiveProposal {
+  string client_request_id = 1;
+  int64 host_player_id = 2;
+  LiveKind kind = 3;
+  PawnList pawns = 4;
+  // Timing of the 3a raid the proposal falls back to when the host declines or does not answer.
+  RaidTiming timing_fallback = 5;
+  RaidArrival arrival = 6;
+  int64 game_tick = 7;
+}
+
+message LiveSession {
+  int64 id = 1;
+  LiveKind kind = 2;
+  PlayerRef host = 3;
+  PlayerRef guest = 4;
+  LiveState state = 5;
+  // Save version of the host's snapshot the guest loads (0 until the host uploaded one).
+  int32 snapshot_version = 6;
+  // The 3a raid row that holds the escrow and the rules of a LIVE_RAID.
+  int64 raid_id = 7;
+  LiveEndReason end_reason = 8;
+  google.protobuf.Timestamp created_at = 9;
+}
+
+message LiveAnswer { int64 session_id = 1; bool accept = 2; }
+message LiveRef { int64 session_id = 1; }
+message AutoAcceptRequest { bool enabled = 1; }
+
+message Cell { int32 x = 1; int32 z = 2; }
+message Target { oneof t { int64 thing_id = 1; Cell cell = 2; } }
+
+message PawnDelta {
+  int64 thing_id = 1;
+  Cell cell = 2;
+  int32 rot = 3;
+  bool drafted = 4;
+  bool downed = 5;
+  bool dead = 6;
+  string job_def = 7;
+  Target job_target = 8;
+  int32 health_pct = 9;
+  string mental_state_def = 10;
+  int64 carried_thing_id = 11;
+  Cell path_next_cell = 12;
+}
+message ThingSpawned { int64 thing_id = 1; Cell cell = 2; ItemBlob item = 3; PawnBlob pawn = 4; }
+message ThingChanged { int64 thing_id = 1; Cell cell = 2; int32 stack_count = 3; int32 hp = 4; }
+message CellChange { Cell cell = 1; string kind = 2; string value = 3; }
+message FireChange { Cell cell = 1; float size = 2; bool gone = 3; }
+message DamageEvent { int64 attacker_id = 1; int64 victim_id = 2; float amount = 3; string body_part_def = 4; string damage_def = 5; }
+message GuestMessage { string text = 1; Target look = 2; bool letter = 3; }
+
+// Host → guest, every 6 ticks (once a second while paused): what changed since the previous delta.
+message Delta {
+  int64 tick = 1;
+  int32 speed = 2;
+  // 0 none, 1 host, 2 guest.
+  int32 paused_by = 3;
+  int32 snapshot_seq = 4;
+  repeated PawnDelta pawns = 5;
+  repeated ThingSpawned things_spawned = 6;
+  repeated int64 things_despawned = 7;
+  repeated ThingChanged things_changed = 8;
+  repeated CellChange cells = 9;
+  repeated FireChange fires = 10;
+  repeated DamageEvent damage = 11;
+  repeated GuestMessage messages = 12;
+  // Every 10 s: full blobs of the guest's pawns, so their health is reset as a whole.
+  repeated PawnBlob guest_pawn_blobs = 13;
+}
+
+message TakeJob { string job_def = 1; Target a = 2; Target b = 3; Target c = 4; int32 count = 5; bool force = 6; }
+message WorkPriority { string work_def = 1; int32 priority = 2; }
+message Schedule { int32 hour = 1; string assignment_def = 2; }
+
+// Guest → host: one vanilla order for one of the guest's pawns.
+message Order {
+  int64 seq = 1;
+  int64 pawn_id = 2;
+  oneof o {
+    bool draft = 3;
+    Cell move_to = 4;
+    Target attack = 5;
+    TakeJob take_job = 6;
+    WorkPriority work_priority = 7;
+    Schedule schedule = 8;
+    int64 equip = 9;
+    int64 wear = 10;
+    int64 drop = 11;
+    int32 set_speed = 12;
+    bool pause = 13;
+  }
+}
+message OrderResult { int64 seq = 1; bool ok = 2; string reason = 3; }
+
+// role: 1 host, 2 guest.
+message Hello { int32 role = 1; int32 snapshot_seq = 2; }
+message SnapshotReady { int32 save_version = 1; }
+message EndMsg { LiveEndReason reason = 1; }
+// A relay refusal (frame too big or too frequent); events.proto's Notice cannot be imported here without a cycle.
+message LiveNotice { string text = 1; }
+
+message LiveClientMsg {
+  int64 session_id = 1;
+  oneof m {
+    Hello hello = 2;
+    Empty heartbeat = 3;
+    Delta delta = 4;
+    Order order = 5;
+    OrderResult order_result = 6;
+    Empty resync_request = 7;
+    SnapshotReady snapshot_ready = 8;
+    EndMsg end = 9;
+  }
+}
+
+message LiveServerMsg {
+  oneof m {
+    Delta delta = 1;
+    Order order = 2;
+    OrderResult order_result = 3;
+    Empty resync_request = 4;
+    SnapshotReady snapshot_ready = 5;
+    EndMsg end = 6;
+    Empty peer_lost = 7;
+    Empty peer_back = 8;
+    LiveNotice notice = 9;
+    Hello peer_hello = 10;
+  }
+}
+
+service Live {
+  rpc Propose (LiveProposal) returns (LiveSession);
+  rpc Respond (LiveAnswer) returns (LiveSession);
+  // The guest before the session starts (pawns come back), or the host to abort a running one.
+  rpc Cancel (LiveRef) returns (Empty);
+  rpc Current (Empty) returns (LiveSession);
+  // One stream per participant; frames go to the other participant of the same session.
+  rpc Stream (stream LiveClientMsg) returns (stream LiveServerMsg);
+  rpc SetAutoAccept (AutoAcceptRequest) returns (PlayerFlags);
+}
+
+message LiveInvite { LiveSession session = 1; int32 invite_seconds = 2; }
+message LiveStarted { LiveSession session = 1; }
+message LiveEnded { LiveSession session = 1; }
+message LiveFallback { LiveSession session = 1; }
+message LivePeerLost { int64 session_id = 1; }
+message LivePeerBack { int64 session_id = 1; }

@@ -72,6 +72,27 @@ public class SchemaTests : IDisposable
     }
 
     [Fact]
+    public void LiveMigrationCreatesTheTable()
+    {
+        using var db = CreateContext();
+
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = "SELECT name FROM sqlite_master WHERE type = 'table'";
+        var tables = new List<string>();
+        using (var reader = cmd.ExecuteReader()) while (reader.Read()) tables.Add(reader.GetString(0));
+        Assert.Contains("live_sessions", tables);
+
+        cmd.CommandText = "SELECT name FROM pragma_table_info('players')";
+        var columns = new List<string>();
+        using (var reader = cmd.ExecuteReader()) while (reader.Read()) columns.Add(reader.GetString(0));
+        Assert.Contains("AutoAcceptLive", columns);
+
+        cmd.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND tbl_name = 'live_sessions' AND sql LIKE '%UNIQUE%GuestPlayerId%ClientRequestId%'";
+        Assert.Equal(1L, (long)cmd.ExecuteScalar()!);
+        Assert.False(db.Players.Select(p => p.AutoAcceptLive).FirstOrDefault());
+    }
+
+    [Fact]
     public void NegativeWalletBalanceIsRejected()
     {
         using var db = CreateContext();

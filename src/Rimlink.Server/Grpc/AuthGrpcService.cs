@@ -31,6 +31,12 @@ public sealed class AuthGrpcService(AuthService auth, WorldService worlds, SaveS
         return await ToReply(await auth.Register(request.Login, request.Password, request.PlayerName, ctx), context);
     }
 
+    public override Task<Empty> SetAtHome(AtHomeRequest request, ServerCallContext context)
+    {
+        context.GetSession().AtHome = request.AtHome;
+        return Task.FromResult(new Empty());
+    }
+
     public override Task<Empty> Logout(Empty request, ServerCallContext context)
     {
         auth.Logout(context.GetSession());
