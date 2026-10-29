@@ -301,6 +301,34 @@ public sealed class ModpackDef
     public string DefName { get; set; } = "";
 }
 
+public enum IncidentStateDb { Queued = 0, Announced = 1, Fired = 2, Failed = 3, Expired = 4, Cancelled = 5 }
+
+/// <summary>
+/// A paid incident: what the buyer paid for (the def, faction and pods are copied from the catalog entry at order time, so a
+/// later catalog change does not alter it), waiting for or done in the target's game.
+/// </summary>
+public sealed class IncidentOrder
+{
+    public long Id { get; set; }
+    public long BuyerPlayerId { get; set; }
+    public long TargetPlayerId { get; set; }
+    public string EntryId { get; set; } = "";
+    public string IncidentDef { get; set; } = "";
+    public string? FactionDef { get; set; }
+    /// <summary>Protocol IncidentKind value.</summary>
+    public int Kind { get; set; }
+    public int Level { get; set; }
+    public bool Pods { get; set; }
+    public long Price { get; set; }
+    public IncidentStateDb State { get; set; }
+    public long? FireTick { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? ResolvedAt { get; set; }
+    public DateTime ExpiresAt { get; set; }
+    public string? Reason { get; set; }
+    public string? ClientRequestId { get; set; }
+}
+
 /// <summary>A def the admin forbade in sends and lots.</summary>
 public sealed class ForbiddenDef
 {

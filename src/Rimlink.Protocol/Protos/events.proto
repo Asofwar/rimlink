@@ -13,6 +13,7 @@ import "raids.proto";
 import "live.proto";
 import "visits.proto";
 import "trades.proto";
+import "incidents.proto";
 
 // One server-push stream per session; everything that changes arrives here.
 service Events {
@@ -53,6 +54,8 @@ message ServerEvent {
     GiftRefused gift_refused = 76;
     TradeUpdated trade_updated = 77;
     PingEvent ping = 78;
+    IncidentQueued incident_queued = 80;
+    IncidentResolved incident_resolved = 81;
   }
 }
 

@@ -235,6 +235,75 @@ namespace Rimlink.Server.Storage.Migrations
                     b.ToTable("forbidden_defs", (string)null);
                 });
 
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.IncidentOrder", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("BuyerPlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ClientRequestId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("EntryId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FactionDef")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("FireTick")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("IncidentDef")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Level")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("Pods")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("Price")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Reason")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("State")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("TargetPlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BuyerPlayerId");
+
+                    b.HasIndex("ClientRequestId")
+                        .IsUnique()
+                        .HasFilter("\"ClientRequestId\" IS NOT NULL");
+
+                    b.HasIndex("TargetPlayerId", "State");
+
+                    b.ToTable("incidents", (string)null);
+                });
+
             modelBuilder.Entity("Rimlink.Server.Storage.Entities.LiveSession", b =>
                 {
                     b.Property<long>("Id")

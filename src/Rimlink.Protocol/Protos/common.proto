@@ -56,6 +56,8 @@ enum ErrorCode {
   UNDER_THREAT = 39;   // a raid or a live raid is on the player: deposits, lots and sends wait
   IN_DEBT = 40;        // storage fees owed: buying, lots and sends wait
   DEF_FORBIDDEN = 41;  // the admin forbade this def in sends and lots
+  // Paid incidents.
+  INCIDENT_QUEUE_FULL = 42;  // the target already has the maximum of paid incidents waiting
 }
 
 // Attached to failed calls as the "rimlink-error-bin" trailer.

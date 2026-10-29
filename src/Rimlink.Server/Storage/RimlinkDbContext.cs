@@ -23,6 +23,7 @@ public sealed class RimlinkDbContext(DbContextOptions<RimlinkDbContext> options)
     public DbSet<ModpackDef> ModpackDefs => Set<ModpackDef>();
     public DbSet<ModpackConfig> ModpackConfigs => Set<ModpackConfig>();
     public DbSet<ForbiddenDef> ForbiddenDefs => Set<ForbiddenDef>();
+    public DbSet<IncidentOrder> IncidentOrders => Set<IncidentOrder>();
     public DbSet<Raid> Raids => Set<Raid>();
     public DbSet<RaidOutcome> RaidOutcomes => Set<RaidOutcome>();
     public DbSet<Visit> Visits => Set<Visit>();
@@ -152,6 +153,13 @@ public sealed class RimlinkDbContext(DbContextOptions<RimlinkDbContext> options)
         {
             e.ToTable("forbidden_defs");
             e.HasKey(d => d.DefName);
+        });
+        model.Entity<IncidentOrder>(e =>
+        {
+            e.ToTable("incidents");
+            e.HasIndex(i => new { i.TargetPlayerId, i.State });
+            e.HasIndex(i => i.BuyerPlayerId);
+            e.HasIndex(i => i.ClientRequestId).IsUnique().HasFilter("\"ClientRequestId\" IS NOT NULL");
         });
 
         model.Entity<Raid>(e =>

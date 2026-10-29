@@ -220,6 +220,24 @@ public class SchemaTests : IDisposable
     }
 
     [Fact]
+    public void IncidentsTableExists()
+    {
+        using var db = CreateContext();
+
+        db.IncidentOrders.Add(new IncidentOrder
+        {
+            BuyerPlayerId = 1, TargetPlayerId = 2, EntryId = "pirates", IncidentDef = "RaidEnemy", FactionDef = "Pirate", Kind = 0, Level = 2,
+            Price = 100, State = IncidentStateDb.Queued, CreatedAt = DateTime.UtcNow, ExpiresAt = DateTime.UtcNow.AddDays(7), ClientRequestId = "o-1",
+        });
+        db.SaveChanges();
+        Assert.Equal("RaidEnemy", db.IncidentOrders.AsNoTracking().Single().IncidentDef);
+
+        using var second = CreateContext();
+        second.IncidentOrders.Add(new IncidentOrder { EntryId = "x", IncidentDef = "x", CreatedAt = DateTime.UtcNow, ExpiresAt = DateTime.UtcNow, ClientRequestId = "o-1" });
+        Assert.Throws<DbUpdateException>(() => second.SaveChanges());
+    }
+
+    [Fact]
     public void ForbiddenDefsTableExists()
     {
         using var db = CreateContext();

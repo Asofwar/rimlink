@@ -1,0 +1,99 @@
+syntax = "proto3";
+
+package rimlink.v1;
+option csharp_namespace = "Rimlink.Protocol.V1";
+
+import "google/protobuf/timestamp.proto";
+import "common.proto";
+
+// Paid incidents (paid incidents spec): a player buys an event against another player's colony; it fires in the target's game.
+
+enum IncidentKind {
+  INCIDENT_HOSTILE = 0;   // raids, insects, mechanoids: levels, raid protections, can be announced ahead
+  INCIDENT_WEATHER = 1;   // harmful conditions: raid protections, no level
+  INCIDENT_KIND = 2;      // gifts (traders, resource pods, a wanderer): only the queue and a pair cooldown
+}
+
+enum IncidentState {
+  INCIDENT_QUEUED = 0;
+  INCIDENT_ANNOUNCED = 1;
+  INCIDENT_FIRED = 2;
+  INCIDENT_FAILED = 3;     // the target's game could not run it: refunded
+  INCIDENT_EXPIRED = 4;    // the target did not play in time: refunded
+  INCIDENT_CANCELLED = 5;  // by an admin or a reset: refunded
+}
+
+message CatalogEntry {
+  string id = 1;
+  string label = 2;
+  IncidentKind kind = 3;
+  string incident_def = 4;
+  string faction_def = 5;
+  bool pods_allowed = 6;
+}
+
+message IncidentCatalog { repeated CatalogEntry entries = 1; }
+
+message QuoteRequest {
+  int64 target_player_id = 1;
+  string entry_id = 2;
+  int32 level = 3;   // 1..4 for hostile entries, ignored otherwise
+  bool pods = 4;
+}
+
+message IncidentQuote {
+  int64 price = 1;
+  bool warned = 2;   // announced half a day ahead
+}
+
+message OrderIncidentRequest {
+  string client_request_id = 1;
+  int64 target_player_id = 2;
+  string entry_id = 3;
+  int32 level = 4;
+  bool pods = 5;
+}
+
+message Incident {
+  int64 id = 1;
+  PlayerRef buyer = 2;
+  PlayerRef target = 3;
+  string entry_id = 4;
+  string incident_def = 5;
+  string faction_def = 6;
+  IncidentKind kind = 7;
+  int32 level = 8;
+  bool pods = 9;
+  int64 price = 10;
+  IncidentState state = 11;
+  int64 fire_tick = 12;
+  google.protobuf.Timestamp created_at = 13;
+  string reason = 14;
+}
+
+message IncidentList { repeated Incident incidents = 1; }
+
+message AnnounceIncident {
+  int64 incident_id = 1;
+  int64 game_tick = 2;
+}
+
+message IncidentReport {
+  int64 incident_id = 1;
+  bool fired = 2;
+  string reason = 3;
+}
+
+service Incidents {
+  rpc Catalog (Empty) returns (IncidentCatalog);
+  rpc Quote (QuoteRequest) returns (IncidentQuote);
+  rpc Order (OrderIncidentRequest) returns (Incident);
+  rpc Pending (Empty) returns (IncidentList);    // waiting for my game
+  rpc Mine (Empty) returns (IncidentList);       // what I ordered
+  rpc Announce (AnnounceIncident) returns (Incident);
+  rpc Report (IncidentReport) returns (Empty);
+}
+
+// Events
+message IncidentQueued { Incident incident = 1; }
+message IncidentResolved { Incident incident = 1; int64 refund = 2; }
