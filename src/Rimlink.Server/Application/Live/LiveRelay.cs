@@ -14,6 +14,9 @@ public sealed class LiveChannel(long sessionId, long playerId, int role, LiveOpt
     public RelayQueue Queue { get; } = new();
     public FrameLimiter Limiter { get; } = new(options);
     public DateTime LastFrameAt { get; set; } = DateTime.UtcNow;
+    private volatile bool handling;
+    /// <summary>Set while the relay handles one of this channel's frames: the heartbeat sweep never times a channel out mid-frame.</summary>
+    public bool Handling { get => handling; set => handling = value; }
     /// <summary>Set after this participant was told its peer is gone, so the peer's return is announced once.</summary>
     public bool PeerLostSent { get; set; }
     /// <summary>Why the channel was closed by the relay: "replaced", "ended" or "timeout" (null while open or closed by the client).</summary>
@@ -87,10 +90,24 @@ public sealed class LiveRelay(IServiceScopeFactory scopes, IOptions<LiveOptions>
         if (back) await sessions.MarkRunning(channel.SessionId, channel.PlayerId); // a new stream of the same player arrived while this one was being closed
     }
 
-    /// <summary>Routes one frame from a participant; the answer (a notice for a refused frame) goes back on the sender's own queue.</summary>
+    /// <summary>
+    /// Routes one frame from a participant; the answer (a notice for a refused frame) goes back on the sender's own queue. The time the
+    /// server spends on the frame (a slow database under a Hello) is not the client's silence: a channel is never timed out mid-frame.
+    /// </summary>
     public async Task Forward(LiveChannel from, LiveClientMsg msg, int size)
     {
         from.LastFrameAt = DateTime.UtcNow;
+        from.Handling = true;
+        try { await Route(from, msg, size); }
+        finally
+        {
+            from.LastFrameAt = DateTime.UtcNow;
+            from.Handling = false;
+        }
+    }
+
+    private async Task Route(LiveChannel from, LiveClientMsg msg, int size)
+    {
         LiveMetrics.Frames.WithLabels(from.Role == HostRole ? "host" : "guest").Inc();
         if (from.Limiter.Refuse(msg.MCase, size, from.LastFrameAt) is { } refusal)
         {
@@ -200,7 +217,7 @@ public sealed class LiveRelay(IServiceScopeFactory scopes, IOptions<LiveOptions>
     {
         var limit = TimeSpan.FromSeconds(options.Value.HeartbeatTimeoutSeconds);
         List<LiveChannel> silent;
-        lock (gate) silent = channels.Values.Where(c => now - c.LastFrameAt > limit).ToList();
+        lock (gate) silent = channels.Values.Where(c => !c.Handling && now - c.LastFrameAt > limit).ToList();
         foreach (var c in silent) await Detach(c, "timeout");
     }
 }
