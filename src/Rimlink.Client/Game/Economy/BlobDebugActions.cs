@@ -89,10 +89,11 @@ public static class BlobDebugActions
                 {
                     var blob = ThingBlobs.SerializePawn(pawn);
                     string label = pawn.LabelCap;
-                    pawn.DeSpawn();
+                    // Leave first, as a pawn sent away does: destroying the original after the same-id copy is spawned
+                    // passes it to the world pawns, and the copy (equal by id) is then taken for a world pawn.
+                    PawnExit.Remove(pawn);
                     var again = ThingBlobs.DeserializePawn(blob);
                     GenSpawn.Spawn(again, cell, map);
-                    pawn.Destroy();
                     Log.Message($"[Rimlink] blob round-trip ok: {label} → {again.LabelCap} {blob.ScribeXmlZstd.Length} B, skills {blob.Skills.Count}, hediffs {again.health.hediffSet.hediffs.Count}, apparel {again.apparel?.WornApparelCount ?? 0}");
                 }
                 else

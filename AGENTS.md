@@ -120,6 +120,9 @@ from PowerShell):
   load do not reach the colonist bar; do them on the first `Playing` frame.
 - Multiple player factions / DLC differences between two players surface as unresolved references (`Ideo`, policies) when a
   blob is loaded; `ThingBlobs.DeserializePawn` repoints them to the receiver's defaults.
+- Vanilla never loads a pawn during `ProgramState.Playing`; a blob does. Its first life-stage computation then calls
+  `Notify_LifeStageStarted` with no previous stage, which the adult worker dereferences for colonists
+  (`Patch_LifeStageWorker_HumanlikeAdult` skips it while Scribe is loading).
 
 ## Commits
 

@@ -41,6 +41,9 @@
 ## Экономика (прогон 2026-10-28, две учётки на одном клиенте, dev-режим)
 
 - [x] **Блобы.** Dev-action «Blob round-trip selected thing»: пешка (навыки, здоровье, одежда) и стак предметов возвращаются без потерь; в логе `blob round-trip ok`.
+  Повторно 2026-10-29 через RimBridgeServer + GABS: без ошибок в логе (раньше два `NullReferenceException` из
+  `LifeStageWorker_HumanlikeAdult.Notify_LifeStageStarted` при загрузке колониста во время игры), пешку после round-trip можно выбрать
+  (раньше `Cannot select world pawns`). Предупреждения о неразрешённых ссылках (политики, идеология, `otherPawn`) остаются.
 - [x] **Отправка.** Консоль связи → Rimlink → Отправить: вещи уходят с карты, в логе `saving (transfer)` → `Stored save v<n>` → на сервере `Player A sent parcel N to player B`.
 - [x] **Лот.** «Мои лоты» → Выставить: `Market/Post 200`, лот виден в «Рынок» другого игрока.
 - [x] **Доставка.** Вход получателя: дроп-под, `parcel N dropped`, `Mailbox/Deliver 200`, затем `saving (delivery)`.
