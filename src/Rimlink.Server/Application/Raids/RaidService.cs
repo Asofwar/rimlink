@@ -325,7 +325,7 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
     public static PlayerFlags FlagsOf(Player p)
     {
         var now = DateTime.UtcNow;
-        var flags = new PlayerFlags { Peaceful = RaidRules.IsPeaceful(p, now), VisitsClosed = p.VisitsClosed, AutoAcceptLive = p.AutoAcceptLive };
+        var flags = new PlayerFlags { Peaceful = RaidRules.IsPeaceful(p, now), VisitsClosed = p.VisitsClosed, AutoAcceptLive = p.AutoAcceptLive, AcceptGifts = p.AcceptGifts, TradesClosed = p.TradesClosed };
         if (!p.Peaceful && p.PeacefulOffAt is { } until && until > now) flags.PeacefulOffAt = Timestamp.FromDateTime(DateTime.SpecifyKind(until, DateTimeKind.Utc));
         return flags;
     }

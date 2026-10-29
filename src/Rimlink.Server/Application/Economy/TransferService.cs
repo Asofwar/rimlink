@@ -26,6 +26,8 @@ public sealed class TransferService(RimlinkDbContext db, WalletService wallet, M
             var existing = await db.Parcels.AsNoTracking().FirstOrDefaultAsync(p => p.ClientRequestId == request.ClientRequestId);
             if (existing is not null) return existing;
         }
+        // After the repeat check: a send that went through before a block must not be refused on its replay (the client would put the things back).
+        await Social.BlockRules.RequireNotBlocked(db, fromPlayerId, request.ToPlayerId);
 
         var parcel = await mailbox.Create(request.ToPlayerId, fromPlayerId, ParcelKindDb.Gift, request.Items, request.Pawns, request.Silver,
             string.IsNullOrEmpty(request.ClientRequestId) ? null : request.ClientRequestId);

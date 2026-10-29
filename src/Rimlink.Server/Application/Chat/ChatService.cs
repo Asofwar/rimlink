@@ -12,7 +12,7 @@ using Rimlink.Server.Storage.Entities;
 
 namespace Rimlink.Server.Application.Chat;
 
-public sealed class ChatService(RimlinkDbContext db, EventBus events, AdminFeed feed, IServiceProvider services, ILogger<ChatService> log)
+public sealed class ChatService(RimlinkDbContext db, EventBus events, AdminFeed feed, Social.SocialService social, IServiceProvider services, ILogger<ChatService> log)
 {
     public const int ExternalAuthorMaxLength = 32;
 
@@ -44,6 +44,7 @@ public sealed class ChatService(RimlinkDbContext db, EventBus events, AdminFeed 
             throw RpcErrors.Failed(ErrorCode.Muted, $"you are muted until {until:u}");
         if (toPlayerId != 0 && !await db.Players.AnyAsync(p => p.Id == toPlayerId))
             throw new RpcException(new Status(StatusCode.NotFound, "no such player"));
+        if (toPlayerId != 0 && toPlayerId != from.Id) await Social.BlockRules.RequireNotBlocked(db, from.Id, toPlayerId);
 
         var message = new ChatMessage { FromPlayerId = from.Id, ToPlayerId = toPlayerId == 0 ? null : toPlayerId, Text = text, Kind = Storage.Entities.MessageKind.Player, SentAt = DateTime.UtcNow };
         await Persist(message, new FeedPlayer(from.Id, from.Name));
@@ -51,7 +52,10 @@ public sealed class ChatService(RimlinkDbContext db, EventBus events, AdminFeed 
         var ev = new ServerEvent { Chat = ToEvent(message, from.ToRef()) };
         if (toPlayerId == 0)
         {
-            events.Broadcast(ev);
+            // Players who blocked the sender do not get the line.
+            var blockers = await social.BlockersOf(from.Id);
+            if (blockers.Count == 0) events.Broadcast(ev);
+            else events.BroadcastExcept(blockers, ev);
         }
         else
         {
@@ -62,9 +66,10 @@ public sealed class ChatService(RimlinkDbContext db, EventBus events, AdminFeed 
 
     public async Task<List<ChatMessageEvent>> History(Session reader)
     {
-        // Last 50 public lines plus the reader's last 50 direct messages, merged in order.
+        // Last 50 public lines (without those of players the reader blocked) plus the reader's last 50 direct messages, merged in order.
+        var blocked = (await social.BlockedBy(reader.PlayerId)).ToList();
         var publicRows = await db.ChatMessages.AsNoTracking()
-            .Where(m => m.ToPlayerId == null)
+            .Where(m => m.ToPlayerId == null && (m.FromPlayerId == null || !blocked.Contains(m.FromPlayerId.Value)))
             .OrderByDescending(m => m.Id).Take(Limits.ChatOnLogin).ToListAsync();
         var directRows = await db.ChatMessages.AsNoTracking()
             .Where(m => m.ToPlayerId != null && (m.ToPlayerId == reader.PlayerId || m.FromPlayerId == reader.PlayerId))

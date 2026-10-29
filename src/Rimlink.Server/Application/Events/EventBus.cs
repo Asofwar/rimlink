@@ -13,6 +13,8 @@ public sealed class EventBus(SessionRegistry sessions, ILogger<EventBus> log)
 
     public void BroadcastExcept(long playerId, ServerEvent ev) => Deliver(ev, sessions.All.Where(s => s.PlayerId != playerId));
 
+    public void BroadcastExcept(IReadOnlySet<long> playerIds, ServerEvent ev) => Deliver(ev, sessions.All.Where(s => !playerIds.Contains(s.PlayerId)));
+
     public void SendTo(long playerId, ServerEvent ev)
     {
         var target = sessions.ByPlayer(playerId);
