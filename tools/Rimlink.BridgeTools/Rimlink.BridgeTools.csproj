@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Dev-only RimBridgeServer companion: rimlink/* tools that drive the mod's flows from GABS. Never shipped with the mod.
+    Needs an installed RimWorld 1.7 with RimBridgeServer: pass -p:RimWorldDir=<folder> (default below).
+    Not part of Rimlink.sln (CI has no game). Build and deploy with scripts/Build-BridgeTools.ps1.
+    Nothing is copied next to the output: the companion must bind to the Rimlink.Client the game already loaded.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Rimlink.BridgeTools</RootNamespace>
+    <AssemblyName>Rimlink.BridgeTools</AssemblyName>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <RimWorldDir Condition="'$(RimWorldDir)' == ''">D:\SteamLibrary\steamapps\common\RimWorld</RimWorldDir>
+    <BridgeSdkPath>$(RimWorldDir)\Mods\RimBridgeServer\1.6\Assemblies\RimBridgeServer.Sdk.dll</BridgeSdkPath>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Lib.Harmony" ExcludeAssets="runtime" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Rimlink.Client\Rimlink.Client.csproj" Private="false" />
+    <!-- Listed only to keep them out of the output: transitive references would be copied otherwise. -->
+    <ProjectReference Include="..\..\src\Rimlink.Client.Core\Rimlink.Client.Core.csproj" Private="false" />
+    <ProjectReference Include="..\..\src\Rimlink.Protocol\Rimlink.Protocol.csproj" Private="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp"><HintPath>$(RimWorldDir)\Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityStubs"><HintPath>$(RimWorldDir)\UnityStubs.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="RimBridgeServer.Sdk"><HintPath>$(BridgeSdkPath)</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+  <Target Name="CheckBridgeSdk" BeforeTargets="ResolveAssemblyReferences" Condition="!Exists('$(BridgeSdkPath)')">
+    <Error Text="RimBridgeServer.Sdk.dll not found at '$(BridgeSdkPath)'. Install RimBridgeServer into $(RimWorldDir)\Mods." />
+  </Target>
+</Project>
