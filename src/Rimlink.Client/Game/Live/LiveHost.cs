@@ -36,6 +36,10 @@ public static class LiveHost
     private static DateTime lastResyncAt;
     private static DateTime lastGuestCheck;
     private static int emptyChecks;
+    private static bool guestSeen;
+    /// <summary>Deltas in a row the stream would not take whole; past <see cref="MaxRefusedDeltas"/> the diff is too big to ever fit and a snapshot replaces it.</summary>
+    private static int refusedDeltas;
+    private const int MaxRefusedDeltas = 30;
     /// <summary>Health signature of the last blob each guest pawn's mirror got (see <see cref="HealthSignature"/>).</summary>
     private static readonly Dictionary<int, int> sentHealth = [];
     /// <summary>
@@ -92,6 +96,8 @@ public static class LiveHost
         Map = map;
         lootCap = cap;
         emptyChecks = 0;
+        guestSeen = false;
+        refusedDeltas = 0;
         sentHealth.Clear();
         var owners = MapComponent_LiveOwners.Of(map);
         var spawned = new List<Pawn>();
@@ -197,20 +203,13 @@ public static class LiveHost
                     break;
                 case LiveServerMsg.MOneofCase.PeerHello:
                     GuestHere = true;
+                    guestSeen = true;
                     LiveTempo.WaitingPause = false; // the host's own pause (HostWish) stays as the host set it
                     LiveTempo.Apply();
                     Messages.Message("Rimlink.Live.GuestHere".Translate(session.Guest.Name), MessageTypeDefOf.PositiveEvent, historical: false);
                     break;
                 case LiveServerMsg.MOneofCase.ResyncRequest:
-                    if (!resyncing && DateTime.UtcNow - lastResyncAt >= ResyncCooldown)
-                    {
-                        resyncing = true;
-                        lastResyncAt = DateTime.UtcNow;
-                        GuestHere = false;
-                        LiveTempo.WaitingPause = true; // paused until the guest's new Hello; the host's play button does not lift it
-                        LiveTempo.Apply();
-                        Snapshot(live, first: false);
-                    }
+                    if (!resyncing && DateTime.UtcNow - lastResyncAt >= ResyncCooldown) Resync(live);
                     else RimlinkLog.Instance.Info("live: resync request ignored (one is running or the last one was too recent)");
                     break;
                 case LiveServerMsg.MOneofCase.PeerLost:
@@ -230,11 +229,12 @@ public static class LiveHost
                     break;
             }
         }
-        if (!resyncing && DateTime.UtcNow - lastGuestCheck >= TimeSpan.FromSeconds(1))
+        // Not before the guest's first Hello: a guest still loading the mirror would miss the end and stay in the host's copy.
+        if (guestSeen && !resyncing && DateTime.UtcNow - lastGuestCheck >= TimeSpan.FromSeconds(1))
         {
             lastGuestCheck = DateTime.UtcNow;
             // Two checks in a row, so the frame showing the last pawn's death or capture reaches the guest before the end does.
-            if (!RaidResolver.NoneCanAct(MapComponent_LiveOwners.Of(map).IdsOf(session.Guest.PlayerId).OfType<int>(), exits, map)) emptyChecks = 0;
+            if (!RaidResolver.NoneLeft(MapComponent_LiveOwners.Of(map).IdsOf(session.Guest.PlayerId).OfType<int>(), exits, map)) emptyChecks = 0;
             else if (++emptyChecks >= 2) { EndWithoutGuests(session); return; }
         }
         if (!GuestHere || resyncing) return;
@@ -264,20 +264,33 @@ public static class LiveHost
                 var owners = MapComponent_LiveOwners.Of(Map!);
                 foreach (var p in Map!.mapPawns.AllPawnsSpawned.Where(owners.IsOwned))
                 {
-                    int health = HealthSignature(p);
-                    if (sentHealth.TryGetValue(p.thingIDNumber, out int last) && last == health) continue;
-                    try { frames[0].GuestPawnBlobs.Add(ThingBlobs.SerializePawn(p)); healthSent.Add((p.thingIDNumber, health)); } catch { }
+                    try
+                    {
+                        int health = HealthSignature(p);
+                        if (sentHealth.TryGetValue(p.thingIDNumber, out int last) && last == health) continue;
+                        frames[0].GuestPawnBlobs.Add(ThingBlobs.SerializePawn(p));
+                        healthSent.Add((p.thingIDNumber, health));
+                    }
+                    catch { }
                 }
-                lastFullTick = tick;
             }
-            bool all = true;
-            foreach (var frame in frames) all &= live.Send(new LiveClientMsg { Delta = frame });
-            // A frame the stream refused is not the guest's state: without the commit the next diff carries those changes again.
-            if (all)
+            // All frames or none: a refused delta is not the guest's state, and without the commit the next diff carries its changes again.
+            if (!live.SendDelta(frames))
             {
-                collector.Commit(next);
-                foreach (var (id, health) in healthSent) sentHealth[id] = health;
+                lastDeltaTick = tick;
+                lastDeltaAt = DateTime.UtcNow;
+                // A diff that keeps growing past what the stream takes (thousands of new things at once) never fits: a snapshot replaces it.
+                if (++refusedDeltas >= MaxRefusedDeltas && !resyncing)
+                {
+                    RimlinkLog.Instance.Warn($"live: {refusedDeltas} deltas in a row did not fit the stream; sending a fresh snapshot instead");
+                    Resync(live);
+                }
+                return;
             }
+            refusedDeltas = 0;
+            collector.Commit(next);
+            foreach (var (id, health) in healthSent) sentHealth[id] = health;
+            if (full) lastFullTick = tick;
             DeltasSent += frames.Count;
             lastDeltaTick = tick;
             lastDeltaAt = DateTime.UtcNow;
@@ -287,7 +300,20 @@ public static class LiveHost
         {
             Log.Error("[Rimlink] live: delta collection failed: " + ex);
             lastDeltaTick = tick;
+            if (full) lastFullTick = tick; // a full scan that throws would otherwise be retried, and fail, on every delta
         }
+    }
+
+    /// <summary>A fresh snapshot for the guest (its request, or a diff that cannot be sent): paused until the guest's new Hello.</summary>
+    private static void Resync(LiveClient live)
+    {
+        resyncing = true;
+        refusedDeltas = 0;
+        lastResyncAt = DateTime.UtcNow;
+        GuestHere = false;
+        LiveTempo.WaitingPause = true; // the host's play button does not lift it
+        LiveTempo.Apply();
+        Snapshot(live, first: false);
     }
 
     /// <summary>The pawn's hediffs (kind, body part, severity in hundredths): what the guest's mirror takes from a pawn blob.</summary>

@@ -205,10 +205,7 @@ public static class LiveGuest
         }
         // A dropped delta is a change this mirror never saw (a pawn carried off stays where it lay): only a snapshot repairs it.
         if (live.Incoming.TakeDroppedDeltas() is > 0 and int dropped && !Loading)
-        {
-            RimlinkLog.Instance.Warn($"live: {dropped} deltas dropped while the mirror fell behind; asking for a resync");
-            live.Send(new LiveClientMsg { ResyncRequest = new Empty() });
-        }
+            live.RequestResync($"{dropped} deltas dropped while the mirror fell behind");
     }
 
     /// <summary>The stream is over for good (peer End, replaced, or the reconnect budget spent): raised on a background thread.</summary>
@@ -222,8 +219,7 @@ public static class LiveGuest
         if (UnknownIds > 100 && RimlinkSession.Live is { } live && !Loading)
         {
             UnknownIds = 0;
-            RimlinkLog.Instance.Warn("live: too many unknown ids in deltas; asking for a resync");
-            live.Send(new LiveClientMsg { ResyncRequest = new Empty() });
+            live.RequestResync("too many unknown ids in deltas");
         }
     }
 

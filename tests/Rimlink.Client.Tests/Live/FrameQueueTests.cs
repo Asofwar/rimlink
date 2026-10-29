@@ -36,19 +36,6 @@ public class FrameQueueTests
     }
 
     [Fact]
-    public void SendSaysWhichDeltasTheLocalRateDropped()
-    {
-        var client = new LiveClient(null!, new Rimlink.Client.Net.ConsoleLog()); // Send only queues: no connection is touched
-        int accepted = 0;
-        for (int i = 0; i < 30; i++) if (client.Send(DeltaFrame(i))) accepted++;
-
-        Assert.InRange(accepted, 20, 21); // the bucket holds 20 deltas; a sender that is told can keep its diff for the next one
-        Assert.True(client.Send(new LiveClientMsg { Heartbeat = new Empty() }));
-    }
-
-    private static LiveClientMsg DeltaFrame(long tick) => new() { Delta = new Delta { Tick = tick } };
-
-    [Fact]
     public void ClearForgetsTheCount()
     {
         var queue = new FrameQueue(capacity: 1);

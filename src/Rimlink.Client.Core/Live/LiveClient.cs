@@ -61,10 +61,9 @@ public sealed class LiveClient(RimlinkConnection connection, ILog log)
         await opened.Task.WaitAsync(linked.Token);
     }
 
-    /// <summary>Queues a frame; orders and deltas over the local rate are dropped with a log line, the session id is filled in.</summary>
     /// <summary>
-    /// Queues a frame; false when it was dropped here (deltas and orders over the local rate, a delta on a full queue). A delta
-    /// is a diff against what the peer has, so its sender keeps the changes for the next one instead.
+    /// Queues a frame, filling in the session id; false when it was dropped here (deltas and orders over the local rate, a delta on a
+    /// full queue), with a log line. The host sends deltas through <see cref="SendDelta"/>, which never drops part of one.
     /// </summary>
     public bool Send(LiveClientMsg msg)
     {
@@ -84,6 +83,42 @@ public sealed class LiveClient(RimlinkConnection connection, ILog log)
             outgoing.Enqueue(msg);
         }
         outgoingSignal.Release();
+        return true;
+    }
+
+    /// <summary>
+    /// Queues every frame of one delta or none of them (false: over the local rate or no room). A delta is a diff against what the
+    /// peer has, so a sender that is refused keeps the changes for its next one; half a delta would leave the peer off in a way no
+    /// later diff repairs.
+    /// </summary>
+    public bool SendDelta(IReadOnlyList<Delta> frames)
+    {
+        lock (gate)
+        {
+            if (outgoing.Count + frames.Count > OutgoingCapacity || !deltaRate.Take(DateTime.UtcNow, frames.Count)) return false;
+            foreach (var frame in frames) outgoing.Enqueue(new LiveClientMsg { SessionId = sessionId, Delta = frame });
+        }
+        outgoingSignal.Release(frames.Count);
+        return true;
+    }
+
+    public static readonly TimeSpan ResyncInterval = TimeSpan.FromSeconds(10);
+    private DateTime lastResync = DateTime.MinValue;
+
+    /// <summary>
+    /// Asks the host for a fresh snapshot, at most once per <see cref="ResyncInterval"/> (the server passes one per ten seconds,
+    /// the host takes one per 30 s): every frame with a reason would otherwise ask again. False when one was asked too recently.
+    /// </summary>
+    public bool RequestResync(string why)
+    {
+        var now = DateTime.UtcNow;
+        lock (gate)
+        {
+            if (now - lastResync < ResyncInterval) return false;
+            lastResync = now;
+        }
+        log.Warn($"live: {why}; asking for a resync");
+        Send(new LiveClientMsg { ResyncRequest = new Empty() });
         return true;
     }
 
@@ -262,14 +297,14 @@ public sealed class LiveClient(RimlinkConnection connection, ILog log)
         private double tokens = perSecond;
         private DateTime last = DateTime.MinValue;
 
-        public bool Take(DateTime now)
+        public bool Take(DateTime now, int count = 1)
         {
             lock (this)
             {
                 if (last != DateTime.MinValue) tokens = Math.Min(perSecond, tokens + (now - last).TotalSeconds * perSecond);
                 last = now;
-                if (tokens < 1) return false;
-                tokens -= 1;
+                if (tokens < count) return false;
+                tokens -= count;
                 return true;
             }
         }
