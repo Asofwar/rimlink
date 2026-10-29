@@ -303,8 +303,13 @@ public sealed class AdminOperations(
             .ToListAsync();
         foreach (var row in open)
         {
-            if (row.State == LiveStateDb.Proposed) await live.Respond(row.HostPlayerId, row.Id, accept: false);
-            else await live.MarkEnding(row.Id, LiveEndReason.EndAdmin);
+            if (row.State == LiveStateDb.Proposed)
+            {
+                // Answered or expired since the query (LiveGone): then it is started or over, and the end below takes what is left.
+                try { await live.Respond(row.HostPlayerId, row.Id, accept: false); continue; }
+                catch (RpcException ex) when (ex.StatusCode == StatusCode.FailedPrecondition) { }
+            }
+            await live.MarkEnding(row.Id, LiveEndReason.EndAdmin);
         }
         events.SendTo(playerId, new ServerEvent { Notice = new Notice { Text = $"You were kicked: {reason}" } });
         sessions.End(session.Token);

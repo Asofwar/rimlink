@@ -240,4 +240,23 @@ public class LiveEndTests
         Assert.Equal(LiveEndReason.EndAdmin, (await ReadEvent(novaEvents, ServerEvent.BodyOneofCase.LiveEnded, e => e.LiveEnded)).Session.EndReason);
         Assert.Equal(LiveStateDb.Ending, (await Row(fixture, session.Id)).State);
     }
+
+    [Fact]
+    public async Task KickingAPlayerDeclinesTheirOpenProposal()
+    {
+        const string token = "test-admin-token";
+        using var fixture = LiveServer().WithSetting("Admin:ApiToken", token);
+        var nova = await Connected(fixture, "nova");
+        var bob = await Connected(fixture, "bob");
+        await MakeTargetRaidable(fixture, bob.PlayerId);
+        using var novaEvents = nova.Subscribe();
+        var session = await nova.Live.ProposeAsync(Propose(bob.PlayerId, LiveKind.LiveVisit), nova.Auth);
+        var rest = fixture.CreateClient();
+        rest.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        (await rest.PostAsJsonAsync($"/api/admin/players/{nova.PlayerId}/kick", new { reason = "be nice" })).EnsureSuccessStatusCode();
+
+        Assert.Equal(session.Id, (await ReadEvent(novaEvents, ServerEvent.BodyOneofCase.LiveFallback, e => e.LiveFallback)).Session.Id);
+        Assert.Equal(LiveStateDb.Fallback, (await Row(fixture, session.Id)).State);
+    }
 }

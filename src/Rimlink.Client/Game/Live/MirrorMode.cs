@@ -34,7 +34,7 @@ public static class MirrorMode
     private static readonly AccessTools.FieldRef<UniqueIDsManager, int> NextThingId = AccessTools.FieldRefAccess<UniqueIDsManager, int>("nextThingID");
 
     /// <summary>
-    /// Things the copy makes itself (chunks while its maps load, the visit's host faction) take ids from the counter the host's
+    /// Things the copy makes itself (chunks while its maps load, the visit host faction's pawns) take ids from the counter the host's
     /// save carried, the very ids the host gives its next things: a host thing arriving under such an id was taken for one
     /// already there and never spawned ("held by ChunkGranite101076"). As soon as the counter is read, the copy's own things
     /// move to ids far above the host's.
