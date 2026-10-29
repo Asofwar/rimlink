@@ -17,7 +17,7 @@ namespace Rimlink.Client.UI.Economy;
 /// </summary>
 public sealed class Dialog_Economy : Window
 {
-    private enum Tab { Market, MyLots, Send, Wallet, Mailbox, Raids, Shops }
+    private enum Tab { Market, MyLots, Send, Wallet, Mailbox, Trades, Raids, Shops }
 
     private readonly Map? map;
     private readonly Caravan? caravan;
@@ -37,6 +37,7 @@ public sealed class Dialog_Economy : Window
     private Vector2 raidsScroll, shopScroll;
     private PlayerRef? shopHost;
     private ShopList? shopList;
+    private readonly TradesTab tradesTab = new();
 
     public Dialog_Economy(Map map)
     {
@@ -65,7 +66,7 @@ public sealed class Dialog_Economy : Window
         closeOnClickedOutside = false;
     }
 
-    public override Vector2 InitialSize => new(760f, 560f);
+    public override Vector2 InitialSize => new(860f, 560f);
 
     private static EconomyState State => RimlinkSession.State.Economy;
 
@@ -127,10 +128,10 @@ public sealed class Dialog_Economy : Window
             float x = 0f;
             foreach (Tab t in Enum.GetValues(typeof(Tab)))
             {
-                var r = new Rect(x, 36f, 94f, 28f);
+                var r = new Rect(x, 36f, 88f, 28f);
                 if (tab == t) Widgets.DrawHighlightSelected(r);
                 if (Widgets.ButtonText(r, ("Rimlink.Economy.Tab." + t).Translate())) tab = t;
-                x += 98f;
+                x += 92f;
             }
             if (Widgets.ButtonText(new Rect(inRect.width - 70f, 36f, 70f, 28f), "Rimlink.Economy.Refresh".Translate())) Refresh();
         }
@@ -143,6 +144,7 @@ public sealed class Dialog_Economy : Window
             case Tab.Send: DrawSend(body); break;
             case Tab.Wallet: DrawWallet(body); break;
             case Tab.Mailbox: DrawMailbox(body); break;
+            case Tab.Trades: tradesTab.Draw(body, map, KnownPlayers()); break;
             case Tab.Raids: DrawRaids(body); break;
             case Tab.Shops: DrawShops(body); break;
         }
@@ -241,6 +243,7 @@ public sealed class Dialog_Economy : Window
         if (Widgets.ButtonText(new Rect(0f, rect.yMax - 30f, 200f, 28f), "Rimlink.Economy.SendButton".Translate()))
         {
             if (recipient is null) { status = "Rimlink.Economy.PickRecipient".Translate(); return; }
+            if (RimlinkSession.State.Social.IsBlocked(recipient.PlayerId)) { status = "Rimlink.Social.YouBlocked".Translate(recipient.Name); return; }
             if (caravan is null)
             {
                 var picks = picker!.Picks;
@@ -296,16 +299,26 @@ public sealed class Dialog_Economy : Window
     private void DrawMailbox(Rect rect)
     {
         Widgets.Label(new Rect(0f, rect.y, rect.width - 200f, 26f), "Rimlink.Economy.PendingParcels".Translate(State.Pending.Count));
-        if (State.Pending.Count > 0 && Widgets.ButtonText(new Rect(rect.width - 190f, rect.y, 190f, 26f), "Rimlink.Economy.AcceptNow".Translate()))
+        if (State.Pending.Any(p => !p.AwaitingDecision) && Widgets.ButtonText(new Rect(rect.width - 190f, rect.y, 190f, 26f), "Rimlink.Economy.AcceptNow".Translate()))
         {
             Incoming.DeliverPending();
         }
         var list = new Rect(0f, rect.y + 32f, rect.width, rect.height - 32f);
         Widgets.BeginScrollView(list, ref mailScroll, new Rect(0f, 0f, list.width - 16f, Math.Max(list.height, State.Pending.Count * 30f)));
-        float y = 0f;
-        foreach (var p in State.Pending)
+        float y = 0f, w = list.width - 16f;
+        foreach (var p in State.Pending.ToList())
         {
-            Widgets.Label(new Rect(0f, y + 3f, list.width - 16f, 26f), Describe(p));
+            if (!p.AwaitingDecision)
+            {
+                Widgets.Label(new Rect(0f, y + 3f, w, 26f), Describe(p));
+                y += 30f;
+                continue;
+            }
+            // A gift waiting for our decision: it drops only once accepted.
+            Widgets.Label(new Rect(0f, y + 3f, w - 230f, 26f), "Rimlink.Gifts.Waiting".Translate(Describe(p)));
+            long id = p.Id;
+            if (Widgets.ButtonText(new Rect(w - 224f, y, 110f, 26f), "Rimlink.Gifts.Accept".Translate())) GiftLetters.Answer(id, accept: true);
+            if (Widgets.ButtonText(new Rect(w - 110f, y, 110f, 26f), "Rimlink.Gifts.Refuse".Translate())) GiftLetters.Answer(id, accept: false);
             y += 30f;
         }
         Widgets.EndScrollView();
@@ -325,10 +338,15 @@ public sealed class Dialog_Economy : Window
         bool autoAccept = raids.Flags.AutoAcceptLive, wantAutoAccept = autoAccept;
         Widgets.CheckboxLabeled(new Rect(0f, rect.y + 28f, 620f, 26f), "Rimlink.Live.AutoAccept".Translate(), ref wantAutoAccept);
         if (wantAutoAccept != autoAccept && RimlinkSession.Live is { } liveClient) SetFlag(() => liveClient.SetAutoAccept(wantAutoAccept, CancellationToken.None));
+        bool acceptGifts = raids.Flags.AcceptGifts, wantGifts = acceptGifts, tradesClosed = raids.Flags.TradesClosed, wantTradesClosed = tradesClosed;
+        Widgets.CheckboxLabeled(new Rect(0f, rect.y + 56f, 300f, 26f), "Rimlink.Social.AcceptGifts".Translate(), ref wantGifts);
+        Widgets.CheckboxLabeled(new Rect(320f, rect.y + 56f, 300f, 26f), "Rimlink.Social.TradesClosed".Translate(), ref wantTradesClosed);
+        if (wantGifts != acceptGifts && RimlinkSession.Social is { } social) SetFlag(() => social.SetAcceptGifts(wantGifts, CancellationToken.None));
+        if (wantTradesClosed != tradesClosed && RimlinkSession.Social is { } social2) SetFlag(() => social2.SetTradesClosed(wantTradesClosed, CancellationToken.None));
         if (offAt is { } until && until > DateTime.UtcNow) // the server sends nothing when the delay runs out
-            Widgets.Label(new Rect(0f, rect.y + 56f, rect.width, 22f), "Rimlink.Raids.PeacefulOffAt".Translate(until.ToLocalTime().ToString("g")));
+            Widgets.Label(new Rect(0f, rect.y + 84f, rect.width, 22f), "Rimlink.Raids.PeacefulOffAt".Translate(until.ToLocalTime().ToString("g")));
 
-        var list = new Rect(0f, rect.y + 84f, rect.width, rect.height - 84f);
+        var list = new Rect(0f, rect.y + 112f, rect.width, rect.height - 112f);
         var liveState = RimlinkSession.State.Live;
         int rows = raids.Incoming.Count + raids.Mine.Count + 6;
         Widgets.BeginScrollView(list, ref raidsScroll, new Rect(0f, 0f, list.width - 16f, Math.Max(list.height, rows * 28f)));

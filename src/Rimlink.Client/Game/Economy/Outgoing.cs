@@ -45,6 +45,42 @@ public static class Outgoing
             request => RimlinkSession.Economy!.Send((TransferRequest)request, CancellationToken.None));
     }
 
+    /// <summary>Offers a trade: the picked things and pawns leave the map into the trade's escrow, the silver leaves the wallet.</summary>
+    public static void OpenTrade(Map map, long partnerId, string partnerName, IReadOnlyList<Pick> picks, IReadOnlyList<Pawn> pawns, long silver, string note)
+    {
+        if (RefusedInVisit(picks.Count + pawns.Count)) return;
+        if (CheckLimits(picks.Count, pawns.Count) is { } limit) { Messages.Message(limit, MessageTypeDefOf.RejectInput, historical: false); return; }
+        var taken = TakeFromMap(map, picks, pawns);
+        if (taken is null) return;
+        Run(taken, "Rimlink.Trades.Opened".Translate(partnerName),
+            (items, pawnList, tick) => new TradeOpenRequest { ClientRequestId = EconomyClient.NewRequestId(), PartnerId = partnerId, Items = items, Pawns = pawnList, Silver = silver, Note = note, GameTick = tick },
+            async request =>
+            {
+                var trade = await RimlinkSession.Trades!.Open((TradeOpenRequest)request, CancellationToken.None);
+                MainThread.Post(() => RimlinkSession.State.Social.Upsert(trade));
+            });
+    }
+
+    /// <summary>
+    /// Changes our side of a trade: the picked things join the escrow (or replace it with <paramref name="returnGoods"/>, the old
+    /// goods coming back by drop pod); <paramref name="silver"/> and <paramref name="note"/> are the side's new totals.
+    /// </summary>
+    public static void SetTradeSide(Map map, Trade trade, IReadOnlyList<Pick> picks, IReadOnlyList<Pawn> pawns, long silver, string note, bool returnGoods)
+    {
+        if (RefusedInVisit(picks.Count + pawns.Count)) return;
+        if (CheckLimits(picks.Count, pawns.Count) is { } limit) { Messages.Message(limit, MessageTypeDefOf.RejectInput, historical: false); return; }
+        var taken = TakeFromMap(map, picks, pawns);
+        if (taken is null) return;
+        long tradeId = trade.Id;
+        Run(taken, "Rimlink.Trades.SideChanged".Translate(),
+            (items, pawnList, tick) => new TradeSideRequest { ClientRequestId = EconomyClient.NewRequestId(), TradeId = tradeId, Items = items, Pawns = pawnList, Silver = silver, Note = note, GameTick = tick, ReturnGoods = returnGoods },
+            async request =>
+            {
+                var changed = await RimlinkSession.Trades!.SetSide((TradeSideRequest)request, CancellationToken.None);
+                MainThread.Post(() => RimlinkSession.State.Social.Upsert(changed));
+            });
+    }
+
     public static void PostLot(Map map, IReadOnlyList<Pick> picks, Pawn? pawn, long price)
     {
         IReadOnlyList<Pawn> pawns = pawn is null ? [] : [pawn];
@@ -257,6 +293,15 @@ public static class Outgoing
                 break;
             case LiveProposal proposal:
                 foreach (var p in proposal.Pawns.Pawns) things.Add(ThingBlobs.DeserializePawn(p));
+                break;
+            case TradeOpenRequest open:
+                foreach (var i in open.Items.Items) things.Add(ThingBlobs.DeserializeItem(i));
+                foreach (var p in open.Pawns.Pawns) things.Add(ThingBlobs.DeserializePawn(p));
+                break;
+            case TradeSideRequest side:
+                // Only what this request took off the map; goods already in the trade come back from the server.
+                foreach (var i in side.Items.Items) things.Add(ThingBlobs.DeserializeItem(i));
+                foreach (var p in side.Pawns.Pawns) things.Add(ThingBlobs.DeserializePawn(p));
                 break;
             case RaidReport report:
                 // The loot and the kidnapped colonists are ours to return; the raiders belong to the attacker and come home through the server.

@@ -284,4 +284,65 @@
   <Rimlink.Live.State.LiveEnding>завершается, ждёт отчёта</Rimlink.Live.State.LiveEnding>
   <Rimlink.Live.State.LiveEnded>завершена</Rimlink.Live.State.LiveEnded>
   <Rimlink.Live.State.LiveFallback>отклонена, продолжилась как обычный рейд</Rimlink.Live.State.LiveFallback>
+  <!-- Safe trades: gifts with a decision, block list, two-way trades -->
+  <Rimlink.Economy.Tab.Trades>Сделки</Rimlink.Economy.Tab.Trades>
+  <Rimlink.Economy.Kind.ParcelGiftReturn>Возврат подарка</Rimlink.Economy.Kind.ParcelGiftReturn>
+  <Rimlink.Economy.Kind.ParcelTrade>Сделка</Rimlink.Economy.Kind.ParcelTrade>
+  <Rimlink.Economy.Kind.ParcelTradeReturn>Возврат из сделки</Rimlink.Economy.Kind.ParcelTradeReturn>
+  <Rimlink.Players.Trade>Сделка</Rimlink.Players.Trade>
+  <Rimlink.Gifts.Accept>Принять</Rimlink.Gifts.Accept>
+  <Rimlink.Gifts.Refuse>Отказаться</Rimlink.Gifts.Refuse>
+  <Rimlink.Gifts.OfferLabel>Подарок от {0}</Rimlink.Gifts.OfferLabel>
+  <Rimlink.Gifts.OfferText>{0} дарит вам: {1}.\n\nПримете — подарок прилетит капсулой. Откажетесь — всё вернётся к {0}. Без ответа подарок вернётся сам через неделю.</Rimlink.Gifts.OfferText>
+  <Rimlink.Gifts.RefusedLabel>{0} отказался от подарка</Rimlink.Gifts.RefusedLabel>
+  <Rimlink.Gifts.RefusedText>{0} отказался от вашего подарка ({1}). Вещи вернутся капсулой, серебро уже в кошельке.</Rimlink.Gifts.RefusedText>
+  <Rimlink.Gifts.ExpiredText>{0} не ответил на ваш подарок вовремя ({1}). Вещи вернутся капсулой, серебро уже в кошельке.</Rimlink.Gifts.ExpiredText>
+  <Rimlink.Gifts.Accepted>Подарок принят: скоро прилетит</Rimlink.Gifts.Accepted>
+  <Rimlink.Gifts.Refused>Подарок отклонён: он вернётся отправителю</Rimlink.Gifts.Refused>
+  <Rimlink.Gifts.Waiting>{0} (ждёт вашего ответа)</Rimlink.Gifts.Waiting>
+  <Rimlink.Social.AcceptGifts>Принимать подарки сразу</Rimlink.Social.AcceptGifts>
+  <Rimlink.Social.TradesClosed>Не принимаю сделки</Rimlink.Social.TradesClosed>
+  <Rimlink.Social.Block>Блок</Rimlink.Social.Block>
+  <Rimlink.Social.Unblock>Разблок.</Rimlink.Social.Unblock>
+  <Rimlink.Social.BlockedName>{0} (заблокирован)</Rimlink.Social.BlockedName>
+  <Rimlink.Social.BlockedOffline>Заблокированы, не в сети:</Rimlink.Social.BlockedOffline>
+  <Rimlink.Social.BlockConfirm>Заблокировать {0}? Вы не будете получать от него сообщения, подарки и предложения сделок, а открытые сделки с ним закроются (каждый получит своё обратно).</Rimlink.Social.BlockConfirm>
+  <Rimlink.Social.Blocked>{0} заблокирован</Rimlink.Social.Blocked>
+  <Rimlink.Social.Unblocked>{0} разблокирован</Rimlink.Social.Unblocked>
+  <Rimlink.Social.YouBlocked>Вы заблокировали {0}: сначала разблокируйте (окно «Игроки»)</Rimlink.Social.YouBlocked>
+  <Rimlink.Trades.New>Новая сделка</Rimlink.Trades.New>
+  <Rimlink.Trades.None>Сделок пока нет</Rimlink.Trades.None>
+  <Rimlink.Trades.NewTitle>Сделка с {0}: ваше предложение</Rimlink.Trades.NewTitle>
+  <Rimlink.Trades.ChangeTitle>Сделка с {0}: изменить вашу сторону</Rimlink.Trades.ChangeTitle>
+  <Rimlink.Trades.SilverTotal>Серебро с вашей стороны (до {0}):</Rimlink.Trades.SilverTotal>
+  <Rimlink.Trades.NoteLabel>Заметка:</Rimlink.Trades.NoteLabel>
+  <Rimlink.Trades.ReturnGoods>Забрать уже выложенное</Rimlink.Trades.ReturnGoods>
+  <Rimlink.Trades.Offer>Предложить</Rimlink.Trades.Offer>
+  <Rimlink.Trades.Apply>Изменить мою сторону</Rimlink.Trades.Apply>
+  <Rimlink.Trades.ConfirmPawn>{0} покинет колонию и будет ждать обмена на сервере. Продолжить?</Rimlink.Trades.ConfirmPawn>
+  <Rimlink.Trades.Opened>Сделка предложена: {0}</Rimlink.Trades.Opened>
+  <Rimlink.Trades.SideChanged>Ваша сторона сделки изменена</Rimlink.Trades.SideChanged>
+  <Rimlink.Trades.CardTitle>Сделка с {0}: {1}</Rimlink.Trades.CardTitle>
+  <Rimlink.Trades.MySide>Ваша сторона {0}</Rimlink.Trades.MySide>
+  <Rimlink.Trades.TheirSide>Сторона {0} {1}</Rimlink.Trades.TheirSide>
+  <Rimlink.Trades.Empty>ничего</Rimlink.Trades.Empty>
+  <Rimlink.Trades.Note>заметка: {0}</Rimlink.Trades.Note>
+  <Rimlink.Trades.Reason>Закрыта: {0}</Rimlink.Trades.Reason>
+  <Rimlink.Trades.ChangeSide>Изменить мою сторону</Rimlink.Trades.ChangeSide>
+  <Rimlink.Trades.Confirm>Подтвердить</Rimlink.Trades.Confirm>
+  <Rimlink.Trades.Cancel>Отменить сделку</Rimlink.Trades.Cancel>
+  <Rimlink.Trades.CancelConfirm>Отменить сделку с {0}? Каждый получит своё обратно.</Rimlink.Trades.CancelConfirm>
+  <Rimlink.Trades.Confirmed>Подтверждено</Rimlink.Trades.Confirmed>
+  <Rimlink.Trades.Cancelled>Сделка отменена</Rimlink.Trades.Cancelled>
+  <Rimlink.Trades.NeedHomeMap>Сначала откройте карту своей колонии</Rimlink.Trades.NeedHomeMap>
+  <Rimlink.Trades.WaitingForYou>ваш ход</Rimlink.Trades.WaitingForYou>
+  <Rimlink.Trades.WaitingForThem>ждём партнёра</Rimlink.Trades.WaitingForThem>
+  <Rimlink.Trades.OpenSummary>открыта, {0}, до {1}</Rimlink.Trades.OpenSummary>
+  <Rimlink.Trades.Status.TradeOpen>открыта</Rimlink.Trades.Status.TradeOpen>
+  <Rimlink.Trades.Status.TradeCompleted>завершена</Rimlink.Trades.Status.TradeCompleted>
+  <Rimlink.Trades.Status.TradeCancelled>отменена</Rimlink.Trades.Status.TradeCancelled>
+  <Rimlink.Trades.Status.TradeExpired>истекла</Rimlink.Trades.Status.TradeExpired>
+  <Rimlink.Trades.CompletedNotice>Сделка с {0} завершена: их сторона прилетит капсулой</Rimlink.Trades.CompletedNotice>
+  <Rimlink.Trades.ClosedNotice>Сделка с {0} закрыта ({1}): ваша сторона вернётся капсулой</Rimlink.Trades.ClosedNotice>
+  <Rimlink.Trades.YourTurnNotice>{0} предложил или изменил сделку: Экономика, вкладка «Сделки»</Rimlink.Trades.YourTurnNotice>
 </LanguageData>

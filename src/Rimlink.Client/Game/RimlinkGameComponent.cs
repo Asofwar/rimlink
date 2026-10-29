@@ -31,6 +31,8 @@ public sealed class RimlinkGameComponent : GameComponent
         ForeignSettlements.RebuildFromState();
         SubscribeLive();
         Economy.SaleNotices.Subscribe();
+        Economy.GiftLetters.Subscribe();
+        Economy.TradeNotices.Subscribe();
         // A visit's game is the host's colony: removing "sold" things there would strip the guest's copy, not the home map.
         if (!Visits.VisitSession.InVisit) Shop.ShopSync.ApplyRemovals();
         if (!Visits.VisitSession.InVisit) SettleLiveSessionsAfterLoad();

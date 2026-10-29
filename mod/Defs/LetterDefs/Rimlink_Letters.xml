@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <!-- A player's gift waiting for "accept / refuse" (safe trades spec §2). -->
+  <LetterDef ParentName="CustomChoiceLetterBase">
+    <defName>Rimlink_GiftOffer</defName>
+    <letterClass>Rimlink.Client.Game.Economy.ChoiceLetter_RimlinkGift</letterClass>
+  </LetterDef>
+</Defs>

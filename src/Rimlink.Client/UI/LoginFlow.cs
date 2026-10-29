@@ -205,9 +205,11 @@ public static class LoginFlow
         try
         {
             var live = RimlinkSession.Live ?? new Rimlink.Client.Live.LiveClient(connection, RimlinkLog.Instance);
-            if (outbox is not null) await outbox.Replay(new Rimlink.Client.Economy.OutboxClients(economy, raids, new Rimlink.Client.Visits.ShopClient(connection), live), ct);
+            var trades = new Rimlink.Client.Social.TradesClient(connection);
+            if (outbox is not null) await outbox.Replay(new Rimlink.Client.Economy.OutboxClients(economy, raids, new Rimlink.Client.Visits.ShopClient(connection), live, trades), ct);
             RimlinkSession.State.Economy.Load(await economy.Wallet(ct), await economy.Pending(ct), await economy.Lots(new MarketQuery { SellerPlayerId = me }, ct));
             RimlinkSession.State.Raids.Load(await raids.Pending(ct), await raids.Mine(ct), await raids.Flags(ct));
+            RimlinkSession.State.Social.Load(await trades.List(ct), await new Rimlink.Client.Social.SocialClient(connection).ListBlocks(ct));
             LiveSession? current = null;
             try { current = await live.Current(ct); }
             catch (RpcException) { }

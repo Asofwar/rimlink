@@ -48,6 +48,7 @@ public static class Incoming
             long id = parcel.Id;
             // Once per session: a redelivery flag from the server refers to saves, and this session has not saved the drop yet.
             if (spawnedThisSession.Contains(id) || fetching.Contains(id)) continue;
+            if (parcel.AwaitingDecision) continue; // a gift waiting for accept or refuse (the letter, the mailbox tab)
             if (outbox is not null && outbox.Contains(OutboxKind.Deliver, m => ((DeliverRequest)m).ParcelId == id))
             {
                 // Dropped in an earlier session; its confirmation is still on its way to the server.

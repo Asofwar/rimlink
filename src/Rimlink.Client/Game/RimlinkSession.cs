@@ -21,6 +21,8 @@ public static class RimlinkSession
     public static Rimlink.Client.Raids.RaidClient? Raids => Connection is null ? null : new(Connection);
     public static Rimlink.Client.Visits.VisitClient? Visits => Connection is null ? null : new(Connection);
     public static Rimlink.Client.Visits.ShopClient? Shop => Connection is null ? null : new(Connection);
+    public static Rimlink.Client.Social.TradesClient? Trades => Connection is null ? null : new(Connection);
+    public static Rimlink.Client.Social.SocialClient? Social => Connection is null ? null : new(Connection);
     /// <summary>One live client per session: it owns the frame stream, so it is not recreated per call.</summary>
     public static Rimlink.Client.Live.LiveClient? Live { get; private set; }
     /// <summary>Economy requests whose answer has not been seen; replayed at login and after a reconnect.</summary>

@@ -67,6 +67,11 @@ public sealed class Dialog_Chat : Window
     {
         string line = input.Trim();
         if (line.Length == 0 || !RimlinkSession.Active) return;
+        if (targetPlayerId != 0 && RimlinkSession.State.Social.IsBlocked(targetPlayerId))
+        {
+            Messages.Message("Rimlink.Social.YouBlocked".Translate(targetName), MessageTypeDefOf.RejectInput, historical: false);
+            return;
+        }
         input = "";
         var connection = RimlinkSession.Connection!;
         long to = targetPlayerId;
