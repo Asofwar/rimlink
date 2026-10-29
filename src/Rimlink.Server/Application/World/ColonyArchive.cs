@@ -108,7 +108,7 @@ public sealed class ColonyArchive(
             throw;
         }
 
-        files.DeleteFiles(playerId, versions.Select(v => v.Number));
+        TryDeleteFiles(playerId, versions.Select(v => v.Number));
         events.Broadcast(new ServerEvent { WorldObjectRemoved = new WorldObjectRemoved { ObjectId = settlement.Id } });
         feed.Publish(FeedTypes.ColonyArchived, new ColonyArchivedData(new FeedPlayer(playerId, player.Name), row.Name, row.Tile, reason, actor.Name));
         await audit.Write(actor, "archive", player.AccountId, $"{row.Name} on tile {row.Tile} ({reason})");
@@ -147,7 +147,18 @@ public sealed class ColonyArchive(
             Tile = latest.Tile,
             ArchivedAt = Google.Protobuf.WellKnownTypes.Timestamp.FromDateTime(DateTime.SpecifyKind(latest.ArchivedAt, DateTimeKind.Utc)),
         };
-        switch (await RestoreHeld(latest.Id, "player"))
+        RestoreOutcome outcome;
+        try
+        {
+            outcome = await RestoreHeld(latest.Id, "player");
+        }
+        catch (Exception ex)
+        {
+            // Whatever goes wrong here must not keep the player out: the login goes on as for a damaged archive.
+            log.LogError(ex, "Restoring archived colony #{Id} of player {PlayerId} at login failed", latest.Id, playerId);
+            outcome = new RestoreOutcome.Damaged();
+        }
+        switch (outcome)
         {
             case RestoreOutcome.Restored:
                 reply.Restored = true;
@@ -204,13 +215,13 @@ public sealed class ColonyArchive(
         {
             // Someone settled the tile between the check and the commit.
             db.ChangeTracker.Clear();
-            files.DeleteFiles(row.PlayerId, versions.Select(v => v.Number));
+            TryDeleteFiles(row.PlayerId, versions.Select(v => v.Number));
             return new RestoreOutcome.TileTaken();
         }
         catch
         {
             db.ChangeTracker.Clear();
-            files.DeleteFiles(row.PlayerId, versions.Select(v => v.Number));
+            TryDeleteFiles(row.PlayerId, versions.Select(v => v.Number));
             throw;
         }
 
@@ -229,6 +240,19 @@ public sealed class ColonyArchive(
         if (await db.WorldObjects.AnyAsync(o => o.Tile == tile && o.Type == WorldObjectTypes.Settlement)) return true;
         var world = await db.World.AsNoTracking().FirstOrDefaultAsync();
         return world is null || WorldService.NpcTilesOf(world).Contains(tile);
+    }
+
+    /// <summary>Deleting is the last step: a file held open (a backup or download reading it) stays behind and is only logged.</summary>
+    private void TryDeleteFiles(long playerId, IEnumerable<int> numbers)
+    {
+        try
+        {
+            files.DeleteFiles(playerId, numbers);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            log.LogWarning(ex, "Could not delete save files of player {PlayerId}; they stay until overwritten", playerId);
+        }
     }
 
     private void TryDeleteDirectory(string dir)

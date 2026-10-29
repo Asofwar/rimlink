@@ -60,6 +60,25 @@ public class LoginRestoreTests
     }
 
     [Fact]
+    public async Task LoginWithAnUnreadableArchiveStillLogsIn()
+    {
+        // An archive the server cannot read (permissions, a locked file) must not keep the player out: the restore fails
+        // like a damaged archive and the login goes on to a new colony.
+        using var fixture = HygieneServer();
+        var nova = await Settled(fixture, "nova", tile: 100);
+        long archiveId = await ArchiveOffline(fixture, nova);
+        string dir = Path.Combine(fixture.DataDir, await Db(fixture, db => db.ArchivedColonies.Where(c => c.Id == archiveId).Select(c => c.Dir).SingleAsync()));
+        using var held = new FileStream(Path.Combine(dir, "manifest.json"), FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+
+        var login = await fixture.RegisterAndLogin("nova");
+
+        Assert.False(login.ColonyRestore.Restored);
+        Assert.Equal("damaged", login.ColonyRestore.Reason);
+        Assert.False(login.HasSettlement);
+        Assert.Equal(ArchiveState.Archived, await Db(fixture, db => db.ArchivedColonies.Where(c => c.Id == archiveId).Select(c => c.State).SingleAsync()));
+    }
+
+    [Fact]
     public async Task LoginWithoutArchiveHasNoColonyRestore()
     {
         using var fixture = HygieneServer();

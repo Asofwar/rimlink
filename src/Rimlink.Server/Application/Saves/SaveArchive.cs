@@ -44,9 +44,22 @@ public sealed class SaveArchive(DataDirectory data)
 
     /// <summary>
     /// Verifies every archived file against the manifest, then copies them back into the player's save directory.
-    /// Null (and nothing copied) when the manifest or a file is missing or a hash differs.
+    /// Null when the manifest or a file is missing, a hash differs, or the files cannot be read or written (copies already
+    /// made are left for the next store to overwrite; no version row points at them).
     /// </summary>
     public async Task<List<SaveVersion>?> CopyIn(long playerId, string dir)
+    {
+        try
+        {
+            return await CopyInChecked(playerId, dir);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    private async Task<List<SaveVersion>?> CopyInChecked(long playerId, string dir)
     {
         string manifestPath = Path.Combine(dir, ManifestFile);
         if (!File.Exists(manifestPath)) return null;

@@ -138,6 +138,22 @@ public class ColonyArchiveTests
     }
 
     [Fact]
+    public async Task ArchiveCompletesWhenASourceFileCannotBeDeleted()
+    {
+        // A save file held open (a backup or a download reading it) cannot be deleted on Windows: the archive is committed by
+        // then, so the broadcast, the feed and the audit entry must still follow, and the leftover file is only logged.
+        using var fixture = HygieneServer();
+        var nova = await Settled(fixture, "nova", tile: 100);
+        string file = Directory.GetFiles(Path.Combine(fixture.DataDir, "saves", nova.PlayerId.ToString()), "*.rws.zst").Single();
+        using var reader = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read);
+
+        Assert.IsType<ArchiveOutcome.Archived>(await Archive(fixture, nova.PlayerId));
+
+        Assert.True(await Db(fixture, db => db.AdminActions.AnyAsync(a => a.Action == "archive")));
+        Assert.False(await Db(fixture, db => db.WorldObjects.AnyAsync(o => o.OwnerPlayerId == nova.PlayerId)));
+    }
+
+    [Fact]
     public async Task ArchiveIsRefusedWhileFilesAreMissing()
     {
         using var fixture = HygieneServer();
