@@ -57,6 +57,7 @@ builder.Services.AddGrpc(options =>
 builder.Services.AddHealthChecks();
 builder.Services.AddHostedService<TlsStartupCheck>();
 builder.Services.AddHostedService<ServerLock>();
+builder.Services.AddSingleton<BackupService>();
 builder.Services.AddHostedService<BackupScheduler>();
 
 builder.Services.AddSingleton<SessionRegistry>();

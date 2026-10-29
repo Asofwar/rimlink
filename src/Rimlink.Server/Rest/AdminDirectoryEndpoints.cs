@@ -57,6 +57,15 @@ public static class AdminDirectoryEndpoints
             return Results.Ok();
         }).RequireScope(ApiScope.Moderate);
 
+        group.MapGet("/backups", (Backup.BackupService backups) => backups.List()).RequireScope(ApiScope.Admin);
+        group.MapPost("/backups", async (HttpContext ctx, AdminOperations ops) =>
+        {
+            var file = await ops.CreateBackup(ctx.Actor());
+            return new { file.Name, file.Size };
+        }).RequireScope(ApiScope.Admin);
+        group.MapGet("/backups/{name}", async (string name, HttpContext ctx, AdminOperations ops) =>
+            await ops.OpenBackup(ctx.Actor(), name) is { } file ? Results.File(file.FullName, "application/octet-stream", name) : Results.NotFound()).RequireScope(ApiScope.Admin);
+
         group.MapGet("/chat", (AdminDirectory directory, [FromQuery] long? playerId = null, [FromQuery] long? before = null, [FromQuery] long? after = null, [FromQuery] int limit = 100) =>
             directory.Chat(playerId, before, after, limit)).RequireScope(ApiScope.Read);
     }

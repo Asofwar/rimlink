@@ -13,7 +13,7 @@ public sealed class BackupOptions
 }
 
 /// <summary>Writes &lt;DataDir&gt;/backups/rimlink-&lt;utc timestamp&gt;.tar.zst every <see cref="BackupOptions.IntervalHours"/> and prunes old ones.</summary>
-public sealed class BackupScheduler(DataDirectory data, IOptions<BackupOptions> options, ILogger<BackupScheduler> log) : BackgroundService
+public sealed class BackupScheduler(BackupService backups, IOptions<BackupOptions> options, ILogger<BackupScheduler> log) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -29,10 +29,7 @@ public sealed class BackupScheduler(DataDirectory data, IOptions<BackupOptions> 
             try
             {
                 await Task.Delay(TimeSpan.FromHours(hours), stoppingToken);
-                string file = Path.Combine(data.Backups, $"rimlink-{DateTime.UtcNow:yyyyMMdd-HHmmss}.tar.zst");
-                BackupArchive.Create(data.Root, file);
-                Prune(data.Backups, options.Value.Keep);
-                log.LogInformation("Backup written: {File}", file);
+                await backups.CreateScheduled();
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -45,9 +42,20 @@ public sealed class BackupScheduler(DataDirectory data, IOptions<BackupOptions> 
         }
     }
 
-    public static void Prune(string backupsDir, int keep)
+    /// <summary>Keeps the newest <paramref name="keep"/> archives. A file that cannot be deleted (Windows: open for download) is skipped until the next prune.</summary>
+    public static void Prune(string backupsDir, int keep, ILogger? log = null)
     {
         var files = new DirectoryInfo(backupsDir).GetFiles("rimlink-*.tar.zst").OrderByDescending(f => f.LastWriteTimeUtc).ToList();
-        foreach (var old in files.Skip(Math.Max(1, keep))) old.Delete();
+        foreach (var old in files.Skip(Math.Max(1, keep)))
+        {
+            try
+            {
+                old.Delete();
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                log?.LogWarning(ex, "Could not delete old backup {File}; the next prune tries again", old.Name);
+            }
+        }
     }
 }

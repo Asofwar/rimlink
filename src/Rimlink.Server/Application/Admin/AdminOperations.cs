@@ -44,8 +44,26 @@ public sealed class AdminOperations(
     RaidFreezeState raidFreeze,
     ShopService shop,
     VisitService visits,
+    Backup.BackupService backups,
     ILogger<AdminOperations> log)
 {
+    public async Task<Backup.BackupFile> CreateBackup(Actor actor)
+    {
+        actor.Require(Role.Admin);
+        var file = await backups.CreateNow();
+        await Audit(actor, "backup", null, file.Name);
+        return file;
+    }
+
+    /// <summary>The archive to download, or null when the name is not a backup; only an existing file is audited.</summary>
+    public async Task<FileInfo?> OpenBackup(Actor actor, string name)
+    {
+        actor.Require(Role.Admin);
+        var file = backups.Open(name);
+        if (file is not null) await Audit(actor, "backup-download", null, name);
+        return file;
+    }
+
     public Task<List<ShopItem>> ListShop(Actor actor, long playerId)
     {
         actor.Require(Role.Moderator);
