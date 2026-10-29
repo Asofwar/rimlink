@@ -86,6 +86,25 @@ public sealed class PlayTools
         return Targets.Started(accept ? "invitation accepted" : "invitation declined");
     });
 
+    [Tool("rimlink/ping", Description = "Ping a place for another player as the ping key does: a map cell of the current map, or a world tile (x = -1); to = a player name, or empty for the live/visit counterpart",
+        ResultDescription = "success/started; the receiver's rimlink/status shows lastPing")]
+    public Task<object> Ping(IRimBridgeContext ctx,
+        [ToolParameter(Description = "Receiver name; empty for the live or visit counterpart")] string to = "",
+        [ToolParameter(Description = "World tile; -1 for the current map's tile")] int tile = -1,
+        [ToolParameter(Description = "Map cell x; -1 for a world-tile ping")] int x = -1,
+        [ToolParameter(Description = "Map cell z")] int z = -1) => Bridge.OnMain(ctx, () =>
+    {
+        if (!RimlinkSession.Active) return Bridge.Fail("no Rimlink session");
+        var target = to.Length == 0 ? Client.Game.Pings.PingSender.Counterpart()
+            : RimlinkSession.State.Players.Online.FirstOrDefault(p => string.Equals(p.Name, to, StringComparison.OrdinalIgnoreCase));
+        if (target is null) return Bridge.Fail(to.Length == 0 ? "no live or visit counterpart: name the player" : $"'{to}' is not online");
+        if (tile < 0 && Find.CurrentMap is { } map) tile = map.Tile;
+        if (tile < 0) return Bridge.Fail("no tile and no current map");
+        IntVec3? cell = x >= 0 ? new IntVec3(x, 0, Math.Max(0, z)) : null;
+        Client.Game.Pings.PingSender.Send(target, tile, cell);
+        return Targets.Started($"ping to {target.Name}: tile {tile}" + (cell is { } c ? $", cell {c.x},{c.z}" : ""));
+    });
+
     [Tool("rimlink/live_speed", Description = "Set the speed during a live session as the speed buttons do: 0 pauses (the guest's pause comes out of its budget), 1..3 is this side's wish; the host runs at the slower wish",
         ResultDescription = "success/started; rimlink/status live.pausedBy and guestPausesUsed show the effect")]
     public Task<object> LiveSpeed(IRimBridgeContext ctx,

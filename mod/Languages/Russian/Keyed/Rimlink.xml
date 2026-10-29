@@ -67,6 +67,15 @@
   <Rimlink.Chat.To>Кому: {0} (нажмите, чтобы писать всем)</Rimlink.Chat.To>
   <Rimlink.Chat.Send>Отправить</Rimlink.Chat.Send>
   <Rimlink.Chat.External>[Discord] {0}</Rimlink.Chat.External>
+  <Rimlink.Chat.Place>Место</Rimlink.Chat.Place>
+  <Rimlink.Chat.PlaceTip>Добавляет в сообщение карточку места, выбранного на карте мира (или тайла этой карты).</Rimlink.Chat.PlaceTip>
+  <Rimlink.Chat.CardSettlement>Поселение {0} ({1})</Rimlink.Chat.CardSettlement>
+  <Rimlink.Chat.CardTile>тайл {0}, {1}</Rimlink.Chat.CardTile>
+  <Rimlink.Chat.CardTileBare>тайл {0}</Rimlink.Chat.CardTileBare>
+  <Rimlink.Ping.Received>{0}: смотри сюда</Rimlink.Ping.Received>
+  <Rimlink.Ping.To>Пинг для {0}</Rimlink.Ping.To>
+  <Rimlink.Ping.NoOne>Больше никого нет в сети.</Rimlink.Ping.NoOne>
+  <Rimlink.Ping.Failed>Пинг не отправлен: {0}</Rimlink.Ping.Failed>
   <Rimlink.Players.Title>Игроков онлайн: {0}</Rimlink.Players.Title>
   <Rimlink.Players.Message>Написать</Rimlink.Players.Message>
   <Rimlink.Overlay.Reconnecting>Rimlink: переподключение {0}</Rimlink.Overlay.Reconnecting>

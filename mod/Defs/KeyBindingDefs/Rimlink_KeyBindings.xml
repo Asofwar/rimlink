@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <KeyBindingCategoryDef>
+    <defName>Rimlink</defName>
+    <label>Rimlink</label>
+    <description>Rimlink multiplayer: pings and other shared actions.</description>
+  </KeyBindingCategoryDef>
+
+  <KeyBindingDef>
+    <defName>Rimlink_Ping</defName>
+    <label>ping a location for another player</label>
+    <category>Rimlink</category>
+    <defaultKeyCodeA>G</defaultKeyCodeA>
+  </KeyBindingDef>
+</Defs>

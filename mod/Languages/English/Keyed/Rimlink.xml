@@ -67,6 +67,15 @@
   <Rimlink.Chat.To>To: {0} (click for public)</Rimlink.Chat.To>
   <Rimlink.Chat.Send>Send</Rimlink.Chat.Send>
   <Rimlink.Chat.External>[Discord] {0}</Rimlink.Chat.External>
+  <Rimlink.Chat.Place>Place</Rimlink.Chat.Place>
+  <Rimlink.Chat.PlaceTip>Adds a card of the place selected on the world map (or of this map's tile) to the message.</Rimlink.Chat.PlaceTip>
+  <Rimlink.Chat.CardSettlement>Settlement {0} ({1})</Rimlink.Chat.CardSettlement>
+  <Rimlink.Chat.CardTile>tile {0}, {1}</Rimlink.Chat.CardTile>
+  <Rimlink.Chat.CardTileBare>tile {0}</Rimlink.Chat.CardTileBare>
+  <Rimlink.Ping.Received>{0}: look here</Rimlink.Ping.Received>
+  <Rimlink.Ping.To>Ping {0}</Rimlink.Ping.To>
+  <Rimlink.Ping.NoOne>No other player is online.</Rimlink.Ping.NoOne>
+  <Rimlink.Ping.Failed>Ping not sent: {0}</Rimlink.Ping.Failed>
   <Rimlink.Players.Title>Players online: {0}</Rimlink.Players.Title>
   <Rimlink.Players.Message>Message</Rimlink.Players.Message>
   <Rimlink.Overlay.Reconnecting>Rimlink: reconnecting {0}</Rimlink.Overlay.Reconnecting>

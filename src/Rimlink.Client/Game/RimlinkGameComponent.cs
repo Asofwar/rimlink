@@ -70,6 +70,7 @@ public sealed class RimlinkGameComponent : GameComponent
     {
         if (liveSubscribed) return;
         liveSubscribed = true;
+        Pings.PingSender.Subscribe();
         var live = RimlinkSession.State.Live;
         live.Invited += invite => { if (Current.ProgramState == ProgramState.Playing && !Visits.VisitSession.InVisit) Find.WindowStack.Add(new UI.Live.Dialog_LiveInvite(invite)); };
         live.Started += session =>
@@ -103,7 +104,11 @@ public sealed class RimlinkGameComponent : GameComponent
         });
     }
 
-    public override void GameComponentOnGUI() => UI.Overlay.Draw();
+    public override void GameComponentOnGUI()
+    {
+        Pings.PingSender.OnGUI();
+        UI.Overlay.Draw();
+    }
 
     private static string? afterLoadNotice;
     private static Verse.Game? noticeSetIn;

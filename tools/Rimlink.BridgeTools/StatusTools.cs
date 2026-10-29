@@ -70,6 +70,7 @@ public sealed class StatusTools
                 pausedBy = LiveHost.Active ? LiveTempo.PausedBy : LiveGuest.Session is not null ? MirrorMode.PausedBy : (int?)null,
                 guestPausesUsed = LiveHost.Active ? LiveTempo.GuestPausesUsed : LiveGuest.Session is not null ? LiveGuest.PausesUsed : (int?)null,
             },
+            lastPing = state.LastPing is { } ping ? new { from = ping.From?.Name, tile = ping.Tile, x = ping.Cell?.X, z = ping.Cell?.Z } : null,
             visit = VisitSession.InVisit,
             outbox = RimlinkSession.Outbox?.Entries.Count ?? 0,
         };
