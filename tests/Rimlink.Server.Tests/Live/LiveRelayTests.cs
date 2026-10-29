@@ -141,7 +141,8 @@ public class LiveRelayTests
     [Fact]
     public async Task TooManyDeltasAreDropped()
     {
-        var p = await Started();
+        // Two per second: no machine is slow enough to send 25 deltas while the bucket refills for all of them.
+        var p = await Started(LiveServer().WithSetting("Live:DeltasPerSecond", "2"));
         using var fixture = p.Fixture;
         using var host = await Open(p.Bob, p.Session.Id, LiveRelay.HostRole);
         using var guest = await Open(p.Nova, p.Session.Id, LiveRelay.GuestRole);

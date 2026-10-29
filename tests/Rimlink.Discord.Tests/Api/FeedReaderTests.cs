@@ -96,10 +96,14 @@ public class FeedReaderTests
         var reader = Reader(bot.FeedClient());
         var signals = new List<FeedSignal>();
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2.5));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
         try
         {
-            await foreach (var signal in reader.Run(cts.Token)) signals.Add(signal);
+            await foreach (var signal in reader.Run(cts.Token))
+            {
+                signals.Add(signal);
+                if (signal.Kind == FeedSignalKind.Connected) cts.CancelAfter(TimeSpan.FromSeconds(2.5)); // two pings go by after the connect
+            }
         }
         catch (OperationCanceledException)
         {
