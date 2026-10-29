@@ -367,6 +367,8 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
         var players = await db.Players.AsNoTracking().Where(p => p.Id == s.HostPlayerId || p.Id == s.GuestPlayerId).ToListAsync();
         var proto = ToProto(s, players.FirstOrDefault(p => p.Id == s.HostPlayerId), players.FirstOrDefault(p => p.Id == s.GuestPlayerId));
         if (s.RaidId is { } raidId) proto.Arrival = (RaidArrival)await db.Raids.AsNoTracking().Where(r => r.Id == raidId).Select(r => r.Arrival).FirstOrDefaultAsync();
+        proto.GuestPauses = options.Value.GuestPauses;
+        proto.GuestPauseSeconds = options.Value.GuestPauseSeconds;
         return proto;
     }
 

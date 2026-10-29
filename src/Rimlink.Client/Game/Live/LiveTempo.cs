@@ -1,3 +1,4 @@
+using Rimlink.Protocol.V1;
 using Verse;
 
 namespace Rimlink.Client.Game.Live;
@@ -8,8 +9,19 @@ namespace Rimlink.Client.Game.Live;
 /// </summary>
 public static class LiveTempo
 {
-    public const int GuestPauses = 10;
-    public static readonly TimeSpan GuestPauseLength = TimeSpan.FromSeconds(60);
+    public const int DefaultGuestPauses = 10;
+    public static readonly TimeSpan DefaultGuestPauseLength = TimeSpan.FromSeconds(60);
+
+    /// <summary>The guest's pause budget of the current session (server config Live:GuestPauses / GuestPauseSeconds).</summary>
+    public static int GuestPauses { get; private set; } = DefaultGuestPauses;
+    public static TimeSpan GuestPauseLength { get; private set; } = DefaultGuestPauseLength;
+
+    /// <summary>Host and guest take the budget from the session the server sent; an older server sends none.</summary>
+    public static void UseBudget(LiveSession session)
+    {
+        GuestPauses = session.GuestPauses > 0 ? session.GuestPauses : DefaultGuestPauses;
+        GuestPauseLength = session.GuestPauseSeconds > 0 ? TimeSpan.FromSeconds(session.GuestPauseSeconds) : DefaultGuestPauseLength;
+    }
 
     public static bool Active { get; private set; }
     public static TimeSpeed HostWish { get; set; } = TimeSpeed.Normal;

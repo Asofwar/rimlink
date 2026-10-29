@@ -41,6 +41,9 @@ message LiveSession {
   google.protobuf.Timestamp created_at = 9;
   // How the guest's pawns arrive on the host's map (from the proposal; edge for visits).
   RaidArrival arrival = 10;
+  // The guest's pause budget from the server config (Live:GuestPauses, Live:GuestPauseSeconds); 0 from older servers.
+  int32 guest_pauses = 11;
+  int32 guest_pause_seconds = 12;
 }
 
 message LiveAnswer { int64 session_id = 1; bool accept = 2; }

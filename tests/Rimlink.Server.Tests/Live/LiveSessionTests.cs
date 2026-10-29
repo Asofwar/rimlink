@@ -34,6 +34,22 @@ public class LiveSessionTests
     }
 
     [Fact]
+    public async Task TheSessionCarriesTheGuestPauseBudgetFromTheServerConfig()
+    {
+        var p = await NovaAndBob(LiveServer().WithSetting("Live:GuestPauses", "3").WithSetting("Live:GuestPauseSeconds", "15"));
+        using var fixture = p.Fixture;
+        using var bobEvents = p.Bob.Subscribe();
+
+        var session = await p.Nova.Live.ProposeAsync(Propose(p.Bob.PlayerId, LiveKind.LiveRaid), p.Nova.Auth);
+
+        Assert.Equal(3, session.GuestPauses);
+        Assert.Equal(15, session.GuestPauseSeconds);
+        var invite = await ReadEvent(bobEvents, ServerEvent.BodyOneofCase.LiveInvite, e => e.LiveInvite);
+        Assert.Equal(3, invite.Session.GuestPauses);
+        Assert.Equal(15, invite.Session.GuestPauseSeconds);
+    }
+
+    [Fact]
     public async Task ProposeInvitesAnOnlineHost()
     {
         var p = await NovaAndBob();

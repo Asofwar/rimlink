@@ -54,6 +54,7 @@ public static class LiveHost
         if (Find.AnyPlayerHomeMap is null || Visits.VisitSession.InVisit) { RimlinkLog.Instance.Warn("live: no home map to host on; aborting"); _ = live.Cancel(session.Id, CancellationToken.None); return; }
         Starting = true;
         Session = session;
+        LiveTempo.UseBudget(session);
         Messages.Message("Rimlink.Live.Starting".Translate(session.Guest?.Name ?? "?"), MessageTypeDefOf.NeutralEvent, historical: false);
         _ = Task.Run(async () =>
         {

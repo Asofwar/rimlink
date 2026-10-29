@@ -100,6 +100,7 @@ public static class LiveGuest
     {
         if (Session is not null && Session.Id != session.Id) return;
         Session = session;
+        LiveTempo.UseBudget(session); // the HUD shows the budget of this session
         wait?.Close();
         wait = null;
         nextPoll = DateTime.UtcNow;
