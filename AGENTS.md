@@ -69,7 +69,8 @@ Rimlink.Client whose session is always empty. `rimlink/status` reports `clientAs
 and the companion from the same tree. Tools missing or failing: `rimbridge/get_bridge_status` lists companion load/register errors.
 
 Calls: `games_call_tool {gameId, tool, arguments}`. The host stops an extension tool after 60 s: for `rimlink/connect` and
-`rimlink/start_colony` add `"_rimBridgeTimeoutMs": 330000` to `arguments` and give the GABS call `timeout: 340`. Lists are
+`rimlink/start_colony` add `"_rimBridgeTimeoutMs": 330000` to `arguments` and give the GABS call `timeout: 340` (the bridge warns
+that the argument is unknown, but its host reads it before binding; both flows take 5–15 s on a local server). Lists are
 comma-separated strings: `pawns: "Thing_Human12,Thing_Human13"` (ids from `rimworld/list_colonists`, or names), `items: "Silver:100,Steel:50"`.
 Every result is `{success, error?, ...}`; the action tools return as soon as the flow starts, follow them with `rimlink/status` and the
 `[Rimlink]` lines of `rimbridge/list_logs`.
@@ -81,7 +82,7 @@ Every result is `{success, error?, ...}`; the action tools return as soon as the
 | `rimlink/start_colony {scenario, storyteller, difficulty, seed, tile, timeoutSec}` | walks the new-colony pages with defaults (Crashlanded, Cassandra/Rough, classic ideology, the server's planet, a free random site) until the server registered the settlement |
 | `rimlink/menu_options`, `rimlink/click_menu_option {label}` | the main-menu options (Rimlink's "Multiplayer" included), which `rimworld/get_ui_layout` cannot see |
 | `rimlink/page_state`, `rimlink/page_action {next\|back\|random_site}` | the top `Page` and its buttons, including the starting-site page's bottom buttons the layout snapshot misses |
-| `rimlink/raid {player, pawns, mode=snapshot\|real, timing=instant\|warned}`, `rimlink/visit {player, pawns}` | raid or visit from the current map, no caravan |
+| `rimlink/raid {player, pawns, mode=snapshot\|real, timing=instant\|warned}`, `rimlink/visit {player, pawns}`, `rimlink/visit_end` | raid or visit from the current map, no caravan; leave the visited copy (the overlay button) |
 | `rimlink/live_propose {player, pawns, kind=raid\|visit}`, `rimlink/live_answer {accept}`, `rimlink/live_end` | live sessions: propose (guest), answer the open invite (host), end (guest) or abort (host) without the confirmation dialog |
 | `rimlink/send {player, items, pawns, silver, anywhere}`, `rimlink/post_lot {price, items \| pawn}`, `rimlink/deposit {silver, anywhere}`, `rimlink/market {seller}`, `rimlink/buy {lotId}` | the economy window; items come from under the beacons unless `anywhere` (deposit `anywhere` needs dev mode) |
 | `rimlink/chat {count}`, `rimlink/chat_send {text, to}` | chat history as received, send public or to one player |
@@ -89,7 +90,12 @@ Every result is `{success, error?, ...}`; the action tools return as soon as the
 Typical two-player run: host `rimlink/connect {login:"admin", ...}` (an `AdminLogins` login creates the world) → `rimlink/start_colony`;
 guest `rimlink/connect` → `rimlink/start_colony` on the locked world; then `chat_send`, `send`, `raid`, `live_propose` → host
 `live_answer {accept:true}` → `live_end`; `rimworld/go_to_main_menu` saves and uploads as the menu button does. Bridge pitfalls:
-`rimworld/set_text_field` must use `instant` (`typed` times out on mod dialogs).
+`rimworld/set_text_field` must use `instant` (`typed` times out on mod dialogs); a Crashlanded colony's pawns arrive in drop pods,
+so `rimworld/list_colonists` is empty for the first seconds (`rimworld/play_for` a few seconds first).
+
+Runs that must not touch another agent's games use a separate stand: a copy of the game folder (about 1 GB) with the branch's mod
+and companion deployed into it, its own `-savedatafolder`s, its own server port (`Rimlink__Server__Port`), and two extra entries in
+`~/.gabs/config.json`. `-logFile` is ignored: every instance still writes into the one `Player.log`.
 
 ## How work is organised (the workflow and the skills behind it)
 
