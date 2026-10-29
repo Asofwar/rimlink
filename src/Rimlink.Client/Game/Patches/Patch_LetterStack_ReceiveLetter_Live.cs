@@ -7,11 +7,16 @@ namespace Rimlink.Client.Game.Patches;
 
 /// <summary>
 /// A threat letter in the host's game during a live session (live UX spec §4): it goes to the guest's letter stack and pauses the session
-/// when either player's threshold asks for it. Every other ReceiveLetter overload ends in this one.
+/// when either player's threshold asks for it; vanilla's own automatic pause is swallowed meanwhile (<see cref="LiveTempo.InLetter"/>).
+/// Every other ReceiveLetter overload ends in this one.
 /// </summary>
 [HarmonyPatch(typeof(LetterStack), nameof(LetterStack.ReceiveLetter), typeof(Letter), typeof(string), typeof(int), typeof(bool))]
 public static class Patch_LetterStack_ReceiveLetter_Live
 {
+    public static void Prefix() => LiveTempo.InLetter = LiveHost.Active && LiveHost.GuestHere;
+
+    public static void Finalizer() => LiveTempo.InLetter = false;
+
     public static void Postfix(Letter let)
     {
         if (!LiveHost.Active || !LiveHost.GuestHere || let?.def is null) return;

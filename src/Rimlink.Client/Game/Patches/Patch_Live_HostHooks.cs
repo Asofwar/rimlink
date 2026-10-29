@@ -93,6 +93,7 @@ public static class Patch_TickManager_TogglePaused_Live
     public static bool Prefix()
     {
         if (!LiveTempo.Active || LiveTempo.Applying) return true;
+        if (LiveTempo.InLetter) return false; // vanilla's automatic pause on a letter: the letter-pause rules decide
         LiveTempo.ToggleHostPause();
         return false;
     }

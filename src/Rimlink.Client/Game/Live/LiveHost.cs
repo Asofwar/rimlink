@@ -64,6 +64,7 @@ public static class LiveHost
         Starting = true;
         Session = session;
         LiveTempo.UseBudget(session);
+        LiveTempo.RememberSpeed();
         Messages.Message("Rimlink.Live.Starting".Translate(session.Guest?.Name ?? "?"), MessageTypeDefOf.NeutralEvent, historical: false);
         _ = Task.Run(async () =>
         {

@@ -44,9 +44,17 @@ public static class LiveTempo
     /// <summary>The host's speed before the session: back when the session ends before the guest ever arrived.</summary>
     public static TimeSpeed SpeedBeforeSession { get; private set; } = TimeSpeed.Normal;
 
+    /// <summary>At the session's start, before the arrival letter: vanilla's automatic pause on that letter must not count as the host's speed.</summary>
+    public static void RememberSpeed() => SpeedBeforeSession = Find.TickManager?.CurTimeSpeed ?? TimeSpeed.Normal;
+
+    /// <summary>
+    /// True while the host's game takes a letter during a live session: vanilla's own pause on letters (Prefs.AutomaticPauseMode) would
+    /// be a host pause the guest cannot lift, so it is swallowed, and the letter-pause rules decide instead.
+    /// </summary>
+    public static bool InLetter { get; set; }
+
     public static void Begin()
     {
-        SpeedBeforeSession = Find.TickManager?.CurTimeSpeed ?? TimeSpeed.Normal;
         Active = true;
         Rules.HostThreshold = RimlinkMod.Settings.LetterPause;
         Rules.Begin(); // the waiting pause holds the game until the guest's Hello: the raiders stand idle and would be shot without their player
