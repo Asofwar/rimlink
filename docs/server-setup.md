@@ -62,6 +62,34 @@ rimlink-tools modpack import --from "<Config>/ModsConfig.xml" \
 ```
 
 An empty list disables the check. Entries with `kind=allowed` may be missing on the client (UI mods and the like).
+Mods without defs, patches and code (translations, retextures, sounds) never need an entry: the client reports each mod's
+content and the server allows those by itself.
+
+The import also stores a hash of each mod's `Defs/`, `Patches/` and `Assemblies/` files (any depth, version folders included).
+A player with the same version but other files (local edits, another Workshop update) is refused with "different files";
+re-import after updating mods on the admin's side. Players are also refused when the required mods load in another
+relative order than the modpack's; the client's **Fix and restart** applies the server order.
+
+### Shared mod settings
+
+Some mods change the balance through their settings (raid points, trade prices). The server can make every player use the
+admin's settings for chosen mods:
+
+```bash
+rimlink-tools modpack configs import --config-dir "<RimWorld save data>/Config" \
+  --mods-dir "<RimWorld>/Mods" "<steamapps>/workshop/content/294100" --mod author.raidpoints --mod author.trader \
+  --server https://host:25560 --token <Admin:ApiToken> --insecure
+rimlink-tools modpack configs list --server https://host:25560 --token <Admin:ApiToken> --insecure
+rimlink-tools modpack configs import --clear --server https://host:25560 --token <Admin:ApiToken> --insecure
+```
+
+The command uploads the admin's `Mod_<folder>_<class>.xml` files of those mods as they are (`--dry-run` lists them first).
+**Settings files may hold secrets** (Twitch tokens of streamer mods and the like): every player receives them, so check
+each file. The server refuses a mod that is not in the modpack or loads **before Rimlink** (Rimlink redirects a mod's
+settings file from its own constructor, which runs before the constructors of the mods loaded after it), more than 64
+files, a file over 256 KB or 768 KB in all (`MODPACK_CONFIGS_INVALID`). A player whose settings file differs gets the
+server's file in the login refusal; **Fix and restart** stores it under `Rimlink/server-settings/` in their save data
+folder and uses it from the next start on, without touching their own file. REST: `GET`/`PUT /api/admin/modpack/configs`.
 
 ### Modpack defs (economy)
 

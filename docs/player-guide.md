@@ -29,10 +29,26 @@ links (subscribe before the first connection), the login modes, the address to a
      **Log in** with an existing account or **Create account** with a login, a password and the player name
      others will see (defaults to the login).
 4. A server with a join password asks for it once (it is not your account password; the admin gives it out).
-5. Your mods are compared with the server's modpack. If they differ, a dialog lists what is missing, has the
-   wrong version or is not allowed. Use **Subscribe in Steam** / **Open download links**, then
-   **Use server mod order** and **Restart game**. Your previous mod list is kept as
-   `Config/ModsConfig.rimlink-backup.xml`.
+5. Your mods are compared with the server's modpack. If they differ, a dialog lists them by category, each with what to
+   do and who has to act:
+   - **Missing**: install them (Steam subscription or download link).
+   - **Wrong version**: update your copy, or, when yours is newer, the server's modpack is behind: ask the admin.
+   - **Different files**: same version, other files (local edits, another Workshop update): verify or re-subscribe.
+   - **Not allowed**: turn them off or ask the admin to allow them. Translations and mods made only of textures or sounds
+     (no defs, patches or code) are always allowed.
+   - **Load order**: your mods load in another order than the server's.
+   - **Server mod settings**: the server shares the settings of some mods (for example raid point multipliers).
+
+   **Fix and restart** does everything you can do yourself: it subscribes to the missing Workshop mods and waits for Steam
+   to download them, puts your mod list in the server order (turning off the mods the server refused; your previous list is
+   kept as `Config/ModsConfig.rimlink-backup.xml`), takes the server's mod settings, and restarts the game. After the
+   restart the game logs in to that server by itself (a password account gets the login window with the login filled in;
+   the password is never stored).
+
+   The server's mod settings are used instead of your own for those mods only, from the next start on, every time you
+   start the game, until you choose otherwise. Your own settings files are not touched. The main menu shows
+   **Mod settings of <server> in effect: use mine** while they apply; it switches back (one restart). A single-player game
+   started in the same session uses the server's settings too.
 
 ## 3. Play
 
@@ -183,7 +199,7 @@ the result a moment later.
 | `login details are invalid` | Wrong login or password. |
 | `login already taken` / `player name already taken` | Pick another login or player name. |
 | Certificate fingerprint changed | Ask the admin. Accept only if they confirm a new certificate. |
-| `Your mods do not match the server` | Follow the dialog (subscribe / download, apply the server order, restart). |
+| `Your mods do not match the server` | Follow the dialog: **Fix and restart**, then the game logs in by itself. A version marked "the server runs an older version" or files that still differ after re-subscribing need the admin. |
 | `Connection to the server lost, reconnecting...` | The game pauses and keeps reconnecting (first after 1 s, then less often, at the latest every minute); the corner shows how long it has been. After 2 minutes a window offers to keep waiting or go back to the menu: the attempts go on behind it, and it closes by itself when the server is back. Back in the menu your save is kept locally and uploaded at the next login. |
 | `The server refused to reconnect: …` | The server turned the login down for good (ban, changed password or server password, new server version, the world was deleted to be created anew, an untrusted new certificate): back to the menu, your save is kept locally. A Steam ticket the server could not check (Steam down) is not a refusal: the attempts go on. |
 | `This account logged in from another place` | Someone used your account elsewhere; the colony continues there. This copy is paused and disconnected, nothing from it is uploaded; "Back to main menu" leaves it. |

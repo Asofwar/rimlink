@@ -47,6 +47,25 @@
   reconnect: Banned until … Your save stays on this computer …». Бан снят `DELETE /api/admin/bans/1`.
 - [x] **Уведомления сервера.** `admin broadcast` виден в игре; `admin shutdown 90` показывает предупреждение и запускает сохранение с выгрузкой.
 - [x] **Модпак-дифф.** Задать модпак на сервере, убрать один мод у клиента: диалог со списком, «Использовать порядок сервера» пишет `ModsConfig.xml` (бэкап `ModsConfig.rimlink-backup.xml`).
+- [x] **Модпак по категориям, «Исправить и перезапустить», настройки сервера (2026-10-30, BT-стенд, ветка `asofwar/modpack-join`).**
+  Тестовые моды стенда в `D:\Build\rimlink-bt\RimWorld\Mods` (исходник `D:\Build\rimlink-bt\testmods\src`): `rimlinktest.settings`
+  (dll с настройкой `points`, пишет её в лог при старте, + `Defs`), `rimlinktest.extra` (только `Defs`), `rimlinktest.translation`
+  (только `Languages`). Модпак из `ModsConfig` хоста через `modpack import` (10 записей с хэшем файлов), белый список
+  `modpack configs import --mod rimlinktest.settings` (у админа `points` 5, у гостя свои 1). Каждый случай — вход гостя через
+  `rimlink/connect`, окно читалось `window-controls.lua`:
+  - только настройки → окно «Server mod settings (1): rimlinktest.settings: TestSettingsMod» → «Fix and restart»: копия сервера
+    `server-settings/127.0.0.1_25570/Mod_rimlinktest.settings_TestSettingsMod.xml` с тем же SHA-256, что строка сервера
+    (`ac063ab5…`), свой `Config/Mod_RimlinkTestSettings_TestSettingsMod.xml` не изменился (`cd39a031…`); после перезапуска
+    в логе `mod settings of bt-local in effect…`, `[RimlinkTest] points = 5`, `logging in to bt-local again after the restart`,
+    окно входа с подставленным `bt-guest` (Steam-тикет на стенде не принимается), после пароля — `Login Nova-bt`, колония загружена.
+  - следующий обычный запуск: настройки сервера сразу (`points = 5`), мод-перевод сверх модпака — вход без окна.
+  - нет мода + лишний с def + переставлен порядок (`asofwar.rimlink` выше `brrainz.rimbridgeserver`) → одно окно с тремя
+    категориями, перевод не в списке; «Fix and restart» → `ModsConfig` в порядке сервера, `rimlinktest.extra` выключен, перевод
+    в конце, бэкап `ModsConfig.rimlink-backup.xml`; после перезапуска автовход → `Login Nova-bt`.
+  - один байт в `Defs/Tips.xml` тестового мода → «Different files (1): rimlinktest.settings: 1.0».
+  - главное меню: «Mod settings of bt-local in effect: Use mine» → подтверждение → перезапуск, `active.json` удалён,
+    `[RimlinkTest] points = 1`. После прогона модпак и белый список стенда пусты.
+  Перезапущенный процесс GABS не подхватывает (`games_connect`: нет claim): пароль в окне автовхода вводился через cua-driver.
 - [x] **Вход с другого места.** Второй клиент тем же аккаунтом: первый получает «вход с другого места» и уходит в меню без переподключения.
 - [x] **Два клиента онлайн.** Второй экземпляр игры (`RimWorld.exe -savedatafolder=<папка>`): оба видят друг друга в «Игроки», личные сообщения доходят.
 
