@@ -48,6 +48,17 @@ public sealed class PlayTools
         return Targets.Started($"visit to {host.Name} started", new { pawns = chosen.Select(p => p.LabelShort).ToList() });
     });
 
+    [Tool("rimlink/visit_end", Description = "Leave the visited colony, as the visit overlay's End visit button does: our own save loads again",
+        ResultDescription = "success/started")]
+    public Task<object> VisitEnd(IRimBridgeContext ctx) => Bridge.OnMain(ctx, () =>
+    {
+        if (!RimlinkSession.Active) return Bridge.Fail("no Rimlink session");
+        if (LiveGuest.Session is not null) return Bridge.Fail("a live visit ends with rimlink/live_end");
+        if (!VisitSession.Active) return Bridge.Fail("no visit is active", new { pending = VisitSession.Pending is not null });
+        VisitSession.End();
+        return Targets.Started($"visit to {VisitSession.HostName} ended");
+    });
+
     [Tool("rimlink/live_propose", Description = "Propose a live raid or visit to an online player with our pawns on the current map",
         ResultDescription = "success/started; the host answers (rimlink/live_answer on their side)")]
     public Task<object> LivePropose(IRimBridgeContext ctx,

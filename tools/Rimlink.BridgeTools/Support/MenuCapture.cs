@@ -66,6 +66,12 @@ public static class Pages
     public static bool TryNext(Page page, out string? refusal)
     {
         refusal = null;
+        if (page is Page_CreateWorldParams)
+        {
+            // Its CanDoNext queues the generation as a long event and returns false; the page closes itself when it is done.
+            AccessTools.Method(page.GetType(), "CanDoNext").Invoke(page, null);
+            return true;
+        }
         int before = Time.frameCount;
         if ((bool)AccessTools.Method(page.GetType(), "CanDoNext").Invoke(page, null)!)
         {

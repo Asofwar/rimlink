@@ -52,7 +52,7 @@ public sealed class NewColonyDriver(NewColonyDriver.Options options)
         if (Current.ProgramState == ProgramState.Playing && Find.CurrentMap != null && !LongEventHandler.AnyEventNowOrWaiting) return new(Kind.Done);
         if (LongEventHandler.AnyEventNowOrWaiting) return new(Kind.Wait);
 
-        if (Find.WindowStack.Windows.LastOrDefault() is Dialog_MessageBox box)
+        if (Bridge.TopWindow() is Dialog_MessageBox box)
         {
             // Two buttons: a page's "are you sure" (settle near a faction, disabled work types). One button: an error.
             string text = box.text.ToString();
@@ -97,9 +97,7 @@ public sealed class NewColonyDriver(NewColonyDriver.Options options)
                 if (++worldGenerations > 1) return new(Kind.Failed, "world generation did not finish (the world page is still open)");
                 bool serverWorld = RimlinkSession.World is { Exists: true };
                 if (!serverWorld && options.Seed is { Length: > 0 } seed) Traverse.Create(page).Field("seedString").SetValue(seed);
-                // CanDoNext queues the generation as a long event and returns false; the page closes itself when it is done.
-                AccessTools.Method(typeof(Page_CreateWorldParams), "CanDoNext").Invoke(page, null);
-                return new(Kind.Acted, serverWorld ? "world generation (server's planet)" : "world generation (new planet)");
+                return Next(page, serverWorld ? "world generation (server's planet)" : "world generation (new planet)");
 
             case Page_SelectStartingSite:
                 // The admin's planet is registered in the background after generation; settling needs it on the server.

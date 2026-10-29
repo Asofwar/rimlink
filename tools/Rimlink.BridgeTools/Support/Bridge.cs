@@ -45,6 +45,12 @@ public static class Bridge
         Interlocked.Exchange(ref flowRunning, 0);
     }
 
+    /// <summary>
+    /// Main thread only. The topmost real window: <see cref="ImmediateWindow"/>s (tooltips, the time and
+    /// readout overlays) sit above everything and would hide a dialog.
+    /// </summary>
+    public static Window? TopWindow() => Find.WindowStack?.Windows.LastOrDefault(w => w is not ImmediateWindow);
+
     /// <summary>Main thread only.</summary>
-    public static string? TopWindowType() => Find.WindowStack?.Windows.LastOrDefault()?.GetType().Name;
+    public static string? TopWindowType() => TopWindow()?.GetType().Name;
 }
