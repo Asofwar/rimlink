@@ -257,6 +257,13 @@
   <Rimlink.Live.FellBackVisit>{0} did not take the live visit: your pawns come home by parcel.</Rimlink.Live.FellBackVisit>
   <Rimlink.Live.EndedGuest>The live session at {0} is over ({1}). Your pawns come home by parcel once the host reports.</Rimlink.Live.EndedGuest>
   <Rimlink.Live.EndedDefeated>None of your pawns at {0} can act any more (dead, captured or gone): the live session is over. Those still alive come home by parcel once the host reports.</Rimlink.Live.EndedDefeated>
+  <Rimlink.Live.Reason.EndNormal>the guest ended it</Rimlink.Live.Reason.EndNormal>
+  <Rimlink.Live.Reason.EndGuestLost>the guest lost the connection</Rimlink.Live.Reason.EndGuestLost>
+  <Rimlink.Live.Reason.EndHostLost>the host lost the connection</Rimlink.Live.Reason.EndHostLost>
+  <Rimlink.Live.Reason.EndHostAborted>the host aborted it</Rimlink.Live.Reason.EndHostAborted>
+  <Rimlink.Live.Reason.EndGuestCancelled>the guest cancelled it</Rimlink.Live.Reason.EndGuestCancelled>
+  <Rimlink.Live.Reason.EndAdmin>an admin ended it</Rimlink.Live.Reason.EndAdmin>
+  <Rimlink.Live.Reason.EndGuestDefeated>the guest has no pawn left to play</Rimlink.Live.Reason.EndGuestDefeated>
   <Rimlink.Live.OrderRefused>Order refused ({0}): {1}</Rimlink.Live.OrderRefused>
   <Rimlink.Live.HostLost>Connection to {0} lost; waiting for them.</Rimlink.Live.HostLost>
   <Rimlink.Live.HostBack>{0} is back.</Rimlink.Live.HostBack>
