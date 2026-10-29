@@ -87,6 +87,7 @@ Every result is `{success, error?, ...}`; the action tools return as soon as the
 | `rimlink/live_propose {player, pawns, kind=raid\|visit}`, `rimlink/live_answer {accept}`, `rimlink/live_speed {0..3}`, `rimlink/live_end` | live sessions: propose (guest), answer the open invite (host), speed or pause through the live tempo (0 = pause, the guest's comes out of its budget; `status.live.pausedBy`/`guestPausesUsed`), end (guest) or abort (host) without the confirmation dialog |
 | `rimlink/send {player, items, pawns, silver, anywhere}`, `rimlink/post_lot {price, items \| pawn}`, `rimlink/deposit {silver, anywhere}`, `rimlink/market {seller}`, `rimlink/buy {lotId}` | the economy window; items come from under the beacons unless `anywhere` (deposit `anywhere` needs dev mode) |
 | `rimlink/chat {count}`, `rimlink/chat_send {text, to}` | chat history as received, send public or to one player |
+| `rimlink/map_pawns {faction}`, `rimlink/select {things}`, `rimlink/faction_ideo {faction}` | debug: every pawn on the map with faction, kind, ideo and previous ideos; select any things by load id (for dev actions on the selection); give a faction a newly generated primary ideo (`RimlinkRaiders` creates the raider faction), since a classic world shares one ideo among all factions |
 
 Typical two-player run: host `rimlink/connect {login:"admin", ...}` (an `AdminLogins` login creates the world) → `rimlink/start_colony`;
 guest `rimlink/connect` → `rimlink/start_colony` on the locked world; then `chat_send`, `send`, `raid`, `live_propose` → host
