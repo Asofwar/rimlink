@@ -47,6 +47,7 @@ public sealed class ColonyArchive(
     VisitService visits,
     LiveSessionService live,
     SaveArchive files,
+    WorldService worlds,
     DataDirectory data,
     ColonyLocks locks,
     TimeProvider time,
@@ -219,7 +220,7 @@ public sealed class ColonyArchive(
 
         TryDeleteDirectory(dir);
         settlement.Owner ??= row.Player;
-        var proto = WorldService.ToProto(settlement);
+        var proto = (await worlds.Describe([settlement]))[0];
         events.Broadcast(new ServerEvent { WorldObjectAdded = new WorldObjectAdded { Object = proto } });
         feed.Publish(FeedTypes.ColonyRestored, new ColonyRestoredData(new FeedPlayer(row.PlayerId, row.Player.Name), row.Name, row.Tile, restoredBy));
         HygieneMetrics.Restored.WithLabels(restoredBy == "player" ? "player" : "admin").Inc();

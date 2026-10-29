@@ -4,6 +4,7 @@ package rimlink.v1;
 option csharp_namespace = "Rimlink.Protocol.V1";
 
 import "common.proto";
+import "google/protobuf/timestamp.proto";
 
 service World {
   // Admin only, once: the planet's generation parameters. Every client generates the same planet from them.
@@ -52,6 +53,11 @@ message WorldObject {
   int32 tile = 4;
   string name = 5;
   bytes payload = 6;
+  // What other players see of the owner: a wealth tier (0 unknown, 1-5; never the exact wealth), the day of their last
+  // activity (UTC midnight; unset if never), and the colony's age in game days from its current save (unset without a save).
+  int32 wealth_tier = 7;
+  google.protobuf.Timestamp owner_last_seen = 8;
+  optional int32 colony_game_days = 9;
 }
 
 message WorldObjects {
@@ -70,3 +76,5 @@ message AbandonRequest {
 // Event bodies (ServerEvent 30/31).
 message WorldObjectAdded { WorldObject object = 1; }
 message WorldObjectRemoved { int64 object_id = 1; }
+// The owner's wealth tier or colony age changed (a save upload); sent to everyone but the owner.
+message WorldObjectUpdated { WorldObject object = 1; }

@@ -1,4 +1,5 @@
 using Google.Protobuf;
+using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -15,7 +16,7 @@ using Rimlink.Server.Application.Feed;
 
 namespace Rimlink.Server.Application.World;
 
-public sealed class WorldService(RimlinkDbContext db, EventBus events, AdminFeed feed, IOptions<ServerOptions> server, ILogger<WorldService> log)
+public sealed class WorldService(RimlinkDbContext db, EventBus events, AdminFeed feed, IOptions<ServerOptions> server, IOptions<HygieneOptions> hygiene, ILogger<WorldService> log)
 {
     private const int SqliteConstraint = 19;
 
@@ -51,7 +52,45 @@ public sealed class WorldService(RimlinkDbContext db, EventBus events, AdminFeed
     }
 
     public async Task<List<Protocol.V1.WorldObject>> ListObjects() =>
-        (await db.WorldObjects.Include(o => o.Owner).AsNoTracking().OrderBy(o => o.Id).ToListAsync()).Select(ToProto).ToList();
+        await Describe(await db.WorldObjects.Include(o => o.Owner).AsNoTracking().OrderBy(o => o.Id).ToListAsync());
+
+    /// <summary>The objects as clients see them, with each owner's wealth tier, last day seen and colony age (one query for all owners).</summary>
+    public async Task<List<Protocol.V1.WorldObject>> Describe(IReadOnlyList<Storage.Entities.WorldObject> objects)
+    {
+        var owners = objects.Select(o => o.OwnerPlayerId).Distinct().ToList();
+        var info = await db.Players.AsNoTracking().Where(p => owners.Contains(p.Id))
+            .Select(p => new
+            {
+                p.Id,
+                p.WealthTotal,
+                p.Account.LastSeenAt,
+                p.Account.LastSessionEndAt,
+                Tick = db.SaveVersions.Where(v => v.PlayerId == p.Id && v.IsCurrent).Select(v => (long?)v.GameTick).FirstOrDefault(),
+            })
+            .ToDictionaryAsync(x => x.Id);
+        var tiers = hygiene.Value.Tiers;
+        return objects.Select(o =>
+        {
+            var proto = ToProto(o);
+            if (info.TryGetValue(o.OwnerPlayerId, out var i))
+            {
+                bool hasSave = i.Tick is not null;
+                proto.WealthTier = WealthTiers.Of(i.WealthTotal, known: hasSave, tiers);
+                if (Activity.Latest(i.LastSeenAt, i.LastSessionEndAt) is { } seen)
+                    proto.OwnerLastSeen = Timestamp.FromDateTime(DateTime.SpecifyKind(seen.Date, DateTimeKind.Utc));
+                if (hasSave) proto.ColonyGameDays = (int)(i.Tick!.Value / GameTime.TicksPerDay);
+            }
+            return proto;
+        }).ToList();
+    }
+
+    /// <summary>The player's settlement as clients see it; null when they have none.</summary>
+    public async Task<Protocol.V1.WorldObject?> DescribeSettlementOf(long playerId)
+    {
+        var settlement = await db.WorldObjects.Include(o => o.Owner).AsNoTracking()
+            .FirstOrDefaultAsync(o => o.OwnerPlayerId == playerId && o.Type == WorldObjectTypes.Settlement);
+        return settlement is null ? null : (await Describe([settlement]))[0];
+    }
 
     public async Task<Protocol.V1.WorldObject> Settle(Session actor, int tile, string name)
     {
@@ -83,7 +122,7 @@ public sealed class WorldService(RimlinkDbContext db, EventBus events, AdminFeed
         }
 
         await db.Entry(entity).Reference(o => o.Owner).LoadAsync();
-        var proto = ToProto(entity);
+        var proto = (await Describe([entity]))[0];
         events.BroadcastExcept(actor.PlayerId, new ServerEvent { WorldObjectAdded = new WorldObjectAdded { Object = proto } });
         feed.Publish(FeedTypes.ColonyFounded, new ColonyData(new FeedPlayer(entity.OwnerPlayerId, entity.Owner.Name), name, tile));
         log.LogInformation("{Player} settled tile {Tile} as '{Name}'", actor.PlayerName, tile, name);

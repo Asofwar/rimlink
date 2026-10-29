@@ -29,6 +29,7 @@ message ServerEvent {
     ChatMessageEvent chat = 20;
     WorldObjectAdded world_object_added = 30;
     WorldObjectRemoved world_object_removed = 31;
+    WorldObjectUpdated world_object_updated = 32;
     Notice notice = 40;
     ServerShutdown shutdown = 41;
     SaveRolledBack save_rolled_back = 42;

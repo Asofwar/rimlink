@@ -18,7 +18,7 @@ public sealed class SaveRejected(string key, string reason, params object[] args
 }
 
 /// <summary>Versioned save storage: blobs under &lt;data&gt;/saves/&lt;playerId&gt;/&lt;n&gt;.rws.zst, metadata in save_versions.</summary>
-public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, EventBus events, Integrity.IntegrityService integrity, ILogger<SaveStore> log)
+public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, EventBus events, Integrity.IntegrityService integrity, World.WorldService worlds, ILogger<SaveStore> log)
 {
     private static readonly SemaphoreSlim PerStoreLock = new(1, 1);
 
@@ -60,6 +60,7 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, EventBus 
             await PerStoreLock.WaitAsync(CancellationToken.None);
             try
             {
+                var seenBefore = await worlds.DescribeSettlementOf(playerId);
                 int number = (await db.SaveVersions.Where(v => v.PlayerId == playerId).MaxAsync(v => (int?)v.Number) ?? 0) + 1;
                 // The integrity check compares with the version this upload replaces as current.
                 var baseVersion = await db.SaveVersions.AsNoTracking().FirstOrDefaultAsync(v => v.PlayerId == playerId && v.IsCurrent);
@@ -100,6 +101,11 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, EventBus 
                 await tx.CommitAsync();
 
                 await ApplyRetention(playerId);
+                // Others see a tier and an age on the map: tell them when either moved.
+                if (await worlds.DescribeSettlementOf(playerId) is { } seenAfter
+                    && (seenBefore is null || seenBefore.WealthTier != seenAfter.WealthTier || seenBefore.HasColonyGameDays != seenAfter.HasColonyGameDays
+                        || seenBefore.ColonyGameDays != seenAfter.ColonyGameDays))
+                    events.BroadcastExcept(playerId, new ServerEvent { WorldObjectUpdated = new WorldObjectUpdated { Object = seenAfter } });
                 log.LogInformation("Stored save v{Version} for player {PlayerId}: {Size} bytes, tick {Tick}", number, playerId, written, header.GameTick);
                 // Stored is stored: a failing check is logged and never refuses the upload.
                 try { await integrity.OnStored(playerId, baseVersion, version); }
