@@ -250,6 +250,7 @@
   <Rimlink.Live.FellBackRaid>{0} не принял живой рейд: он идёт как обычный рейд.</Rimlink.Live.FellBackRaid>
   <Rimlink.Live.FellBackVisit>{0} не принял живой визит: пешки вернутся посылкой.</Rimlink.Live.FellBackVisit>
   <Rimlink.Live.EndedGuest>Живая сессия у {0} окончена ({1}). Пешки вернутся посылкой после отчёта хозяина.</Rimlink.Live.EndedGuest>
+  <Rimlink.Live.EndedDefeated>Ни одна ваша пешка у {0} больше ничего не может (мертвы, в плену или пропали): живая сессия окончена. Уцелевшие вернутся посылкой после отчёта хозяина.</Rimlink.Live.EndedDefeated>
   <Rimlink.Live.OrderRefused>Приказ отклонён ({0}): {1}</Rimlink.Live.OrderRefused>
   <Rimlink.Live.HostLost>Связь с {0} потеряна; ждём.</Rimlink.Live.HostLost>
   <Rimlink.Live.HostBack>{0} вернулся.</Rimlink.Live.HostBack>

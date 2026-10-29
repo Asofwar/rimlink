@@ -250,6 +250,7 @@
   <Rimlink.Live.FellBackRaid>{0} did not take the live raid: it goes on as a normal raid.</Rimlink.Live.FellBackRaid>
   <Rimlink.Live.FellBackVisit>{0} did not take the live visit: your pawns come home by parcel.</Rimlink.Live.FellBackVisit>
   <Rimlink.Live.EndedGuest>The live session at {0} is over ({1}). Your pawns come home by parcel once the host reports.</Rimlink.Live.EndedGuest>
+  <Rimlink.Live.EndedDefeated>None of your pawns at {0} can act any more (dead, captured or gone): the live session is over. Those still alive come home by parcel once the host reports.</Rimlink.Live.EndedDefeated>
   <Rimlink.Live.OrderRefused>Order refused ({0}): {1}</Rimlink.Live.OrderRefused>
   <Rimlink.Live.HostLost>Connection to {0} lost; waiting for them.</Rimlink.Live.HostLost>
   <Rimlink.Live.HostBack>{0} is back.</Rimlink.Live.HostBack>

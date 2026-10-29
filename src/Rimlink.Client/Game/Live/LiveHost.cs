@@ -366,14 +366,14 @@ public static class LiveHost
     private static void OnStreamEnded(LiveEndReason reason) => MainThread.Post(() => { if (Active) End(reason); });
 
     /// <summary>
-    /// No guest pawn can act any more (dead, captured or gone): the host ends the session as the guest's End would, instead of
-    /// leaving the guest in a mirror with nothing to control (ruling P6 in the live spec).
+    /// No guest pawn is left to play (dead, captured or gone): the host ends the session with its own reason and reports it, instead
+    /// of leaving the guest in a mirror with nothing to control (ruling P6 in the live spec).
     /// </summary>
     private static void EndWithoutGuests(LiveSession session)
     {
-        RimlinkLog.Instance.Info($"live session {session.Id}: no pawn of {session.Guest.Name} can act on the map any more; ending the session");
-        if (RimlinkSession.Live is { } live) _ = live.End(LiveEndReason.EndNormal);
-        End(LiveEndReason.EndNormal);
+        RimlinkLog.Instance.Info($"live session {session.Id}: no pawn of {session.Guest.Name} is left to play; ending the session");
+        if (RimlinkSession.Live is { } live) _ = live.End(LiveEndReason.EndGuestDefeated);
+        End(LiveEndReason.EndGuestDefeated);
     }
 
     /// <summary>The host's "abort": ends the session for both sides; the guest's pawns are reported at once.</summary>

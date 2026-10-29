@@ -160,6 +160,7 @@ the result a moment later.
 | `Order refused (…)` | The host's game could not carry out that order (pawn dead or downed, target gone); the view shows the host's state. |
 | `Connection to X lost; waiting for them.` | The other side dropped. The host's game pauses for a few minutes; then the session ends (a raid goes to the AI, a visit's pawns come home). |
 | `The live session with X is over (…)` | Ended by a player, by a limit or by an admin. A guest's pawns come home by parcel once the host reports. |
+| `None of your pawns at X can act any more …` | The host's game ended the live session because all your pawns there are dead, captured or gone. Those still alive come home by parcel. |
 | `A parcel could not be unpacked` | A mod needed by that item is missing or broken on your side; the parcel stays in your mailbox for later. |
 | `The server refused this settlement` | The tile was taken meanwhile or you already have a settlement. Choose another tile. |
 | Save upload failed (message in the log) | The upload is retried at your next login; do not delete `Saves/Rimlink/`. |

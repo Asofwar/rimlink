@@ -125,7 +125,7 @@ public static class LiveGuest
         wait = null;
         Session = null;
         Loading = false;
-        Messages.Message("Rimlink.Live.EndedGuest".Translate(session.Host?.Name ?? "?", session.EndReason.ToString()), MessageTypeDefOf.NeutralEvent, historical: true);
+        Messages.Message(EndedText(session.Host?.Name ?? "?", session.EndReason), MessageTypeDefOf.NeutralEvent, historical: true);
     }
 
     public static void CancelProposal()
@@ -293,9 +293,15 @@ public static class LiveGuest
         wait = null;
         if (RimlinkSession.Live is { } live) { live.Ended -= OnStreamEnded; _ = live.Close(); }
         MirrorMode.Exit();
-        if (session is not null) Messages.Message("Rimlink.Live.EndedGuest".Translate(session.Host?.Name ?? "?", reason.ToString()), MessageTypeDefOf.NeutralEvent, historical: true);
+        if (session is not null) Messages.Message(EndedText(session.Host?.Name ?? "?", reason), MessageTypeDefOf.NeutralEvent, historical: true);
         if (VisitSession.Active) VisitSession.End(); // also after a failed resync: we are still inside the host's copy
     }
+
+    /// <summary>What the guest reads when the session is over: its own line when the host ended it for lack of guest pawns.</summary>
+    private static string EndedText(string host, LiveEndReason reason) =>
+        reason == LiveEndReason.EndGuestDefeated
+            ? "Rimlink.Live.EndedDefeated".Translate(host)
+            : "Rimlink.Live.EndedGuest".Translate(host, reason.ToString());
 
     public static void Reset()
     {

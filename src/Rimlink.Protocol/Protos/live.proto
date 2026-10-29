@@ -14,7 +14,8 @@ import "raids.proto";
 
 enum LiveKind { LIVE_RAID = 0; LIVE_VISIT = 1; }
 enum LiveState { LIVE_PROPOSED = 0; LIVE_STARTING = 1; LIVE_RUNNING = 2; LIVE_WAITING = 3; LIVE_ENDING = 4; LIVE_ENDED = 5; LIVE_FALLBACK = 6; }
-enum LiveEndReason { END_NORMAL = 0; END_GUEST_LOST = 1; END_HOST_LOST = 2; END_HOST_ABORTED = 3; END_GUEST_CANCELLED = 4; END_ADMIN = 5; }
+// END_GUEST_DEFEATED: the host ended it because none of the guest's pawns is left to play (dead, captured or gone).
+enum LiveEndReason { END_NORMAL = 0; END_GUEST_LOST = 1; END_HOST_LOST = 2; END_HOST_ABORTED = 3; END_GUEST_CANCELLED = 4; END_ADMIN = 5; END_GUEST_DEFEATED = 6; }
 
 message LiveProposal {
   string client_request_id = 1;

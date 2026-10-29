@@ -278,6 +278,23 @@ public class LiveRelayTests
     }
 
     [Fact]
+    public async Task TheHostEndingForLackOfGuestPawnsTellsTheGuestWhy()
+    {
+        var p = await Started();
+        using var fixture = p.Fixture;
+        using var novaEvents = p.Nova.Subscribe();
+        using var host = await Open(p.Bob, p.Session.Id, LiveRelay.HostRole);
+        using var guest = await Open(p.Nova, p.Session.Id, LiveRelay.GuestRole);
+        await Read(host, LiveServerMsg.MOneofCase.PeerHello);
+
+        await host.RequestStream.WriteAsync(new LiveClientMsg { SessionId = p.Session.Id, End = new EndMsg { Reason = LiveEndReason.EndGuestDefeated } });
+
+        Assert.Equal(LiveEndReason.EndGuestDefeated, (await Read(guest, LiveServerMsg.MOneofCase.End)).End.Reason);
+        Assert.Equal(LiveEndReason.EndGuestDefeated, (await ReadEvent(novaEvents, ServerEvent.BodyOneofCase.LiveEnded, e => e.LiveEnded)).Session.EndReason);
+        Assert.Equal(LiveStateDb.Ending, await StateOf(fixture, p.Session.Id)); // the host's report still settles it
+    }
+
+    [Fact]
     public async Task ResyncDuringGuestPauseKeepsThePause()
     {
         var p = await Started();
