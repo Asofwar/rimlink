@@ -75,6 +75,7 @@ public sealed class ChatService(RimlinkDbContext db, EventBus events, AdminFeed 
         var from = await db.Players.AsNoTracking().FirstAsync(p => p.Id == sender.PlayerId);
         if (from.MutedUntil is { } until && until > DateTime.UtcNow) throw RpcErrors.Failed(ErrorCode.Muted, RefusalKeys.ChatMuted, $"you are muted until {until:u}", until);
         if (toPlayerId == sender.PlayerId || sessions.ByPlayer(toPlayerId) is null) throw RpcErrors.Failed(ErrorCode.RecipientUnknown, RefusalKeys.ChatNotOnline, "that player is not online");
+        await Social.BlockRules.RequireNotBlocked(db, from.Id, toPlayerId); // like a direct message
         events.SendTo(toPlayerId, new ServerEvent { Ping = new PingEvent { From = from.ToRef(), Tile = tile, Cell = cell } });
     }
 

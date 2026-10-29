@@ -70,7 +70,7 @@ links (subscribe before the first connection), the login modes, the address to a
 - **Pings**: press **G** (Options → Keyboard → Rimlink) to mark the place under the mouse for another player. On a map you
   share (a live session, a visit) it goes straight to the other player; on your own map and on the world map a menu lists
   the players online (the last visitor first). The receiver hears a bell and gets a message that jumps to the place; a yellow
-  ring marks it for 8 seconds. Typing in a text field never pings. Pings are not stored and are limited to 12 a minute.
+  ring marks it for 8 seconds. Typing in a text field never pings. Pings are not stored and are limited to 12 a minute; a block stops them both ways.
 - **Places in chat**: **Place** next to the input adds the selected world object (or the tile of the map you look at) to the
   line. Everyone sees it as a button with the settlement and its owner, or the tile and its biome; a click opens the world
   map there and selects it.

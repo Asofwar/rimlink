@@ -267,7 +267,7 @@ and `logs/server-<date>.log`.
 Player limit `Server:MaxPlayers`, one settlement per player (`Server:MaxSettlementsPerPlayer`), 5 chat messages per
 5 s, 3 save uploads per 30 s, saves up to 64 MB compressed, 5 unauthenticated connections per IP, 30 s to log in.
 Pings (`Chat/Ping`): 12 a minute per player, only to an online player other than the sender, refused while the sender is
-muted; they are relayed as an event and never stored (not in the chat history, the audit log or the REST API).
+muted and between players when either blocked the other (`BLOCKED`, as for direct messages); they are relayed as an event and never stored (not in the chat history, the audit log or the REST API).
 
 Every refusal of the game API carries a key and its arguments in the error detail besides the English message: the mod shows
 it in the player's language (`Rimlink.Refusal.<key>`), a client that does not know the key shows the message.

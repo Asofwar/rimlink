@@ -93,6 +93,24 @@ public class PingTests
         Assert.Equal(ErrorCode.Muted, ex.ErrorDetail()?.Code);
     }
 
+    /// <summary>A block stops pings both ways, like direct messages.</summary>
+    [Fact]
+    public async Task BlockStopsPingsBothWays()
+    {
+        using var fixture = Server();
+        var alice = await fixture.RegisterAndLogin("alice");
+        var bob = await fixture.RegisterAndLogin("bob");
+        await SocialFixtures.Social(fixture, alice.SessionToken).Social.BlockAsync(new PlayerRef { PlayerId = bob.Player.PlayerId }, Bearer(alice.SessionToken));
+        using var aliceStream = new Protocol.V1.Events.EventsClient(fixture.CreateChannel()).Subscribe(new Empty(), Bearer(alice.SessionToken));
+
+        var fromBlocked = await Assert.ThrowsAsync<RpcException>(() => Ping(fixture, bob, alice.Player.PlayerId, 7));
+        var fromBlocker = await Assert.ThrowsAsync<RpcException>(() => Ping(fixture, alice, bob.Player.PlayerId, 7));
+
+        Assert.Equal((ErrorCode.Blocked, "Social.BlockedYou"), (fromBlocked.ErrorDetail()?.Code, fromBlocked.ErrorDetail()?.Key));
+        Assert.Equal((ErrorCode.Blocked, "Social.YouBlocked"), (fromBlocker.ErrorDetail()?.Code, fromBlocker.ErrorDetail()?.Key));
+        Assert.Empty(await ReadPings(aliceStream, 1, TimeSpan.FromSeconds(1)));
+    }
+
     [Fact]
     public async Task PingToAnOfflinePlayerIsRefused()
     {
