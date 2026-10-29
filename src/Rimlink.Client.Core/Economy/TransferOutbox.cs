@@ -7,10 +7,10 @@ using Rimlink.Protocol.V1;
 
 namespace Rimlink.Client.Economy;
 
-public enum OutboxKind { Send, Post, Deposit, Deliver, Launch, Land, Report, Buy, AckRemoval }
+public enum OutboxKind { Send, Post, Deposit, Deliver, Launch, Land, Report, Buy, AckRemoval, Propose }
 
 /// <summary>The typed clients a replay needs; a null client leaves entries of its kinds waiting.</summary>
-public sealed record OutboxClients(EconomyClient Economy, Raids.RaidClient? Raids, Visits.ShopClient? Shop);
+public sealed record OutboxClients(EconomyClient Economy, Raids.RaidClient? Raids, Visits.ShopClient? Shop, Live.LiveClient? Live = null);
 
 /// <summary>One request whose answer has not been seen yet. The payload is the request itself, so it can be replayed or its contents returned.</summary>
 public sealed class OutboxEntry
@@ -62,6 +62,7 @@ public sealed class TransferOutbox
         RaidReport => Add(OutboxKind.Report, request),
         BuyRequest => Add(OutboxKind.Buy, request),
         RemovalAck => Add(OutboxKind.AckRemoval, request),
+        LiveProposal => Add(OutboxKind.Propose, request),
         _ => throw new ArgumentException("not an outbox request: " + request.GetType().Name),
     };
 
@@ -110,6 +111,7 @@ public sealed class TransferOutbox
         OutboxKind.Report => RaidReport.Parser.ParseFrom(entry.Payload),
         OutboxKind.Buy => BuyRequest.Parser.ParseFrom(entry.Payload),
         OutboxKind.AckRemoval => RemovalAck.Parser.ParseFrom(entry.Payload),
+        OutboxKind.Propose => LiveProposal.Parser.ParseFrom(entry.Payload),
         _ => throw new InvalidDataException("unknown outbox entry kind " + entry.Kind),
     };
 
@@ -168,6 +170,7 @@ public sealed class TransferOutbox
     {
         OutboxKind.Launch or OutboxKind.Land or OutboxKind.Report => clients.Raids is not null,
         OutboxKind.Buy or OutboxKind.AckRemoval => clients.Shop is not null,
+        OutboxKind.Propose => clients.Live is not null,
         _ => true,
     };
 
@@ -199,6 +202,7 @@ public sealed class TransferOutbox
                 case OutboxKind.Report: await clients.Raids!.Report(RaidReport.Parser.ParseFrom(entry.Payload), ct); break;
                 case OutboxKind.Buy: await clients.Shop!.Buy(BuyRequest.Parser.ParseFrom(entry.Payload), ct); break;
                 case OutboxKind.AckRemoval: await clients.Shop!.AckRemoval(RemovalAck.Parser.ParseFrom(entry.Payload), ct); break;
+                case OutboxKind.Propose: await clients.Live!.Propose(LiveProposal.Parser.ParseFrom(entry.Payload), ct); break;
             }
             log.Info($"outbox: {entry.Kind} {entry.Id} answered on replay");
             return true;

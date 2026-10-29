@@ -75,6 +75,7 @@ public sealed class RimlinkConnection : IAsyncDisposable
         RaidsApi = new Protocol.V1.Raids.RaidsClient(channel);
         VisitsApi = new Protocol.V1.Visits.VisitsClient(channel);
         ShopApi = new Protocol.V1.Shop.ShopClient(channel);
+        LiveApi = new Protocol.V1.Live.LiveClient(channel);
     }
 
     /// <summary>Pins live next to the game's config; the game layer sets the path before the first connection.</summary>
@@ -102,6 +103,7 @@ public sealed class RimlinkConnection : IAsyncDisposable
     public Protocol.V1.Raids.RaidsClient RaidsApi { get; }
     public Protocol.V1.Visits.VisitsClient VisitsApi { get; }
     public Protocol.V1.Shop.ShopClient ShopApi { get; }
+    public Protocol.V1.Live.LiveClient LiveApi { get; }
 
     /// <summary>Logs in and starts the event stream. A modpack mismatch returns the reply (no token) and leaves the connection down.</summary>
     public async Task<LoginReply> ConnectAsync(CancellationToken cancellationToken)

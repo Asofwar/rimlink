@@ -11,6 +11,7 @@ public sealed class SharedState
     public PlayersOnline Players { get; } = new();
     public Economy.EconomyState Economy { get; } = new();
     public Raids.RaidsState Raids { get; } = new();
+    public Live.LiveState Live { get; } = new();
     public List<Notice> Notices { get; } = [];
     public int? PendingRollbackVersion { get; private set; }
     public ServerShutdown? PendingShutdown { get; private set; }
@@ -71,6 +72,14 @@ public sealed class SharedState
             case ServerEvent.BodyOneofCase.PlayerFlagsChanged:
                 Raids.Apply(ev);
                 break;
+            case ServerEvent.BodyOneofCase.LiveInvite:
+            case ServerEvent.BodyOneofCase.LiveStarted:
+            case ServerEvent.BodyOneofCase.LiveEnded:
+            case ServerEvent.BodyOneofCase.LiveFallback:
+            case ServerEvent.BodyOneofCase.LivePeerLost:
+            case ServerEvent.BodyOneofCase.LivePeerBack:
+                Live.Apply(ev);
+                break;
             // SessionReplaced is handled by the connection; unknown bodies (newer server) are skipped.
         }
     }
@@ -89,6 +98,7 @@ public sealed class SharedState
         PendingShutdown = null;
         Economy.Reset();
         Raids.Reset();
+        Live.Reset();
     }
 }
 
