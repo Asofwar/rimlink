@@ -91,7 +91,7 @@ public sealed class GiftService(RimlinkDbContext db, MailboxService mailbox, Wal
     }
 }
 
-/// <summary>Sweep of overdue gift decisions at start (a restart does not postpone them), then hourly.</summary>
+/// <summary>Sweep of overdue gift decisions and expired trades at start (a restart does not postpone them), then hourly.</summary>
 public sealed class SafeTradesSweep(IServiceScopeFactory scopes, ILogger<SafeTradesSweep> log) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -106,6 +106,8 @@ public sealed class SafeTradesSweep(IServiceScopeFactory scopes, ILogger<SafeTra
                     using var scope = scopes.CreateScope();
                     int gifts = await scope.ServiceProvider.GetRequiredService<GiftService>().RefuseOverdue(DateTime.UtcNow);
                     if (gifts > 0) log.LogInformation("Refused {Count} gifts left without an answer", gifts);
+                    int trades = await scope.ServiceProvider.GetRequiredService<Trades.TradeService>().ExpireDue(DateTime.UtcNow);
+                    if (trades > 0) log.LogInformation("Expired {Count} trades", trades);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {

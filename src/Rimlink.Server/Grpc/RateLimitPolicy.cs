@@ -14,6 +14,8 @@ public static class RateLimitPolicy
         ["/rimlink.v1.Auth/Register"] = (5, TimeSpan.FromSeconds(60)),
         // Economy: one outgoing transfer per cooldown (Economy:SendCooldownSeconds is read by the interceptor for these two).
         ["/rimlink.v1.Transfer/Send"] = (1, TimeSpan.FromSeconds(5)),
+        ["/rimlink.v1.Trades/Open"] = (1, TimeSpan.FromSeconds(5)),
+        ["/rimlink.v1.Trades/SetSide"] = (1, TimeSpan.FromSeconds(5)),
         ["/rimlink.v1.Market/Post"] = (1, TimeSpan.FromSeconds(5)),
         ["/rimlink.v1.Raids/Launch"] = (1, TimeSpan.FromSeconds(5)),
         ["/rimlink.v1.Shop/Buy"] = (1, TimeSpan.FromSeconds(5)),
