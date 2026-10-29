@@ -182,16 +182,24 @@
   `Restored` на связь, нет `Tried to add the same relation twice`; вкладка «Социальное» у колониста, супруга, ребёнка, связь у животного;
   после сохранения и загрузки — то же. Fritz: `relations recorded for Fritz: 3` → `Fritz Spouse Rebecca Restored`, `Fritz Bond Purple
   Restored`, `Fritz Parent Paola Restored`, `blob round-trip ok`; у Rebecca «жена Olivia Fritz», «падчерица Paola».
-- [ ] **A2. Строка вкладки «Социальное» после возвращения.** Открыть «Социальное» у Fritz, закрыть вкладку, round-trip Rebecca, снова
+Прогон 2026-10-29 на отдельном стенде (`D:\Build\rimlink-bt`, сервер :25570, хозяин bt-admin, гость Nova-bt, сборка `b5d7e3d`): у Nova-bt
+Stench, жена и возлюбленная Coyote (Spouse задан dev-действием), его отец, сын и её дочь — пешки мира, бывший супруг Coyote — Latch.
+Возвраты из рейдов — админской отменой warned-рейда с `returnPawns: true` (оригиналы домой посылкой `RaidReturn`).
+
+- [x] **A2. Строка вкладки «Социальное» после возвращения.** Открыть «Социальное» у Fritz, закрыть вкладку, round-trip Rebecca, снова
   «Социальное» у Fritz → одна строка «жена Rebecca», без второй «Missing». На `515470b` после E у Paola была лишняя строка «жена — Rebecca
   Edwards — Missing» (кэш вкладки держал строку уничтоженного оригинала с тем же id) до перезагрузки; исправлено очисткой кэша в `Rejoin`.
-- [ ] **B1. Отказ сразу.** Перевод женатого колониста с серебром больше кошелька → `not enough silver` → колонист на месте, брак у обоих.
-  (Бан получателя не годится: сервер принимает перевод забаненному, бан закрывает только вход.)
+  Проверено на Stench/Coyote: на сборке без исправления (`713f5e6`) после round-trip Coyote две строки «Wife, lover — Coyote», одна
+  «Missing»; на `b5d7e3d` одна строка, round-trip даёт `recorded for Coyote: 4` и четыре `Restored`.
+- [x] **B1. Отказ сразу.** Перевод женатого колониста с серебром больше кошелька → `not enough silver` → колонист на месте, брак у обоих.
+  (Бан получателя не годится: сервер принимает перевод забаненному, бан закрывает только вход.) Stench + 500 серебра при кошельке 95:
+  `recorded for Stench: 4` → `transfer refused: not enough silver: balance 95, needed 500` → четыре `Restored`.
 - [ ] **B2. Отказ при повторе outbox после перезагрузки.** Неотвеченный перевод, сохранение, выход, бан получателя, вход → отказ → капсула
   с колонистом, брак у обоих.
-- [ ] **C. Умерший супруг.** Супруг убит и похоронен, пока колониста нет → по возвращении связь с умершим (`Restored`, не `OtherGone`).
-  Проверен только вариант с новым партнёром: пока Fritz был в рейде, Rebecca сошлась с новым колонистом и погибла → `Fritz Spouse Rebecca
-  NewPartner`, остальные `Restored`.
+- [x] **C. Умерший супруг.** Супруг убит и похоронен, пока колониста нет → по возвращении связь с умершим (`Restored`, не `OtherGone`).
+  Stench в рейде, Coyote убита dev «T: Kill» (тело на карте, не похоронено) → `Stench Spouse Coyote Restored`, `Stench Lover Coyote
+  Restored`, оба Parent `Restored`. Вариант с новым партнёром: пока Fritz был в рейде, Rebecca сошлась с новым колонистом и погибла →
+  `Fritz Spouse Rebecca NewPartner`, остальные `Restored`. Тело в могиле не проверено.
 - [x] **D. Старый id.** После любого возвращения: сохранение, загрузка → пешка в панели колонистов, выбирается, нет ошибок про её id.
   Выход в меню и вход (DownloadThenLoad): Fritz в панели, три связи на месте; в сейве Fritz `Spouse→108523`, `Bond→Capybara13903`,
   Rebecca `Spouse→91354`, Paola `Parent→91354`.
@@ -199,8 +207,15 @@
   оба родителя. Instant-рейд Nova→admin, оба сбежали, `parcel 13 dropped: 2 things`: `Fritz Spouse Rebecca Restored`, `Fritz Bond Purple
   Restored`, `Fritz Parent Paola Restored`, `Rebecca Spouse Fritz AlreadyThere` (её половину вернула строка Fritz). У Paola «мать Olivia
   Fritz», «мачеха Rebecca». Fritz один (рейд 6, посылка 12): три `Restored`.
-- [ ] **E-live. Гости после live-сессии.** Пара в живом рейде или визите, «Закончить сессию» → те же строки `Restored`.
+- [x] **E-live. Гости после live-сессии.** Пара в живом рейде или визите, «Закончить сессию» → те же строки `Restored`.
+  Живой визит 5 Stench + Coyote → «Закончить сессию» → `parcel 8 dropped: 2 things`: у Stench четыре `Restored`, у Coyote ExSpouse и
+  Parent `Restored`, Spouse и Lover `AlreadyThere`. Замечание, не про связи: сразу после выгрузки `NullReferenceException` в
+  `JobDriver_Wait.CheckForAutoAttack` у Stench — пешка летит в капсуле с работой `Wait` из игры хозяина, а в капсуле `pawn.Map` = null;
+  игра снимает работу («pawn is now jobless»).
 - [x] **Возврат перевода админом.** Fritz отправлен admin (посылка 14), `economy/refund/parcel/14` → посылка 15, три `Restored`.
-- [ ] **E2. Без других связей.** Бездетная пара и колонист со связанным животным уходят одним караваном (запись второго берёт связь из
-  записи первого: `recorded … 1`); пара, ушедшая в разные дни, возвращается в любом порядке (`Deferred`, затем `Restored`) → брак и связь
-  с животным на месте.
+- [ ] **E2. Без других связей, одним караваном.** Бездетная пара и колонист со связанным животным уходят одним караваном (запись второго
+  берёт связь из записи первого: `recorded … 1`) → брак и связь с животным на месте. Не проверено: караван в прогоне не собрать.
+- [x] **E2b. Пара, ушедшая в разные дни.** Возвращается в любом порядке (`Deferred`, затем `Restored`) → брак на месте. Warned-рейды
+  Stench (2), затем Coyote (3), сервер с `Raids:MaxActiveRaidsPerAttacker=2`: `recorded for Stench: 4`, `recorded for Coyote: 4` (Spouse и
+  Lover из записи Stench). Отмена 3 первой → посылка 9: `Coyote Lover #246 Deferred`, `Coyote Spouse #246 Deferred`, остальные
+  `Restored`; отмена 2 → посылка 10: `Stench Spouse Coyote Restored`, `Stench Lover Coyote Restored`, оба Parent `Restored`, без дублей.
