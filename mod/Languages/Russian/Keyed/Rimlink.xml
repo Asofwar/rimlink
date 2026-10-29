@@ -148,6 +148,7 @@
   <Rimlink.Economy.UploadFailed>Передача отменена: сейв не удалось выгрузить ({0}). Всё возвращено на место.</Rimlink.Economy.UploadFailed>
   <Rimlink.Economy.Failed>Передача отклонена: {0}. Всё возвращено на место.</Rimlink.Economy.Failed>
   <Rimlink.Economy.ParcelFailed>Посылку не удалось распаковать ({0}); она остаётся в ящике.</Rimlink.Economy.ParcelFailed>
+  <Rimlink.Economy.MissingDefs>{0}: такого в этой игре нет, не хватает мода</Rimlink.Economy.MissingDefs>
   <Rimlink.Economy.ParcelDropped>Прилетает посылка от {0}.</Rimlink.Economy.ParcelDropped>
   <Rimlink.Economy.CaravanTransfer>Передать игроку {0}...</Rimlink.Economy.CaravanTransfer>
   <Rimlink.Save.Stale>Этот сейв старше вашей последней передачи; сервер его не примет (отправленное уже у другого игрока). Выйдите в меню и войдите снова, чтобы получить копию с сервера, или играйте дальше без выгрузки.</Rimlink.Save.Stale>

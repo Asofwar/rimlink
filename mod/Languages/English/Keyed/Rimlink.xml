@@ -148,6 +148,7 @@
   <Rimlink.Economy.UploadFailed>Transfer cancelled: the save could not be uploaded ({0}). Everything was put back.</Rimlink.Economy.UploadFailed>
   <Rimlink.Economy.Failed>Transfer refused: {0}. Everything was put back.</Rimlink.Economy.Failed>
   <Rimlink.Economy.ParcelFailed>A parcel could not be unpacked ({0}); it stays in your mailbox.</Rimlink.Economy.ParcelFailed>
+  <Rimlink.Economy.MissingDefs>{0}: not in this game, a mod is missing</Rimlink.Economy.MissingDefs>
   <Rimlink.Economy.ParcelDropped>A parcel from {0} is dropping in.</Rimlink.Economy.ParcelDropped>
   <Rimlink.Economy.CaravanTransfer>Transfer to {0}...</Rimlink.Economy.CaravanTransfer>
   <Rimlink.Save.Stale>This save is older than your last transfer; the server will not take it (what you sent is already with another player). Go back to the menu and log in again to get the server copy, or keep playing without uploads.</Rimlink.Save.Stale>

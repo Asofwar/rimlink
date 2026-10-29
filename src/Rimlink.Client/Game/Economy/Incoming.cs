@@ -126,6 +126,8 @@ public static class Incoming
 
     private static List<Thing> Unpack(Parcel parcel)
     {
+        // A def from a mod this game lacks: named here, before a Scribe load that would only fail on an anonymous blob.
+        if (MissingDefs(parcel.Items, parcel.Pawns) is { } missing) throw new InvalidDataException(missing);
         var things = new List<Thing>();
         // Fresh IDs: these objects come from another game whose numbering overlaps ours.
         foreach (var item in parcel.Items.Items) things.Add(ThingBlobs.DeserializeItem(item, newIds: true));
@@ -133,6 +135,13 @@ public static class Incoming
         if (parcel.Kind == ParcelKind.ParcelWithdraw && parcel.Silver > 0) things.AddRange(SilverStacks(parcel.Silver));
         // Pawns of this colony back home get their relations back, together, before they are put in the pod.
         return RelationLedger.RejoinAll(things);
+    }
+
+    /// <summary>The player-facing reason when blobs declare defs this game does not have (a mod is missing here), else null.</summary>
+    public static string? MissingDefs(ItemList? items, PawnList? pawns)
+    {
+        var missing = BlobDefs.Missing(items, pawns, d => DefDatabase<ThingDef>.GetNamedSilentFail(d) is not null, k => DefDatabase<PawnKindDef>.GetNamedSilentFail(k) is not null);
+        return missing.Count == 0 ? null : "Rimlink.Economy.MissingDefs".Translate(string.Join(", ", missing));
     }
 
     public static IEnumerable<Thing> SilverStacks(long amount)
