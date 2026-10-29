@@ -29,8 +29,10 @@ public sealed class RelationLedger : GameComponent
         base.ExposeData();
         if (Scribe.mode == LoadSaveMode.Saving)
         {
-            var index = Index([]);
-            book.Prune(index.ContainsKey);
+            // A failed prune keeps the entries: thrown here, it would end ExposeData before the list is written and lose them all
+            // (seen with a save made off the main thread, where the pawn lists refuse to be read).
+            try { book.Prune(Index([]).ContainsKey); }
+            catch (Exception ex) { RimlinkLog.Instance.Warn("relations: entries saved unpruned: " + ex.Message); }
             saved = book.Entries.Select(SavedEntry.From).ToList();
         }
         Scribe_Collections.Look(ref saved, "rimlinkRelations", LookMode.Deep);
