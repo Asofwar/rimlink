@@ -68,7 +68,10 @@ public static class RaidResolver
         }
     }
 
-    /// <summary>A pawn leaving the map, serialised with its load (a visitor's load stays behind); the load is destroyed here because the pawn may be discarded.</summary>
+    /// <summary>
+    /// A pawn leaving the map: its load becomes the loot and its blob is taken without it, or the load would come home
+    /// twice (a visitor's inventory stays behind); the load is destroyed here because the pawn may be discarded.
+    /// </summary>
     public static RaiderExit RecordExit(Pawn pawn, bool realPawn, bool visit)
     {
         var load = LoadOf(pawn);
@@ -78,7 +81,7 @@ public static class RaidResolver
         var exit = new RaiderExit
         {
             PawnId = pawn.thingIDNumber,
-            PawnBlob = realPawn ? ThingBlobs.SerializePawn(pawn).ToByteArray() : [],
+            PawnBlob = realPawn ? SerializeWithoutLoad(pawn, load).ToByteArray() : [],
             Loot = loot.ToByteArray(),
         };
         foreach (var t in load) { t.holdingOwner?.Remove(t); t.Destroy(DestroyMode.Vanish); }
@@ -149,8 +152,9 @@ public static class RaidResolver
                     {
                         // Still on the map at the timeout (fighting, downed or being carried): they go home with what they carry.
                         outcome.Outcome = PawnOutcome.OutcomeAlive;
-                        foreach (var t in LoadOf(alive)) loot.Add(new LootStack(ThingBlobs.SerializeItem(t), t, alive));
-                        if (raid.PawnMode == (int)PawnMode.PawnReal) outcome.Blob = ThingBlobs.SerializePawn(alive);
+                        var load = LoadOf(alive);
+                        foreach (var t in load) loot.Add(new LootStack(ThingBlobs.SerializeItem(t), t, alive));
+                        if (raid.PawnMode == (int)PawnMode.PawnReal) outcome.Blob = SerializeWithoutLoad(alive, load);
                         survivors.Add(alive);
                         summary.Alive++;
                     }
@@ -296,6 +300,29 @@ public static class RaidResolver
         if (pawn.carryTracker?.CarriedThing is { } carried and not Pawn) things.Add(carried);
         if (pawn.inventory is not null) things.AddRange(pawn.inventory.innerContainer.Where(t => t is not Pawn));
         return things;
+    }
+
+    /// <summary>
+    /// The pawn's blob without its load, which travels as loot or stays with the defender: the load is lifted off for the
+    /// serialisation and put back unmerged, so the same things are still there for the caller.
+    /// </summary>
+    private static PawnBlob SerializeWithoutLoad(Pawn pawn, IReadOnlyList<Thing> load)
+    {
+        var lifted = new List<(Thing Thing, ThingOwner Owner)>();
+        try
+        {
+            foreach (var t in load)
+            {
+                if (t.holdingOwner is not { } owner) continue;
+                owner.Remove(t);
+                lifted.Add((t, owner));
+            }
+            return ThingBlobs.SerializePawn(pawn);
+        }
+        finally
+        {
+            foreach (var (t, owner) in lifted) owner.TryAdd(t, canMergeWithExistingStacks: false);
+        }
     }
 
     private static void PutBack(ItemBlob item, Map map)
