@@ -91,6 +91,7 @@ public static class RaidResolver
     /// <summary>
     /// Over at the timeout, or once no raider can still act: each one left the map, died, is a prisoner, or is simply gone.
     /// A downed raider lying on the map, or one being carried to a bed or a cell, keeps the raid open: the colony may still capture them.
+    /// So does one still in a drop pod (falling, or landed and not yet open; the defender may be paused): it has not fought yet.
     /// </summary>
     private static bool IsOver(ActiveRaid raid, Map map)
     {
@@ -98,7 +99,8 @@ public static class RaidResolver
         return raid.PawnIds.All(id => raid.Exits.Any(e => e.PawnId == id) || FindRaider(id, map) is not { } p || p.Dead || p.IsPrisonerOfColony || !OnTheMap(p));
     }
 
-    private static bool OnTheMap(Pawn p) => p.Spawned || p.ParentHolder is Pawn_CarryTracker;
+    /// <summary>Spawned, or held by something spawned (a carrier, a drop pod or its skyfaller).</summary>
+    private static bool OnTheMap(Pawn p) => p.SpawnedOrAnyParentSpawned;
 
     private static Pawn? FindRaider(int id, Map map) =>
         map.mapPawns.AllPawns.FirstOrDefault(p => p.thingIDNumber == id)

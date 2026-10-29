@@ -131,6 +131,13 @@
   «Raid: Nova-bt» у точки высадки (`RaidIncoming` → `DropPodUtility.DropThingsNear`). Замечание: когда время у хозяина пошло (игра стояла на
   паузе с приземления), `ErrorOnce` «Lord … AssaultColony owns a free world pawn Stench» — рейдер из блоба в закрытой капсуле считается
   свободной мировой пешкой до её раскрытия; рейд при этом идёт.
+  Причина найдена и исправлена (стенд s2, 2026-10-29): `RaidResolver` считал рейдера в капсуле ушедшим с карты (`OnTheMap` знал только
+  заспавненных и несомых), и рейд закрывался через 5 с после высадки как `dead`, пока капсула не открылась (проверка идёт и на паузе) —
+  в базе BT-сервера у рейда 6 исход Stench `OUTCOME_DEAD`; атакующий терял Real-пешку, а у защитника из капсулы выходил рейдер без рейда
+  (у лорда снят `Cleanup`, `ThinkNode_DutyConstant with no duty`, затем «owns a free world pawn»). Проверено: рейд 8 капсулами (Real) на
+  стоящего на паузе Nova-s2 — до исправления `raid 8 landed` → через 6 с `raid 8 resolved: dead 1` при закрытой капсуле, Charlie потом
+  вышел живым; после (`OnTheMap` = `SpawnedOrAnyParentSpawned`) рейд 9 через 29 с на паузе открыт, капсула раскрылась, рейдер убит →
+  только тогда `raid 9 resolved: dead 1`.
 - [x] **Караван.** «Напасть»/«Посетить» из меню ПКМ по поселению игрока с караваном на тайле.
   2026-10-29, BT-стенд: караван Nova-bt на тайле bt-admin → «Raid bt-admin's colony...» → `Dialog_Raid` (выбор пешек, Copies, Instant) →
   `raid 5 … PawnSnapshot/TimingInstant/ArrivalEdge` → `landed`; «Visit bt-admin's colony...» → `Player 2 is visiting player 1 (visit 4)`, копия
