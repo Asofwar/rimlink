@@ -90,7 +90,7 @@ public class LiveSessionTests
     [Fact]
     public async Task ProposeInvitesAnOnlineHost()
     {
-        var p = await NovaAndBob();
+        var p = await NovaAndBob(LiveServer().WithSetting("Live:InviteSeconds", "45"));
         using var fixture = p.Fixture;
         using var bobEvents = p.Bob.Subscribe();
 
@@ -101,7 +101,7 @@ public class LiveSessionTests
         Assert.NotEqual(0, session.RaidId);
         var invite = await ReadEvent(bobEvents, ServerEvent.BodyOneofCase.LiveInvite, e => e.LiveInvite);
         Assert.Equal(session.Id, invite.Session.Id);
-        Assert.Equal(2, invite.InviteSeconds);
+        Assert.Equal(45, invite.InviteSeconds);
         Assert.Equal("Nova", invite.Session.Guest.Name);
         Assert.Equal(100, await Db(fixture, db => db.Players.Where(x => x.Id == p.Nova.PlayerId).Select(x => x.LastOutgoingTick).SingleAsync()));
         var raid = await Db(fixture, db => db.Raids.SingleAsync(r => r.Id == session.RaidId));
@@ -185,7 +185,7 @@ public class LiveSessionTests
     [Fact]
     public async Task InviteTimeoutFallsBack()
     {
-        var p = await NovaAndBob();
+        var p = await NovaAndBob(LiveServer().ShortInvites());
         using var fixture = p.Fixture;
         using var novaEvents = p.Nova.Subscribe();
 
