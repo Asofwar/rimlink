@@ -15,6 +15,9 @@ public sealed record Actor(long AccountId, long PlayerId, Role Role, string Name
     /// <summary>The server itself (integrity checks).</summary>
     public static readonly Actor System = new(0, 0, Role.Admin, "system");
 
+    /// <summary>The server itself acting on a schedule (account 0), e.g. <c>system:hygiene</c>.</summary>
+    public static Actor Scheduled(string name) => new(0, 0, Role.Admin, name);
+
     public static Actor From(Session session) => new(session.AccountId, session.PlayerId, session.Role, session.PlayerName);
 
     /// <summary>

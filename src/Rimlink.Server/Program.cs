@@ -91,6 +91,8 @@ builder.Services.AddScoped<AdminAudit>();
 builder.Services.AddScoped<Rimlink.Server.Application.Saves.SaveArchive>();
 builder.Services.AddSingleton<Rimlink.Server.Application.World.ColonyLocks>();
 builder.Services.AddScoped<Rimlink.Server.Application.World.ColonyArchive>();
+builder.Services.AddScoped<Rimlink.Server.Application.World.ColonyHygiene>();
+builder.Services.AddHostedService<Rimlink.Server.Application.World.ColonyHygieneService>();
 builder.Services.AddScoped<AdminCommandRunner>();
 builder.Services.AddScoped<AdminDirectory>();
 builder.Services.AddScoped<ServerStatus>();
