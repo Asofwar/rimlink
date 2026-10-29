@@ -152,6 +152,26 @@ public class AdminDirectoryTests
     }
 
     [Fact]
+    public async Task SteamIdsTravelAsStrings()
+    {
+        // 17-digit SteamIDs exceed JavaScript's safe integers; as JSON numbers the browser would round them.
+        using var fixture = Server();
+        var orin = await fixture.RegisterAndLogin("orin", playerName: "Orin");
+        await SetSteamId(fixture, "orin", OrinSteamId);
+        var rest = fixture.Rest();
+        await rest.PostAsJsonAsync("/api/admin/bans", new { steamId = OrinSteamId.ToString(), reason = "by steam id" });
+
+        var card = await Get(rest, $"/api/admin/players/{orin.Player.PlayerId}");
+        var row = (await Get(rest, "/api/admin/players?q=orin")).GetProperty("items")[0];
+        var ban = (await Get(rest, "/api/admin/bans")).EnumerateArray().Single();
+
+        Assert.Equal(OrinSteamId.ToString(), card.GetProperty("steamId").GetString());
+        Assert.Equal(OrinSteamId.ToString(), row.GetProperty("steamId").GetString());
+        Assert.Equal(OrinSteamId.ToString(), ban.GetProperty("steamIdText").GetString());
+        Assert.True(card.GetProperty("banned").GetBoolean());
+    }
+
+    [Fact]
     public async Task UnknownPlayerIs404()
     {
         using var fixture = Server();

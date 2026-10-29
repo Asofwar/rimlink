@@ -141,3 +141,6 @@ pre.diff { background: var(--surface-2); padding: 8px; border-radius: 6px; max-h
 body.public main#page { max-width: 920px; margin: 0 auto; padding: 24px var(--gap) 48px; display: flex; flex-direction: column; gap: var(--gap); }
 .hero p { margin: 4px 0 0; }
 .fingerprint { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+.stack { display: flex; flex-direction: column; gap: 12px; }
+h3 { font-size: 1rem; margin: 8px 0 4px; }

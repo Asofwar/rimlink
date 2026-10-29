@@ -8,7 +8,8 @@ using Rimlink.Server.Storage.Entities;
 
 namespace Rimlink.Server.Application.Admin;
 
-public sealed record PlayerRow(long Id, long AccountId, string Name, string FactionName, string Role, long? SteamId, string? Login, bool Online, DateTime? LastSeenAt, DateTime CreatedAt, DateTime? MutedUntil, bool Peaceful, bool Banned);
+/// <summary>A directory row. <see cref="SteamId"/> is text: 17-digit SteamIDs exceed JavaScript's safe integers.</summary>
+public sealed record PlayerRow(long Id, long AccountId, string Name, string FactionName, string Role, string? SteamId, string? Login, bool Online, DateTime? LastSeenAt, DateTime CreatedAt, DateTime? MutedUntil, bool Peaceful, bool Banned);
 public sealed record PlayerPage(int Total, List<PlayerRow> Items);
 public sealed record SettlementRow(long Id, int Tile, string Name);
 public sealed record SaveRow(int Version, long Size, long GameTick, DateTime CreatedAt);
@@ -119,7 +120,7 @@ public sealed class AdminDirectory(RimlinkDbContext db, SessionRegistry sessions
     }
 
     private static PlayerRow Row(Player p, bool online, (HashSet<long> Accounts, HashSet<long> SteamIds) banned) => new(
-        p.Id, p.AccountId, p.Name, p.FactionName, p.Account.Role.ToString().ToLowerInvariant(), p.Account.SteamId, p.Account.Login,
+        p.Id, p.AccountId, p.Name, p.FactionName, p.Account.Role.ToString().ToLowerInvariant(), p.Account.SteamId?.ToString(), p.Account.Login,
         online, p.Account.LastSeenAt, p.Account.CreatedAt, p.MutedUntil, p.Peaceful,
         banned.Accounts.Contains(p.AccountId) || (p.Account.SteamId is { } steam && banned.SteamIds.Contains(steam)));
 }

@@ -41,7 +41,7 @@ public static class AdminEndpoints
         {
             var bans = await ops.ListBans(ctx.Actor());
             var names = await directory.NamesByAccount(bans.Where(b => b.AccountId is not null).Select(b => b.AccountId!.Value));
-            return bans.Select(b => new { b.Id, b.AccountId, b.SteamId, b.Ip, b.Reason, b.ExpiresAt, b.CreatedAt, playerName = b.AccountId is { } a && names.TryGetValue(a, out var n) ? n : null });
+            return bans.Select(b => new { b.Id, b.AccountId, b.SteamId, steamIdText = b.SteamId?.ToString(), b.Ip, b.Reason, b.ExpiresAt, b.CreatedAt, playerName = b.AccountId is { } a && names.TryGetValue(a, out var n) ? n : null });
         }).RequireScope(ApiScope.Moderate);
         group.MapPost("/bans", async (BanBody body, HttpContext ctx, AdminOperations ops) =>
         {
