@@ -274,6 +274,8 @@ public class RimlinkConnectionTests
             await admin.Ban(Actor.Api, nova.Player.PlayerId, null, null, "griefing", null);
             await admin.Kick(Actor.Api, nova.Player.PlayerId, "banned");
         }
+        // The kick reaches the client through its event stream: until then it is still Connected. Wait for the drop first.
+        await WaitForAny(connection, TimeSpan.FromSeconds(5), ConnectionState.Reconnecting, ConnectionState.Failed);
         var settled = await WaitForAny(connection, TimeSpan.FromSeconds(5), ConnectionState.Failed, ConnectionState.Connected);
 
         Assert.Equal(ConnectionState.Failed, settled);
