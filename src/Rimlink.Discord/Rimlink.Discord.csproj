@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+  <PropertyGroup>
+    <AssemblyName>rimlink-discord</AssemblyName>
+    <RootNamespace>Rimlink.Discord</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Discord.Net" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Strings\Strings.*.json" LogicalName="Rimlink.Discord.Strings.%(Filename)%(Extension)" />
+    <Content Include="Strings\commands.*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Rimlink.Discord.Tests" />
+  </ItemGroup>
+</Project>
