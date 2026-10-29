@@ -171,6 +171,11 @@ from PowerShell):
 - Vanilla never loads a pawn during `ProgramState.Playing`; a blob does. Its first life-stage computation then calls
   `Notify_LifeStageStarted` with no previous stage, which the adult worker dereferences for colonists
   (`Patch_LifeStageWorker_HumanlikeAdult` skips it while Scribe is loading).
+- A blob loads in a Scribe pass of its own: references to anything outside it (other pawns in relations and memories, ideos,
+  policies) resolve to null and are dropped. `Pawn.Discard` (the `PawnExit` path) runs `ClearAllRelations` on both sides and removes
+  every pawn's memories of the discarded one, so the colony's half of a relation is gone too. A pawn of the colony leaving for good
+  therefore goes through `PawnExit.Leave`, which records its relations in `RelationLedger`, and every homecoming calls
+  `RelationLedger.Rejoin` (pawns that arrive together in one call). `Thing` has no `operator ==`: relation code compares references.
 
 ## Commits
 
