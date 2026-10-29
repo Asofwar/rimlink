@@ -256,15 +256,23 @@ public static class LiveGuest
     public static void Abort(string reason)
     {
         RimlinkLog.Instance.Warn("live: aborting: " + reason);
-        if (RimlinkSession.Live is { } live && Session is not null) _ = live.End(LiveEndReason.EndGuestCancelled);
+        TellTheServer(LiveEndReason.EndGuestCancelled);
         Exit(LiveEndReason.EndGuestCancelled);
     }
 
     /// <summary>The player's "End session" button.</summary>
     public static void EndByPlayer()
     {
-        if (RimlinkSession.Live is { } live && Session is not null) _ = live.End(LiveEndReason.EndNormal);
+        TellTheServer(LiveEndReason.EndNormal);
         Exit(LiveEndReason.EndNormal);
+    }
+
+    /// <summary>The End frame when the stream is open; before that (the snapshot never loaded) the unary Cancel, so the host does not wait for a guest who left.</summary>
+    private static void TellTheServer(LiveEndReason reason)
+    {
+        if (RimlinkSession.Live is not { } live || Session is not { } session) return;
+        if (live.IsOpen) _ = live.End(reason);
+        else _ = Task.Run(async () => { try { await live.Cancel(session.Id, CancellationToken.None); } catch (Exception ex) { RimlinkLog.Instance.Warn("live: cancel not delivered: " + ex.Message); } });
     }
 
     private static void Exit(LiveEndReason reason)

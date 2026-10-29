@@ -51,7 +51,7 @@ public class LiveEndTests
         using var fixture = p.Fixture;
         using var novaEvents = p.Nova.Subscribe();
         var session = await p.Nova.Live.ProposeAsync(Propose(p.Bob.PlayerId, LiveKind.LiveRaid), p.Nova.Auth);
-        await Service(fixture, s => s.MarkRunning(session.Id));
+        await Service(fixture, s => s.MarkRunning(session.Id, p.Bob.PlayerId));
 
         var report = AllAlive(session.RaidId, session.Id, pawns: 2);
         report.Outcomes[1].Outcome = PawnOutcome.OutcomeDead;
@@ -77,7 +77,7 @@ public class LiveEndTests
         var p = await Started(LiveKind.LiveVisit);
         using var fixture = p.Fixture;
         var session = await p.Nova.Live.ProposeAsync(Propose(p.Bob.PlayerId, LiveKind.LiveVisit, pawns: 3), p.Nova.Auth);
-        await Service(fixture, s => s.MarkRunning(session.Id));
+        await Service(fixture, s => s.MarkRunning(session.Id, p.Bob.PlayerId));
 
         var report = AllAlive(0, session.Id, pawns: 3, tick: 900);
         report.Outcomes[2].Outcome = PawnOutcome.OutcomeFled;
@@ -99,7 +99,7 @@ public class LiveEndTests
         using var fixture = p.Fixture;
         using var novaEvents = p.Nova.Subscribe();
         var session = await p.Nova.Live.ProposeAsync(Propose(p.Bob.PlayerId, LiveKind.LiveRaid), p.Nova.Auth);
-        await Service(fixture, s => s.MarkRunning(session.Id));
+        await Service(fixture, s => s.MarkRunning(session.Id, p.Bob.PlayerId));
 
         await Service(fixture, s => s.MarkEnding(session.Id, LiveEndReason.EndHostLost));
 
@@ -123,7 +123,7 @@ public class LiveEndTests
         using var fixture = p.Fixture;
         using var bobEvents = p.Bob.Subscribe();
         var session = await p.Nova.Live.ProposeAsync(Propose(p.Bob.PlayerId, LiveKind.LiveVisit), p.Nova.Auth);
-        await Service(fixture, s => s.MarkRunning(session.Id));
+        await Service(fixture, s => s.MarkRunning(session.Id, p.Bob.PlayerId));
 
         await Service(fixture, s => s.MarkWaiting(session.Id, p.Nova.PlayerId));
         Assert.Equal(session.Id, (await ReadEvent(bobEvents, ServerEvent.BodyOneofCase.LivePeerLost, e => e.LivePeerLost)).SessionId);
@@ -131,6 +131,74 @@ public class LiveEndTests
         var ended = await ReadEvent(bobEvents, ServerEvent.BodyOneofCase.LiveEnded, e => e.LiveEnded, TimeSpan.FromSeconds(10));
         Assert.Equal(LiveEndReason.EndGuestLost, ended.Session.EndReason);
         Assert.Equal(LiveStateDb.Ending, (await Row(fixture, session.Id)).State);
+    }
+
+    [Fact]
+    public async Task AStartingSessionNobodyStreamsToEndsAfterTheWait()
+    {
+        var p = await Started(LiveKind.LiveRaid, LiveServer().WithSetting("Live:ReconnectWaitMinutes", "0").WithSetting("Live:HeartbeatTimeoutSeconds", "1"));
+        using var fixture = p.Fixture;
+        using var novaEvents = p.Nova.Subscribe();
+        var session = await p.Nova.Live.ProposeAsync(Propose(p.Bob.PlayerId, LiveKind.LiveRaid), p.Nova.Auth);
+        Assert.Equal(LiveState.LiveStarting, session.State);
+
+        // The host accepted and crashed before opening its stream: nobody ever attaches.
+        var ended = await ReadEvent(novaEvents, ServerEvent.BodyOneofCase.LiveEnded, e => e.LiveEnded, TimeSpan.FromSeconds(15));
+        Assert.Equal(LiveEndReason.EndHostLost, ended.Session.EndReason);
+        Assert.Equal(LiveStateDb.Ending, (await Row(fixture, session.Id)).State);
+        Assert.Equal(session.Id, Assert.Single((await fixture.RegisterAndLogin("bob")).PendingLiveEnds).Id);
+    }
+
+    [Fact]
+    public async Task ALiveRaidReportWithMissingOutcomesReturnsTheRestFromEscrow()
+    {
+        var p = await Started(LiveKind.LiveRaid);
+        using var fixture = p.Fixture;
+        var session = await p.Nova.Live.ProposeAsync(Propose(p.Bob.PlayerId, LiveKind.LiveRaid), p.Nova.Auth);
+        await Service(fixture, s => s.MarkRunning(session.Id, p.Bob.PlayerId));
+
+        // The host's save predates the spawn: its report knows none of the guest's pawns.
+        var report = new RaidReport { RaidId = session.RaidId, LiveSessionId = session.Id, GameTick = 500, Loot = new ItemList(), Captives = new PawnList() };
+        await p.Bob.Raids.ReportAsync(report, p.Bob.Auth);
+
+        var parcel = Assert.Single((await p.Nova.Mailbox.ListAsync(new Empty(), p.Nova.Auth)).Parcels);
+        Assert.Equal(ParcelKind.ParcelRaidReturn, parcel.Kind);
+        Assert.Equal(2, parcel.Pawns.Pawns.Count);
+        Assert.Equal(LiveStateDb.Ended, (await Row(fixture, session.Id)).State);
+    }
+
+    [Fact]
+    public async Task ALiveVisitReportWithMissingOutcomesReturnsTheRestFromEscrow()
+    {
+        var p = await Started(LiveKind.LiveVisit);
+        using var fixture = p.Fixture;
+        var session = await p.Nova.Live.ProposeAsync(Propose(p.Bob.PlayerId, LiveKind.LiveVisit), p.Nova.Auth);
+        await Service(fixture, s => s.MarkRunning(session.Id, p.Bob.PlayerId));
+
+        var report = AllAlive(0, session.Id, pawns: 1); // only the first visitor is accounted for
+        await p.Bob.Raids.ReportAsync(report, p.Bob.Auth);
+
+        var parcel = Assert.Single((await p.Nova.Mailbox.ListAsync(new Empty(), p.Nova.Auth)).Parcels);
+        Assert.Equal(2, parcel.Pawns.Pawns.Count);
+    }
+
+    [Fact]
+    public async Task AdminCanEndAnEndingSessionAndTheEscrowComesHome()
+    {
+        const string token = "test-admin-token";
+        var p = await Started(LiveKind.LiveVisit, LiveServer().WithSetting("Admin:ApiToken", token));
+        using var fixture = p.Fixture;
+        var session = await p.Nova.Live.ProposeAsync(Propose(p.Bob.PlayerId, LiveKind.LiveVisit), p.Nova.Auth);
+        await Service(fixture, s => s.MarkRunning(session.Id, p.Bob.PlayerId));
+        await Service(fixture, s => s.MarkEnding(session.Id, LiveEndReason.EndHostLost));
+        var rest = fixture.CreateClient();
+        rest.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        (await rest.PostAsJsonAsync($"/api/admin/live/{session.Id}/end", new { reason = "host never came back" })).EnsureSuccessStatusCode();
+
+        Assert.Equal(LiveStateDb.Ended, (await Row(fixture, session.Id)).State);
+        Assert.Equal(2, Assert.Single((await p.Nova.Mailbox.ListAsync(new Empty(), p.Nova.Auth)).Parcels).Pawns.Pawns.Count);
+        Assert.Empty((await fixture.RegisterAndLogin("bob")).PendingLiveEnds);
     }
 
     [Fact]

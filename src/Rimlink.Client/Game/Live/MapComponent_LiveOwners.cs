@@ -10,6 +10,7 @@ public sealed class MapComponent_LiveOwners(Map map) : MapComponent(map)
 {
     private Dictionary<int, long> owners = [];
     private Dictionary<int, int> indexes = [];
+    private HashSet<int> carried = [];
     private List<int>? keys1, keys2;
     private List<long>? values1;
     private List<int>? values2;
@@ -21,6 +22,16 @@ public sealed class MapComponent_LiveOwners(Map map) : MapComponent(map)
         owners[t.thingIDNumber] = owner;
         indexes[t.thingIDNumber] = index;
     }
+
+    /// <summary>The gear a guest pawn brought (worn, wielded, carried): what it goes home with; anything else on it is the host's.</summary>
+    public void MarkCarried(Pawn pawn)
+    {
+        foreach (var t in pawn.equipment?.AllEquipmentListForReading ?? []) carried.Add(t.thingIDNumber);
+        foreach (var t in pawn.apparel?.WornApparel ?? []) carried.Add(t.thingIDNumber);
+        foreach (var t in pawn.inventory?.innerContainer ?? []) carried.Add(t.thingIDNumber);
+    }
+
+    public bool IsCarried(Thing t) => carried.Contains(t.thingIDNumber);
 
     public long? OwnerOf(Thing t) => owners.TryGetValue(t.thingIDNumber, out long o) ? o : null;
 
@@ -51,6 +62,7 @@ public sealed class MapComponent_LiveOwners(Map map) : MapComponent(map)
             owners.Remove(id);
             indexes.Remove(id);
         }
+        if (owners.Count == 0) carried.Clear();
     }
 
     public override void ExposeData()
@@ -58,7 +70,9 @@ public sealed class MapComponent_LiveOwners(Map map) : MapComponent(map)
         base.ExposeData();
         Scribe_Collections.Look(ref owners, "rimlinkLiveOwners", LookMode.Value, LookMode.Value, ref keys1, ref values1);
         Scribe_Collections.Look(ref indexes, "rimlinkLiveIndexes", LookMode.Value, LookMode.Value, ref keys2, ref values2);
+        Scribe_Collections.Look(ref carried, "rimlinkLiveCarried", LookMode.Value);
         owners ??= [];
         indexes ??= [];
+        carried ??= [];
     }
 }

@@ -32,11 +32,17 @@ public static class LiveHost
     private static DateTime lastDeltaAt;
     private static long lootCap;
     private static bool resyncing;
+    private static DateTime lastResyncAt;
+    private static readonly TimeSpan ResyncCooldown = TimeSpan.FromSeconds(30);
     private static Lord? guestLord;
+    /// <summary>Guest pawns that walked off the map during the session, with what they carried (reported as fled).</summary>
+    private static readonly List<RaiderExit> exits = [];
 
     /// <summary>LiveStarted arrived and this player is the host: fetch the pawns, then spawn and snapshot on the main thread.</summary>
     public static void Begin(LiveSession session)
     {
+        if (RimlinkSession.Live is { } client) { client.Ended -= OnStreamEnded; client.Ended += OnStreamEnded; }
+        exits.Clear();
         if (Active || Starting || !RimlinkSession.Active || RimlinkSession.Live is not { } live || RimlinkSession.Raids is not { } raids) return;
         if (Find.AnyPlayerHomeMap is null || Visits.VisitSession.InVisit) { RimlinkLog.Instance.Warn("live: no home map to host on; aborting"); _ = live.Cancel(session.Id, CancellationToken.None); return; }
         Starting = true;
@@ -82,6 +88,7 @@ public static class LiveHost
                 var pawn = ThingBlobs.DeserializePawn(pawns.Pawns[i], newIds: true);
                 if (pawn.Faction != faction) pawn.SetFaction(faction);
                 owners.Mark(pawn, session.Guest.PlayerId, i);
+                owners.MarkCarried(pawn);
                 spawned.Add(pawn);
             }
             // Always spawned (pods would still be closed in the snapshot and drop a second copy through the spawn hook): pods land at the pod spot, caravans at the edge.
@@ -181,14 +188,16 @@ public static class LiveHost
                     Messages.Message("Rimlink.Live.GuestHere".Translate(session.Guest.Name), MessageTypeDefOf.PositiveEvent, historical: false);
                     break;
                 case LiveServerMsg.MOneofCase.ResyncRequest:
-                    if (!resyncing)
+                    if (!resyncing && DateTime.UtcNow - lastResyncAt >= ResyncCooldown)
                     {
                         resyncing = true;
-                        GuestHere = false; // paused until the guest's new Hello
-                        LiveTempo.HostWish = TimeSpeed.Paused;
+                        lastResyncAt = DateTime.UtcNow;
+                        GuestHere = false;
+                        LiveTempo.WaitingPause = true; // paused until the guest's new Hello; the host's play button does not lift it
                         LiveTempo.Apply();
                         Snapshot(live, first: false);
                     }
+                    else RimlinkLog.Instance.Info("live: resync request ignored (one is running or the last one was too recent)");
                     break;
                 case LiveServerMsg.MOneofCase.PeerLost:
                     GuestHere = false;
@@ -245,6 +254,42 @@ public static class LiveHost
             lastDeltaTick = tick;
         }
     }
+
+    /// <summary>From the ExitMap hook: a guest pawn leaving the map is recorded with its load, as the 3a resolver does for raiders.</summary>
+    public static bool TryRecordExit(Pawn pawn)
+    {
+        if (!Active || Session is null || Map is not { } map || pawn.Map != map) return false;
+        var owners = MapComponent_LiveOwners.Of(map);
+        if (owners.OwnerOf(pawn) != Session.Guest.PlayerId || exits.Any(e => e.PawnId == pawn.thingIDNumber)) return false;
+        if (Session.Kind == LiveKind.LiveVisit) StripForeignGear(pawn, owners, visit: true);
+        exits.Add(RaidResolver.RecordExit(pawn, realPawn: true, Session.Kind == LiveKind.LiveVisit));
+        RimlinkLog.Instance.Info($"live: {pawn.LabelShort} left the map");
+        return true;
+    }
+
+    /// <summary>
+    /// The host's things a guest pawn picked up during the session: a visitor drops them where they stand (nothing leaves a
+    /// visit), a raider's go into the inventory so the 3a resolver counts them as loot under the cap.
+    /// </summary>
+    private static void StripForeignGear(Pawn pawn, MapComponent_LiveOwners owners, bool visit)
+    {
+        var pos = pawn.PositionHeld;
+        foreach (var eq in pawn.equipment?.AllEquipmentListForReading.ToList() ?? [])
+        {
+            if (owners.IsCarried(eq)) continue;
+            if (visit) pawn.equipment!.TryDropEquipment(eq, out _, pos);
+            else { pawn.equipment!.Remove(eq); pawn.inventory?.innerContainer.TryAdd(eq); }
+        }
+        foreach (var ap in pawn.apparel?.WornApparel.ToList() ?? [])
+        {
+            if (owners.IsCarried(ap)) continue;
+            if (visit) pawn.apparel!.TryDrop(ap, out _, pos);
+            else { pawn.apparel!.Remove(ap); pawn.inventory?.innerContainer.TryAdd(ap); }
+        }
+    }
+
+    /// <summary>The stream is gone for good (reconnect budget spent, the session no longer exists on the server).</summary>
+    private static void OnStreamEnded(LiveEndReason reason) => MainThread.Post(() => { if (Active) End(reason); });
 
     /// <summary>The host's "abort": ends the session for both sides; the guest's pawns are reported at once.</summary>
     public static void Abort()
@@ -323,8 +368,12 @@ public static class LiveHost
             PawnMode = (int)PawnMode.PawnReal,
             LootCap = lootCap,
             AllowKidnap = false,
+            Exits = exits.ToList(),
         };
+        exits.Clear();
         guestLord = null;
+        foreach (var p in map.mapPawns.AllPawnsSpawned.Where(p => owners.OwnerOf(p) == session.Guest.PlayerId && !p.Dead).ToList())
+            StripForeignGear(p, owners, raid.Visit);
         owners.ForgetAll(session.Guest.PlayerId);
         RimlinkLog.Instance.Info($"live session {session.Id}: reporting {raid.PawnIds.Count} guest pawns ({string.Join(",", raid.PawnIds)})");
         RaidResolver.ResolveNow(raid, map);
@@ -339,6 +388,31 @@ public static class LiveHost
             if (map is null) continue;
             RimlinkLog.Instance.Info($"live session {session.Id}: reporting its end after the host's return");
             Resolve(session, map);
+        }
+    }
+
+    /// <summary>
+    /// Guest pawns still marked on a home map whose session is neither running nor owed a report (an admin closed it, the
+    /// escrow went home): they are copies now and leave the map.
+    /// </summary>
+    public static void RemoveOrphans(IEnumerable<long> keepOwners)
+    {
+        var keep = keepOwners.ToHashSet();
+        foreach (var map in Find.Maps.Where(m => m.IsPlayerHome))
+        {
+            var owners = MapComponent_LiveOwners.Of(map);
+            foreach (long owner in owners.Owners.Where(o => !keep.Contains(o)).ToList())
+            {
+                int n = 0;
+                foreach (var p in map.mapPawns.AllPawns.Where(p => owners.OwnerOf(p) == owner).ToList())
+                {
+                    if (p.Spawned) p.DeSpawn();
+                    if (!p.Destroyed) p.Destroy(DestroyMode.Vanish);
+                    n++;
+                }
+                owners.ForgetAll(owner);
+                RimlinkLog.Instance.Info($"live: removed {n} orphaned guest pawns of player {owner}");
+            }
         }
     }
 

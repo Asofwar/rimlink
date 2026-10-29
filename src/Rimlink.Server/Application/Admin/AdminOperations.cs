@@ -88,8 +88,9 @@ public sealed class AdminOperations(
     {
         actor.Require(Role.Admin);
         var row = await db.LiveSessions.AsNoTracking().FirstOrDefaultAsync(s => s.Id == sessionId);
-        if (row is null || row.State is LiveStateDb.Ended or LiveStateDb.Fallback or LiveStateDb.Ending) return false;
+        if (row is null || row.State is LiveStateDb.Ended or LiveStateDb.Fallback) return false;
         if (row.State == LiveStateDb.Proposed) await live.Respond(row.HostPlayerId, sessionId, accept: false);
+        else if (row.State == LiveStateDb.Ending) await live.CloseEnding(sessionId); // the host's report is not coming: the escrow goes home
         else await live.MarkEnding(sessionId, LiveEndReason.EndAdmin);
         await Audit(actor, "live-end", null, $"live session {sessionId}: {reason}");
         return true;

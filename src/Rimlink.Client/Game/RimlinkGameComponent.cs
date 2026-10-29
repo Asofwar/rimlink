@@ -30,13 +30,31 @@ public sealed class RimlinkGameComponent : GameComponent
         SubscribeLive();
         // A visit's game is the host's colony: removing "sold" things there would strip the guest's copy, not the home map.
         if (!Visits.VisitSession.InVisit) Shop.ShopSync.ApplyRemovals();
-        // Live sessions that ended while this host was away: their guest pawns are still on the map and owed a report.
-        if (!Visits.VisitSession.InVisit && RimlinkSession.State.Live.PendingEnds.Count > 0)
+        if (!Visits.VisitSession.InVisit) SettleLiveSessionsAfterLoad();
+    }
+
+    /// <summary>
+    /// After a load of the home colony: sessions that ended while this host was away are reported (their guest pawns are still
+    /// on the map), a session this host was in the middle of cannot be resumed from a save and is cancelled (the server then
+    /// reports it as ended and the pawns are reported the same way), and guest pawns of any other session are copies to remove.
+    /// </summary>
+    private static void SettleLiveSessionsAfterLoad()
+    {
+        var state = RimlinkSession.State.Live;
+        var keep = new List<long>();
+        if (state.PendingEnds.Count > 0)
         {
-            var pending = RimlinkSession.State.Live.PendingEnds.ToList();
-            RimlinkSession.State.Live.PendingEnds.Clear();
+            var pending = state.PendingEnds.ToList();
+            state.PendingEnds.Clear();
             Live.LiveHost.ResolvePendingEnds(pending);
         }
+        if (state.Current is { } current && current.Host?.PlayerId == RimlinkSession.MyPlayerId && !Live.LiveHost.Active && RimlinkSession.Live is { } live)
+        {
+            keep.Add(current.Guest.PlayerId);
+            RimlinkLog.Instance.Info($"live session {current.Id}: this host reloaded its game; the session cannot continue and is cancelled");
+            _ = Task.Run(async () => { try { await live.Cancel(current.Id, CancellationToken.None); } catch (Exception ex) { RimlinkLog.Instance.Warn("live: cancel not delivered: " + ex.Message); } });
+        }
+        Live.LiveHost.RemoveOrphans(keep);
     }
 
     private static bool liveSubscribed;
@@ -56,6 +74,9 @@ public sealed class RimlinkGameComponent : GameComponent
         live.Ended += session =>
         {
             if (session.Host?.PlayerId == RimlinkSession.MyPlayerId && Live.LiveHost.Session?.Id == session.Id && session.State == LiveState.LiveEnding) Live.LiveHost.End(session.EndReason);
+            else if (session.Host?.PlayerId == RimlinkSession.MyPlayerId && !Live.LiveHost.Active && session.State == LiveState.LiveEnding
+                && Current.ProgramState == ProgramState.Playing && !Visits.VisitSession.InVisit)
+                Live.LiveHost.ResolvePendingEnds([session]); // ended while this host was not hosting it (a reload within the wait): the pawns are still on the map
             else if (session.Guest?.PlayerId == RimlinkSession.MyPlayerId && session.State == LiveState.LiveEnding) Live.LiveGuest.OnEnded(session);
         };
         live.FellBack += session => { if (session.Guest?.PlayerId == RimlinkSession.MyPlayerId) Live.LiveGuest.OnFallback(session); };

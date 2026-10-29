@@ -4,11 +4,15 @@ using Rimlink.Server.Hosting;
 
 namespace Rimlink.Server.Application.Live;
 
-/// <summary>Per-stream frame limits (spec §3): a size cap for every frame, token buckets for deltas and orders; other frames are never rate-limited.</summary>
+/// <summary>
+/// Per-stream frame limits (spec §3): a size cap for every frame, token buckets for deltas and orders, and for resync requests
+/// (each one makes the host save and upload: two in a burst, then one per ten seconds); heartbeats and the rest are never rate-limited.
+/// </summary>
 public sealed class FrameLimiter(LiveOptions options)
 {
-    private readonly Bucket deltas = new(options.DeltasPerSecond);
-    private readonly Bucket orders = new(options.OrdersPerSecond);
+    private readonly Bucket deltas = new(options.DeltasPerSecond, options.DeltasPerSecond);
+    private readonly Bucket orders = new(options.OrdersPerSecond, options.OrdersPerSecond);
+    private readonly Bucket resyncs = new(0.1, 2);
 
     /// <summary>Null when the frame may pass; otherwise the reason it is dropped.</summary>
     public string? Refuse(LiveClientMsg.MOneofCase kind, int size, DateTime now)
@@ -18,18 +22,19 @@ public sealed class FrameLimiter(LiveOptions options)
         {
             LiveClientMsg.MOneofCase.Delta => deltas.Take(now) ? null : $"more than {options.DeltasPerSecond} deltas per second",
             LiveClientMsg.MOneofCase.Order => orders.Take(now) ? null : $"more than {options.OrdersPerSecond} orders per second",
+            LiveClientMsg.MOneofCase.ResyncRequest => resyncs.Take(now) ? null : "more than one resync request per ten seconds",
             _ => null,
         };
     }
 
-    private sealed class Bucket(int perSecond)
+    private sealed class Bucket(double perSecond, double capacity)
     {
-        private double tokens = perSecond;
+        private double tokens = capacity;
         private DateTime last = DateTime.MinValue;
 
         public bool Take(DateTime now)
         {
-            if (last != DateTime.MinValue) tokens = Math.Min(perSecond, tokens + (now - last).TotalSeconds * perSecond);
+            if (last != DateTime.MinValue) tokens = Math.Min(capacity, tokens + (now - last).TotalSeconds * perSecond);
             last = now;
             if (tokens < 1) return false;
             tokens -= 1;

@@ -188,6 +188,8 @@ public class LiveRelayTests
         Assert.Equal(LiveServerMsg.MOneofCase.PeerLost, (await Read(host, LiveServerMsg.MOneofCase.PeerLost, TimeSpan.FromSeconds(8))).MCase);
         Assert.Equal(p.Session.Id, (await ReadEvent(bobEvents, ServerEvent.BodyOneofCase.LivePeerLost, e => e.LivePeerLost)).SessionId);
         Assert.Equal(LiveStateDb.Waiting, await StateOf(fixture, p.Session.Id));
+        var closed = await Assert.ThrowsAsync<RpcException>(() => Read(guest, LiveServerMsg.MOneofCase.Delta, TimeSpan.FromSeconds(5)));
+        Assert.Equal(StatusCode.Unavailable, closed.StatusCode); // a timed-out stream is told so: the client reconnects instead of taking it for a normal end
         guest.Dispose();
 
         using var again = await Open(p.Nova, p.Session.Id, LiveRelay.GuestRole, snapshotSeq: 1);
@@ -195,6 +197,47 @@ public class LiveRelayTests
         Assert.Equal(p.Session.Id, (await ReadEvent(bobEvents, ServerEvent.BodyOneofCase.LivePeerBack, e => e.LivePeerBack)).SessionId);
         Assert.Equal(LiveStateDb.Running, await StateOf(fixture, p.Session.Id));
         await keepAlive;
+    }
+
+    [Fact]
+    public async Task AGuestHelloDoesNotCancelAHostLoss()
+    {
+        var p = await Started();
+        using var fixture = p.Fixture;
+        using var novaEvents = p.Nova.Subscribe();
+        var host = await Open(p.Bob, p.Session.Id, LiveRelay.HostRole);
+        using var guest = await Open(p.Nova, p.Session.Id, LiveRelay.GuestRole);
+        await Read(host, LiveServerMsg.MOneofCase.PeerHello);
+        Assert.Equal(LiveStateDb.Running, await StateOf(fixture, p.Session.Id));
+
+        host.Dispose();
+        Assert.Equal(LiveServerMsg.MOneofCase.PeerLost, (await Read(guest, LiveServerMsg.MOneofCase.PeerLost)).MCase);
+        Assert.Equal(p.Session.Id, (await ReadEvent(novaEvents, ServerEvent.BodyOneofCase.LivePeerLost, e => e.LivePeerLost)).SessionId);
+        Assert.Equal(LiveStateDb.Waiting, await StateOf(fixture, p.Session.Id));
+
+        // The guest's network blinked: its new Hello must not mark the session running again while the host is still gone.
+        guest.Dispose();
+        using var again = await Open(p.Nova, p.Session.Id, LiveRelay.GuestRole, snapshotSeq: 1);
+        await Task.Delay(500);
+        Assert.Equal(LiveStateDb.Waiting, await StateOf(fixture, p.Session.Id));
+        Assert.Empty(await Drain(again, TimeSpan.FromSeconds(1)).ContinueWith(t => t.Result.Where(f => f.MCase == LiveServerMsg.MOneofCase.PeerBack).ToList()));
+
+        using var hostBack = await Open(p.Bob, p.Session.Id, LiveRelay.HostRole);
+        Assert.Equal(p.Session.Id, (await ReadEvent(novaEvents, ServerEvent.BodyOneofCase.LivePeerBack, e => e.LivePeerBack)).SessionId);
+        Assert.Equal(LiveStateDb.Running, await StateOf(fixture, p.Session.Id));
+    }
+
+    [Fact]
+    public void ResyncRequestsAreRateLimited()
+    {
+        var limiter = new FrameLimiter(new Rimlink.Server.Hosting.LiveOptions());
+        var now = DateTime.UtcNow;
+        Assert.Null(limiter.Refuse(LiveClientMsg.MOneofCase.ResyncRequest, 10, now));
+        Assert.Null(limiter.Refuse(LiveClientMsg.MOneofCase.ResyncRequest, 10, now));
+        Assert.NotNull(limiter.Refuse(LiveClientMsg.MOneofCase.ResyncRequest, 10, now)); // two in a burst, then one per ten seconds
+        Assert.NotNull(limiter.Refuse(LiveClientMsg.MOneofCase.ResyncRequest, 10, now + TimeSpan.FromSeconds(5)));
+        Assert.Null(limiter.Refuse(LiveClientMsg.MOneofCase.ResyncRequest, 10, now + TimeSpan.FromSeconds(11)));
+        Assert.Null(limiter.Refuse(LiveClientMsg.MOneofCase.Heartbeat, 10, now)); // heartbeats are never limited
     }
 
     [Fact]

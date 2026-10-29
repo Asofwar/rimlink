@@ -91,6 +91,18 @@ public class LiveSessionTests
     }
 
     [Fact]
+    public async Task ClosedVisitsRefuseALiveVisitButNotALiveRaid()
+    {
+        var p = await NovaAndBob();
+        using var fixture = p.Fixture;
+        await p.Bob.Raids.SetVisitsClosedAsync(new VisitsClosedRequest { Closed = true }, p.Bob.Auth);
+
+        var refused = await Assert.ThrowsAsync<RpcException>(() => p.Nova.Live.ProposeAsync(Propose(p.Bob.PlayerId, LiveKind.LiveVisit), p.Nova.Auth).ResponseAsync);
+        Assert.Equal(ErrorCode.VisitsClosed, refused.ErrorDetail()!.Code);
+        Assert.Equal(LiveState.LiveProposed, (await p.Nova.Live.ProposeAsync(Propose(p.Bob.PlayerId, LiveKind.LiveRaid), p.Nova.Auth)).State);
+    }
+
+    [Fact]
     public async Task AcceptStartsDeclineFallsBack()
     {
         var p = await NovaAndBob();

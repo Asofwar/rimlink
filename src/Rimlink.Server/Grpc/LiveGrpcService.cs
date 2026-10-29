@@ -68,5 +68,6 @@ public sealed class LiveGrpcService(LiveSessionService live, LiveRelay relay, IL
             await writer;
         }
         if (channel.ClosedBy == "replaced") throw new RpcException(new Status(StatusCode.Aborted, "replaced by a newer stream"));
+        if (channel.ClosedBy == "timeout") throw new RpcException(new Status(StatusCode.Unavailable, "no frame within the heartbeat timeout; reconnect"));
     }
 }

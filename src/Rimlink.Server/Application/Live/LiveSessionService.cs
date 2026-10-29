@@ -43,6 +43,7 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
         var host = await db.Players.AsNoTracking().FirstOrDefaultAsync(x => x.Id == p.HostPlayerId) ?? throw RpcErrors.Failed(ErrorCode.RecipientUnknown, "no such player");
         var guest = await db.Players.FirstAsync(x => x.Id == guestId);
         if (registry.ByPlayer(host.Id) is not { AtHome: true }) throw RpcErrors.Failed(ErrorCode.HostOffline, $"{host.Name} is not online at their colony");
+        if (p.Kind == LiveKind.LiveVisit && host.VisitsClosed) throw RpcErrors.Failed(ErrorCode.VisitsClosed, $"{host.Name} does not receive visitors");
         if (await db.LiveSessions.AnyAsync(s => !FinalStates.Contains(s.State) && (s.GuestPlayerId == guestId || s.HostPlayerId == guestId)))
             throw RpcErrors.Failed(ErrorCode.LiveActive, "you already have a live session");
         if (await db.LiveSessions.AnyAsync(s => !FinalStates.Contains(s.State) && (s.GuestPlayerId == host.Id || s.HostPlayerId == host.Id)))
@@ -167,13 +168,17 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
         await db.SaveChangesAsync();
     }
 
-    public async Task MarkRunning(long sessionId)
+    /// <summary>A Hello from <paramref name="playerId"/>: the session runs, unless it waits for the other player (their peer's Hello does not end the wait).</summary>
+    public async Task MarkRunning(long sessionId, long playerId)
     {
         var session = await db.LiveSessions.FirstOrDefaultAsync(s => s.Id == sessionId);
         if (session is null || session.State is not (LiveStateDb.Starting or LiveStateDb.Waiting)) return;
         bool back = session.State == LiveStateDb.Waiting;
+        if (!back && playerId != session.GuestPlayerId) return; // Starting ends with the guest's Hello (its mirror is loaded), not the host's
+        if (back && session.LostPlayerId is { } lost && lost != playerId) return;
         session.State = LiveStateDb.Running;
         session.WaitingSince = null;
+        session.LostPlayerId = null;
         await db.SaveChangesAsync();
         if (back)
         {
@@ -216,6 +221,15 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
         log.LogInformation("Live session {Id} ending: {Reason}", session.Id, reason);
     }
 
+    /// <summary>An admin gives up on the host's report: the guest's pawns come home from the escrow as they left.</summary>
+    public async Task CloseEnding(long sessionId)
+    {
+        var session = await db.LiveSessions.FirstOrDefaultAsync(s => s.Id == sessionId);
+        if (session is null || session.State != LiveStateDb.Ending) return;
+        await ReturnEscrow(session, "live session closed by an admin");
+        await Close(session);
+    }
+
     /// <summary>The host's report for a live raid went through <see cref="RaidService.Report"/>: the session is over.</summary>
     public async Task Ended(long raidId)
     {
@@ -243,6 +257,9 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
             }
         }
         if (survivors.Pawns.Count > 0 && validator.Validate(null, survivors) is { } reason) throw RpcErrors.Failed(ParcelValidator.CodeFor(reason), reason);
+        // Visitors the report does not mention (the host's save predates their arrival) come home as they left.
+        var escrow = PawnList.Parser.ParseFrom(session.Pawns ?? []);
+        for (int i = 0; i < count; i++) if (!seen.Contains(i)) survivors.Pawns.Add(escrow.Pawns[i]);
 
         Parcel? parcel = null;
         await using (var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable))
@@ -299,6 +316,16 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
         foreach (var session in await db.LiveSessions.Where(s => s.State == LiveStateDb.Waiting && s.WaitingSince <= waitBefore).ToListAsync())
         {
             await MarkEnding(session, session.LostPlayerId == session.HostPlayerId ? LiveEndReason.EndHostLost : LiveEndReason.EndGuestLost);
+            n++;
+        }
+        // Starting or Running with a side that never opened its stream (a crash before the snapshot, a server restart): the heartbeat sweep
+        // cannot see a stream that does not exist, so the same wait applies from the start.
+        var deadBefore = waitBefore - TimeSpan.FromSeconds(options.Value.HeartbeatTimeoutSeconds);
+        foreach (var session in await db.LiveSessions.Where(s => (s.State == LiveStateDb.Starting || s.State == LiveStateDb.Running) && (s.StartedAt ?? s.CreatedAt) <= deadBefore).ToListAsync())
+        {
+            bool host = relay.IsAttached(session.Id, session.HostPlayerId), guest = relay.IsAttached(session.Id, session.GuestPlayerId);
+            if (host && guest) continue;
+            await MarkEnding(session, host ? LiveEndReason.EndGuestLost : LiveEndReason.EndHostLost);
             n++;
         }
         LiveMetrics.Active.Set(await db.LiveSessions.CountAsync(s => !FinalStates.Contains(s.State)));

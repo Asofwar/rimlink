@@ -21,7 +21,7 @@ public static class OrderExecutor
     {
         switch (o.OCase)
         {
-            case Order.OOneofCase.SetSpeed: LiveTempo.SetGuestSpeed(o.SetSpeed); return null;
+            case Order.OOneofCase.SetSpeed: return LiveTempo.SetGuestSpeed(o.SetSpeed);
             case Order.OOneofCase.Pause: return LiveTempo.SetGuestPause(o.Pause);
         }
         var owners = MapComponent_LiveOwners.Of(map);
@@ -58,6 +58,7 @@ public static class OrderExecutor
                 {
                     var target = TargetOf(o.Attack, map);
                     if (!target.IsValid) return "no such target";
+                    if (kind == LiveKind.LiveVisit && (target.Thing?.Faction is not { } targetFaction || !targetFaction.HostileTo(Faction.OfPlayer))) return "visitors fight only the host's enemies";
                     Job job;
                     if (pawn.equipment?.Primary is { def.IsRangedWeapon: true } && target.HasThing || (!target.HasThing && pawn.equipment?.Primary is { def.IsRangedWeapon: true }))
                     {

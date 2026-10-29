@@ -36,7 +36,7 @@ public static class LiveTempo
         GuestWish = TimeSpeed.Normal;
         GuestPaused = false;
         GuestPausesUsed = 0;
-        WaitingPause = false;
+        WaitingPause = true; // until the guest's Hello: the raiders stand idle and would be shot without their player
         Apply();
     }
 
@@ -73,11 +73,14 @@ public static class LiveTempo
         return null;
     }
 
-    public static void SetGuestSpeed(int speed)
+    /// <summary>Speed 0 is a pause and comes out of the guest's budget; otherwise the wish is 1..3 and lifts a guest pause.</summary>
+    public static string? SetGuestSpeed(int speed)
     {
-        GuestWish = (TimeSpeed)Math.Clamp(speed, 0, 3);
-        if (GuestWish != TimeSpeed.Paused) GuestPaused = false;
+        if (speed <= 0) return SetGuestPause(true);
+        GuestWish = (TimeSpeed)Math.Clamp(speed, 1, 3);
+        GuestPaused = false;
         Apply();
+        return null;
     }
 
     /// <summary>A guest pause runs out after its minute.</summary>

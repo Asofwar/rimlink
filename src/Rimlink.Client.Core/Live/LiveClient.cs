@@ -170,7 +170,7 @@ public sealed class LiveClient(RimlinkConnection connection, ILog log)
                     }
                     if (ended is not null) break;
                 }
-                if (ended is null) ended = "closed by the server"; // the server completed the stream without an End frame (replaced, session gone)
+                // A stream that completes without an End frame (a relay timeout, a server restart) is a drop: the reconnect's Hello learns whether the session is gone.
             }
             catch (RpcException ex) when (ex.StatusCode == StatusCode.Aborted) { ended = "replaced"; }
             catch (RpcException ex) when (ex.StatusCode == StatusCode.FailedPrecondition || ex.StatusCode == StatusCode.PermissionDenied) { ended = ex.Status.Detail; }

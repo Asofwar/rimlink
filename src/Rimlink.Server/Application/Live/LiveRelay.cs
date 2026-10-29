@@ -84,7 +84,7 @@ public sealed class LiveRelay(IServiceScopeFactory scopes, IOptions<LiveOptions>
         await sessions.MarkWaiting(channel.SessionId, channel.PlayerId);
         bool back;
         lock (gate) back = channels.ContainsKey((channel.SessionId, channel.PlayerId));
-        if (back) await sessions.MarkRunning(channel.SessionId); // a new stream of the same player arrived while this one was being closed
+        if (back) await sessions.MarkRunning(channel.SessionId, channel.PlayerId); // a new stream of the same player arrived while this one was being closed
     }
 
     /// <summary>Routes one frame from a participant; the answer (a notice for a refused frame) goes back on the sender's own queue.</summary>
@@ -102,12 +102,9 @@ public sealed class LiveRelay(IServiceScopeFactory scopes, IOptions<LiveOptions>
             case LiveClientMsg.MOneofCase.Heartbeat:
                 return;
             case LiveClientMsg.MOneofCase.Hello:
-                if (from.Role == GuestRole)
-                {
-                    using var scope = scopes.CreateScope();
-                    await scope.ServiceProvider.GetRequiredService<LiveSessionService>().MarkRunning(from.SessionId);
-                }
-                ToPeer(from, new LiveServerMsg { PeerHello = msg.Hello });
+                // The guest's first Hello starts the run (the state is Running before the host sees PeerHello); a lost side's Hello ends a wait.
+                if (from.Role == GuestRole) { await MarkRunning(from); ToPeer(from, new LiveServerMsg { PeerHello = msg.Hello }); }
+                else { ToPeer(from, new LiveServerMsg { PeerHello = msg.Hello }); await MarkRunning(from); }
                 return;
             case LiveClientMsg.MOneofCase.SnapshotReady:
                 lock (gate) snapshots[from.SessionId] = msg.SnapshotReady;
@@ -158,6 +155,17 @@ public sealed class LiveRelay(IServiceScopeFactory scopes, IOptions<LiveOptions>
             c.Queue.Enqueue(new LiveServerMsg { End = new EndMsg { Reason = reason } });
             Close(c, "ended");
         }
+    }
+
+    private async Task MarkRunning(LiveChannel from)
+    {
+        using var scope = scopes.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<LiveSessionService>().MarkRunning(from.SessionId, from.PlayerId);
+    }
+
+    public bool IsAttached(long sessionId, long playerId)
+    {
+        lock (gate) return channels.ContainsKey((sessionId, playerId));
     }
 
     private void ToPeer(LiveChannel from, LiveServerMsg msg)

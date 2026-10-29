@@ -167,6 +167,15 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
             // A live raid never lands through the 3a pipeline: its guests were spawned by the host's game straight from Queued.
             bool live = raid.Controller == (int)RaidController.ControllerLive && raid.State == RaidStateDb.Queued;
             if (raid.State != RaidStateDb.Landed && !live) throw new RpcException(new Status(StatusCode.FailedPrecondition, "the raid has not landed"));
+            if (live)
+            {
+                // Guests the host's save does not know (it predates their arrival) come home as they left, from the escrow.
+                r = r.Clone();
+                var escrow = PawnList.Parser.ParseFrom(raid.Pawns);
+                var known = r.Outcomes.Select(o => o.Index).ToHashSet();
+                for (int i = 0; i < escrow.Pawns.Count; i++)
+                    if (!known.Contains(i)) r.Outcomes.Add(new PawnOutcomeMsg { Index = i, Outcome = PawnOutcome.OutcomeAlive, Blob = escrow.Pawns[i] });
+            }
             long lootValue = reports.Validate(raid, r);
 
             summary = new RaidSummary { LootValue = lootValue, Captives = r.Captives?.Pawns.Count ?? 0 };

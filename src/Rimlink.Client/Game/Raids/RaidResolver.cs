@@ -52,29 +52,37 @@ public static class RaidResolver
     public static void OnPawnExiting(Pawn pawn)
     {
         if (Current.ProgramState != ProgramState.Playing || Current.Game is null) return;
+        if (Live.LiveHost.TryRecordExit(pawn)) return;
         var component = Current.Game.GetComponent<RimlinkGameComponent>();
         if (component is null || component.ActiveRaids.Count == 0) return;
         var raid = component.ActiveRaids.FirstOrDefault(r => r.PawnIds.Contains(pawn.thingIDNumber));
         if (raid is null || raid.Exits.Any(e => e.PawnId == pawn.thingIDNumber)) return;
         try
         {
-            var load = LoadOf(pawn);
-            var loot = new ItemList();
-            foreach (var t in load) loot.Items.Add(ThingBlobs.SerializeItem(t));
-            var exit = new RaiderExit
-            {
-                PawnId = pawn.thingIDNumber,
-                PawnBlob = raid.PawnMode == (int)PawnMode.PawnReal ? ThingBlobs.SerializePawn(pawn).ToByteArray() : [],
-                Loot = loot.ToByteArray(),
-            };
-            foreach (var t in load) { t.holdingOwner?.Remove(t); t.Destroy(DestroyMode.Vanish); }
-            raid.Exits.Add(exit);
-            RimlinkLog.Instance.Info($"raider {pawn.LabelShort} of raid {raid.RaidId} fled with {loot.Items.Count} stacks");
+            raid.Exits.Add(RecordExit(pawn, raid.PawnMode == (int)PawnMode.PawnReal, raid.Visit));
+            RimlinkLog.Instance.Info($"raider {pawn.LabelShort} of raid {raid.RaidId} fled");
         }
         catch (Exception ex)
         {
             Log.Error("[Rimlink] could not record a fleeing raider: " + ex);
         }
+    }
+
+    /// <summary>A pawn leaving the map, serialised with its load (a visitor's load stays behind); the load is destroyed here because the pawn may be discarded.</summary>
+    public static RaiderExit RecordExit(Pawn pawn, bool realPawn, bool visit)
+    {
+        var load = LoadOf(pawn);
+        if (visit) { pawn.inventory?.DropAllNearPawn(pawn.PositionHeld); load = LoadOf(pawn); }
+        var loot = new ItemList();
+        foreach (var t in load) loot.Items.Add(ThingBlobs.SerializeItem(t));
+        var exit = new RaiderExit
+        {
+            PawnId = pawn.thingIDNumber,
+            PawnBlob = realPawn ? ThingBlobs.SerializePawn(pawn).ToByteArray() : [],
+            Loot = loot.ToByteArray(),
+        };
+        foreach (var t in load) { t.holdingOwner?.Remove(t); t.Destroy(DestroyMode.Vanish); }
+        return exit;
     }
 
     /// <summary>
