@@ -329,6 +329,7 @@ Independent mechanical piece: hand it to Codex (`codex-delegate`, `codex-run.ps1
 - Consumes: Task 11 `TempoRules`, Task 1 fields.
 - Produces:
   - `LiveTempo.Rules` (`TempoRules`);
+  - `LiveTempo.OnThreatLetter(bool major, string label)` (calls the rules, then `Apply()`);
   - `LiveTempo.SpeedBeforeSession` (`TimeSpeed`), recorded in `Begin`;
   - `LiveTempo.Reset(bool restoreSpeed)`.
 
