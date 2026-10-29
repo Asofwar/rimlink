@@ -305,15 +305,18 @@ public static class RaidResolver
     }
 
     /// <summary>
-    /// The pawn's blob without its load, which travels as loot or stays with the defender: the load is lifted off for the
-    /// serialisation and put back unmerged, so the same things are still there for the caller.
+    /// The pawn's blob without its load, which travels as loot or stays with the defender, and without a pawn it carries (a
+    /// kidnap victim goes as a captive, a carried fellow raider exits on its own): both are lifted off for the serialisation
+    /// and put back unmerged, so the same things are still there for the caller and for the rest of vanilla's exit.
     /// </summary>
     private static PawnBlob SerializeWithoutLoad(Pawn pawn, IReadOnlyList<Thing> load)
     {
+        var lift = load.ToList();
+        if (pawn.carryTracker?.CarriedThing is Pawn carried) lift.Add(carried);
         var lifted = new List<(Thing Thing, ThingOwner Owner)>();
         try
         {
-            foreach (var t in load)
+            foreach (var t in lift)
             {
                 if (t.holdingOwner is not { } owner) continue;
                 owner.Remove(t);
