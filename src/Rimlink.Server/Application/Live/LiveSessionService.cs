@@ -46,27 +46,27 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
 
     public async Task<LiveSessionRow> Propose(long guestId, LiveProposal p)
     {
-        if (!options.Value.Enabled) throw RpcErrors.Failed(ErrorCode.LiveDisabled, "live sessions are disabled on this server");
-        if (p.HostPlayerId == guestId) throw RpcErrors.Failed(ErrorCode.SelfTrade, "you cannot visit or raid yourself");
-        if (p.Pawns is null || p.Pawns.Pawns.Count == 0) throw RpcErrors.Failed(ErrorCode.Unspecified, "a live session needs at least one pawn");
-        if (p.Pawns.Pawns.Count > raidOptions.Value.MaxRaiders) throw RpcErrors.Failed(ErrorCode.ParcelTooBig, $"too many pawns ({p.Pawns.Pawns.Count} > {raidOptions.Value.MaxRaiders})");
+        if (!options.Value.Enabled) throw RpcErrors.Failed(ErrorCode.LiveDisabled, RefusalKeys.LiveDisabled, "live sessions are disabled on this server");
+        if (p.HostPlayerId == guestId) throw RpcErrors.Failed(ErrorCode.SelfTrade, RefusalKeys.LiveSelf, "you cannot visit or raid yourself");
+        if (p.Pawns is null || p.Pawns.Pawns.Count == 0) throw RpcErrors.Failed(ErrorCode.Unspecified, RefusalKeys.LiveNoPawns, "a live session needs at least one pawn");
+        if (p.Pawns.Pawns.Count > raidOptions.Value.MaxRaiders) throw RpcErrors.Failed(ErrorCode.ParcelTooBig, RefusalKeys.LiveTooManyPawns, $"too many pawns ({p.Pawns.Pawns.Count} > {raidOptions.Value.MaxRaiders})", p.Pawns.Pawns.Count, raidOptions.Value.MaxRaiders);
         if (!string.IsNullOrEmpty(p.ClientRequestId))
         {
             var existing = await db.LiveSessions.AsNoTracking().FirstOrDefaultAsync(s => s.GuestPlayerId == guestId && s.ClientRequestId == p.ClientRequestId);
             if (existing is not null) return existing;
         }
-        var host = await db.Players.AsNoTracking().FirstOrDefaultAsync(x => x.Id == p.HostPlayerId) ?? throw RpcErrors.Failed(ErrorCode.RecipientUnknown, "no such player");
+        var host = await db.Players.AsNoTracking().FirstOrDefaultAsync(x => x.Id == p.HostPlayerId) ?? throw RpcErrors.Failed(ErrorCode.RecipientUnknown, RefusalKeys.NoSuchPlayer, "no such player");
         var guest = await db.Players.FirstAsync(x => x.Id == guestId);
-        if (registry.ByPlayer(host.Id) is not { AtHome: true }) throw RpcErrors.Failed(ErrorCode.HostOffline, $"{host.Name} is not online at their colony");
-        if (p.Kind == LiveKind.LiveVisit && host.VisitsClosed) throw RpcErrors.Failed(ErrorCode.VisitsClosed, $"{host.Name} does not receive visitors");
+        if (registry.ByPlayer(host.Id) is not { AtHome: true }) throw RpcErrors.Failed(ErrorCode.HostOffline, RefusalKeys.LiveHostOffline, $"{host.Name} is not online at their colony", host.Name);
+        if (p.Kind == LiveKind.LiveVisit && host.VisitsClosed) throw RpcErrors.Failed(ErrorCode.VisitsClosed, RefusalKeys.VisitsClosed, $"{host.Name} does not receive visitors", host.Name);
         if (await db.LiveSessions.AnyAsync(s => !FinalStates.Contains(s.State) && (s.GuestPlayerId == guestId || s.HostPlayerId == guestId)))
-            throw RpcErrors.Failed(ErrorCode.LiveActive, "you already have a live session");
+            throw RpcErrors.Failed(ErrorCode.LiveActive, RefusalKeys.LiveOwnSession, "you already have a live session");
         if (await db.LiveSessions.AnyAsync(s => !FinalStates.Contains(s.State) && (s.GuestPlayerId == host.Id || s.HostPlayerId == host.Id)))
-            throw RpcErrors.Failed(ErrorCode.LiveActive, $"{host.Name} is in a live session already");
+            throw RpcErrors.Failed(ErrorCode.LiveActive, RefusalKeys.LiveHostBusy, $"{host.Name} is in a live session already", host.Name);
         // An open visit ticket (3a) is a session too: a proposal sent while the visit copy loads must not open a second one.
         var visitsSince = DateTime.UtcNow - TimeSpan.FromHours(raidOptions.Value.VisitHours);
         if (await db.Visits.AnyAsync(v => v.VisitorPlayerId == guestId && v.EndedAt == null && v.StartedAt > visitsSince))
-            throw RpcErrors.Failed(ErrorCode.LiveActive, "you are on a visit");
+            throw RpcErrors.Failed(ErrorCode.LiveActive, RefusalKeys.LiveOnVisit, "you are on a visit");
         if (validator.Validate(null, p.Pawns) is { } reason) throw RpcErrors.Failed(ParcelValidator.CodeFor(reason), reason);
 
         var session = new LiveSessionRow { Kind = (int)p.Kind, HostPlayerId = host.Id, GuestPlayerId = guestId, State = LiveStateDb.Proposed, CreatedAt = DateTime.UtcNow,
@@ -104,7 +104,7 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
     public async Task<LiveSessionRow> Respond(long hostId, long sessionId, bool accept)
     {
         var session = await db.LiveSessions.FirstOrDefaultAsync(s => s.Id == sessionId && s.HostPlayerId == hostId);
-        if (session is null || session.State != LiveStateDb.Proposed) throw RpcErrors.Failed(ErrorCode.LiveGone, "that invitation is no longer open");
+        if (session is null || session.State != LiveStateDb.Proposed) throw RpcErrors.Failed(ErrorCode.LiveGone, RefusalKeys.LiveInviteGone, "that invitation is no longer open");
         if (accept) await Start(session); else await Fallback(session);
         return session;
     }
@@ -113,7 +113,7 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
     public async Task Cancel(long playerId, long sessionId)
     {
         var session = await db.LiveSessions.FirstOrDefaultAsync(s => s.Id == sessionId && (s.HostPlayerId == playerId || s.GuestPlayerId == playerId));
-        if (session is null || FinalStates.Contains(session.State) || session.State == LiveStateDb.Ending) throw RpcErrors.Failed(ErrorCode.LiveGone, "that live session is over");
+        if (session is null || FinalStates.Contains(session.State) || session.State == LiveStateDb.Ending) throw RpcErrors.Failed(ErrorCode.LiveGone, RefusalKeys.LiveOver, "that live session is over");
         bool guest = session.GuestPlayerId == playerId;
         if (session.State == LiveStateDb.Proposed)
         {
@@ -174,7 +174,7 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
     public async Task<LiveSessionRow> ForStream(long sessionId, long playerId, int role)
     {
         var session = await db.LiveSessions.AsNoTracking().FirstOrDefaultAsync(s => s.Id == sessionId);
-        if (session is null || session.State is not (LiveStateDb.Starting or LiveStateDb.Running or LiveStateDb.Waiting)) throw RpcErrors.Failed(ErrorCode.LiveGone, "that live session is not open");
+        if (session is null || session.State is not (LiveStateDb.Starting or LiveStateDb.Running or LiveStateDb.Waiting)) throw RpcErrors.Failed(ErrorCode.LiveGone, RefusalKeys.LiveNotOpen, "that live session is not open");
         bool host = session.HostPlayerId == playerId, guest = session.GuestPlayerId == playerId;
         if (!(host && role == 1) && !(guest && role == 2)) throw new RpcException(new Status(StatusCode.PermissionDenied, "not your role in this live session"));
         return session;
@@ -263,7 +263,7 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
     public async Task ReportVisit(long hostId, RaidReport r)
     {
         var session = await db.LiveSessions.FirstOrDefaultAsync(s => s.Id == r.LiveSessionId && s.HostPlayerId == hostId);
-        if (session is null || session.RaidId is not null) throw RpcErrors.Failed(ErrorCode.LiveGone, "no such live visit");
+        if (session is null || session.RaidId is not null) throw RpcErrors.Failed(ErrorCode.LiveGone, RefusalKeys.LiveNoVisit, "no such live visit");
         if (FinalStates.Contains(session.State)) return;
         int count = PawnList.Parser.ParseFrom(session.Pawns ?? []).Pawns.Count;
         var survivors = new PawnList();
@@ -318,7 +318,7 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
     /// <summary>The player's open session, if any (the attacker-side view of a fallen-back raid lives in the raid list).</summary>
     public async Task<LiveSessionRow> Current(long playerId) =>
         await db.LiveSessions.AsNoTracking().Where(s => !FinalStates.Contains(s.State) && (s.HostPlayerId == playerId || s.GuestPlayerId == playerId)).OrderByDescending(s => s.Id).FirstOrDefaultAsync()
-        ?? throw RpcErrors.Failed(ErrorCode.LiveGone, "no live session");
+        ?? throw RpcErrors.Failed(ErrorCode.LiveGone, RefusalKeys.LiveNone, "no live session");
 
     /// <summary>Sessions whose end the host's game still has to play out (serialise the guest's pawns, report).</summary>
     public Task<List<LiveSessionRow>> PendingEnds(long hostId) =>
@@ -374,7 +374,7 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
     /// <summary>The escrowed pawns, for the host's game to spawn.</summary>
     public async Task<PawnList> PawnsFor(long hostId, long sessionId)
     {
-        var session = await db.LiveSessions.AsNoTracking().FirstOrDefaultAsync(s => s.Id == sessionId) ?? throw RpcErrors.Failed(ErrorCode.LiveGone, "no such live session");
+        var session = await db.LiveSessions.AsNoTracking().FirstOrDefaultAsync(s => s.Id == sessionId) ?? throw RpcErrors.Failed(ErrorCode.LiveGone, RefusalKeys.LiveNoSuchSession, "no such live session");
         if (session.HostPlayerId != hostId) throw new RpcException(new Status(StatusCode.PermissionDenied, "only the host spawns the guest's pawns"));
         if (session.RaidId is { } raidId)
         {

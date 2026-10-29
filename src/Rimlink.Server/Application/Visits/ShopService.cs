@@ -64,7 +64,7 @@ public sealed class ShopService(RimlinkDbContext db, WalletService wallet, Mailb
 
     public async Task<ShopList> Of(long hostId)
     {
-        var host = await db.Players.AsNoTracking().FirstOrDefaultAsync(p => p.Id == hostId) ?? throw RpcErrors.Failed(ErrorCode.RecipientUnknown, "no such player");
+        var host = await db.Players.AsNoTracking().FirstOrDefaultAsync(p => p.Id == hostId) ?? throw RpcErrors.Failed(ErrorCode.RecipientUnknown, RefusalKeys.NoSuchPlayer, "no such player");
         var list = new ShopList { Host = host.ToRef() };
         foreach (var row in await db.ShopItems.AsNoTracking().Where(s => s.HostPlayerId == hostId && s.SoldAt == null && s.Count > 0).OrderBy(s => s.ThingId).ToListAsync())
             list.Items.Add(ToProto(row));
@@ -74,9 +74,9 @@ public sealed class ShopService(RimlinkDbContext db, WalletService wallet, Mailb
     public async Task<Parcel> Buy(long buyerId, BuyRequest r)
     {
         gate.RequireOpen();
-        if (r.HostPlayerId == buyerId) throw RpcErrors.Failed(ErrorCode.SelfTrade, "you cannot buy from yourself");
-        if (r.Count < 1) throw new RpcException(new Status(StatusCode.InvalidArgument, "count must be at least 1"));
-        if (r.Blob is null || r.Blob.ScribeXmlZstd.Length == 0) throw new RpcException(new Status(StatusCode.InvalidArgument, "the purchase carries no item data"));
+        if (r.HostPlayerId == buyerId) throw RpcErrors.Failed(ErrorCode.SelfTrade, RefusalKeys.ShopSelf, "you cannot buy from yourself");
+        if (r.Count < 1) throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.ShopCountTooLow, "count must be at least 1");
+        if (r.Blob is null || r.Blob.ScribeXmlZstd.Length == 0) throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.ShopNoItemData, "the purchase carries no item data");
         if (!await visits.IsVisiting(buyerId, r.HostPlayerId)) throw new RpcException(new Status(StatusCode.FailedPrecondition, "you are not visiting this player"));
 
         Parcel parcel;
@@ -90,10 +90,10 @@ public sealed class ShopService(RimlinkDbContext db, WalletService wallet, Mailb
                 if (existing is not null) return existing;
             }
             var row = await db.ShopItems.FirstOrDefaultAsync(s => s.HostPlayerId == r.HostPlayerId && s.ThingId == r.ThingId);
-            if (row is null || row.SoldAt is not null || row.Count <= 0) throw RpcErrors.Failed(ErrorCode.ItemSold, "that item is no longer for sale");
-            if (row.Count < r.Count) throw RpcErrors.Failed(ErrorCode.ItemSold, $"only {row.Count} left");
+            if (row is null || row.SoldAt is not null || row.Count <= 0) throw RpcErrors.Failed(ErrorCode.ItemSold, RefusalKeys.ShopSold, "that item is no longer for sale");
+            if (row.Count < r.Count) throw RpcErrors.Failed(ErrorCode.ItemSold, RefusalKeys.ShopOnlyLeft, $"only {row.Count} left", row.Count);
             if (r.Blob.DefName != row.DefName || r.Blob.StuffDef != row.StuffDef || r.Blob.Quality != row.Quality || r.Blob.Count != r.Count)
-                throw new RpcException(new Status(StatusCode.InvalidArgument, "the item does not match what is for sale"));
+                throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.ShopMismatch, "the item does not match what is for sale");
 
             long price = row.Price * r.Count;
             long fee = price * Math.Clamp(options.Value.MarketFeePercent, 0, 100) / 100;

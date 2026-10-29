@@ -2,6 +2,7 @@ using System.Threading.RateLimiting;
 using Grpc.Core;
 using Grpc.Core.Interceptors;
 using Microsoft.Extensions.Configuration;
+using Rimlink.Protocol.V1;
 using Rimlink.Server.Application.Sessions;
 
 namespace Rimlink.Server.Grpc;
@@ -64,7 +65,7 @@ public sealed class RateLimitInterceptor : Interceptor, IDisposable
         using var lease = await limiter.AcquireAsync((caller, context.Method), permitCount: 1, context.CancellationToken);
         if (!lease.IsAcquired)
         {
-            throw new RpcException(new Status(StatusCode.ResourceExhausted, "too many requests, slow down"));
+            throw RpcErrors.With(StatusCode.ResourceExhausted, ErrorCode.Unspecified, RefusalKeys.RateLimited, "too many requests, slow down");
         }
     }
 

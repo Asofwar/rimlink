@@ -22,9 +22,9 @@ public sealed class ChatService(RimlinkDbContext db, EventBus events, AdminFeed 
     public static string CleanText(string text)
     {
         text = text.Trim();
-        if (text.Length == 0) throw new RpcException(new Status(StatusCode.InvalidArgument, "message is empty"));
-        if (text.Length > Limits.ChatMaxLength) throw new RpcException(new Status(StatusCode.InvalidArgument, $"message longer than {Limits.ChatMaxLength} characters"));
-        if (text.Any(c => char.IsControl(c) && c != '\n')) throw new RpcException(new Status(StatusCode.InvalidArgument, "message contains control characters"));
+        if (text.Length == 0) throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.ChatEmpty, "message is empty");
+        if (text.Length > Limits.ChatMaxLength) throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.ChatTooLong, $"message longer than {Limits.ChatMaxLength} characters", Limits.ChatMaxLength);
+        if (text.Any(c => char.IsControl(c) && c != '\n')) throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.ChatControlChars, "message contains control characters");
         return text;
     }
 
@@ -43,9 +43,9 @@ public sealed class ChatService(RimlinkDbContext db, EventBus events, AdminFeed 
 
         var from = await db.Players.AsNoTracking().FirstAsync(p => p.Id == sender.PlayerId);
         if (from.MutedUntil is { } until && until > DateTime.UtcNow)
-            throw RpcErrors.Failed(ErrorCode.Muted, $"you are muted until {until:u}");
+            throw RpcErrors.Failed(ErrorCode.Muted, RefusalKeys.ChatMuted, $"you are muted until {until:u}", until);
         if (toPlayerId != 0 && !await db.Players.AnyAsync(p => p.Id == toPlayerId))
-            throw new RpcException(new Status(StatusCode.NotFound, "no such player"));
+            throw RpcErrors.With(StatusCode.NotFound, ErrorCode.Unspecified, RefusalKeys.NoSuchPlayer, "no such player");
         if (toPlayerId != 0 && toPlayerId != from.Id) await Social.BlockRules.RequireNotBlocked(db, from.Id, toPlayerId);
 
         var message = new ChatMessage { FromPlayerId = from.Id, ToPlayerId = toPlayerId == 0 ? null : toPlayerId, Text = text, Kind = Storage.Entities.MessageKind.Player, SentAt = DateTime.UtcNow };
@@ -69,12 +69,12 @@ public sealed class ChatService(RimlinkDbContext db, EventBus events, AdminFeed 
     /// <summary>"Look here" for one online player (live UX spec §2): never stored, not in the history or the admin feed.</summary>
     public async Task Ping(Session sender, long toPlayerId, int tile, MapCell? cell)
     {
-        if (tile is < 0 or >= MaxPingTile) throw new RpcException(new Status(StatusCode.InvalidArgument, $"tile must be 0-{MaxPingTile - 1}"));
+        if (tile is < 0 or >= MaxPingTile) throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.PingTile, $"tile must be 0-{MaxPingTile - 1}", MaxPingTile - 1);
         if (cell is not null && (cell.X is < 0 or >= MaxPingCell || cell.Z is < 0 or >= MaxPingCell))
-            throw new RpcException(new Status(StatusCode.InvalidArgument, $"cell must be 0-{MaxPingCell - 1} on both axes"));
+            throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.PingCell, $"cell must be 0-{MaxPingCell - 1} on both axes", MaxPingCell - 1);
         var from = await db.Players.AsNoTracking().FirstAsync(p => p.Id == sender.PlayerId);
-        if (from.MutedUntil is { } until && until > DateTime.UtcNow) throw RpcErrors.Failed(ErrorCode.Muted, $"you are muted until {until:u}");
-        if (toPlayerId == sender.PlayerId || sessions.ByPlayer(toPlayerId) is null) throw RpcErrors.Failed(ErrorCode.RecipientUnknown, "that player is not online");
+        if (from.MutedUntil is { } until && until > DateTime.UtcNow) throw RpcErrors.Failed(ErrorCode.Muted, RefusalKeys.ChatMuted, $"you are muted until {until:u}", until);
+        if (toPlayerId == sender.PlayerId || sessions.ByPlayer(toPlayerId) is null) throw RpcErrors.Failed(ErrorCode.RecipientUnknown, RefusalKeys.ChatNotOnline, "that player is not online");
         events.SendTo(toPlayerId, new ServerEvent { Ping = new PingEvent { From = from.ToRef(), Tile = tile, Cell = cell } });
     }
 

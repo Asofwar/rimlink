@@ -357,4 +357,39 @@
   <Rimlink.Trades.CompletedNotice>Сделка с {0} завершена: их сторона прилетит капсулой</Rimlink.Trades.CompletedNotice>
   <Rimlink.Trades.ClosedNotice>Сделка с {0} закрыта ({1}): ваша сторона вернётся капсулой</Rimlink.Trades.ClosedNotice>
   <Rimlink.Trades.YourTurnNotice>{0} предложил или изменил сделку: Экономика, вкладка «Сделки»</Rimlink.Trades.YourTurnNotice>
+
+  <!-- Отказы сервера по ключу (RefusalKeys на сервере). -->
+  <Rimlink.Refusal.RateLimited>слишком много запросов, подождите немного</Rimlink.Refusal.RateLimited>
+  <Rimlink.Refusal.Common.NoSuchPlayer>такого игрока нет</Rimlink.Refusal.Common.NoSuchPlayer>
+  <Rimlink.Refusal.Chat.Empty>пустое сообщение</Rimlink.Refusal.Chat.Empty>
+  <Rimlink.Refusal.Chat.TooLong>сообщение длиннее {0} символов</Rimlink.Refusal.Chat.TooLong>
+  <Rimlink.Refusal.Chat.ControlChars>в сообщении есть управляющие символы</Rimlink.Refusal.Chat.ControlChars>
+  <Rimlink.Refusal.Chat.Muted>вы не можете писать в чат до {0}</Rimlink.Refusal.Chat.Muted>
+  <Rimlink.Refusal.Chat.NotOnline>этого игрока нет в сети</Rimlink.Refusal.Chat.NotOnline>
+  <Rimlink.Refusal.Chat.PingTile>номер тайла должен быть от 0 до {0}</Rimlink.Refusal.Chat.PingTile>
+  <Rimlink.Refusal.Chat.PingCell>клетка должна быть от 0 до {0} по обеим осям</Rimlink.Refusal.Chat.PingCell>
+  <Rimlink.Refusal.Live.Disabled>живые сессии на этом сервере выключены</Rimlink.Refusal.Live.Disabled>
+  <Rimlink.Refusal.Live.Self>нельзя навестить или атаковать самого себя</Rimlink.Refusal.Live.Self>
+  <Rimlink.Refusal.Live.NoPawns>для живой сессии нужна хотя бы одна пешка</Rimlink.Refusal.Live.NoPawns>
+  <Rimlink.Refusal.Live.TooManyPawns>слишком много пешек ({0} > {1})</Rimlink.Refusal.Live.TooManyPawns>
+  <Rimlink.Refusal.Live.HostOffline>{0} сейчас не в своей колонии</Rimlink.Refusal.Live.HostOffline>
+  <Rimlink.Refusal.Live.OwnSession>у вас уже идёт живая сессия</Rimlink.Refusal.Live.OwnSession>
+  <Rimlink.Refusal.Live.HostBusy>{0} уже в живой сессии</Rimlink.Refusal.Live.HostBusy>
+  <Rimlink.Refusal.Live.OnVisit>вы сейчас в визите</Rimlink.Refusal.Live.OnVisit>
+  <Rimlink.Refusal.Live.InviteGone>это приглашение уже не действует</Rimlink.Refusal.Live.InviteGone>
+  <Rimlink.Refusal.Live.Over>эта живая сессия уже окончена</Rimlink.Refusal.Live.Over>
+  <Rimlink.Refusal.Live.NotOpen>эта живая сессия не открыта</Rimlink.Refusal.Live.NotOpen>
+  <Rimlink.Refusal.Live.NoVisit>такого живого визита нет</Rimlink.Refusal.Live.NoVisit>
+  <Rimlink.Refusal.Live.None>живой сессии нет</Rimlink.Refusal.Live.None>
+  <Rimlink.Refusal.Live.NoSuchSession>такой живой сессии нет</Rimlink.Refusal.Live.NoSuchSession>
+  <Rimlink.Refusal.Visits.Closed>{0} не принимает гостей</Rimlink.Refusal.Visits.Closed>
+  <Rimlink.Refusal.Visits.Self>нельзя навестить самого себя</Rimlink.Refusal.Visits.Self>
+  <Rimlink.Refusal.Visits.InLive>вы сейчас в живой сессии</Rimlink.Refusal.Visits.InLive>
+  <Rimlink.Refusal.Visits.NoColony>у {0} ещё нет колонии на сервере</Rimlink.Refusal.Visits.NoColony>
+  <Rimlink.Refusal.Shop.Self>нельзя купить у самого себя</Rimlink.Refusal.Shop.Self>
+  <Rimlink.Refusal.Shop.CountTooLow>нужно купить хотя бы 1 штуку</Rimlink.Refusal.Shop.CountTooLow>
+  <Rimlink.Refusal.Shop.NoItemData>в покупке нет данных о вещи</Rimlink.Refusal.Shop.NoItemData>
+  <Rimlink.Refusal.Shop.Sold>эта вещь уже не продаётся</Rimlink.Refusal.Shop.Sold>
+  <Rimlink.Refusal.Shop.OnlyLeft>осталось только {0}</Rimlink.Refusal.Shop.OnlyLeft>
+  <Rimlink.Refusal.Shop.Mismatch>вещь не совпадает с выставленной на продажу</Rimlink.Refusal.Shop.Mismatch>
 </LanguageData>

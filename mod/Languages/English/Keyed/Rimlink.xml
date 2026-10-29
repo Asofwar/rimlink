@@ -357,4 +357,39 @@
   <Rimlink.Trades.CompletedNotice>Trade with {0} completed: their side lands by drop pod</Rimlink.Trades.CompletedNotice>
   <Rimlink.Trades.ClosedNotice>Trade with {0} closed ({1}): your side comes back by drop pod</Rimlink.Trades.ClosedNotice>
   <Rimlink.Trades.YourTurnNotice>{0} offered or changed a trade: see Economy, Trades</Rimlink.Trades.YourTurnNotice>
+
+  <!-- Server refusals by key (RefusalKeys on the server); the English text is the server's own message. -->
+  <Rimlink.Refusal.RateLimited>too many requests, slow down</Rimlink.Refusal.RateLimited>
+  <Rimlink.Refusal.Common.NoSuchPlayer>no such player</Rimlink.Refusal.Common.NoSuchPlayer>
+  <Rimlink.Refusal.Chat.Empty>message is empty</Rimlink.Refusal.Chat.Empty>
+  <Rimlink.Refusal.Chat.TooLong>message longer than {0} characters</Rimlink.Refusal.Chat.TooLong>
+  <Rimlink.Refusal.Chat.ControlChars>message contains control characters</Rimlink.Refusal.Chat.ControlChars>
+  <Rimlink.Refusal.Chat.Muted>you are muted until {0}</Rimlink.Refusal.Chat.Muted>
+  <Rimlink.Refusal.Chat.NotOnline>that player is not online</Rimlink.Refusal.Chat.NotOnline>
+  <Rimlink.Refusal.Chat.PingTile>tile must be 0-{0}</Rimlink.Refusal.Chat.PingTile>
+  <Rimlink.Refusal.Chat.PingCell>cell must be 0-{0} on both axes</Rimlink.Refusal.Chat.PingCell>
+  <Rimlink.Refusal.Live.Disabled>live sessions are disabled on this server</Rimlink.Refusal.Live.Disabled>
+  <Rimlink.Refusal.Live.Self>you cannot visit or raid yourself</Rimlink.Refusal.Live.Self>
+  <Rimlink.Refusal.Live.NoPawns>a live session needs at least one pawn</Rimlink.Refusal.Live.NoPawns>
+  <Rimlink.Refusal.Live.TooManyPawns>too many pawns ({0} > {1})</Rimlink.Refusal.Live.TooManyPawns>
+  <Rimlink.Refusal.Live.HostOffline>{0} is not online at their colony</Rimlink.Refusal.Live.HostOffline>
+  <Rimlink.Refusal.Live.OwnSession>you already have a live session</Rimlink.Refusal.Live.OwnSession>
+  <Rimlink.Refusal.Live.HostBusy>{0} is in a live session already</Rimlink.Refusal.Live.HostBusy>
+  <Rimlink.Refusal.Live.OnVisit>you are on a visit</Rimlink.Refusal.Live.OnVisit>
+  <Rimlink.Refusal.Live.InviteGone>that invitation is no longer open</Rimlink.Refusal.Live.InviteGone>
+  <Rimlink.Refusal.Live.Over>that live session is over</Rimlink.Refusal.Live.Over>
+  <Rimlink.Refusal.Live.NotOpen>that live session is not open</Rimlink.Refusal.Live.NotOpen>
+  <Rimlink.Refusal.Live.NoVisit>no such live visit</Rimlink.Refusal.Live.NoVisit>
+  <Rimlink.Refusal.Live.None>no live session</Rimlink.Refusal.Live.None>
+  <Rimlink.Refusal.Live.NoSuchSession>no such live session</Rimlink.Refusal.Live.NoSuchSession>
+  <Rimlink.Refusal.Visits.Closed>{0} does not receive visitors</Rimlink.Refusal.Visits.Closed>
+  <Rimlink.Refusal.Visits.Self>you cannot visit yourself</Rimlink.Refusal.Visits.Self>
+  <Rimlink.Refusal.Visits.InLive>you are in a live session</Rimlink.Refusal.Visits.InLive>
+  <Rimlink.Refusal.Visits.NoColony>{0} has no colony on the server yet</Rimlink.Refusal.Visits.NoColony>
+  <Rimlink.Refusal.Shop.Self>you cannot buy from yourself</Rimlink.Refusal.Shop.Self>
+  <Rimlink.Refusal.Shop.CountTooLow>count must be at least 1</Rimlink.Refusal.Shop.CountTooLow>
+  <Rimlink.Refusal.Shop.NoItemData>the purchase carries no item data</Rimlink.Refusal.Shop.NoItemData>
+  <Rimlink.Refusal.Shop.Sold>that item is no longer for sale</Rimlink.Refusal.Shop.Sold>
+  <Rimlink.Refusal.Shop.OnlyLeft>only {0} left</Rimlink.Refusal.Shop.OnlyLeft>
+  <Rimlink.Refusal.Shop.Mismatch>the item does not match what is for sale</Rimlink.Refusal.Shop.Mismatch>
 </LanguageData>

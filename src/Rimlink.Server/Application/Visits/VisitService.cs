@@ -23,12 +23,12 @@ public sealed class VisitService(RimlinkDbContext db, SaveStore saves, EventBus 
 
     public async Task<(Visit Visit, Player Host)> Begin(long visitorId, long hostId)
     {
-        if (hostId == visitorId) throw RpcErrors.Failed(ErrorCode.SelfTrade, "you cannot visit yourself");
-        var host = await db.Players.AsNoTracking().FirstOrDefaultAsync(p => p.Id == hostId) ?? throw RpcErrors.Failed(ErrorCode.RecipientUnknown, "no such player");
-        if (host.VisitsClosed) throw RpcErrors.Failed(ErrorCode.VisitsClosed, $"{host.Name} does not receive visitors");
+        if (hostId == visitorId) throw RpcErrors.Failed(ErrorCode.SelfTrade, RefusalKeys.VisitsSelf, "you cannot visit yourself");
+        var host = await db.Players.AsNoTracking().FirstOrDefaultAsync(p => p.Id == hostId) ?? throw RpcErrors.Failed(ErrorCode.RecipientUnknown, RefusalKeys.NoSuchPlayer, "no such player");
+        if (host.VisitsClosed) throw RpcErrors.Failed(ErrorCode.VisitsClosed, RefusalKeys.VisitsClosed, $"{host.Name} does not receive visitors", host.Name);
         if (await db.LiveSessions.AnyAsync(s => !LiveSessionService.FinalStates.Contains(s.State) && (s.GuestPlayerId == visitorId || s.HostPlayerId == visitorId)))
-            throw RpcErrors.Failed(ErrorCode.LiveActive, "you are in a live session");
-        if (!await saves.HasSave(hostId)) throw new RpcException(new Status(StatusCode.NotFound, $"{host.Name} has no colony on the server yet"));
+            throw RpcErrors.Failed(ErrorCode.LiveActive, RefusalKeys.VisitsInLive, "you are in a live session");
+        if (!await saves.HasSave(hostId)) throw RpcErrors.With(StatusCode.NotFound, ErrorCode.Unspecified, RefusalKeys.VisitsNoColony, $"{host.Name} has no colony on the server yet", host.Name);
 
         var now = DateTime.UtcNow;
         await db.Visits.Where(v => v.VisitorPlayerId == visitorId && v.EndedAt == null).ExecuteUpdateAsync(s => s.SetProperty(v => v.EndedAt, now));
