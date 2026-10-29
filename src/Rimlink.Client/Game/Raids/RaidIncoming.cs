@@ -166,6 +166,7 @@ public static class RaidIncoming
             Lord = lord,
             LandedTick = tick,
             PawnIds = pawns.Select(p => p.thingIDNumber).ToList(),
+            ArrivedThingIds = pawns.SelectMany(RaidResolver.ArrivalLoadIds).ToList(),
             PawnMode = (int)raid.PawnMode,
             LootCap = raid.LootCap,
             AllowKidnap = raid.AllowKidnap,
@@ -204,6 +205,8 @@ public sealed class ActiveRaid : IExposable
     public Lord? Lord;
     public long LandedTick;
     public List<int> PawnIds = [];
+    /// <summary>Thing ids of what the raiders brought (inventory, hands) at the landing: theirs, not loot. Empty for raids landed by older versions.</summary>
+    public List<int> ArrivedThingIds = [];
     public int PawnMode;
     public long LootCap;
     public bool AllowKidnap;
@@ -223,6 +226,7 @@ public sealed class ActiveRaid : IExposable
         Scribe_References.Look(ref Lord, "lord");
         Scribe_Values.Look(ref LandedTick, "landedTick");
         Scribe_Collections.Look(ref PawnIds, "pawnIds", LookMode.Value);
+        Scribe_Collections.Look(ref ArrivedThingIds, "arrivedThingIds", LookMode.Value);
         Scribe_Values.Look(ref PawnMode, "pawnMode");
         Scribe_Values.Look(ref LootCap, "lootCap");
         Scribe_Values.Look(ref AllowKidnap, "allowKidnap");
@@ -231,6 +235,7 @@ public sealed class ActiveRaid : IExposable
         Scribe_Values.Look(ref Reported, "reported");
         Scribe_Collections.Look(ref Exits, "exits", LookMode.Deep);
         PawnIds ??= [];
+        ArrivedThingIds ??= [];
         Exits ??= [];
     }
 }

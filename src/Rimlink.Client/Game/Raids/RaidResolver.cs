@@ -59,7 +59,7 @@ public static class RaidResolver
         if (raid is null || raid.Exits.Any(e => e.PawnId == pawn.thingIDNumber)) return;
         try
         {
-            raid.Exits.Add(RecordExit(pawn, raid.PawnMode == (int)PawnMode.PawnReal, raid.Visit));
+            raid.Exits.Add(RecordExit(pawn, raid.PawnMode == (int)PawnMode.PawnReal, raid.Visit, raid.ArrivedThingIds));
             RimlinkLog.Instance.Info($"raider {pawn.LabelShort} of raid {raid.RaidId} fled");
         }
         catch (Exception ex)
@@ -70,12 +70,13 @@ public static class RaidResolver
 
     /// <summary>
     /// A pawn leaving the map: its load becomes the loot and its blob is taken without it, or the load would come home
-    /// twice (a visitor's inventory stays behind); the load is destroyed here because the pawn may be discarded.
+    /// twice (a visitor's inventory stays behind); the load is destroyed here because the pawn may be discarded. What the
+    /// raider arrived with (<paramref name="arrived"/>) is not load: it stays with the pawn, in its blob or with the copy.
     /// </summary>
-    public static RaiderExit RecordExit(Pawn pawn, bool realPawn, bool visit)
+    public static RaiderExit RecordExit(Pawn pawn, bool realPawn, bool visit, ICollection<int>? arrived = null)
     {
-        var load = LoadOf(pawn);
-        if (visit) { pawn.inventory?.DropAllNearPawn(pawn.PositionHeld); load = LoadOf(pawn); }
+        var load = LoadOf(pawn, arrived);
+        if (visit) { pawn.inventory?.DropAllNearPawn(pawn.PositionHeld); load = LoadOf(pawn, arrived); }
         var loot = new ItemList();
         foreach (var t in load) loot.Items.Add(ThingBlobs.SerializeItem(t));
         var exit = new RaiderExit
@@ -162,7 +163,7 @@ public static class RaidResolver
                     {
                         // Still on the map at the timeout (fighting, downed or being carried): they go home with what they carry.
                         outcome.Outcome = PawnOutcome.OutcomeAlive;
-                        var load = LoadOf(alive);
+                        var load = LoadOf(alive, raid.ArrivedThingIds);
                         foreach (var t in load) loot.Add(new LootStack(ThingBlobs.SerializeItem(t), t, alive));
                         if (raid.PawnMode == (int)PawnMode.PawnReal) outcome.Blob = SerializeWithoutLoad(alive, load);
                         survivors.Add(alive);
@@ -303,14 +304,21 @@ public static class RaidResolver
         }
     }
 
-    /// <summary>What the pawn carries and holds (apparel and weapons stay on the pawn); a carried pawn is a kidnap victim and is not loot.</summary>
-    private static List<Thing> LoadOf(Pawn pawn)
+    /// <summary>
+    /// What the pawn carries and holds (apparel and weapons stay on the pawn); a carried pawn is a kidnap victim and is not loot,
+    /// and neither is what the raider arrived with (<paramref name="arrived"/>, thing ids taken at the landing).
+    /// </summary>
+    private static List<Thing> LoadOf(Pawn pawn, ICollection<int>? arrived = null)
     {
         var things = new List<Thing>();
         if (pawn.carryTracker?.CarriedThing is { } carried and not Pawn) things.Add(carried);
         if (pawn.inventory is not null) things.AddRange(pawn.inventory.innerContainer.Where(t => t is not Pawn));
+        if (arrived is { Count: > 0 }) things.RemoveAll(t => arrived.Contains(t.thingIDNumber));
         return things;
     }
+
+    /// <summary>The thing ids of what a raider brings at the landing: kept out of its loot later (<see cref="LoadOf"/>).</summary>
+    public static IEnumerable<int> ArrivalLoadIds(Pawn pawn) => LoadOf(pawn).Select(t => t.thingIDNumber);
 
     /// <summary>
     /// The pawn's blob without its load, which travels as loot or stays with the defender, and without a pawn it carries (a
