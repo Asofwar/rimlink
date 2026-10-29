@@ -120,6 +120,48 @@ public static class SaveSync
         });
     }
 
+    private static Action? leaveThen;
+
+    /// <summary>A leave flow (<see cref="SaveUploadAndEnd"/>) is running: the session ends once its upload is done or timed out.</summary>
+    public static bool Leaving => leaveThen is not null;
+
+    /// <summary>The own colony is loaded and can be saved (not a visit's copy of another colony, not a menu or new-colony page).</summary>
+    public static bool HasColonyToSave => Current.Game != null && Current.ProgramState == ProgramState.Playing && !Visits.VisitSession.InVisit;
+
+    /// <summary>
+    /// Leaving the session (to the menu, to the OS): saves the colony, waits up to 60 s for the upload behind a long event, flags
+    /// the file for the next login when it did not finish, ends the session, then runs <paramref name="then"/>. Called while a
+    /// flow runs, it only replaces what runs at the end (a quit during leave-to-menu quits). With nothing to save it ends the
+    /// session at once.
+    /// </summary>
+    public static void SaveUploadAndEnd(Action then)
+    {
+        if (leaveThen is not null) { leaveThen = then; return; }
+        leaveThen = then;
+        // In a visit the loaded game is the host's copy: nothing to save, the own colony was uploaded when the visit began.
+        if (!HasColonyToSave) { FinishLeaving(); return; }
+        upload = null; // a save that fails leaves nothing to wait for (not the previous upload)
+        try { GameDataSaveLoader.SaveGame(SaveFileName); } // the SaveGame postfix starts the upload
+        catch (Exception ex) { Log.Error("[Rimlink] save before leaving failed: " + ex); }
+        var pending = Pending; // while the session (and its endpoint) still exists
+        bool uploaded = false;
+        LongEventHandler.QueueLongEvent(() => uploaded = WaitForUpload(TimeSpan.FromSeconds(60)), "Rimlink.Flow.Uploading",
+            doAsynchronously: true, null, showExtraUIInfo: false, callback: () =>
+            {
+                // An upload that did not finish in time is not trusted: the local file is flagged and sent at the next login.
+                if (!uploaded) pending.Set();
+                FinishLeaving();
+            });
+    }
+
+    private static void FinishLeaving()
+    {
+        RimlinkGameComponent.EndSession();
+        var next = leaveThen;
+        leaveThen = null;
+        next?.Invoke();
+    }
+
     /// <summary>Saves the multiplayer file (triggers the upload via the patch). False when nothing was queued.</summary>
     public static bool TriggerSave(string reason)
     {

@@ -59,7 +59,8 @@ links (subscribe before the first connection), the login modes, the address to a
   it loads ("The server's storyteller and difficulty were applied").
 - **Later logins**: your save is downloaded from the server and loaded.
 - **Leaving**: use the vanilla **Quit to main menu**. The game saves, uploads the save and only then returns to
-  the menu. Autosaves are uploaded too. Saves live in `Saves/Rimlink_<host>_<port>_<player>.rws`; manual saves
+  the menu. **Quit to OS**, Alt+F4 and the window's close button do the same before the game closes (a few seconds; when the
+  server cannot be reached the save is kept and sent at your next login). Autosaves are uploaded too. Saves live in `Saves/Rimlink_<host>_<port>_<player>.rws`; manual saves
   under other names stay local and are not sent to the server.
 - If the connection is lost for good or your account logs in elsewhere, the game saves locally and returns to the menu;
   that save is sent to the server at your next login, before anything is downloaded. Loading another (single-player)

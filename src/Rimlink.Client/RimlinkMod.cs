@@ -58,6 +58,7 @@ public static class RimlinkStartup
     static RimlinkStartup()
     {
         Harmony.PatchAll();
+        Game.QuitGuard.Install();
         Log.Message($"[Rimlink] loaded v{ClientInfo.Version}, protocol {ClientInfo.ProtocolVersion}");
     }
 }

@@ -751,3 +751,11 @@ failed» и возвращает вещи на карту без запроса 
 - [x] Смена в игре: `rimlink/set_storyteller Randy/Rough` (сессия, Locked), открыть страницу рассказчика → Phoebe / Custom 0.5 с подписью.
 - [x] Загрузка: сервер `StorytellerPolicy=Free`, гость на Randy/Rough, выгрузка; сервер Locked, вход → «The server's storyteller and
   difficulty were applied: Phoebe Chillax, Custom.», Phoebe / Custom 0.5, лог `storyteller Randy/Rough replaced by the server's Phoebe/Custom`.
+- [x] Выход в ОС до исправления (воспроизведение): хозяин загружен на тике 75655, сервер v11 @75649; сыграно до 85566; крестик окна
+  (`CloseMainWindow`, WM_CLOSE) — выход за 1 с, выгрузки нет, сервер v11; «Выйти в ОС» из меню — то же. Причина: RimWorld 1.7 (движок
+  Waylith) закрывает окно через флаг GLFW, а меню — через `Application.Quit`; ни то ни другое не было перехвачено.
+- [x] После исправления, крестик окна: выход за 1.2 с, на сервере новая версия v3 @5936 (было v2 @523).
+- [x] «Выйти в ОС» → подтверждение: процесс завершился, v4 @9332.
+- [x] Сервер остановлен, крестик окна: выход за 1.9 с, файл сохранён, `pending.flag`; сервер поднят, вход → `UploadLocalThenLoad`, v5 @12225
+  с богатством 15937.
+- [x] Два WM_CLOSE подряд (80 мс): одна новая версия v6 @14682.
