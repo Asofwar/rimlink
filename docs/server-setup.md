@@ -121,6 +121,21 @@ take part in `MaxOpenTrades` (5) open trades at once. `Social:MaxBlocks` (200) c
 and admins cannot be blocked. A block or a colony reset closes the open trades between the two players (or of that
 player), each side going back to its owner.
 
+Economy hardening (same section): `ServerWealthPercent` 100 (0–1000) — the share of a player's server-held wealth
+(wallet if positive, open lots, undelivered parcels including their silver) that counts as colony wealth: in the loot cap
+(`LootCapPercent` of items wealth plus this), in `MinColonyWealth` and, through the client, in the storyteller's threat
+points. `BlockOutflowUnderThreat` true — deposits, new lots and sends (wallet silver included, caravan hand-overs
+excluded) are refused with `UNDER_THREAT` while a raid on the player is queued, announced or landed, or an accepted live
+raid they host is under way. `StorageFeePercentPerDay` 0.5 (0 = off) and `StorageFreeDays` 3 — pawns and perishables in
+open lots and in undelivered gifts/purchases pay `value × percent × (days − free days)` when they leave the server
+(seller for lots, recipient for parcels; loot, returns, captives, withdrawals and admin parcels are free); the fee goes
+to the bank and may leave a debt, which refuses buying, posting and sending with `IN_DEBT` until paid. `economy stats`
+reports the fees collected.
+
+Forbidden defs: `PUT /api/admin/economy/forbidden-defs` with `{"defs": ["Gun_Revolver", …]}` (GET lists them), chat
+`/forbid list | add <def…> | remove <def…>`, CLI `rimlink-tools admin forbid list|add|remove <def…>`. A forbidden def
+(item, stuff or pawn kind) is refused in sends and new lots with `DEF_FORBIDDEN`; raids and open lots are not affected.
+
 ## 5b. Raids, visits and the shop
 
 Asynchronous raids: an attacker's pawns wait on the server until the target next plays, fight there as a vanilla raid

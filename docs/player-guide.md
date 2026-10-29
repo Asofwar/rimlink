@@ -108,7 +108,24 @@ Items you can send are the ones under a powered **orbital trade beacon**, exactl
   stays there afterwards.
 
 Sending a colonist asks for confirmation: they leave your colony for good, with their skills, health, gear and
-story. A thing that is not in the server's modpack cannot be sent.
+story. A thing that is not in the server's modpack cannot be sent, and neither can a def the admin forbade: such things
+are greyed out in the list ("Forbidden on this server").
+
+- **Delivery spot**: Architect → Misc → **Rimlink delivery spot** (free, placed at once). Parcels and returned goods
+  land next to it; a new spot replaces the old one. Without one they land at your first trade beacon, else where trade
+  ships drop.
+- **What the server holds counts**: silver in your wallet, your open lots and parcels on their way to you count as your
+  colony's wealth for the storyteller's threats, for the loot a raider may take and for the poor-colony protection.
+  Keeping wealth on the server does not make your colony look poor.
+- **Under attack nothing leaves**: while a raid from another player waits for you (warned or not), is on your map, a
+  live raid you host is under way, or enemies are on your map, deposits, new lots and sends (wallet silver included)
+  are closed; the window says so. Withdrawals, purchases, taking a lot back and parcels still arrive. A caravan already on
+  the world map can still hand things over.
+- **Storage fee**: pawns and things that rot cost silver while they sit on the server: 0.5 % of their value per real day
+  after 3 free days (the server's settings may differ). It is paid when they leave: from the sale for a lot (the rest
+  from your wallet), from your wallet when you take a lot back, when it expires, or when a gift or purchase reaches you.
+  A message names the parcel or lot and the amount. A fee can leave your wallet below zero: until a deposit or a sale
+  pays it, buying, posting lots and sending are closed (the balance turns red).
 
 A pawn of yours that comes home (a transfer the server refused, an unsold lot, raiders back from a raid, guests back
 from a live session, a colonist someone sends back to you) gets its family, partners and bonded animals among your
