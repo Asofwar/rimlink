@@ -90,14 +90,16 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
         return result;
     }
 
-    public async Task<Parcel> Withdraw(long sellerId, long lotId, bool bypassGate = false)
+    /// <summary>The seller takes an open lot back; <paramref name="chargeStorage"/> is false for an admin refund.</summary>
+    public async Task<Parcel> Withdraw(long sellerId, long lotId, bool bypassGate = false, bool chargeStorage = true)
     {
         if (!bypassGate) gate.RequireOpen();
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         var lot = await db.Lots.FirstOrDefaultAsync(l => l.Id == lotId && l.SellerPlayerId == sellerId && l.Status == LotStatusDb.Open)
             ?? throw RpcErrors.Failed(ErrorCode.LotGone, RefusalKeys.EconomyLotClosed, "this lot is no longer open");
-        var parcel = await Close(lot, LotStatusDb.Withdrawn, ParcelKindDb.LotReturn, "withdraw");
+        var (parcel, _) = await Close(lot, LotStatusDb.Withdrawn, ParcelKindDb.LotReturn, "withdraw", chargeStorage);
         await tx.CommitAsync();
+        wallet.FlushEvents();
         await mailbox.Announce(parcel);
         return parcel;
     }
@@ -121,6 +123,9 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
             await wallet.Apply(buyerId, -lot.Price, "purchase", lot.Id);
             await wallet.Apply(lot.SellerPlayerId, lot.Price - fee, "sale", lot.Id);
             if (fee > 0) await wallet.Apply(WalletService.BankPlayerId, fee, "fee", lot.Id);
+            // Kept on the server for days: the fee comes out of the proceeds, and what they do not cover becomes a debt.
+            long storage = StorageFeeOf(lot);
+            if (storage > 0) await wallet.Charge(lot.SellerPlayerId, storage, "storage", lot.Id);
 
             lot.Status = LotStatusDb.Sold;
             lot.BuyerPlayerId = buyerId;
@@ -137,7 +142,7 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
             wallet.FlushEvents();
 
             var buyer = await db.Players.AsNoTracking().FirstAsync(p => p.Id == buyerId);
-            sold = new LotSold { LotId = lot.Id, Buyer = buyer.ToRef(), Price = lot.Price, Proceeds = lot.Price - fee };
+            sold = new LotSold { LotId = lot.Id, Buyer = buyer.ToRef(), Price = lot.Price, Proceeds = lot.Price - fee - storage, StorageFee = storage };
             log.LogInformation("Lot {Lot} sold by player {Seller} to player {Buyer} for {Price}", lot.Id, lot.SellerPlayerId, buyerId, lot.Price);
         }
         EconomyMetrics.Trade("buy", sold.Price);
@@ -153,31 +158,35 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
     {
         EconomyMetrics.ParcelsPending.Set(await db.Parcels.CountAsync(p => p.DeliveredAt == null));
         var due = await db.Lots.Where(l => l.Status == LotStatusDb.Open && l.ExpiresAt <= now).ToListAsync();
-        var announcements = new List<(Parcel Parcel, long Seller, long LotId)>();
+        var announcements = new List<(Parcel Parcel, long Seller, long LotId, long Storage)>();
         foreach (var lot in due)
         {
             try
             {
                 await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
-                var parcel = await Close(lot, LotStatusDb.Expired, ParcelKindDb.LotReturn, "expire");
+                var (parcel, storage) = await Close(lot, LotStatusDb.Expired, ParcelKindDb.LotReturn, "expire", chargeStorage: true);
                 await tx.CommitAsync();
-                announcements.Add((parcel, lot.SellerPlayerId, lot.Id));
+                wallet.FlushEvents();
+                announcements.Add((parcel, lot.SellerPlayerId, lot.Id, storage));
             }
             catch (Exception ex)
             {
+                wallet.DiscardEvents();
                 log.LogWarning(ex, "Could not expire lot {Lot}", lot.Id);
             }
         }
-        foreach (var (parcel, seller, lotId) in announcements)
+        foreach (var (parcel, seller, lotId, storage) in announcements)
         {
-            events.SendTo(seller, new ServerEvent { LotClosed = new LotClosed { LotId = lotId, Reason = "expired" } });
+            events.SendTo(seller, new ServerEvent { LotClosed = new LotClosed { LotId = lotId, Reason = "expired", StorageFee = storage } });
             await mailbox.Announce(parcel);
         }
         return announcements.Count;
     }
 
-    private async Task<Parcel> Close(Lot lot, LotStatusDb status, ParcelKindDb kind, string transferKind)
+    private async Task<(Parcel Parcel, long Storage)> Close(Lot lot, LotStatusDb status, ParcelKindDb kind, string transferKind, bool chargeStorage)
     {
+        long storage = chargeStorage ? StorageFeeOf(lot) : 0;
+        if (storage > 0) await wallet.Charge(lot.SellerPlayerId, storage, "storage", lot.Id);
         lot.Status = status;
         lot.ClosedAt = DateTime.UtcNow;
         var items = ItemList.Parser.ParseFrom(lot.Items);
@@ -185,8 +194,11 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
         var parcel = await mailbox.Create(lot.SellerPlayerId, null, kind, items, pawns, 0, null, ignoreMailboxLimit: true);
         db.Transfers.Add(new Transfer { FromPlayerId = lot.SellerPlayerId, Kind = transferKind, GameTick = 0, Summary = $"lot {lot.Id}", At = DateTime.UtcNow });
         await db.SaveChangesAsync();
-        return parcel;
+        return (parcel, storage);
     }
+
+    private long StorageFeeOf(Lot lot) =>
+        StorageFee.For(StorageFee.LotBase(lot), lot.CreatedAt, DateTime.UtcNow, options.Value.StorageFeePercentPerDay, options.Value.StorageFreeDays);
 
     public static Protocol.V1.Lot ToProto(Lot l, Player? seller, bool includeBlobs = true) => new()
     {

@@ -122,7 +122,7 @@ public sealed class AdminCommandRunner(AdminOperations ops, ModpackService modpa
                     case "unfreeze": await ops.SetEconomyFrozen(actor, false, null); return "trading open";
                     case "stats":
                         var s = await ops.EconomyStats(actor);
-                        return $"silver in wallets {s.SilverInWallets}, open lots {s.OpenLots}, pending parcels {s.PendingParcels}, trades today {s.TradesToday}{(s.Frozen ? $", FROZEN: {s.FreezeReason}" : "")}";
+                        return $"silver in wallets {s.SilverInWallets}, open lots {s.OpenLots}, pending parcels {s.PendingParcels}, trades today {s.TradesToday}, storage fees {s.StorageFeesCollected}{(s.Frozen ? $", FROZEN: {s.FreezeReason}" : "")}";
                     default: throw new RpcException(new Status(StatusCode.InvalidArgument, "economy freeze [reason] | unfreeze | stats"));
                 }
             case "trades":

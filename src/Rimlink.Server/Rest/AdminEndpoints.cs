@@ -93,7 +93,7 @@ public static class AdminEndpoints
         group.MapGet("/economy/stats", async (HttpContext ctx, AdminOperations ops) =>
         {
             var s = await ops.EconomyStats(ctx.Actor());
-            return new { silverInWallets = s.SilverInWallets, openLots = s.OpenLots, pendingParcels = s.PendingParcels, tradesToday = s.TradesToday, frozen = s.Frozen, freezeReason = s.FreezeReason };
+            return new { silverInWallets = s.SilverInWallets, openLots = s.OpenLots, pendingParcels = s.PendingParcels, tradesToday = s.TradesToday, frozen = s.Frozen, freezeReason = s.FreezeReason, storageFeesCollected = s.StorageFeesCollected };
         }).RequireScope(ApiScope.Read);
 
         group.MapGet("/raids", async (HttpContext ctx, AdminOperations ops, AdminDirectory directory, [FromQuery] long? playerId = null) =>

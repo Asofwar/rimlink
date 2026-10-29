@@ -189,7 +189,8 @@ public sealed class AdminOperations(
         await Audit(actor, frozen ? "player-economy-freeze" : "player-economy-unfreeze", player.AccountId, details);
     }
 
-    public sealed record EconomyStatsResult(long SilverInWallets, int OpenLots, int PendingParcels, int TradesToday, bool Frozen, string? FreezeReason);
+    public sealed record EconomyStatsResult(long SilverInWallets, int OpenLots, int PendingParcels, int TradesToday, bool Frozen, string? FreezeReason,
+        long StorageFeesCollected = 0);
 
     public async Task<long> AdjustWallet(Actor actor, long playerId, long delta, string reason)
     {
@@ -242,7 +243,7 @@ public sealed class AdminOperations(
         actor.Require(Role.Admin);
         var lot = await db.Lots.AsNoTracking().FirstOrDefaultAsync(l => l.Id == lotId && l.Status == LotStatusDb.Open);
         if (lot is null) return false;
-        await market.Withdraw(lot.SellerPlayerId, lotId, bypassGate: true);
+        await market.Withdraw(lot.SellerPlayerId, lotId, bypassGate: true, chargeStorage: false);
         await Audit(actor, "refund-lot", null, $"lot {lotId} returned to player {lot.SellerPlayerId}");
         return true;
     }
@@ -314,7 +315,8 @@ public sealed class AdminOperations(
             await db.Parcels.CountAsync(p => p.DeliveredAt == null),
             await db.Transfers.CountAsync(t => t.At >= since && (t.Kind == "send" || t.Kind == "buy" || t.Kind == "post")),
             freeze.Frozen,
-            freeze.Reason);
+            freeze.Reason,
+            await db.WalletEntries.Where(e => e.PlayerId == WalletService.BankPlayerId && e.Kind == "storage").SumAsync(e => e.Delta));
     }
 
     public Task<List<OnlinePlayer>> ListOnline(Actor actor)

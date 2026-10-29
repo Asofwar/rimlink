@@ -17,6 +17,9 @@ public sealed class WalletService(RimlinkDbContext db, EventBus events)
 
     private readonly List<(long PlayerId, ServerEvent Event)> pendingEvents = [];
 
+    /// <summary>Drops the events of a transaction that rolled back (a batch that goes on with the next item).</summary>
+    public void DiscardEvents() => pendingEvents.Clear();
+
     /// <summary>Sends the WalletChanged events of this scope; call after the transaction committed (never inside it).</summary>
     public void FlushEvents()
     {
@@ -41,7 +44,28 @@ public sealed class WalletService(RimlinkDbContext db, EventBus events)
         }
         if (wallet.Balance + delta < 0)
             throw RpcErrors.Failed(ErrorCode.WalletInsufficient, RefusalKeys.EconomyWalletInsufficient, $"not enough silver: balance {wallet.Balance}, needed {-delta}", wallet.Balance, -delta);
+        return await Write(wallet, playerId, delta, kind, refId);
+    }
 
+    /// <summary>
+    /// Debits a storage fee, which may leave the balance below zero (a debt that closes buying, lots and sends until it is
+    /// paid). Credits the bank with the same amount. The only path below zero.
+    /// </summary>
+    public async Task<WalletEntry> Charge(long playerId, long amount, string kind, long refId)
+    {
+        var wallet = await db.Wallets.FirstOrDefaultAsync(w => w.PlayerId == playerId);
+        if (wallet is null)
+        {
+            wallet = new Wallet { PlayerId = playerId, Balance = 0, UpdatedAt = DateTime.UtcNow };
+            db.Wallets.Add(wallet);
+        }
+        var entry = await Write(wallet, playerId, -amount, kind, refId);
+        await Apply(BankPlayerId, amount, kind, refId);
+        return entry;
+    }
+
+    private async Task<WalletEntry> Write(Wallet wallet, long playerId, long delta, string kind, long refId)
+    {
         wallet.Balance += delta;
         wallet.UpdatedAt = DateTime.UtcNow;
         var entry = new WalletEntry { PlayerId = playerId, Delta = delta, Kind = kind, RefId = refId, At = DateTime.UtcNow };
@@ -49,7 +73,7 @@ public sealed class WalletService(RimlinkDbContext db, EventBus events)
         await db.SaveChangesAsync();
 
         if (playerId != BankPlayerId)
-            pendingEvents.Add((playerId, new ServerEvent { WalletChanged = new WalletChanged { Balance = wallet.Balance, Delta = delta, Kind = kind } }));
+            pendingEvents.Add((playerId, new ServerEvent { WalletChanged = new WalletChanged { Balance = wallet.Balance, Delta = delta, Kind = kind, RefId = refId } }));
         return entry;
     }
 
