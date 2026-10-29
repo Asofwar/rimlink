@@ -248,6 +248,9 @@ Discord roles. It talks to the server only through the admin REST API, with a to
    (the file lists every variable); `deploy/discord.appsettings.example.json` shows the same settings as JSON. The bot
    stops at start when a token is missing; a channel it cannot write to or a role it cannot find only turns that part off
    (see its log).
+   Without Docker: unpack `rimlink-discord-<version>-<runtime>.zip` from the release (needs the .NET 10 runtime), put the
+   `RimlinkBot` section of `discord.appsettings.example.json` into its `appsettings.json` (or set `RimlinkBot__…` environment
+   variables) and run `dotnet rimlink-discord.dll` from that folder.
 
 Commands (Discord bot spec §5):
 
