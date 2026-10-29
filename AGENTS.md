@@ -171,7 +171,12 @@ from PowerShell):
   blob is loaded; `ThingBlobs.DeserializePawn` repoints them to the receiver's defaults.
 - Vanilla never loads a pawn during `ProgramState.Playing`; a blob does. Its first life-stage computation then calls
   `Notify_LifeStageStarted` with no previous stage, which the adult worker dereferences for colonists
-  (`Patch_LifeStageWorker_HumanlikeAdult` skips it while Scribe is loading).
+  (`Patch_LifeStageWorker_HumanlikeAdult` skips it while Scribe is loading). The same assumption sits in `Need_Food.MaxLevel`
+  (stats read before the hediffs are attached; a chemical dependency throws and the need is dropped): `Patch_Need_Food_MaxLevel`.
+  When a load-time crash names a vanilla `ProgramState.Playing` branch, that is the pattern.
+- Faction references inside a blob (royal titles, favor, heirs) resolve against this world's factions by load id
+  (`ThingBlobs.RegisterWorldFactions`), like the thing's own faction; a title still without a faction (older saves) is given
+  this world's granting faction or dropped (`Patch_Pawn_RoyaltyTracker_ExposeData`).
 - A blob loads in a Scribe pass of its own: references to anything outside it (other pawns in relations and memories, ideos,
   policies) resolve to null and are dropped. `Pawn.Discard` (the `PawnExit` path) runs `ClearAllRelations` on both sides and removes
   every pawn's memories of the discarded one, so the colony's half of a relation is gone too. A pawn of the colony leaving for good

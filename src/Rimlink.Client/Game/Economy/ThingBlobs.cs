@@ -153,6 +153,7 @@ public static class ThingBlobs
             try
             {
                 Scribe_Deep.Look(ref thing, saveDestroyedThings: true, Node);
+                RegisterWorldFactions();
             }
             finally
             {
@@ -165,6 +166,21 @@ public static class ThingBlobs
         {
             File.Delete(path);
         }
+    }
+
+    private static readonly HarmonyLib.AccessTools.FieldRef<CrossRefHandler, LoadedObjectDirectory> LoadedObjects =
+        HarmonyLib.AccessTools.FieldRefAccess<CrossRefHandler, LoadedObjectDirectory>("loadedObjectDirectory");
+
+    /// <summary>
+    /// Faction references in a blob (royal titles, favor, heirs) resolve by load id against this world's factions, as the game
+    /// already does for the thing's own faction: all players share one world, so its factions carry the same ids. Unresolved, they
+    /// load as null and vanilla's royalty code throws on them at every load.
+    /// </summary>
+    private static void RegisterWorldFactions()
+    {
+        if (Find.FactionManager is not { } factions) return;
+        var directory = LoadedObjects(Scribe.loader.crossRefs);
+        foreach (var faction in factions.AllFactionsListForReading) directory.RegisterLoaded(faction);
     }
 
     private static string TempPath()
