@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <!-- Where parcels from other players land (economy hardening spec §6). Free and instant to place; one per map. -->
+  <ThingDef ParentName="BuildingBase">
+    <defName>Rimlink_DeliverySpot</defName>
+    <label>Rimlink delivery spot</label>
+    <description>Parcels from other players land here. Placing a new one removes the old one.</description>
+    <thingClass>Rimlink.Client.Game.Economy.Building_DeliverySpot</thingClass>
+    <graphicData>
+      <texPath>Things/Building/Misc/CaravanHitchingSpot</texPath>
+      <graphicClass>Graphic_Single</graphicClass>
+      <color>(110,180,255)</color>
+      <drawSize>(1,1)</drawSize>
+    </graphicData>
+    <altitudeLayer>FloorEmplacement</altitudeLayer>
+    <statBases>
+      <WorkToBuild>0</WorkToBuild>
+    </statBases>
+    <useHitPoints>false</useHitPoints>
+    <scatterableOnMapGen>false</scatterableOnMapGen>
+    <rotatable>false</rotatable>
+    <designationCategory>Misc</designationCategory>
+    <uiOrder>2011</uiOrder>
+    <passability>Standable</passability>
+    <building>
+      <ai_chillDestination>false</ai_chillDestination>
+      <wakeDormantPawnsOnConstruction>false</wakeDormantPawnsOnConstruction>
+      <artificialForMeditationPurposes>false</artificialForMeditationPurposes>
+    </building>
+  </ThingDef>
+</Defs>

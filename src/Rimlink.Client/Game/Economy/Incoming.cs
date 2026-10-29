@@ -161,9 +161,15 @@ public static class Incoming
         }
     }
 
+    /// <summary>The player's delivery spot, else the first trade beacon, else the vanilla trade drop spot.</summary>
     public static IntVec3 DropCenter(Map map)
     {
+        var spot = map.listerThings.ThingsOfDef(DeliverySpotDef).FirstOrDefault();
+        if (spot is not null) return spot.Position;
         var beacon = map.listerBuildings.AllBuildingsColonistOfDef(ThingDefOf.OrbitalTradeBeacon).FirstOrDefault();
         return beacon is not null ? beacon.Position : DropCellFinder.TradeDropSpot(map);
     }
+
+    private static ThingDef? deliverySpotDef;
+    private static ThingDef DeliverySpotDef => deliverySpotDef ??= DefDatabase<ThingDef>.GetNamed("Rimlink_DeliverySpot");
 }
