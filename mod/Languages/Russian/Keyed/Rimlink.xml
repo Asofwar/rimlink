@@ -174,7 +174,7 @@
   <Rimlink.Economy.UnderThreat>Колонии угрожают: депозит, лоты и отправки закрыты до конца угрозы.</Rimlink.Economy.UnderThreat>
   <Rimlink.Economy.StorageFeeParcel>За хранение посылки {0} списано {1} серебра.</Rimlink.Economy.StorageFeeParcel>
   <Rimlink.Economy.StorageFeeLot>За хранение лота {0} списано {1} серебра.</Rimlink.Economy.StorageFeeLot>
-  <Rimlink.Economy.InDebt>Долг за хранение {0} серебра: покупки, лоты и отправки закрыты, пока он не погашен.</Rimlink.Economy.InDebt>
+  <Rimlink.Economy.InDebt>Долг за хранение {0} серебра. Покупки, лоты и отправки закрыты, пока он не погашен.</Rimlink.Economy.InDebt>
   <Rimlink.Economy.Forbidden>Запрещено на этом сервере</Rimlink.Economy.Forbidden>
   <Rimlink.Visit.WalletOnly>В гостях можно отправить только серебро из кошелька: вещи на этой карте принадлежат хозяину.</Rimlink.Visit.WalletOnly>
   <Rimlink.Economy.Unanswered>Сервер не ответил ({0}). Передача сохранена и будет завершена при следующем входе.</Rimlink.Economy.Unanswered>

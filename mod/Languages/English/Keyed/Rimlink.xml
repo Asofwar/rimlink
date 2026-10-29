@@ -174,7 +174,7 @@
   <Rimlink.Economy.UnderThreat>Your colony is under threat: deposits, lots and sends are closed until it is over.</Rimlink.Economy.UnderThreat>
   <Rimlink.Economy.StorageFeeParcel>Storage fee for parcel {0}: {1} silver.</Rimlink.Economy.StorageFeeParcel>
   <Rimlink.Economy.StorageFeeLot>Storage fee for lot {0}: {1} silver.</Rimlink.Economy.StorageFeeLot>
-  <Rimlink.Economy.InDebt>You owe {0} silver in storage fees: buying, posting lots and sending are closed until it is paid.</Rimlink.Economy.InDebt>
+  <Rimlink.Economy.InDebt>You owe {0} silver in storage fees. Buying, posting lots and sending are closed until it is paid.</Rimlink.Economy.InDebt>
   <Rimlink.Economy.Forbidden>Forbidden on this server</Rimlink.Economy.Forbidden>
   <Rimlink.Visit.WalletOnly>During a visit only silver from your wallet can be sent: the things on this map are the host's.</Rimlink.Visit.WalletOnly>
   <Rimlink.Economy.Unanswered>The server did not answer ({0}). The transfer is kept and will be settled at the next login.</Rimlink.Economy.Unanswered>
