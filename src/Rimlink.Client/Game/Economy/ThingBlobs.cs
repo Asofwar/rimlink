@@ -111,11 +111,16 @@ public static class ThingBlobs
         if (!pawn.Downed) jobs.posture = PawnPosture.Standing;
     }
 
-    /// <summary>New thing IDs for the object and everything it holds (apparel, equipment, inventory, carried), new hediff IDs for pawns.</summary>
+    /// <summary>
+    /// New thing IDs for the object and everything it holds (apparel, equipment, inventory, carried, and the filth a pawn carries on
+    /// its feet, which is deep-saved outside any thing owner), new hediff IDs for pawns.
+    /// </summary>
     private static void RegenerateIds(Thing root)
     {
         var held = new List<Thing>();
         if (root is IThingHolder holder) ThingOwnerUtility.GetAllThingsRecursively(holder, held); // clears the list first
+        foreach (var p in held.Prepend(root).OfType<Pawn>().ToList())
+            if (p.filth?.CarriedFilthListForReading is { } filth) held.AddRange(filth);
         foreach (var t in held.Prepend(root).Distinct())
         {
             if (t.def.HasThingIDNumber) t.thingIDNumber = Find.UniqueIDsManager.GetNextThingID();
