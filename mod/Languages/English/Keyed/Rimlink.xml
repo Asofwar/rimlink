@@ -540,6 +540,8 @@
   <Rimlink.Refusal.Incidents.Self>you cannot order an event against yourself</Rimlink.Refusal.Incidents.Self>
   <Rimlink.Refusal.Incidents.NoPods>'{0}' cannot come by drop pods</Rimlink.Refusal.Incidents.NoPods>
   <Rimlink.Refusal.Incidents.Level>level is 1 to 4</Rimlink.Refusal.Incidents.Level>
+  <Rimlink.Refusal.Incidents.NoSuchEvent>no such event for you</Rimlink.Refusal.Incidents.NoSuchEvent>
+  <Rimlink.Refusal.Incidents.Gone>that event is no longer waiting</Rimlink.Refusal.Incidents.Gone>
   <Rimlink.Settlement.InspectFaction>Colony of player {0}, faction {1}</Rimlink.Settlement.InspectFaction>
   <Rimlink.Settlement.Online>Online now</Rimlink.Settlement.Online>
   <Rimlink.Settlement.SeenToday>Last seen today</Rimlink.Settlement.SeenToday>

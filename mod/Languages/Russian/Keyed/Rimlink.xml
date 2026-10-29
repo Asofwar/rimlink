@@ -540,6 +540,8 @@
   <Rimlink.Refusal.Incidents.Self>Нельзя заказать событие против себя</Rimlink.Refusal.Incidents.Self>
   <Rimlink.Refusal.Incidents.NoPods>Событие «{0}» не может прийти в капсулах</Rimlink.Refusal.Incidents.NoPods>
   <Rimlink.Refusal.Incidents.Level>Уровень — от 1 до 4</Rimlink.Refusal.Incidents.Level>
+  <Rimlink.Refusal.Incidents.NoSuchEvent>Такого события для вас нет</Rimlink.Refusal.Incidents.NoSuchEvent>
+  <Rimlink.Refusal.Incidents.Gone>Это событие больше не ждёт</Rimlink.Refusal.Incidents.Gone>
   <Rimlink.Settlement.InspectFaction>Колония игрока {0}, фракция {1}</Rimlink.Settlement.InspectFaction>
   <Rimlink.Settlement.Online>Сейчас в сети</Rimlink.Settlement.Online>
   <Rimlink.Settlement.SeenToday>Был в сети сегодня</Rimlink.Settlement.SeenToday>

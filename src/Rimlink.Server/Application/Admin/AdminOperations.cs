@@ -61,7 +61,8 @@ public sealed class AdminOperations(
     World.ColonyArchive archive,
     ILogger<AdminOperations> log,
     ForbiddenDefsService forbiddenStore,
-    ForbiddenDefs forbidden)
+    ForbiddenDefs forbidden,
+    Incidents.IncidentService incidents)
 {
     /// <summary>Archived colonies, newest first (at most 500); <paramref name="state"/> is archived, restored or all.</summary>
     public async Task<List<ArchivedRow>> ListArchived(Actor actor, string state)
@@ -479,6 +480,7 @@ public sealed class AdminOperations(
             .SetProperty(p => p.WealthItems, 0L));
         await RemoveObjectsOf(playerId);
         await raids.CancelAllOf(playerId, "colony reset");
+        await incidents.CancelAllOf(playerId, "colony reset");
         await shop.ClearOf(playerId);
         await visits.EndAllOf(playerId);
         await trades.CancelAllOf(playerId, "colony reset");
@@ -558,6 +560,7 @@ public sealed class AdminOperations(
         {
             await saves.Archive(playerId, Path.Combine(archive, playerId.ToString()));
             await raids.CancelAllOf(playerId, "world recreated");
+            await incidents.CancelAllOf(playerId, "world recreated");
             await shop.ClearOf(playerId);
             await visits.EndAllOf(playerId);
         }

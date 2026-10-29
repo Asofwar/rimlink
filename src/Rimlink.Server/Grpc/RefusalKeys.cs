@@ -176,4 +176,6 @@ public static class RefusalKeys
     public const string IncidentsSelf = "Incidents.Self";
     public const string IncidentsNoPods = "Incidents.NoPods";
     public const string IncidentsLevel = "Incidents.Level";
+    public const string IncidentsNoSuchEvent = "Incidents.NoSuchEvent";
+    public const string IncidentsGone = "Incidents.Gone";
 }

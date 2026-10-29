@@ -123,6 +123,7 @@ builder.Services.AddScoped<Rimlink.Server.Application.Raids.RaidRules>();
 builder.Services.AddScoped<Rimlink.Server.Application.Raids.RaidService>();
 builder.Services.AddScoped<Rimlink.Server.Application.Raids.RaidReportValidator>();
 builder.Services.AddHostedService<Rimlink.Server.Application.Raids.RaidExpiryService>();
+builder.Services.AddHostedService<Rimlink.Server.Application.Incidents.IncidentExpiryService>();
 builder.Services.AddScoped<Rimlink.Server.Application.Visits.VisitService>();
 builder.Services.AddScoped<Rimlink.Server.Application.Visits.ShopService>();
 builder.Services.AddScoped<Rimlink.Server.Application.Live.LiveSessionService>();

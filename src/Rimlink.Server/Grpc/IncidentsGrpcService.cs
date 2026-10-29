@@ -19,6 +19,15 @@ public sealed class IncidentsGrpcService(IncidentService incidents) : Protocol.V
     public override async Task<IncidentList> Mine(Empty request, ServerCallContext context) =>
         await ListOf(await incidents.Mine(context.GetSession().PlayerId));
 
+    public override async Task<Incident> Announce(AnnounceIncident request, ServerCallContext context) =>
+        await incidents.ToProto(await incidents.Announce(context.GetSession().PlayerId, request));
+
+    public override async Task<Empty> Report(IncidentReport request, ServerCallContext context)
+    {
+        await incidents.Report(context.GetSession().PlayerId, request);
+        return new Empty();
+    }
+
     private async Task<IncidentList> ListOf(IEnumerable<Storage.Entities.IncidentOrder> orders)
     {
         var list = new IncidentList();

@@ -94,6 +94,81 @@ public sealed class IncidentService(RimlinkDbContext db, WalletService wallet, R
         return order;
     }
 
+    /// <summary>The target's game saw the order: it fires now, or half a day later for a big hostile one.</summary>
+    public async Task<IncidentOrder> Announce(long targetId, AnnounceIncident r)
+    {
+        var order = await db.IncidentOrders.FirstOrDefaultAsync(i => i.Id == r.IncidentId && i.TargetPlayerId == targetId)
+            ?? throw RpcErrors.With(global::Grpc.Core.StatusCode.NotFound, ErrorCode.Unspecified, RefusalKeys.IncidentsNoSuchEvent, "no such event for you");
+        if (order.State == IncidentStateDb.Announced) return order;
+        if (order.State != IncidentStateDb.Queued) throw RpcErrors.Failed(ErrorCode.RaidGone, RefusalKeys.IncidentsGone, "that event is no longer waiting");
+        var o = options.Value;
+        bool warned = order.Kind == (int)IncidentKind.IncidentHostile && order.Level >= o.WarnFromLevel;
+        order.FireTick = r.GameTick + (warned ? o.WarnTicks : 0);
+        order.State = IncidentStateDb.Announced;
+        order.ExpiresAt = DateTime.UtcNow.AddDays(o.ExpireRealDays);
+        await db.SaveChangesAsync();
+        return order;
+    }
+
+    /// <summary>The target's game ran the order (or could not: refunded). A report for a finished order changes nothing.</summary>
+    public async Task Report(long targetId, IncidentReport r)
+    {
+        var order = await db.IncidentOrders.FirstOrDefaultAsync(i => i.Id == r.IncidentId && i.TargetPlayerId == targetId)
+            ?? throw RpcErrors.With(global::Grpc.Core.StatusCode.NotFound, ErrorCode.Unspecified, RefusalKeys.IncidentsNoSuchEvent, "no such event for you");
+        if (!Waiting.Contains(order.State)) return;
+        if (r.Fired) await Close(order, IncidentStateDb.Fired, null, refund: false);
+        else await Close(order, IncidentStateDb.Failed, string.IsNullOrWhiteSpace(r.Reason) ? "the event could not run" : r.Reason, refund: true);
+    }
+
+    /// <summary>Orders the target did not announce or fire in time go back to their buyers.</summary>
+    public async Task<int> ExpireDue(DateTime now)
+    {
+        int n = 0;
+        foreach (long id in await db.IncidentOrders.AsNoTracking().Where(i => Waiting.Contains(i.State) && i.ExpiresAt <= now).Select(i => i.Id).ToListAsync())
+        {
+            var order = await db.IncidentOrders.FirstAsync(i => i.Id == id);
+            if (await Close(order, IncidentStateDb.Expired, "the target did not play in time", refund: true)) n++;
+        }
+        return n;
+    }
+
+    public async Task<bool> Cancel(long id, string reason)
+    {
+        var order = await db.IncidentOrders.FirstOrDefaultAsync(i => i.Id == id);
+        return order is not null && await Close(order, IncidentStateDb.Cancelled, reason, refund: true);
+    }
+
+    /// <summary>The player's colony is gone (reset, world recreated): orders by or at them are cancelled and refunded.</summary>
+    public async Task CancelAllOf(long playerId, string reason)
+    {
+        foreach (long id in await db.IncidentOrders.AsNoTracking().Where(i => (i.TargetPlayerId == playerId || i.BuyerPlayerId == playerId) && Waiting.Contains(i.State)).Select(i => i.Id).ToListAsync())
+            await Cancel(id, reason);
+    }
+
+    /// <summary>False when the order finished between the caller's read and this transaction.</summary>
+    private async Task<bool> Close(IncidentOrder order, IncidentStateDb state, string? reason, bool refund)
+    {
+        await using (var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable))
+        {
+            await db.Entry(order).ReloadAsync();
+            if (!Waiting.Contains(order.State)) return false;
+            order.State = state;
+            order.Reason = reason;
+            order.ResolvedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+            if (refund)
+            {
+                await wallet.Apply(WalletService.BankPlayerId, -order.Price, "incident-refund", order.Id);
+                await wallet.Apply(order.BuyerPlayerId, order.Price, "incident-refund", order.Id);
+            }
+            await tx.CommitAsync();
+        }
+        wallet.FlushEvents();
+        log.LogInformation("Incident {Incident} {State}{Reason}", order.Id, state, reason is null ? "" : ": " + reason);
+        events.SendTo(order.BuyerPlayerId, new ServerEvent { IncidentResolved = new IncidentResolved { Incident = await ToProto(order), Refund = refund ? order.Price : 0 } });
+        return true;
+    }
+
     public Task<List<IncidentOrder>> Pending(long targetId) =>
         db.IncidentOrders.AsNoTracking().Where(i => i.TargetPlayerId == targetId && Waiting.Contains(i.State)).OrderBy(i => i.Id).ToListAsync();
 
