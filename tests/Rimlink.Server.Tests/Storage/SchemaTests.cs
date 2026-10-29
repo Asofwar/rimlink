@@ -189,4 +189,20 @@ public class SchemaTests : IDisposable
         while (reader.Read()) columns.Add(reader.GetString(1));
         return columns;
     }
+
+    [Fact]
+    public void ModpackFilesAndConfigsMigration()
+    {
+        using var db = CreateContext();
+
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = "SELECT name FROM pragma_table_info('modpack_entries')";
+        var columns = new List<string>();
+        using (var reader = cmd.ExecuteReader()) while (reader.Read()) columns.Add(reader.GetString(0));
+        Assert.Contains("FilesHash", columns);
+
+        cmd.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND tbl_name = 'modpack_configs' AND sql LIKE '%UNIQUE%PackageId%Handle%'";
+        Assert.Equal(1L, (long)cmd.ExecuteScalar()!);
+        Assert.Equal(0, db.ModpackConfigs.Count());
+    }
 }

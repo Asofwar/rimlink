@@ -119,6 +119,18 @@ public sealed class ModpackEntry
     public ulong? WorkshopId { get; set; }
     public string? Url { get; set; }
     public EntryKind Kind { get; set; }
+    /// <summary>ModContent hash of the admin's copy; null = the files of this mod are not compared.</summary>
+    public string? FilesHash { get; set; }
+}
+
+/// <summary>A settings file every player uses for this mod class (the whitelist of shared mod settings).</summary>
+public sealed class ModpackConfig
+{
+    public long Id { get; set; }
+    public string PackageId { get; set; } = "";
+    public string Handle { get; set; } = "";
+    public byte[] Content { get; set; } = [];
+    public string Hash { get; set; } = "";
 }
 
 public sealed class SaveVersion

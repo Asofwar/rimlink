@@ -17,7 +17,9 @@ public static class AdminEndpoints
     public sealed record TextBody(string Text);
     public sealed record ChatBody(string Author, string Text);
     public sealed record ShutdownBody(int InSeconds, string? Reason);
-    public sealed record ModpackEntryBody(int Position, string PackageId, string? Version, ulong WorkshopId, string? Url, [property: JsonConverter(typeof(JsonStringEnumConverter))] EntryKind Kind);
+    public sealed record ModpackEntryBody(int Position, string PackageId, string? Version, ulong WorkshopId, string? Url, [property: JsonConverter(typeof(JsonStringEnumConverter))] EntryKind Kind, string? FilesHash = null);
+    public sealed record ModConfigBody(string PackageId, string Handle, string ContentBase64);
+    public sealed record ModConfigsBody(List<ModConfigBody> Configs);
     public sealed record ModpackBody(List<ModpackEntryBody> Entries);
     public sealed record DefsBody(List<string> DefNames);
     public sealed record WalletBody(long Delta, string? Reason);
@@ -66,7 +68,9 @@ public static class AdminEndpoints
             return actions.Select(a => new { a.Id, a.At, a.ActorAccountId, a.ActorName, a.Action, a.TargetAccountId, targetName = a.TargetAccountId is { } t && names.TryGetValue(t, out var n) ? n : null, a.Details });
         }).RequireScope(ApiScope.Moderate);
 
-        group.MapGet("/modpack", async (ModpackService modpack) => new ModpackBody((await modpack.Get()).Select(e => new ModpackEntryBody(e.Position, e.PackageId, e.Version, e.WorkshopId, e.Url, e.Kind)).ToList())).RequireScope(ApiScope.Read);
+        group.MapGet("/modpack", async (ModpackService modpack) => new ModpackBody((await modpack.Get()).Select(e => new ModpackEntryBody(e.Position, e.PackageId, e.Version, e.WorkshopId, e.Url, e.Kind, e.FilesHash)).ToList())).RequireScope(ApiScope.Read);
+        group.MapGet("/modpack/configs", async (ModpackService modpack) =>
+            (await modpack.GetConfigs()).Select(c => new { c.PackageId, c.Handle, c.Hash, size = c.Content.Length })).RequireScope(ApiScope.Read);
         group.MapPut("/modpack/defs", async (DefsBody body, HttpContext ctx, ModpackService modpack, ModpackDefs defs) =>
         {
             await modpack.SetDefs(body.DefNames, ctx.Actor().Role, ctx.Actor().Name, defs);
@@ -125,8 +129,21 @@ public static class AdminEndpoints
 
         group.MapPut("/modpack", async (ModpackBody body, HttpContext ctx, ModpackService modpack) =>
         {
-            await modpack.Set(body.Entries.Select(e => new ModpackEntry { Position = e.Position, PackageId = e.PackageId, Version = e.Version ?? "", WorkshopId = e.WorkshopId, Url = e.Url ?? "", Kind = e.Kind }).ToList(), ctx.Actor().Role, ctx.Actor().Name);
+            await modpack.Set(body.Entries.Select(e => new ModpackEntry { Position = e.Position, PackageId = e.PackageId, Version = e.Version ?? "", WorkshopId = e.WorkshopId, Url = e.Url ?? "", Kind = e.Kind, FilesHash = e.FilesHash ?? "" }).ToList(), ctx.Actor().Role, ctx.Actor().Name);
             return Results.Ok();
+        }).RequireScope(ApiScope.Admin);
+        group.MapPut("/modpack/configs", async (ModConfigsBody body, HttpContext ctx, ModpackService modpack) =>
+        {
+            var configs = new List<ModConfig>();
+            foreach (var c in body.Configs)
+            {
+                byte[] content;
+                try { content = Convert.FromBase64String(c.ContentBase64 ?? ""); }
+                catch (FormatException) { return Results.Problem($"{c.PackageId} {c.Handle}: contentBase64 is not base64", statusCode: StatusCodes.Status400BadRequest); }
+                configs.Add(new ModConfig { PackageId = c.PackageId ?? "", Handle = c.Handle ?? "", Content = Google.Protobuf.ByteString.CopyFrom(content) });
+            }
+            await modpack.SetConfigs(configs, ctx.Actor().Role, ctx.Actor().Name);
+            return Results.Ok(new { count = configs.Count });
         }).RequireScope(ApiScope.Admin);
     }
 

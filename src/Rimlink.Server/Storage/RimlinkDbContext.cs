@@ -21,6 +21,7 @@ public sealed class RimlinkDbContext(DbContextOptions<RimlinkDbContext> options)
     public DbSet<Lot> Lots => Set<Lot>();
     public DbSet<Transfer> Transfers => Set<Transfer>();
     public DbSet<ModpackDef> ModpackDefs => Set<ModpackDef>();
+    public DbSet<ModpackConfig> ModpackConfigs => Set<ModpackConfig>();
     public DbSet<Raid> Raids => Set<Raid>();
     public DbSet<RaidOutcome> RaidOutcomes => Set<RaidOutcome>();
     public DbSet<Visit> Visits => Set<Visit>();
@@ -129,6 +130,11 @@ public sealed class RimlinkDbContext(DbContextOptions<RimlinkDbContext> options)
         {
             e.ToTable("modpack_defs");
             e.HasKey(d => d.DefName);
+        });
+        model.Entity<ModpackConfig>(e =>
+        {
+            e.ToTable("modpack_configs");
+            e.HasIndex(c => new { c.PackageId, c.Handle }).IsUnique();
         });
 
         model.Entity<Raid>(e =>

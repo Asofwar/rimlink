@@ -20,6 +20,21 @@ public sealed class ModpackGrpcService(ModpackService modpack, ModpackDefs defs)
         return list;
     }
 
+    public override async Task<Empty> SetConfigs(ModConfigList request, ServerCallContext context)
+    {
+        var session = context.GetSession();
+        await modpack.SetConfigs(request.Configs, session.Role, session.PlayerName);
+        return new Empty();
+    }
+
+    public override async Task<ModConfigList> GetConfigs(Empty request, ServerCallContext context)
+    {
+        if (context.GetSession().Role != Server.Storage.Entities.Role.Admin) throw RpcErrors.PermissionDenied("admin only");
+        var list = new ModConfigList();
+        list.Configs.AddRange(await modpack.GetConfigs());
+        return list;
+    }
+
     public override async Task<Empty> Set(ModpackList request, ServerCallContext context)
     {
         var session = context.GetSession();
