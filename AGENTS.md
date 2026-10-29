@@ -176,6 +176,8 @@ from PowerShell):
   every pawn's memories of the discarded one, so the colony's half of a relation is gone too. A pawn of the colony leaving for good
   therefore goes through `PawnExit.Leave`, which records its relations in `RelationLedger`, and every homecoming calls
   `RelationLedger.Rejoin` (pawns that arrive together in one call). `Thing` has no `operator ==`: relation code compares references.
+  Static UI caches mix the two: `SocialCardUtility` adds rows by reference and drops them by id, so a pawn back under an old id needs
+  `SocialCardUtility.ClearCaches()` (done in `Rejoin`) or the discarded original's row stays as "Missing".
 
 ## Commits
 

@@ -90,6 +90,9 @@ public sealed class RelationLedger : GameComponent
         if (Instance is not { } ledger || pawns.Count == 0) return;
         try
         {
+            // The social tab keeps rows across pawns, adds them by reference and drops them by thing id: a row of the discarded
+            // original would stay, "Missing", beside the pawn back under the same id.
+            SocialCardUtility.ClearCaches();
             var back = new List<(Pawn Pawn, RelationEntry Entry)>();
             foreach (var pawn in pawns)
             {
