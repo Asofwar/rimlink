@@ -332,10 +332,14 @@ public class LiveRelayTests
         Assert.Equal(ErrorCode.LiveGone, gone.ErrorDetail()!.Code);
     }
 
-    /// <summary>A refused Hello can end the call before its own write completes, so the refusal surfaces on the write or on the read.</summary>
+    /// <summary>
+    /// A refused Hello can end the call before its own write completes, so the write may already fail; the read reports the refusal with
+    /// its trailers (the error detail) either way.
+    /// </summary>
     private static async Task HelloAndRead(AsyncDuplexStreamingCall<LiveClientMsg, LiveServerMsg> call, long sessionId, int role)
     {
-        await call.RequestStream.WriteAsync(new LiveClientMsg { SessionId = sessionId, Hello = new Hello { Role = role } });
+        try { await call.RequestStream.WriteAsync(new LiveClientMsg { SessionId = sessionId, Hello = new Hello { Role = role } }); }
+        catch (RpcException) { }
         await call.ResponseStream.MoveNext(CancellationToken.None);
     }
 }
