@@ -79,10 +79,10 @@ public sealed class WorldTools
         if (FindCaravan(caravan) is not { } c) return Bridge.Fail($"no caravan '{caravan}'");
         var options = CaravanMenu(c, tile < 0 ? (int)c.Tile : tile);
         if (Pick(options, label, out string? error) is not { } option) return Bridge.Fail(error!, new { options = Options(options) });
-        return Targets.Act(option.action, $"'{option.Label}' ordered", new { caravan = c.GetUniqueLoadID(), destination = (int)c.pather.Destination });
+        return Targets.Act(option.action, $"'{option.Label}' ordered", new { caravan = c.GetUniqueLoadID() });
     });
 
-    [Tool("rimlink/pods_launch", Description = "Load our pawns (and items) into a transport pod group and launch it at a tile with one of that tile's pod options by label (raid, visit, live). Dev shortcut: no launcher building or fuel; instant = arrival on the next tick",
+    [Tool("rimlink/pods_launch", Description = "Load our pawns (and items) into a transport pod group and launch it at a tile with one of that tile's pod options by label (raid, visit, live). Dev shortcut: no launcher building or fuel; instant = the pods arrive at the next world-object tick (step about 120 game ticks or unpause)",
         ResultDescription = "success/started; on arrival the option's window or proposal follows")]
     public Task<object> PodsLaunch(IRimBridgeContext ctx,
         [ToolParameter(Description = "Comma-separated pawn ids or names", Required = true)] string pawns,
@@ -90,7 +90,7 @@ public sealed class WorldTools
         [ToolParameter(Description = "Pod option label or a unique part of it; a wrong one lists the options", Required = true)] string label,
         [ToolParameter(Description = "Items as def:count, comma-separated")] string? items = null,
         [ToolParameter(Description = "Take items from anywhere on the map")] bool anywhere = true,
-        [ToolParameter(Description = "Arrive on the next tick instead of flying the distance")] bool instant = true) => Bridge.OnMain(ctx, () =>
+        [ToolParameter(Description = "Arrive at the next world-object tick instead of flying the distance")] bool instant = true) => Bridge.OnMain(ctx, () =>
     {
         if (Targets.NotPlaying() is { } no) return no;
         var map = Find.CurrentMap;
