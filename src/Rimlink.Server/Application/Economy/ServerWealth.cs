@@ -25,10 +25,21 @@ public sealed class ServerWealth(RimlinkDbContext db, IOptions<EconomyOptions> o
         foreach (var lot in await db.Lots.AsNoTracking().Where(l => l.SellerPlayerId == playerId && l.Status == LotStatusDb.Open).ToListAsync())
             sum += ValueOf(lot);
         foreach (var parcel in await db.Parcels.AsNoTracking().Where(p => p.ToPlayerId == playerId && p.DeliveredAt == null).ToListAsync())
-            sum += (decimal)ValueOf(ItemList.Parser.ParseFrom(parcel.Items)) + ValueOf(PawnList.Parser.ParseFrom(parcel.Pawns)) + parcel.Silver;
+        {
+            sum += parcel.Silver;
+            if (!DeclaredByAnother(parcel.Kind))
+                sum += (decimal)ValueOf(ItemList.Parser.ParseFrom(parcel.Items)) + ValueOf(PawnList.Parser.ParseFrom(parcel.Pawns));
+        }
 
         return Saturate(sum * Math.Clamp(o.ServerWealthPercent, 0, 1000) / 100m);
     }
+
+    /// <summary>
+    /// A gift's values are the sender's, loot's, a raid return's and a captive's the other side's: a third party could inflate
+    /// them to strip the recipient of the poor-colony protection or raise its loot cap. Only their silver counts.
+    /// </summary>
+    public static bool DeclaredByAnother(ParcelKindDb kind) =>
+        kind is ParcelKindDb.Gift or ParcelKindDb.Loot or ParcelKindDb.RaidReturn or ParcelKindDb.Captive;
 
     public static long ValueOf(ItemList? items) =>
         Saturate(items?.Items.Sum(i => (decimal)i.MarketValueX100 * Math.Max(0, i.Count)) / 100m ?? 0);

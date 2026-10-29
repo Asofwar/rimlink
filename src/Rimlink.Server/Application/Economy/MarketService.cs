@@ -29,7 +29,6 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
         if (hasItems == hasPawn) throw RpcErrors.Failed(ErrorCode.Unspecified, RefusalKeys.EconomyLotContents, "a lot holds either items or one pawn");
         if (request.Price < 1) throw RpcErrors.Failed(ErrorCode.Unspecified, RefusalKeys.EconomyPriceTooLow, "price must be at least 1 silver");
         var pawns = hasPawn ? new PawnList { Pawns = { request.Pawn } } : null;
-        if (validator.Validate(hasItems ? request.Items : null, pawns, checkForbidden: true) is { } reason) throw RpcErrors.Failed(reason.Code, reason.Key, reason.Message, reason.Args);
 
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         if (!string.IsNullOrEmpty(request.ClientRequestId))
@@ -38,6 +37,8 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
             if (existing is not null) return existing;
         }
         await gate.RequireNotFrozen(sellerId);
+        // After the replay check, as in Transfer.Send: an applied post is never refused on its replay.
+        if (validator.Validate(hasItems ? request.Items : null, pawns, checkForbidden: true) is { } reason) throw RpcErrors.Failed(reason.Code, reason.Key, reason.Message, reason.Args);
         await guard.RequireNoThreat(sellerId);
         await guard.RequireNoDebt(sellerId);
         int open = await db.Lots.CountAsync(l => l.SellerPlayerId == sellerId && l.Status == LotStatusDb.Open);
@@ -159,13 +160,15 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
     public async Task<int> ExpireDue(DateTime now)
     {
         EconomyMetrics.ParcelsPending.Set(await db.Parcels.CountAsync(p => p.DeliveredAt == null));
-        var due = await db.Lots.Where(l => l.Status == LotStatusDb.Open && l.ExpiresAt <= now).ToListAsync();
+        var due = await db.Lots.AsNoTracking().Where(l => l.Status == LotStatusDb.Open && l.ExpiresAt <= now).Select(l => l.Id).ToListAsync();
         var announcements = new List<(Parcel Parcel, long Seller, long LotId, long Storage)>();
-        foreach (var lot in due)
+        foreach (long lotId in due)
         {
             try
             {
                 await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+                var lot = await db.Lots.FirstOrDefaultAsync(l => l.Id == lotId && l.Status == LotStatusDb.Open);
+                if (lot is null) continue;
                 var (parcel, storage) = await Close(lot, LotStatusDb.Expired, ParcelKindDb.LotReturn, "expire", chargeStorage: true);
                 await tx.CommitAsync();
                 wallet.FlushEvents();
@@ -173,8 +176,11 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
             }
             catch (Exception ex)
             {
+                // The transaction rolled back, but the change tracker still holds its edits (the lot, the seller's wallet):
+                // the next lot's SaveChanges would commit them.
                 wallet.DiscardEvents();
-                log.LogWarning(ex, "Could not expire lot {Lot}", lot.Id);
+                db.ChangeTracker.Clear();
+                log.LogWarning(ex, "Could not expire lot {Lot}", lotId);
             }
         }
         foreach (var (parcel, seller, lotId, storage) in announcements)

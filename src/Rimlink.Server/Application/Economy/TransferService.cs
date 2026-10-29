@@ -16,7 +16,6 @@ public sealed class TransferService(RimlinkDbContext db, WalletService wallet, M
         gate.RequireOpen();
         if (request.ToPlayerId == fromPlayerId) throw RpcErrors.Failed(ErrorCode.SelfTrade, RefusalKeys.EconomySelfSend, "you cannot send to yourself");
         if (request.Silver < 0) throw RpcErrors.Failed(ErrorCode.Unspecified, RefusalKeys.EconomyNegativeSilver, "silver must not be negative");
-        if (validator.Validate(request.Items, request.Pawns, checkForbidden: true) is { } reason) throw RpcErrors.Failed(reason.Code, reason.Key, reason.Message, reason.Args);
         if (request.Items.Items.Count == 0 && request.Pawns.Pawns.Count == 0 && request.Silver == 0)
             throw RpcErrors.Failed(ErrorCode.Unspecified, RefusalKeys.EconomyNothingToSend, "nothing to send");
 
@@ -29,6 +28,9 @@ public sealed class TransferService(RimlinkDbContext db, WalletService wallet, M
         // After the repeat check: a send that went through before a block must not be refused on its replay (the client would put the things back).
         await Social.BlockRules.RequireNotBlocked(db, fromPlayerId, request.ToPlayerId);
         await gate.RequireNotFrozen(fromPlayerId);
+        // After the replay check: a send the server already took is not refused because the modpack or the forbidden list
+        // changed since (the client would return things that left).
+        if (validator.Validate(request.Items, request.Pawns, checkForbidden: true) is { } reason) throw RpcErrors.Failed(reason.Code, reason.Key, reason.Message, reason.Args);
         // A caravan hands over what already left the map; wallet silver and things from the map stay while under threat.
         bool fromMap = (request.Items.Items.Count > 0 || request.Pawns.Pawns.Count > 0) && !request.FromCaravan;
         if (fromMap || request.Silver > 0) await guard.RequireNoThreat(fromPlayerId);

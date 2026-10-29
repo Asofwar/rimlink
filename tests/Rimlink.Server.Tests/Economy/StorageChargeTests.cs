@@ -157,13 +157,14 @@ public class StorageChargeTests
         await SocialFixtures.AcceptGifts(fixture, bob.Player.PlayerId); // a gift waits for a decision otherwise
         var n = Clients(fixture, nova.SessionToken);
         var b = Clients(fixture, bob.SessionToken);
+        await Fund(fixture, bob.Player.PlayerId, 100);
         using var bobStream = new Protocol.V1.Events.EventsClient(fixture.CreateChannel()).Subscribe(new Empty(), b.Auth);
         var parcel = await n.Transfer.SendAsync(Send(bob.Player.PlayerId, pawns: new PawnList { Pawns = { PawnWorth(2000) } }), n.Auth);
         await AgeParcel(fixture, parcel.Id);
 
         await b.Mailbox.DeliverAsync(new DeliverRequest { ParcelId = parcel.Id, GameTick = 300 }, b.Auth);
 
-        Assert.Equal(-20, await BalanceOf(fixture, bob.Player.PlayerId));
+        Assert.Equal(80, await BalanceOf(fixture, bob.Player.PlayerId));
         var changed = await ReadEvent(bobStream, ServerEvent.BodyOneofCase.WalletChanged, e => e.WalletChanged);
         Assert.Equal("storage", changed.Kind);
         Assert.Equal(-20, changed.Delta);
@@ -179,6 +180,7 @@ public class StorageChargeTests
         await SocialFixtures.AcceptGifts(fixture, bob.Player.PlayerId); // a gift waits for a decision otherwise
         var n = Clients(fixture, nova.SessionToken);
         var b = Clients(fixture, bob.SessionToken);
+        await Fund(fixture, bob.Player.PlayerId, 100);
         var parcel = await n.Transfer.SendAsync(Send(bob.Player.PlayerId, pawns: new PawnList { Pawns = { PawnWorth(2000) } }), n.Auth);
         await AgeParcel(fixture, parcel.Id);
 
@@ -286,6 +288,112 @@ public class StorageChargeTests
 
         await b.Mailbox.DeliverAsync(new DeliverRequest { ParcelId = gift.Id, GameTick = 300 }, b.Auth);
         await b.Market.WithdrawAsync(new LotRef { LotId = bobsLot.Id }, b.Auth);
+    }
+
+    [Fact]
+    public async Task DeliveringASilverGiftToADebtorCreditsIt()
+    {
+        // A credit smaller than the debt used to be refused, so the parcel stayed undelivered and dropped again at every login.
+        using var fixture = Server();
+        var nova = await fixture.RegisterAndLogin("nova");
+        var bob = await fixture.RegisterAndLogin("bob");
+        await SocialFixtures.AcceptGifts(fixture, bob.Player.PlayerId); // a gift waits for a decision otherwise
+        var n = Clients(fixture, nova.SessionToken);
+        var b = Clients(fixture, bob.SessionToken);
+        await Fund(fixture, nova.Player.PlayerId, 100);
+        var gift = await n.Transfer.SendAsync(Send(bob.Player.PlayerId, items: Items(("Steel", 5)), silver: 10), n.Auth);
+        await SetBalance(fixture, bob.Player.PlayerId, -30);
+
+        await b.Mailbox.DeliverAsync(new DeliverRequest { ParcelId = gift.Id, GameTick = 300 }, b.Auth);
+
+        Assert.Equal(-20, await BalanceOf(fixture, bob.Player.PlayerId));
+        await Age(fixture, async db => Assert.NotNull((await db.Parcels.AsNoTracking().SingleAsync(p => p.Id == gift.Id)).DeliveredAt));
+    }
+
+    [Fact]
+    public async Task ADepositSmallerThanTheDebtPaysPartOfIt()
+    {
+        using var fixture = Server();
+        var bob = await fixture.RegisterAndLogin("bob");
+        var b = Clients(fixture, bob.SessionToken);
+        await SetBalance(fixture, bob.Player.PlayerId, -30);
+
+        var state = await b.Wallet.DepositAsync(new DepositRequest { ClientRequestId = "part", Silver = 10, GameTick = 100 }, b.Auth);
+
+        Assert.Equal(-20, state.Balance);
+    }
+
+    [Fact]
+    public async Task ALotOfASellerInDebtCanBeBought()
+    {
+        using var fixture = Server();
+        var nova = await fixture.RegisterAndLogin("nova");
+        var bob = await fixture.RegisterAndLogin("bob");
+        var n = Clients(fixture, nova.SessionToken);
+        var b = Clients(fixture, bob.SessionToken);
+        await Fund(fixture, bob.Player.PlayerId, 100);
+        var lot = await PostItems(n, Items(("Steel", 5)), 5);
+        await SetBalance(fixture, nova.Player.PlayerId, -30);
+
+        await b.Market.BuyAsync(new LotRef { LotId = lot.Id }, b.Auth);
+
+        Assert.Equal(-25, await BalanceOf(fixture, nova.Player.PlayerId));
+    }
+
+    [Fact]
+    public async Task AGiftsStorageFeeNeverCreatesADebt()
+    {
+        // The sender declares a gift's value: an inflated one must not lock the recipient out of the economy.
+        using var fixture = Server();
+        var nova = await fixture.RegisterAndLogin("nova");
+        var bob = await fixture.RegisterAndLogin("bob");
+        await SocialFixtures.AcceptGifts(fixture, bob.Player.PlayerId); // a gift waits for a decision otherwise
+        var n = Clients(fixture, nova.SessionToken);
+        var b = Clients(fixture, bob.SessionToken);
+        await Fund(fixture, bob.Player.PlayerId, 5);
+        var gift = await n.Transfer.SendAsync(Send(bob.Player.PlayerId, pawns: new PawnList { Pawns = { PawnWorth(2000) } }), n.Auth);
+        var poorGift = await n.Transfer.SendAsync(Send(bob.Player.PlayerId, pawns: new PawnList { Pawns = { PawnWorth(2000) } }), n.Auth);
+        await AgeParcel(fixture, gift.Id);
+        await AgeParcel(fixture, poorGift.Id);
+
+        await b.Mailbox.DeliverAsync(new DeliverRequest { ParcelId = gift.Id, GameTick = 300 }, b.Auth);
+        Assert.Equal(0, await BalanceOf(fixture, bob.Player.PlayerId));
+        await b.Mailbox.DeliverAsync(new DeliverRequest { ParcelId = poorGift.Id, GameTick = 301 }, b.Auth);
+
+        Assert.Equal(0, await BalanceOf(fixture, bob.Player.PlayerId));
+        Assert.Equal(-5, Assert.Single(await Entries(fixture, bob.Player.PlayerId, "storage")).Delta);
+    }
+
+    [Fact]
+    public async Task AFailedExpiryLeavesTheNextLotConsistent()
+    {
+        // One lot's expiry fails (its seller is gone); the next lot's commit must not carry that rolled-back state along.
+        using var fixture = Server();
+        var nova = await fixture.RegisterAndLogin("nova");
+        var n = Clients(fixture, nova.SessionToken);
+        long orphan = 0;
+        await Age(fixture, async db =>
+        {
+            var row = new Rimlink.Server.Storage.Entities.Lot
+            {
+                SellerPlayerId = 999, Items = new ItemList().ToByteArray(), Pawn = PawnWorth(1000).ToByteArray(), Price = 300,
+                CreatedAt = DateTime.UtcNow.AddDays(-2), ExpiresAt = DateTime.UtcNow.AddMinutes(-1), Status = LotStatusDb.Open,
+            };
+            db.Lots.Add(row);
+            await db.SaveChangesAsync();
+            orphan = row.Id;
+        });
+        var lot = await PostPawn(n, value: 1000, price: 300);
+        await AgeLot(fixture, lot.Id);
+        await Age(fixture, db => db.Lots.Where(l => l.Id == lot.Id).ExecuteUpdateAsync(s => s.SetProperty(l => l.ExpiresAt, DateTime.UtcNow.AddMinutes(-1))));
+
+        using (var scope = fixture.Services.CreateScope())
+            Assert.Equal(1, await scope.ServiceProvider.GetRequiredService<MarketService>().ExpireDue(DateTime.UtcNow));
+
+        Assert.Equal(-10, await BalanceOf(fixture, nova.Player.PlayerId));
+        Assert.Single(await Entries(fixture, nova.Player.PlayerId, "storage"));
+        Assert.Equal(0, await BalanceOf(fixture, 999));
+        await Age(fixture, async db => Assert.Equal(LotStatusDb.Open, (await db.Lots.AsNoTracking().SingleAsync(l => l.Id == orphan)).Status));
     }
 
     [Fact]

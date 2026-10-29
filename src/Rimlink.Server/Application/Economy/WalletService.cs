@@ -32,7 +32,8 @@ public sealed class WalletService(RimlinkDbContext db, EventBus events)
 
     /// <summary>
     /// Applies a signed delta inside the caller's transaction (or on its own when there is none) and saves.
-    /// A negative result is refused with WALLET_INSUFFICIENT before anything is written.
+    /// A debit that would take the balance below zero is refused with WALLET_INSUFFICIENT before anything is written; a
+    /// credit always goes through (it pays a storage debt off).
     /// </summary>
     public async Task<WalletEntry> Apply(long playerId, long delta, string kind, long refId)
     {
@@ -42,7 +43,7 @@ public sealed class WalletService(RimlinkDbContext db, EventBus events)
             wallet = new Wallet { PlayerId = playerId, Balance = 0, UpdatedAt = DateTime.UtcNow };
             db.Wallets.Add(wallet);
         }
-        if (wallet.Balance + delta < 0)
+        if (delta < 0 && wallet.Balance + delta < 0)
             throw RpcErrors.Failed(ErrorCode.WalletInsufficient, RefusalKeys.EconomyWalletInsufficient, $"not enough silver: balance {wallet.Balance}, needed {-delta}", wallet.Balance, -delta);
         return await Write(wallet, playerId, delta, kind, refId);
     }

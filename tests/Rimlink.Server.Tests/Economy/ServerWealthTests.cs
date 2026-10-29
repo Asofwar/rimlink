@@ -52,7 +52,7 @@ public class ServerWealthTests
 
     private static Parcel ParcelTo(long to, ItemList items, long silver, DateTime? deliveredAt = null) => new()
     {
-        ToPlayerId = to, Kind = ParcelKindDb.Gift, Items = items.ToByteArray(), Pawns = new PawnList().ToByteArray(), Silver = silver,
+        ToPlayerId = to, Kind = ParcelKindDb.Purchase, Items = items.ToByteArray(), Pawns = new PawnList().ToByteArray(), Silver = silver,
         CreatedAt = DateTime.UtcNow, DeliveredAt = deliveredAt,
     };
 
@@ -82,6 +82,26 @@ public class ServerWealthTests
         Assert.Equal(300 + 300 + 500 + 140, await WealthOf(fixture, id));
         var n = Clients(fixture, nova.SessionToken);
         Assert.Equal(1240, (await n.Wallet.GetAsync(new Empty(), n.Auth)).ServerWealth);
+    }
+
+    [Fact]
+    public async Task ValuesDeclaredByAnotherPlayerDoNotCount()
+    {
+        // A gift's value is declared by its sender (a raid return's or a captive's by the defender, loot by the defender): it
+        // must not strip the recipient of the poor-colony protection or raise its loot cap. The parcel's silver is the
+        // server's own figure and counts.
+        using var fixture = EconomyServer();
+        var nova = await fixture.RegisterAndLogin("nova");
+        long id = nova.Player.PlayerId;
+        var inflated = new PawnList { Pawns = { WithValue(Pawn("Chicken", "Cluck"), 1_000_000_000_000_000) } };
+        await Seed(fixture, db =>
+        {
+            foreach (var kind in new[] { ParcelKindDb.Gift, ParcelKindDb.RaidReturn, ParcelKindDb.Captive, ParcelKindDb.Loot })
+                db.Parcels.Add(new Parcel { ToPlayerId = id, Kind = kind, Items = new ItemList().ToByteArray(), Pawns = inflated.ToByteArray(), Silver = 10, CreatedAt = DateTime.UtcNow });
+            db.Parcels.Add(new Parcel { ToPlayerId = id, Kind = ParcelKindDb.Purchase, Items = ItemsOf(Item("Steel", 2, marketValueX100: 15000)).ToByteArray(), Pawns = new PawnList().ToByteArray(), CreatedAt = DateTime.UtcNow });
+        });
+
+        Assert.Equal(4 * 10 + 300, await WealthOf(fixture, id));
     }
 
     [Fact]

@@ -55,6 +55,25 @@ public class ForbiddenDefsTests
     }
 
     [Fact]
+    public async Task AReplayOfAnAppliedCallSurvivesALaterForbid()
+    {
+        // The outbox replays a send or a lot the server already took; refusing it now would return things that left (a dupe).
+        using var fixture = Server();
+        var nova = await fixture.RegisterAndLogin("nova");
+        var bob = await fixture.RegisterAndLogin("bob");
+        var n = Clients(fixture, nova.SessionToken);
+        var send = Send(bob.Player.PlayerId, pawns: Pawns(("Thrumbo", "Big")), requestId: "send-1");
+        var post = new PostRequest { ClientRequestId = "post-1", Items = new ItemList { Items = { ItemOf("Gun_Revolver") } }, Price = 10, GameTick = 100 };
+        var parcel = await n.Transfer.SendAsync(send, n.Auth);
+        var lot = await n.Market.PostAsync(post, n.Auth);
+
+        await Forbid(fixture, "Thrumbo", "Gun_Revolver");
+
+        Assert.Equal(parcel.Id, (await n.Transfer.SendAsync(send, n.Auth)).Id);
+        Assert.Equal(lot.Id, (await n.Market.PostAsync(post, n.Auth)).Id);
+    }
+
+    [Fact]
     public async Task RaidsIgnoreTheList()
     {
         using var fixture = Server();
