@@ -19,6 +19,21 @@ public class SharedStateTests
     };
 
     [Fact]
+    public void PingIsKeptWithoutAGame()
+    {
+        var state = new SharedState();
+        var received = new List<PingEvent>();
+        state.Pinged += received.Add;
+        var ping = new PingEvent { From = Player(2, "Gusto"), Tile = 85538, Cell = new MapCell { X = 12, Z = 34 } };
+
+        state.Apply(new ServerEvent { Ping = ping });
+
+        Assert.Equal(ping, Assert.Single(received));
+        Assert.Equal(ping, state.LastPing);
+        Assert.Empty(state.Chat.Messages);
+    }
+
+    [Fact]
     public void DuplicateParcelArrivedIsStoredOnce()
     {
         var state = new SharedState();

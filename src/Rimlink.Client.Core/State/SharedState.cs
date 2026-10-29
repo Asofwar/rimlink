@@ -20,6 +20,9 @@ public sealed class SharedState
     public event Action<WorldObject>? ObjectAdded;
     public event Action<long>? ObjectRemoved;
     public event Action<ChatMessageEvent>? ChatReceived;
+    /// <summary>A "look here" from another player (live UX spec §2); the game layer shows it only while a game is running.</summary>
+    public event Action<PingEvent>? Pinged;
+    public PingEvent? LastPing { get; private set; }
 
     public void LoadSnapshot(WorldObjects objects, ChatHistory history, IEnumerable<PlayerRef> online)
     {
@@ -42,6 +45,10 @@ public sealed class SharedState
             case ServerEvent.BodyOneofCase.Chat:
                 Chat.Add(ev.Chat);
                 ChatReceived?.Invoke(ev.Chat);
+                break;
+            case ServerEvent.BodyOneofCase.Ping:
+                LastPing = ev.Ping;
+                Pinged?.Invoke(ev.Ping);
                 break;
             case ServerEvent.BodyOneofCase.PlayerJoined:
                 Players.Join(ev.PlayerJoined.Player);
