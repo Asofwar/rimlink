@@ -1,0 +1,24 @@
+{
+  "RimlinkBot": {
+    "Server": {
+      "Url": "https://rimlink:25560",
+      "ApiToken": "the discord-bot token from the server's Admin:Tokens (24+ characters)",
+      "CertificateSha256": "",
+      "Insecure": false
+    },
+    "Discord": {
+      "Token": "the bot token from the Discord Developer Portal",
+      "GuildId": 0,
+      "Language": "en",
+      "ModeratorRoleIds": [],
+      "AdminRoleIds": [],
+      "Channels": {
+        "Server": 0,
+        "Raids": 0,
+        "Market": 0,
+        "Moderation": 0,
+        "Chat": 0
+      }
+    }
+  }
+}

@@ -1,0 +1,35 @@
+# The Discord bot next to the server, as an addition to docker-compose.yml:
+#   docker compose -f docker-compose.yml -f docker-compose.discord.yml up -d
+# .env: RIMLINK_BOT_TOKEN (any random string of 24+ characters; the server and the bot share it), DISCORD_TOKEN (Discord
+# Developer Portal), DISCORD_GUILD_ID, and the role and channel ids below (Discord: Settings → Advanced → Developer Mode,
+# then right-click → Copy ID). A channel id of 0 turns that group off. See docs/server-setup.md, section 10.
+services:
+  rimlink:
+    environment:
+      Rimlink__Admin__Tokens__0__Name: "discord-bot"
+      Rimlink__Admin__Tokens__0__Token: "${RIMLINK_BOT_TOKEN:?set RIMLINK_BOT_TOKEN in .env}"
+      # admin = every bot command. Without the admin commands: moderate + chat. Announcements and public queries only:
+      # read (+ chat for the Discord → game chat bridge).
+      Rimlink__Admin__Tokens__0__Scopes__0: "admin"
+
+  rimlink-discord:
+    image: ghcr.io/asofwar/rimlink-discord:latest
+    # build: { context: .., dockerfile: deploy/Dockerfile.discord }
+    container_name: rimlink-discord
+    restart: unless-stopped
+    depends_on: [rimlink]
+    environment:
+      RimlinkBot__Server__Url: "https://rimlink:25560"
+      RimlinkBot__Server__ApiToken: "${RIMLINK_BOT_TOKEN:?set RIMLINK_BOT_TOKEN in .env}"
+      # certificateFingerprint from `rimlink-tools admin status` for the self-signed certificate; empty with a real one.
+      RimlinkBot__Server__CertificateSha256: "${RIMLINK_CERT_SHA256:-}"
+      RimlinkBot__Discord__Token: "${DISCORD_TOKEN:?set DISCORD_TOKEN in .env}"
+      RimlinkBot__Discord__GuildId: "${DISCORD_GUILD_ID:?set DISCORD_GUILD_ID in .env}"
+      RimlinkBot__Discord__Language: "${DISCORD_LANGUAGE:-en}"
+      RimlinkBot__Discord__ModeratorRoleIds__0: "${DISCORD_MODERATOR_ROLE:-0}"
+      RimlinkBot__Discord__AdminRoleIds__0: "${DISCORD_ADMIN_ROLE:-0}"
+      RimlinkBot__Discord__Channels__Server: "${DISCORD_CHANNEL_SERVER:-0}"
+      RimlinkBot__Discord__Channels__Raids: "${DISCORD_CHANNEL_RAIDS:-0}"
+      RimlinkBot__Discord__Channels__Market: "${DISCORD_CHANNEL_MARKET:-0}"
+      RimlinkBot__Discord__Channels__Moderation: "${DISCORD_CHANNEL_MODERATION:-0}"
+      RimlinkBot__Discord__Channels__Chat: "${DISCORD_CHANNEL_CHAT:-0}"

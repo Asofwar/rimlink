@@ -48,7 +48,9 @@ links (subscribe before the first connection), the login modes, the address to a
   ended and the colony goes to the server at your next login (during a visit nothing is saved: the server keeps the
   colony as it was uploaded before the visit).
 - **Chat / Players** buttons in the top-right corner: global chat, direct messages (click a player → Message),
-  who is online. Moderators and admins type `/help` in chat for commands.
+  who is online. Moderators and admins type `/help` in chat for commands. When the server has a Discord bot, the
+  public chat is shared with a Discord channel: lines from Discord show as `[Discord] Name: text`, and your public lines
+  appear in that channel (direct messages never leave the game).
 - Settling, abandoning or losing a settlement is reported to the server; other players see it on their map.
 - If the server shuts down, you get a warning; the game saves and uploads before the server stops.
 

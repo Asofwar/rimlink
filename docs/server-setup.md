@@ -146,6 +146,14 @@ still ends as a mailbox parcel, as in 5a/5b.
     (public channel only), `GET /actions?before=`;
   - backups: `GET /backups`, `POST /backups` (make one now; 409 while one runs), `GET /backups/{name}` (download).
   - CLI: `rimlink-tools admin players [query]|player <id>|role <id> <role>|rename <id> <name> [faction]|saveall|chat [playerId]|status|config|backups|backup|backup-get <name> <file>`.
+- Event feed for integrations: `GET /api/admin/events` (Server-Sent Events, scope `read`). Each event has an id
+  `<epoch>:<seq>`; a client resumes with `Last-Event-ID` and gets a `gap` event when the server restarted or more than
+  `Admin:FeedBufferSize` (default 1000) events passed. A `ping` comes every `Admin:FeedPingSeconds` (default 15) without
+  events. Direct messages, wallets, parcels and not-yet-landed raids never appear in the feed.
+- Chat from outside the game: `POST /api/admin/chat {"author": "Mod", "text": "..."}` (scope `chat`; author up to 32
+  characters, text under the game chat's rules, never run as a `/` command). Players see `[Discord] Mod: ...`;
+  `rimlink-tools admin say <author> <text>` does the same. `GET /api/admin/chat` shows such lines with `kind` `external`
+  and their `author`; `GET /api/admin/economy/lots` names each lot's seller and contents (`sellerName`, `summary`).
 
 ## 6a. Web panel
 
@@ -200,10 +208,55 @@ revocable on its own and named in the audit log:
 ## 8. Monitoring
 
 `GET /health` (used by the Docker health check) and Prometheus metrics at `GET /metrics` (economy: `rimlink_trades_total{kind}`, `rimlink_silver_moved_total`, `rimlink_parcels_pending`, `rimlink_economy_errors_total{code}`; raids: `rimlink_raids_total{outcome}`, `rimlink_raids_active`, `rimlink_visits_total`, `rimlink_shop_sales_total`; live sessions:
-`rimlink_live_proposed_total{kind}`, `rimlink_live_sessions_total{kind,end_reason}`, `rimlink_live_frames_total{dir}`, `rimlink_live_active`). Logs go to the console
+`rimlink_live_proposed_total{kind}`, `rimlink_live_sessions_total{kind,end_reason}`, `rimlink_live_frames_total{dir}`, `rimlink_live_active`;
+admin feed: `rimlink_admin_feed_subscribers`). Logs go to the console
 and `logs/server-<date>.log`.
 
 ## 9. Limits (built in)
 
 Player limit `Server:MaxPlayers`, one settlement per player (`Server:MaxSettlementsPerPlayer`), 5 chat messages per
 5 s, 3 save uploads per 30 s, saves up to 64 MB compressed, 5 unauthenticated connections per IP, 30 s to log in.
+
+## 10. Discord bot
+
+The bot (`src/Rimlink.Discord`, image `ghcr.io/asofwar/rimlink-discord`) posts server events into Discord channels, bridges
+the public game chat with one Discord channel both ways, answers public queries and runs moderator and admin commands for
+Discord roles. It talks to the server only through the admin REST API, with a token of its own.
+
+1. **Discord application.** In the Discord Developer Portal create an application, add a bot, copy its token
+   (`DISCORD_TOKEN`) and turn on the **Message Content** privileged intent (needed to read the chat channel). Invite the
+   bot with the scopes `bot` and `applications.commands` and the permissions View Channels, Send Messages, Add Reactions
+   and Read Message History.
+2. **Ids.** Turn on Developer Mode in Discord (Settings → Advanced) and copy the server (guild) id, the ids of the
+   moderator and admin roles, and the channel ids for each event group: `server` (joins, colonies, announcements,
+   shutdowns, freezes), `raids` (landed and finished raids, visits, live sessions), `market` (lots posted and sold, shop
+   sales), `moderation` (every admin action from the audit log, best a closed channel) and `chat` (the chat bridge).
+   A group without a channel is off.
+3. **Token.** Pick a random string of 24+ characters for `RIMLINK_BOT_TOKEN`. The server gets it as the `Admin:Tokens`
+   entry `discord-bot`, the bot as `RimlinkBot:Server:ApiToken`. Its scopes decide what the bot may do on the server:
+   - `admin`: everything (`admin` includes the other scopes);
+   - `moderate` + `chat`: no admin commands (they answer "this server's bot token has no admin rights");
+   - `read` + `chat`: events, the chat bridge and `/online`, `/status`, `/market`; `/player` needs `moderate`.
+   Without `chat` the bridge works only from the game into Discord.
+4. **Certificate.** With the self-signed certificate set `RIMLINK_CERT_SHA256` to `certificateFingerprint` from
+   `rimlink-tools admin status` (or `GET /api/admin/status`); the bot trusts exactly that certificate. With a real
+   certificate leave it empty. `RimlinkBot:Server:Insecure=true` skips the check and is only acceptable inside the compose
+   network.
+5. **Run.** `docker compose -f docker-compose.yml -f docker-compose.discord.yml up -d` with the values above in `.env`
+   (the file lists every variable); `deploy/discord.appsettings.example.json` shows the same settings as JSON. The bot
+   stops at start when a token is missing; a channel it cannot write to or a role it cannot find only turns that part off
+   (see its log).
+
+Commands (Discord bot spec §5):
+
+| Who | Commands |
+|---|---|
+| Everyone | `/online`, `/status`, `/market [seller]`, `/player <name>` |
+| Moderator role | `/kick`, `/mute`, `/unmute`, `/broadcast`, `/bans`, `/actions`, `/raids list\|stats`, `/live list`, `/economy stats` |
+| Admin role | `/ban`, `/pardon`, `/wallet`, `/refund lot\|parcel`, `/economy freeze\|unfreeze`, `/raids cancel\|freeze\|unfreeze`, `/live end`, `/peaceful`, `/saves` |
+| Admin role, with a confirm button | `/shutdown`, `/rollback`, `/reset`, `/recreateworld` |
+
+The server runs every bot call as the bot's token, so the Discord roles are the only thing that tells a moderator from
+any member: give the roles carefully. Each action shows in the audit log as `api:discord-bot:discord:<user> (<id>)`.
+The feed survives short outages: the bot resumes where it stopped, says "the server is unreachable" in the server channel
+after a minute without the server and "reachable again" when it is back.
