@@ -15,6 +15,8 @@ public static class ThingBlobs
 {
     private const string Root = "rimlink";
     private const string Node = "thing";
+    /// <summary>A corpse's pawn, saved beside the corpse: the corpse holds it by reference only (see <see cref="Save"/>).</summary>
+    private const string CorpsePawnNode = "corpsePawn";
 
     public static ItemBlob SerializeItem(Thing t)
     {
@@ -56,7 +58,25 @@ public static class ThingBlobs
     {
         var thing = Load<Thing>(b.ScribeXmlZstd.ToByteArray());
         if (newIds) RegenerateIds(thing);
+        AdoptCorpsePawn(thing);
         return thing;
+    }
+
+    /// <summary>
+    /// The game keeps a corpse's dead pawn among the world pawns, which is where a save writes it: an arriving corpse's pawn goes
+    /// there too, or the next save writes the corpse without it. A dead pawn already there under the same id (the original of a
+    /// corpse coming back) gives way to the arriving one; an alive one is left alone.
+    /// </summary>
+    private static void AdoptCorpsePawn(Thing thing)
+    {
+        if (thing is not Corpse { InnerPawn: { } inner } || Find.WorldPawns is not { } world) return;
+        if (world.Contains(inner))
+        {
+            var stored = world.AllPawnsDead.FirstOrDefault(p => p.thingIDNumber == inner.thingIDNumber);
+            if (stored is null || ReferenceEquals(stored, inner)) return;
+            world.RemovePawn(stored);
+        }
+        world.PassToWorld(inner);
     }
 
     /// <summary>A pawn exactly as serialised (same ids, faction untouched): for the live mirror, where the host's ids and factions are the truth.</summary>
@@ -238,6 +258,9 @@ public static class ThingBlobs
             try
             {
                 Scribe_Deep.Look(ref thing, saveDestroyedThings: true, Node);
+                // A corpse's container holds its pawn by reference (the game deep-saves dead pawns among the world pawns): alone, the
+                // corpse arrives empty ("spawned in bugged state"), so its pawn travels beside it.
+                if (thing is Corpse { InnerPawn: { } inner }) Scribe_Deep.Look(ref inner, saveDestroyedThings: true, CorpsePawnNode);
             }
             finally
             {
@@ -268,6 +291,12 @@ public static class ThingBlobs
             try
             {
                 Scribe_Deep.Look(ref thing, saveDestroyedThings: true, Node);
+                if (thing is Corpse)
+                {
+                    // Loaded into this pass's object directory, so the corpse's reference resolves to it (older blobs have no such node).
+                    Pawn? corpsePawn = null;
+                    Scribe_Deep.Look(ref corpsePawn, saveDestroyedThings: true, CorpsePawnNode);
+                }
                 RegisterWorldFactions();
             }
             finally
