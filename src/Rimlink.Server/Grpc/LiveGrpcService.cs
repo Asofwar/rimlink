@@ -38,12 +38,15 @@ public sealed class LiveGrpcService(LiveSessionService live, LiveRelay relay, IL
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, channel.Closed.Token);
         var ct = linked.Token;
 
+        // The writer stops on the call's end or once the queue is completed and drained, never on the channel's close alone: a close
+        // completes the queue right after queueing the End frame, and that frame must still go out.
+        var callEnd = context.CancellationToken;
         var writer = Task.Run(async () =>
         {
             try
             {
-                while (await channel.Queue.ReadAsync(ct) is { } msg)
-                    await responseStream.WriteAsync(msg, ct).WaitAsync(EventsGrpcService.WriteTimeout, ct);
+                while (await channel.Queue.ReadAsync(callEnd) is { } msg)
+                    await responseStream.WriteAsync(msg, callEnd).WaitAsync(EventsGrpcService.WriteTimeout, callEnd);
             }
             catch (OperationCanceledException) { }
             catch (TimeoutException) { log.LogWarning("Live stream of {Player} stalled", session.PlayerName); channel.Closed.Cancel(); }
