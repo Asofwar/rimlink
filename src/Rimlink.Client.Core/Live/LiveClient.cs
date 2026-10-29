@@ -82,15 +82,38 @@ public sealed class LiveClient(RimlinkConnection connection, ILog log)
         outgoingSignal.Release();
     }
 
-    /// <summary>Ends the session for both sides (the server relays the end and marks the session Ending), then closes.</summary>
-    public async Task End(LiveEndReason reason)
+    private Task? ending;
+
+    /// <summary>Ends the session for both sides (the server relays the end and marks the session Ending), then closes. A Close that follows waits for the frame to leave.</summary>
+    public Task End(LiveEndReason reason) => ending = EndCore(reason);
+
+    private async Task EndCore(LiveEndReason reason)
     {
+        if (loop is null) return;
         Send(new LiveClientMsg { End = new EndMsg { Reason = reason } });
-        await Task.Delay(200);
-        await Close();
+        var until = DateTime.UtcNow + TimeSpan.FromSeconds(2);
+        while (DateTime.UtcNow < until)
+        {
+            int left;
+            lock (gate) left = outgoing.Count;
+            if (left == 0) break;
+            await Task.Delay(20);
+        }
+        await Task.Delay(150); // the write itself
+        await CloseCore();
     }
 
     public async Task Close()
+    {
+        if (ending is { } pending)
+        {
+            ending = null;
+            try { await pending.WaitAsync(TimeSpan.FromSeconds(3)); } catch { }
+        }
+        await CloseCore();
+    }
+
+    private async Task CloseCore()
     {
         var cts = loop;
         loop = null;

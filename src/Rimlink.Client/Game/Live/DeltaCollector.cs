@@ -23,7 +23,8 @@ public sealed class DeltaCollector(Map map)
     /// <summary>The state the guest has (what the last delta brought it to); replaced after every delta.</summary>
     public MirrorMap Current { get; set; } = new();
 
-    public static bool Mirrored(Thing t) => t is Pawn || t.def.category is ThingCategory.Item or ThingCategory.Building or ThingCategory.Plant;
+    /// <summary>Pawns, items and buildings; plants stay as the snapshot had them (thousands of grass tiles are not worth the frames).</summary>
+    public static bool Mirrored(Thing t) => t is Pawn || t.def.category is ThingCategory.Item or ThingCategory.Building;
 
     /// <summary>Everything the guest's snapshot holds, read at the snapshot tick.</summary>
     public MirrorMap FullScan(bool blobsForNew)
@@ -136,7 +137,7 @@ public sealed class DeltaCollector(Map map)
             X = p.Position.x,
             Z = p.Position.z,
             Rot = p.Rotation.AsInt,
-            Drafted = p.Drafted,
+            Drafted = p.Drafted || OrderExecutor.VirtualDrafted.Contains(p.thingIDNumber),
             Downed = p.Downed,
             Dead = p.Dead,
             JobDef = p.CurJobDef?.defName ?? "",

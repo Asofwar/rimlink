@@ -80,7 +80,11 @@ public sealed class LiveRelay(IServiceScopeFactory scopes, IOptions<LiveOptions>
         }
         log.LogInformation("Live session {Session}: player {Player} detached ({Reason})", channel.SessionId, channel.PlayerId, reason);
         using var scope = scopes.CreateScope();
-        await scope.ServiceProvider.GetRequiredService<LiveSessionService>().MarkWaiting(channel.SessionId, channel.PlayerId);
+        var sessions = scope.ServiceProvider.GetRequiredService<LiveSessionService>();
+        await sessions.MarkWaiting(channel.SessionId, channel.PlayerId);
+        bool back;
+        lock (gate) back = channels.ContainsKey((channel.SessionId, channel.PlayerId));
+        if (back) await sessions.MarkRunning(channel.SessionId); // a new stream of the same player arrived while this one was being closed
     }
 
     /// <summary>Routes one frame from a participant; the answer (a notice for a refused frame) goes back on the sender's own queue.</summary>

@@ -25,7 +25,7 @@ public static class Patch_TickManager_CurTimeSpeed_Mirror
     public static bool Prefix(TimeSpeed value)
     {
         if (!MirrorMode.Active || MirrorMode.Applying) return true;
-        LiveGuest.SendSpeed(value);
+        if (!MirrorMode.SettlingIn) LiveGuest.SendSpeed(value);
         return false;
     }
 }
@@ -82,6 +82,33 @@ public static class Patch_Pawn_TimetableTracker_SetAssignment_Mirror
     }
 }
 
+/// <summary>
+/// The pawn texture atlas is keyed by pawn id; a pawn's entry can go stale (a pawn that left this game, a blob re-read
+/// of the same pawn), after which the vanilla sweep throws on every frame. This sweep rebuilds the map by enumeration.
+/// </summary>
+[HarmonyPatch(typeof(PawnTextureAtlas), nameof(PawnTextureAtlas.GC))]
+public static class Patch_PawnTextureAtlas_GC_Mirror
+{
+    public static bool Prefix(PawnTextureAtlas __instance)
+    {
+        if (!RimlinkSession.Active) return true;
+        try
+        {
+            var field = Traverse.Create(__instance).Field<Dictionary<Pawn, PawnTextureAtlasFrameSet>>("frameAssignments");
+            var free = Traverse.Create(__instance).Field<List<PawnTextureAtlasFrameSet>>("freeFrameSets").Value;
+            var keep = new Dictionary<Pawn, PawnTextureAtlasFrameSet>();
+            foreach (var kv in field.Value)
+            {
+                if (kv.Key.SpawnedOrAnyParentSpawned) keep[kv.Key] = kv.Value;
+                else free.Add(kv.Value);
+            }
+            field.Value = keep;
+        }
+        catch (Exception ex) { Log.ErrorOnce("[Rimlink] mirror: pawn atlas sweep failed: " + ex.Message, 0x51A7E); }
+        return false;
+    }
+}
+
 /// <summary>Other people's pawns and the host's buildings can be looked at, not commanded.</summary>
 [HarmonyPatch(typeof(Pawn), nameof(Pawn.GetGizmos))]
 public static class Patch_Pawn_GetGizmos_Mirror
@@ -93,6 +120,7 @@ public static class Patch_Pawn_GetGizmos_Mirror
 }
 
 [HarmonyPatch(typeof(ThingWithComps), nameof(ThingWithComps.GetGizmos))]
+[HarmonyPriority(Priority.High)] // before the shop postfix, so "Buy" is appended after the host's gizmos are gone
 public static class Patch_ThingWithComps_GetGizmos_Mirror
 {
     public static void Postfix(ThingWithComps __instance, ref IEnumerable<Gizmo> __result)

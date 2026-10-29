@@ -8,6 +8,9 @@ namespace Rimlink.Client.Game.Live;
 /// <summary>Turns a guest's order into the vanilla call on the host's map (spec §5). Every refusal is a reason the guest sees.</summary>
 public static class OrderExecutor
 {
+    /// <summary>Raiders have no drafter: the guest's draft state is kept here so the mirror can show it and offer the attack controls.</summary>
+    public static HashSet<int> VirtualDrafted { get; } = [];
+
     public static OrderResult Apply(Order o, long guestId, LiveKind kind, Map map)
     {
         string? reason = Execute(o, guestId, kind, map);
@@ -33,7 +36,13 @@ public static class OrderExecutor
             switch (o.OCase)
             {
                 case Order.OOneofCase.Draft:
-                    if (pawn.drafter is null) return kind == LiveKind.LiveRaid ? null : "cannot be drafted"; // raiders stand ready anyway
+                    if (pawn.drafter is null)
+                    {
+                        if (kind != LiveKind.LiveRaid) return "cannot be drafted";
+                        if (o.Draft) VirtualDrafted.Add(pawn.thingIDNumber); else VirtualDrafted.Remove(pawn.thingIDNumber);
+                        if (!o.Draft) pawn.jobs?.EndCurrentJob(JobCondition.InterruptForced);
+                        return null;
+                    }
                     pawn.drafter.Drafted = o.Draft;
                     return null;
                 case Order.OOneofCase.MoveTo:

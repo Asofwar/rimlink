@@ -32,6 +32,7 @@ public static class LiveHost
     private static DateTime lastDeltaAt;
     private static long lootCap;
     private static bool resyncing;
+    private static Lord? guestLord;
 
     /// <summary>LiveStarted arrived and this player is the host: fetch the pawns, then spawn and snapshot on the main thread.</summary>
     public static void Begin(LiveSession session)
@@ -83,17 +84,13 @@ public static class LiveHost
                 owners.Mark(pawn, session.Guest.PlayerId, i);
                 spawned.Add(pawn);
             }
+            // Always spawned (pods would still be closed in the snapshot and drop a second copy through the spawn hook): pods land at the pod spot, caravans at the edge.
             IntVec3 center;
-            if (session.Arrival == RaidArrival.ArrivalPods)
-            {
-                center = DropCellFinder.FindRaidDropCenterDistant(map);
-                DropPodUtility.DropThingsNear(center, map, spawned, openDelay: 60, canInstaDropDuringInit: false, leaveSlag: true, canRoofPunch: true, forbid: false);
-            }
-            else
-            {
-                if (!RCellFinder.TryFindRandomPawnEntryCell(out center, map, CellFinder.EdgeRoadChance_Hostile)) center = CellFinder.RandomEdgeCell(map);
-                foreach (var pawn in spawned) GenSpawn.Spawn(pawn, CellFinder.RandomClosewalkCellNear(center, map, 6), map);
-            }
+            if (session.Arrival == RaidArrival.ArrivalPods) center = DropCellFinder.FindRaidDropCenterDistant(map);
+            else if (!RCellFinder.TryFindRandomPawnEntryCell(out center, map, CellFinder.EdgeRoadChance_Hostile)) center = CellFinder.RandomEdgeCell(map);
+            foreach (var pawn in spawned) GenSpawn.Spawn(pawn, CellFinder.RandomClosewalkCellNear(center, map, 6), map);
+            // Raiders need a lord that keeps them idle: a lordless pawn of another faction leaves the map on its own.
+            if (session.Kind == LiveKind.LiveRaid) guestLord = LordMaker.MakeNewLord(faction, new LordJob_RimlinkGuests(), map, spawned);
             Find.LetterStack.ReceiveLetter("Rimlink.Live.ArrivedLabel".Translate(session.Guest.Name), "Rimlink.Live.Arrived".Translate(session.Guest.Name, spawned.Count, session.Kind == LiveKind.LiveRaid ? "Rimlink.Live.KindRaid".Translate() : "Rimlink.Live.KindVisit".Translate()),
                 session.Kind == LiveKind.LiveRaid ? LetterDefOf.ThreatBig : LetterDefOf.PositiveEvent, new LookTargets(center, map));
         }
@@ -267,6 +264,7 @@ public static class LiveHost
         GuestHere = false;
         LiveTempo.Reset();
         LiveTempo.Apply();
+        OrderExecutor.VirtualDrafted.Clear();
         if (RimlinkSession.Live is { } live) _ = live.Close();
         RimlinkLog.Instance.Info($"live session {session.Id} ended: {reason}");
         Messages.Message("Rimlink.Live.Ended".Translate(session.Guest?.Name ?? "?", reason.ToString()), MessageTypeDefOf.NeutralEvent, historical: true);
@@ -286,6 +284,8 @@ public static class LiveHost
         var owners = MapComponent_LiveOwners.Of(map);
         var pawns = map.mapPawns.AllPawnsSpawned.Where(p => owners.OwnerOf(p) == session.Guest.PlayerId && !p.Dead).ToList();
         var ids = owners.IdsOf(session.Guest.PlayerId);
+        foreach (var p in pawns) p.GetLord()?.Notify_PawnLost(p, PawnLostCondition.ForcedToJoinOtherLord);
+        guestLord = null;
         var lord = pawns.Count > 0 ? LordMaker.MakeNewLord(RimlinkFactions.Raiders, new LordJob_AssaultColony(RimlinkFactions.Raiders, canKidnap: false, canTimeoutOrFlee: true, sappers: false, useAvoidGridSmart: true, canSteal: true), map, pawns) : null;
         Current.Game.GetComponent<RimlinkGameComponent>().ActiveRaids.Add(new ActiveRaid
         {
@@ -317,13 +317,16 @@ public static class LiveHost
             Visit = session.Kind == LiveKind.LiveVisit,
             AttackerPlayerId = session.Guest.PlayerId,
             AttackerName = session.Guest.Name,
+            Lord = guestLord,
             LandedTick = Find.TickManager.TicksGame,
             PawnIds = ids.Select(id => id ?? 0).ToList(),
             PawnMode = (int)PawnMode.PawnReal,
             LootCap = lootCap,
             AllowKidnap = false,
         };
+        guestLord = null;
         owners.ForgetAll(session.Guest.PlayerId);
+        RimlinkLog.Instance.Info($"live session {session.Id}: reporting {raid.PawnIds.Count} guest pawns ({string.Join(",", raid.PawnIds)})");
         RaidResolver.ResolveNow(raid, map);
     }
 
@@ -347,6 +350,7 @@ public static class LiveHost
         Session = null;
         Map = null;
         collector = null;
+        guestLord = null;
         LiveTempo.Reset();
     }
 

@@ -164,6 +164,7 @@ public static class LiveGuest
             });
             return;
         }
+        MirrorMode.ClaimOwnPawns();
         for (int i = 0; i < 64 && live.Incoming.TryDequeue(out var frame); i++)
         {
             switch (frame!.MCase)
@@ -198,12 +199,10 @@ public static class LiveGuest
                     break;
             }
         }
-        if (!live.IsOpen && !HostGone && !Loading)
-        {
-            // The client gave up reconnecting: the session is lost on our side.
-            Exit(LiveEndReason.EndGuestLost);
-        }
     }
+
+    /// <summary>The stream is over for good (peer End, replaced, or the reconnect budget spent): raised on a background thread.</summary>
+    private static void OnStreamEnded(LiveEndReason reason) => MainThread.Post(() => { if (Session is not null && MirrorMode.Active) Exit(reason); });
 
     private static void CountUnknown(int unknown)
     {
@@ -243,6 +242,8 @@ public static class LiveGuest
             return;
         }
         HostGone = false;
+        live.Ended -= OnStreamEnded;
+        live.Ended += OnStreamEnded;
         _ = Task.Run(async () =>
         {
             try { await live.Open(session.Id, LiveClient.GuestRole, session.SnapshotVersion, CancellationToken.None); }
@@ -276,11 +277,10 @@ public static class LiveGuest
         pendingOrders.Clear();
         wait?.Close();
         wait = null;
-        if (RimlinkSession.Live is { } live) _ = live.Close();
-        bool inMirror = MirrorMode.Active;
+        if (RimlinkSession.Live is { } live) { live.Ended -= OnStreamEnded; _ = live.Close(); }
         MirrorMode.Exit();
         if (session is not null) Messages.Message("Rimlink.Live.EndedGuest".Translate(session.Host?.Name ?? "?", reason.ToString()), MessageTypeDefOf.NeutralEvent, historical: true);
-        if (inMirror) VisitSession.End();
+        if (VisitSession.Active) VisitSession.End(); // also after a failed resync: we are still inside the host's copy
     }
 
     public static void Reset()

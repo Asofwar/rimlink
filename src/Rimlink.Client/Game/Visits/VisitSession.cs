@@ -101,8 +101,7 @@ public static class VisitSession
     {
         if (pending.Live is not null && Active)
         {
-            // A resync from inside the host's copy: nothing of ours to save, straight to the new snapshot.
-            Active = false;
+            // A resync from inside the host's copy: nothing of ours to save, straight to the new snapshot (Active stays until it loads).
             Download(pending, wait, visits, onFailure);
             return;
         }
@@ -144,8 +143,10 @@ public static class VisitSession
             MainThread.Post(() =>
             {
                 wait.Close();
+                Active = false;
                 Pending = pending;
                 RimlinkLog.Instance.Info($"visit {pending.VisitId}: loading {pending.HostName}'s colony{(pending.Live is { } live ? $" (live session {live.Id}, snapshot v{live.SnapshotVersion})" : "")}");
+                ForgetPawnTextures();
                 GameDataSaveLoader.LoadGame(SaveName(pending.HostId));
             });
         });
@@ -200,7 +201,25 @@ public static class VisitSession
         DeleteVisitFile(hostId);
         if (!RimlinkSession.Active) { GenScene.GoToMainMenu(); return; }
         RimlinkLog.Instance.Info("visit over, loading the own colony");
+        ForgetPawnTextures();
         GameDataSaveLoader.LoadGame(SaveSync.SaveFileName);
+    }
+
+    /// <summary>
+    /// The pawn texture atlas is global and keyed by pawn id; a pawn that left this game (sent away, destroyed) keeps
+    /// a stale key that throws on every frame of the next game. Freed before any switch of games.
+    /// </summary>
+    private static void ForgetPawnTextures()
+    {
+        try
+        {
+            GlobalTextureAtlasManager.FreeAllRuntimeAtlases();
+            PortraitsCache.Clear();
+        }
+        catch (Exception ex)
+        {
+            RimlinkLog.Instance.Warn("pawn textures not freed: " + ex.Message);
+        }
     }
 
     private static void DeleteVisitFile(long hostId)

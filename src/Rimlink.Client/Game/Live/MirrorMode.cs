@@ -23,6 +23,9 @@ public static class MirrorMode
     public static long TargetTick { get; set; }
     public static int PausedBy { get; set; }
     public static int SnapshotVersion { get; set; }
+    /// <summary>The game pauses itself right after a load; speed writes in the first seconds are not the player's wish.</summary>
+    public static DateTime EnteredAt { get; private set; }
+    public static bool SettlingIn => DateTime.UtcNow - EnteredAt < TimeSpan.FromSeconds(3);
 
     public static bool IsOwned(Thing t) => Active && OwnedIds.Contains(t.thingIDNumber);
 
@@ -35,6 +38,26 @@ public static class MirrorMode
         OwnedIds.Clear();
         var owners = MapComponent_LiveOwners.Of(Map);
         foreach (int? id in owners.IdsOf(RimlinkSession.MyPlayerId)) if (id is { } i) OwnedIds.Add(i);
+        Applying = true;
+        try
+        {
+            TargetTick = Find.TickManager.TicksGame;
+            Active = true;
+            EnteredAt = DateTime.UtcNow;
+            ownershipPending = true; // the faction switch waits for the first frame of play: during FinalizeInit the pawn caches do not follow it
+            Find.TickManager.CurTimeSpeed = TimeSpeed.Paused;
+        }
+        finally { Applying = false; }
+        RimlinkLog.Instance.Info($"mirror: entered live session {session.Id} on {Map} with {OwnedIds.Count} own pawns (snapshot v{snapshotVersion})");
+    }
+
+    private static bool ownershipPending;
+
+    /// <summary>First frame of play on the copy: our pawns join the player faction so they can be selected and drafted.</summary>
+    public static void ClaimOwnPawns()
+    {
+        if (!ownershipPending || !Active || Map is null || Current.ProgramState != ProgramState.Playing) return;
+        ownershipPending = false;
         var player = Faction.OfPlayer;
         Applying = true;
         try
@@ -42,20 +65,19 @@ public static class MirrorMode
             foreach (var pawn in Map.mapPawns.AllPawnsSpawned.ToList())
             {
                 if (!OwnedIds.Contains(pawn.thingIDNumber)) continue;
-                if (pawn.Faction != player) pawn.SetFaction(player);
                 if (pawn.GetLord() is { } lord) lord.Notify_PawnLost(pawn, PawnLostCondition.Undefined);
+                if (pawn.Faction != player) pawn.SetFaction(player);
                 PawnComponentsUtility.AddAndRemoveDynamicComponents(pawn);
             }
-            TargetTick = Find.TickManager.TicksGame;
-            Active = true;
-            Find.TickManager.CurTimeSpeed = TimeSpeed.Paused;
+            Find.ColonistBar?.MarkColonistsDirty();
         }
+        catch (Exception ex) { Log.Error("[Rimlink] mirror: own pawns could not be claimed: " + ex); }
         finally { Applying = false; }
-        RimlinkLog.Instance.Info($"mirror: entered live session {session.Id} on {Map} with {OwnedIds.Count} own pawns (snapshot v{snapshotVersion})");
     }
 
     public static void Exit()
     {
+        ownershipPending = false;
         Active = false;
         Session = null;
         Map = null;

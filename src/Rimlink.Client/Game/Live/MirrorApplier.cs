@@ -32,7 +32,7 @@ public static class MirrorApplier
             }
             foreach (var c in d.ThingsChanged)
             {
-                if (FindThing(c.ThingId, map) is not { } t || t is Pawn) { unknown++; continue; }
+                if (FindThing(c.ThingId, map) is not { } t || t is Pawn) { unknown++; Unknown("thing", c.ThingId, c.Cell); continue; }
                 var cell = new IntVec3(c.Cell?.X ?? t.Position.x, 0, c.Cell?.Z ?? t.Position.z);
                 if (t.Spawned && cell.InBounds(map) && t.Position != cell) t.Position = cell;
                 if (t.def.stackLimit > 1 && c.StackCount > 0) t.stackCount = c.StackCount;
@@ -40,7 +40,7 @@ public static class MirrorApplier
             }
             foreach (var p in d.Pawns)
             {
-                if (FindThing(p.ThingId, map) is not Pawn pawn) { unknown++; continue; }
+                if (FindThing(p.ThingId, map) is not Pawn pawn) { unknown++; Unknown("pawn", p.ThingId, p.Cell); continue; }
                 var cell = new IntVec3(p.Cell?.X ?? pawn.Position.x, 0, p.Cell?.Z ?? pawn.Position.z);
                 if (pawn.Spawned && cell.InBounds(map) && pawn.Position != cell) pawn.Position = cell;
                 pawn.Rotation = new Rot4(p.Rot);
@@ -96,24 +96,35 @@ public static class MirrorApplier
         }
     }
 
-    /// <summary>The host's full state of one of this player's pawns: health is taken over whole (the rest is cosmetic until the next snapshot).</summary>
+    /// <summary>
+    /// The host's full state of one of this player's pawns: health is taken over whole (the rest is cosmetic until the next snapshot).
+    /// The deserialised copy is dropped, never destroyed: a Thing equals any Thing with the same id, and a destroyed pawn is passed to
+    /// the world pawns, where it would make the real pawn "a world pawn" (unselectable) and be saved under its id.
+    /// </summary>
     private static void Transplant(PawnBlob blob, Map map)
     {
         try
         {
             var fresh = ThingBlobs.DeserializePawnRaw(blob);
+            ThingBlobs.ResetMapIndex(fresh);
             if (FindThing(fresh.thingIDNumber, map) is not Pawn pawn || !MirrorMode.OwnedIds.Contains(pawn.thingIDNumber)) return;
             var health = fresh.health;
             Traverse.Create(health).Field("pawn").SetValue(pawn);
             health.hediffSet.pawn = pawn;
             foreach (var h in health.hediffSet.hediffs) h.pawn = pawn;
             pawn.health = health;
-            fresh.Destroy(DestroyMode.Vanish);
         }
         catch (Exception ex)
         {
             RimlinkLog.Instance.Warn("mirror: a pawn blob could not be applied: " + ex.Message);
         }
+    }
+
+    private static int unknownLogged;
+
+    private static void Unknown(string kind, long id, Cell? cell)
+    {
+        if (unknownLogged++ < 12) RimlinkLog.Instance.Warn($"mirror: unknown {kind} {id} at ({cell?.X},{cell?.Z})");
     }
 
     private static Thing? FindThing(long id, Map map) =>
