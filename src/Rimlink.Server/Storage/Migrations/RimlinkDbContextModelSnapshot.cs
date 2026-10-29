@@ -272,6 +272,36 @@ namespace Rimlink.Server.Storage.Migrations
                     b.ToTable("lots", (string)null);
                 });
 
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.ModpackConfig", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<byte[]>("Content")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("Handle")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Hash")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PackageId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PackageId", "Handle")
+                        .IsUnique();
+
+                    b.ToTable("modpack_configs", (string)null);
+                });
+
             modelBuilder.Entity("Rimlink.Server.Storage.Entities.ModpackDef", b =>
                 {
                     b.Property<string>("DefName")
@@ -287,6 +317,9 @@ namespace Rimlink.Server.Storage.Migrations
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("FilesHash")
+                        .HasColumnType("TEXT");
 
                     b.Property<int>("Kind")
                         .HasColumnType("INTEGER");
