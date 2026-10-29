@@ -70,6 +70,8 @@ public sealed class StatusTools
                 pausedBy = LiveHost.Active ? LiveTempo.PausedBy : LiveGuest.Session is not null ? MirrorMode.PausedBy : (int?)null,
                 letterLabel = LiveHost.Active ? LiveTempo.Rules.LetterLabel : LiveGuest.Session is not null ? MirrorMode.LetterLabel : null,
                 letterPause = Client.RimlinkMod.Settings.LetterPause.ToString(),
+                hostWish = LiveHost.Active ? LiveTempo.Rules.HostWish : LiveGuest.Session is not null ? MirrorMode.HostWish : (int?)null,
+                guestWish = LiveHost.Active ? LiveTempo.Rules.GuestWish : LiveGuest.Session is not null ? MirrorMode.GuestWish : (int?)null,
                 guestLetterPause = LiveHost.Active ? LiveTempo.Rules.GuestThreshold.ToString() : null,
                 guestPausesUsed = LiveHost.Active ? LiveTempo.GuestPausesUsed : LiveGuest.Session is not null ? LiveGuest.PausesUsed : (int?)null,
             },

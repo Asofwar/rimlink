@@ -62,6 +62,9 @@ public sealed class MirrorMap
     public int Speed;
     public int PausedBy;
     public int SnapshotSeq;
+    /// <summary>The speed each side asked for (0 paused, 1..3): shown on both players' time buttons.</summary>
+    public int HostWish;
+    public int GuestWish;
     public Dictionary<long, MirrorPawn> Pawns { get; } = [];
     public Dictionary<long, MirrorThing> Things { get; } = [];
     public Dictionary<(int X, int Z), (string Kind, string Value)> Cells { get; } = [];
@@ -69,7 +72,7 @@ public sealed class MirrorMap
 
     public MirrorMap Clone()
     {
-        var m = new MirrorMap { Tick = Tick, Speed = Speed, PausedBy = PausedBy, SnapshotSeq = SnapshotSeq };
+        var m = new MirrorMap { Tick = Tick, Speed = Speed, PausedBy = PausedBy, SnapshotSeq = SnapshotSeq, HostWish = HostWish, GuestWish = GuestWish };
         foreach (var (id, p) in Pawns) m.Pawns[id] = p.Clone();
         foreach (var (id, t) in Things) m.Things[id] = t.Clone();
         foreach (var (c, v) in Cells) m.Cells[c] = v;
@@ -79,7 +82,7 @@ public sealed class MirrorMap
 
     public bool SameAs(MirrorMap o)
     {
-        if (Tick != o.Tick || Speed != o.Speed || PausedBy != o.PausedBy || SnapshotSeq != o.SnapshotSeq) return false;
+        if (Tick != o.Tick || Speed != o.Speed || PausedBy != o.PausedBy || SnapshotSeq != o.SnapshotSeq || HostWish != o.HostWish || GuestWish != o.GuestWish) return false;
         if (Pawns.Count != o.Pawns.Count || Things.Count != o.Things.Count || Cells.Count != o.Cells.Count || Fires.Count != o.Fires.Count) return false;
         foreach (var (id, p) in Pawns) if (!o.Pawns.TryGetValue(id, out var q) || !p.SameAs(q)) return false;
         foreach (var (id, t) in Things) if (!o.Things.TryGetValue(id, out var u) || !t.SameAs(u)) return false;

@@ -66,6 +66,19 @@ public class DeltaCodecTests
     }
 
     [Fact]
+    public void WishesTravelInTheHeader()
+    {
+        var next = new MirrorMap { Tick = 60, Speed = 1, HostWish = 3, GuestWish = 1 };
+
+        var frame = Assert.Single(DeltaCodec.Diff(new MirrorMap(), next, 64 * 1024));
+        var applied = new MirrorMap();
+        DeltaCodec.Apply(applied, frame);
+
+        Assert.Equal((3, 1), (frame.HostWish, frame.GuestWish));
+        Assert.Equal((3, 1), (applied.HostWish, applied.GuestWish));
+    }
+
+    [Fact]
     public void LargeDiffIsSplitUnderMaxBytes()
     {
         var prev = new MirrorMap();

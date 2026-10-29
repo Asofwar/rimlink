@@ -29,7 +29,11 @@ public sealed class DeltaCollector(Map map)
     /// <summary>Everything the guest's snapshot holds, read at the snapshot tick.</summary>
     public MirrorMap FullScan(bool blobsForNew)
     {
-        var m = new MirrorMap { Tick = Find.TickManager.TicksGame, Speed = (int)LiveTempo.Effective, PausedBy = LiveTempo.PausedBy, SnapshotSeq = Current.SnapshotSeq };
+        var m = new MirrorMap
+        {
+            Tick = Find.TickManager.TicksGame, Speed = (int)LiveTempo.Effective, PausedBy = LiveTempo.PausedBy, SnapshotSeq = Current.SnapshotSeq,
+            HostWish = LiveTempo.Rules.HostWish, GuestWish = LiveTempo.Rules.GuestWish,
+        };
         foreach (var p in Map.mapPawns.AllPawnsSpawned) m.Pawns[p.thingIDNumber] = ReadPawn(p, blobsForNew && !Current.Pawns.ContainsKey(p.thingIDNumber));
         foreach (var t in Map.listerThings.AllThings)
         {
@@ -48,6 +52,8 @@ public sealed class DeltaCollector(Map map)
         m.Tick = Find.TickManager.TicksGame;
         m.Speed = (int)LiveTempo.Effective;
         m.PausedBy = LiveTempo.PausedBy;
+        m.HostWish = LiveTempo.Rules.HostWish;
+        m.GuestWish = LiveTempo.Rules.GuestWish;
         foreach (long id in despawned) { m.Things.Remove(id); m.Pawns.Remove(id); }
         foreach (var (id, t) in spawned)
         {

@@ -88,7 +88,7 @@ public static class DeltaCodec
         return frames;
     }
 
-    private static Delta Header(MirrorMap m) => new() { Tick = m.Tick, Speed = m.Speed, PausedBy = m.PausedBy, SnapshotSeq = m.SnapshotSeq };
+    private static Delta Header(MirrorMap m) => new() { Tick = m.Tick, Speed = m.Speed, PausedBy = m.PausedBy, SnapshotSeq = m.SnapshotSeq, HostWish = m.HostWish, GuestWish = m.GuestWish };
 
     public static ApplyResult Apply(MirrorMap map, Delta d)
     {
@@ -96,6 +96,8 @@ public static class DeltaCodec
         map.Speed = d.Speed;
         map.PausedBy = d.PausedBy;
         map.SnapshotSeq = d.SnapshotSeq;
+        map.HostWish = d.HostWish;
+        map.GuestWish = d.GuestWish;
         int unknown = 0;
         foreach (var s in d.ThingsSpawned)
         {

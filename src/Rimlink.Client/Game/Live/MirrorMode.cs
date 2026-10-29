@@ -24,6 +24,9 @@ public static class MirrorMode
     public static int PausedBy { get; set; }
     /// <summary>The label of the host's last threat letter: what a letter pause (PausedBy 3) is about.</summary>
     public static string? LetterLabel { get; set; }
+    /// <summary>The speed each side asked for (0 paused, 1..3), from the host's deltas: the marks on the time buttons.</summary>
+    public static int HostWish { get; set; } = 1;
+    public static int GuestWish { get; set; } = 1;
     public static int SnapshotVersion { get; set; }
     /// <summary>The game pauses itself right after a load; speed writes in the first seconds are not the player's wish.</summary>
     public static DateTime EnteredAt { get; private set; }

@@ -18,6 +18,8 @@ public static class MirrorApplier
         {
             MirrorMode.TargetTick = d.Tick;
             MirrorMode.PausedBy = d.PausedBy;
+            MirrorMode.HostWish = d.HostWish;
+            MirrorMode.GuestWish = d.GuestWish;
             var speed = d.PausedBy != 0 ? TimeSpeed.Paused : (TimeSpeed)Math.Clamp(d.Speed, 0, 3);
             if (Find.TickManager.CurTimeSpeed != speed) Find.TickManager.CurTimeSpeed = speed;
 
