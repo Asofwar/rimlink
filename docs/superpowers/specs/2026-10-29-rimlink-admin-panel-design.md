@@ -254,6 +254,10 @@ Bearer-запросы этих проверок не проходят: у них
     убыванию.
   - `limit` 1–200, `offset` ≥ 0, иначе 400.
   - `banned` — есть активный бан на аккаунт или SteamID.
+  - Токен только с `read`, без `moderate`, получает урезанный элемент `{id, name, factionName, online, role}`.
+    `q` для него ищет только по подстроке имени или фракции и по `#id`: поиск по логину или SteamID ничего не
+    находит. Логин — половина учётных данных, SteamID — личный идентификатор, а `read` выдаётся для публичных
+    команд бота. Остальные области и cookie-сессия получают полный элемент.
 - `GET /players/{id}` → карточка: поля элемента списка, а также:
   - `lastIp`, `session` (`{ip, since}` или `null`);
   - `settlements` (`[{id, tile, name}]`);
@@ -405,7 +409,7 @@ xUnit в `tests/Rimlink.Server.Tests` против настоящего серв
 |---|---|
 | `Panel/PanelAuthTests` | флаги cookie; неверный токен → 401; шестая ошибка с одного IP → 429; выход и истечение сессии (ручной `TimeProvider` в `Support`); cookie-POST без `X-Rimlink-Panel` или с чужим `Origin` → 403; Bearer работает как раньше; пустой `Admin:ApiToken` → 404 на `/admin/` и `/api/panel/*` |
 | `Admin/AuditActorTests` | `ActorName` = `panel` для cookie, `api` для `ApiToken`, `api:discord:x` с заголовком, `api:bot` и `api:bot:discord:x` для именованного токена; пустой, длиннее 64 или с управляющими символами заголовок → 400; неверный токен с плохим заголовком → 401 |
-| `Admin/ApiScopeTests` | токен `read` читает `/status` и получает 403 на `POST /broadcast`; `moderate` кикает, но получает 403 на `POST /bans`; `chat` получает 403 на `GET /status`; `admin` может всё; неверная конфигурация `Admin:Tokens` (плохое имя, дубликат, короткий токен, пустые или неизвестные области) останавливает старт; у каждого маршрута `/api/admin/*` объявлена область |
+| `Admin/ApiScopeTests` | токен `read` читает `/status` и получает 403 на `POST /broadcast`; `moderate` кикает, но получает 403 на `POST /bans`; `chat` получает 403 на `GET /status`; `admin` может всё; `read` в `GET /players` не видит `login`, `steamId`, `mutedUntil`, `banned`, `lastSeenAt`, а `q=<логин>` и `q=<SteamID>` ничего не находят; неверная конфигурация `Admin:Tokens` (плохое имя, дубликат, короткий токен, пустые или неизвестные области) останавливает старт; у каждого маршрута `/api/admin/*` объявлена область |
 | `Storage/SchemaTests` | колонка `admin_actions.ActorName` |
 | `Admin/AdminDirectoryTests` | поиск по имени, SteamID, логину, `#id`; точное имя первым; пагинация и границы; онлайн первыми; поля карточки; в `/chat` нет личных сообщений; `after=` по возрастанию, `before`+`after` → 400; роль; переименование и 409; `saveall` |
 | `Admin/StatusConfigTests` | поля `/status`; значения токенов (включая `Admin:Tokens`), пароля сервера и Steam-ключа не встречаются в JSON `/config` и `/status`; `config.admin.tokens` показывает имена и области |

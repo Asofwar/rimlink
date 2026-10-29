@@ -243,7 +243,7 @@
     - `public sealed record PlayerCard(PlayerRow Player, string? LastIp, SessionRow? Session, List<SettlementRow> Settlements, long WalletBalance, long WealthTotal, DateTime? FirstSaveAt, SaveRow? CurrentSave, List<BanRow> ActiveBans, bool VisitsClosed, DateTime? PeacefulOffAt)`. The REST response flattens `Player` into the top level: `new { …row fields…, lastIp, session, … }`.
     - `public sealed record ChatLine(long Id, DateTime At, long? FromPlayerId, string? FromName, string Kind, string Text)` — `Kind` is `player` or `system`.
   - `public sealed class AdminDirectory(RimlinkDbContext db, SessionRegistry sessions, BanService bans, WalletService wallet)` with methods:
-    - `Task<PlayerPage> Search(string? q, int limit, int offset)`. `limit` outside 1–200 or `offset < 0` → `RpcException(InvalidArgument)`. Filter: `#<n>` → `Id == n`; `^\d{17}$` → `Account.SteamId == n`; otherwise name or faction contains q (case-insensitive) or `Account.Login == q`. Sort and page in memory, because online state lives in `SessionRegistry`: a name equal to `q` (case-insensitive) first, then online, then `LastSeenAt` descending, then `Id`. `Banned` = an active ban on the account id or the SteamId.
+    - `Task<PlayerPage> Search(string? q, int limit, int offset, bool full)`. With `full == false`, `q` matches only `#<n>` and the name/faction substring; the SteamID and login branches are skipped. `limit` outside 1–200 or `offset < 0` → `RpcException(InvalidArgument)`. Filter: `#<n>` → `Id == n`; `^\d{17}$` → `Account.SteamId == n`; otherwise name or faction contains q (case-insensitive) or `Account.Login == q`. Sort and page in memory, because online state lives in `SessionRegistry`: a name equal to `q` (case-insensitive) first, then online, then `LastSeenAt` descending, then `Id`. `Banned` = an active ban on the account id or the SteamId.
     - `Task<PlayerCard> Card(long playerId)` → `NotFound` when missing.
     - `Task<List<ChatLine>> Chat(long? playerId, long? before, long? after, int limit)` — only `ToPlayerId == null`. Without a cursor or with `before`: newest first (ids below `before`). With `after`: ascending ids above `after`. Both cursors, or `limit` outside 1–500 → `InvalidArgument`.
   - Routes in `MapAdminDirectoryApi(this WebApplication app)` on `app.MapGroup("/api/admin").RequireAdmin()`:
@@ -254,10 +254,12 @@
     - `POST /saveall`;
     - `GET /chat`.
     - Each route carries `.RequireScope(...)` per spec §4: `/players` and `/chat` → `Read`; `/players/{id}`, `GET /economy/wallet/{id}` and `/saveall` → `Moderate`; role and rename → `Admin`.
+    - `GET /players` passes `full = ApiScopes.Grants(ctx.Scopes(), ApiScope.Moderate)`. With `full == false`, each item is projected to `{id, name, factionName, online, role}`, and `total` counts the same filtered set.
 
 - [ ] **Step 1: Write the failing tests** (players via `RegisterAndLogin("nova", playerName: "Nova")`, `"mira"`/`"Mira"`, `"orin"`/`"Orin"`; Bearer client as in `AdminRestTests`)
   - `SearchFindsByNameFactionSteamIdLoginAndId` — `q=nov` → only Nova; `q=mira` (login) → Mira; `q=#<orin id>` → Orin. Set Orin's `Account.SteamId = 76561198000000001` in the DB, then `q=76561198000000001` → Orin.
   - `SearchPutsTheExactNameFirst` — players `Novak` (online) and `Nova` (kicked, offline); `q=nova` → `items[0].name == "Nova"`, then `Novak`.
+  - `ReadTokenSeesOnlyPublicPlayerFields` — named token `pub` with scope `read`, Orin's SteamId set to `76561198000000001`. `q=nov` → the item has exactly the properties `id, name, factionName, online, role` (no `login`, `steamId`, `mutedUntil`, `banned`, `lastSeenAt`). `q=mira` (her login, not her name) → `total == 0`. `q=76561198000000001` → `total == 0`. The same SteamID query with a `moderate` token → Orin.
   - `SearchPutsOnlinePlayersFirstAndPages` — kick Mira and Orin via REST; `items[0].name == "Nova"`; `limit=1&offset=1` → `total == 3`, one item.
   - `SearchRejectsOutOfRangeLimits` — `limit=0`, `limit=201`, `offset=-1` → 400 each.
   - `CardShowsSessionWalletAndSave` — POST `economy/wallet/<nova>` `{delta: 50}` → card `walletBalance == 50`, `session` not null, `online` true, `currentSave` null; GET `economy/wallet/<nova>` → `{balance: 50}`.
