@@ -188,9 +188,9 @@ public sealed class TransferOutbox
     /// <summary>
     /// Entries whose refusal leaves nothing to return: the entry is simply dropped. Deliver, land, buy and removal acks
     /// never hold anything of ours (the pod already dropped, the raid is on the map, the shop copy is discarded); neither
-    /// do wallet silver, raids by copies and a report without loot. A refused report keeps its loot (it is the defender's
-    /// again) for the game layer to put back; the raiders go home at the server's expiry. Keep in step with the game
-    /// layer's Outgoing.Contents.
+    /// do wallet silver, raids by copies and a report without loot or captives. A refused report keeps its loot and its
+    /// captives (the defender's own colonists, already gone from the colony) for the game layer to put back; the raiders go
+    /// home at the server's expiry. Keep in step with the game layer's Outgoing.Contents.
     /// </summary>
     private static bool NothingToReturn(OutboxEntry entry)
     {
@@ -202,7 +202,7 @@ public sealed class TransferOutbox
             DepositRequest deposit => deposit.Silver <= 0,
             LaunchRequest launch => launch.PawnMode != PawnMode.PawnReal || (launch.Pawns?.Pawns.Count ?? 0) == 0,
             LiveProposal proposal => (proposal.Pawns?.Pawns.Count ?? 0) == 0,
-            RaidReport report => (report.Loot?.Items.Count ?? 0) == 0,
+            RaidReport report => (report.Loot?.Items.Count ?? 0) == 0 && (report.Captives?.Pawns.Count ?? 0) == 0,
             _ => false,
         };
     }

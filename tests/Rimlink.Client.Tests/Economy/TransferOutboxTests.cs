@@ -117,6 +117,27 @@ public class TransferOutboxTests : IDisposable
     }
 
     [Fact]
+    public void RefuseKeepsEveryEntryThatHoldsThingsOfOurs()
+    {
+        var outbox = Outbox();
+        var pawns = new PawnList();
+        pawns.Pawns.Add(new PawnBlob { KindDef = "Colonist", ScribeXmlZstd = ByteString.CopyFromUtf8("pawn") });
+        var kept = new[]
+        {
+            outbox.Add(new PostRequest { ClientRequestId = "p", Price = 3, Items = Items(("Steel", 1)) }),
+            outbox.Add(new DepositRequest { ClientRequestId = "d", Silver = 10 }),
+            outbox.Add(new LaunchRequest { ClientRequestId = "l", PawnMode = PawnMode.PawnReal, Pawns = pawns }),
+            outbox.Add(new LiveProposal { Pawns = pawns }),
+            // A report without loot that still carries a kidnapped colonist of ours: refused, the colonist must come home.
+            outbox.Add(new RaidReport { RaidId = 1, Loot = new ItemList(), Captives = pawns }),
+        };
+
+        foreach (var entry in kept) Assert.True(outbox.Refuse(entry.Id, "refused"));
+
+        Assert.Equal(kept.Select(e => e.Id), Outbox().Entries.Select(e => e.Id));
+    }
+
+    [Fact]
     public void IndeterminateStatusIsNotDefinitive()
     {
         Assert.False(TransferOutbox.IsDefinitive(new RpcException(new Status(StatusCode.Unavailable, "down"))));

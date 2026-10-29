@@ -248,8 +248,9 @@ public static class Outgoing
                 foreach (var p in proposal.Pawns.Pawns) things.Add(ThingBlobs.DeserializePawn(p));
                 break;
             case RaidReport report:
-                // Only the loot is ours to return; the raiders belong to the attacker and come home through the server.
-                foreach (var i in report.Loot.Items) things.Add(ThingBlobs.DeserializeItem(i));
+                // The loot and the kidnapped colonists are ours to return; the raiders belong to the attacker and come home through the server.
+                if (report.Loot is not null) foreach (var i in report.Loot.Items) things.Add(ThingBlobs.DeserializeItem(i));
+                if (report.Captives is not null) foreach (var p in report.Captives.Pawns) things.Add(ThingBlobs.DeserializePawn(p));
                 break;
         }
         // Pawns of a refused request come home together, a pair that left together is a pair again.
