@@ -51,6 +51,9 @@ public sealed class Player
     public bool AcceptGifts { get; set; }
     /// <summary>New trade offers to this player are refused.</summary>
     public bool TradesClosed { get; set; }
+    /// <summary>Integrity: set while this player's economy is frozen (by an admin or by the server); deliveries to them go on.</summary>
+    public DateTime? EconomyFrozenAt { get; set; }
+    public string? EconomyFreezeReason { get; set; }
 }
 
 public sealed class SessionLog
@@ -143,6 +146,11 @@ public sealed class SaveVersion
     public byte[] Sha256 { get; set; } = [];
     public DateTime CreatedAt { get; set; }
     public bool IsCurrent { get; set; }
+    /// <summary>Dev mode was on in this game since the previous upload (as the client reported it).</summary>
+    public bool DevMode { get; set; }
+    /// <summary>Colony wealth reported with this save; 0 for versions stored before it was kept per version.</summary>
+    public long WealthTotal { get; set; }
+    public long WealthItems { get; set; }
 }
 
 public enum ParcelKindDb { Gift = 0, Purchase = 1, LotReturn = 2, Withdraw = 3, Admin = 4, Loot = 5, RaidReturn = 6, Captive = 7, GiftReturn = 8, Trade = 9, TradeReturn = 10 }

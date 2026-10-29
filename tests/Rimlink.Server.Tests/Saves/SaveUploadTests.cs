@@ -1,5 +1,7 @@
+using System.Net.Http.Json;
 using Google.Protobuf;
 using Grpc.Core;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Rimlink.Protocol.V1;
 using Rimlink.Server.Application.Saves;
@@ -217,5 +219,69 @@ public class SaveUploadTests
         var ex = await Assert.ThrowsAsync<RpcException>(() => Upload(saves, nova.SessionToken, save, HeaderFor(save, ServerFixture.WorldSeed, "Nova")));
 
         Assert.Equal(StatusCode.ResourceExhausted, ex.StatusCode);
+    }
+
+    private static async Task UploadWithWealth(ServerFixture fixture, LoginReply player, long tick, long wealth, bool devMode = false)
+    {
+        var saves = new Protocol.V1.Saves.SavesClient(fixture.CreateChannel());
+        byte[] save = MakeSave(ServerFixture.WorldSeed, player.Player.Name, tick);
+        var header = HeaderFor(save, ServerFixture.WorldSeed, player.Player.Name, tick);
+        header.WealthTotal = wealth;
+        header.WealthItems = wealth / 4;
+        header.DevMode = devMode;
+        await Upload(saves, player.SessionToken, save, header);
+    }
+
+    [Fact]
+    public async Task UploadStoresWealthAndDevModeOnTheVersion()
+    {
+        using var fixture = Server().WithSetting("Admin:ApiToken", AdminRestExtensions.ApiToken);
+        var nova = await fixture.RegisterAndLogin("nova", playerName: "Nova");
+
+        await UploadWithWealth(fixture, nova, tick: 1000, wealth: 40000, devMode: true);
+
+        using (var scope = fixture.Services.CreateScope())
+        {
+            var version = scope.ServiceProvider.GetRequiredService<Rimlink.Server.Storage.RimlinkDbContext>().SaveVersions.Single(v => v.PlayerId == nova.Player.PlayerId);
+            Assert.True(version.DevMode);
+            Assert.Equal(40000, version.WealthTotal);
+            Assert.Equal(10000, version.WealthItems);
+        }
+        var listed = await fixture.Rest().GetFromJsonAsync<System.Text.Json.JsonElement>($"/api/admin/players/{nova.Player.PlayerId}/saves");
+        Assert.True(listed[0].GetProperty("devMode").GetBoolean());
+        Assert.Equal(40000, listed[0].GetProperty("wealthTotal").GetInt64());
+    }
+
+    [Fact]
+    public async Task RollbackMovesThePlayerWealth()
+    {
+        using var fixture = Server();
+        var nova = await fixture.RegisterAndLogin("nova", playerName: "Nova");
+        await UploadWithWealth(fixture, nova, tick: 1000, wealth: 30000);
+        await UploadWithWealth(fixture, nova, tick: 2000, wealth: 90000);
+
+        using var scope = fixture.Services.CreateScope();
+        Assert.True(await scope.ServiceProvider.GetRequiredService<SaveStore>().Rollback(nova.Player.PlayerId, 1));
+
+        var player = await scope.ServiceProvider.GetRequiredService<Rimlink.Server.Storage.RimlinkDbContext>().Players.AsNoTracking().SingleAsync(p => p.Id == nova.Player.PlayerId);
+        Assert.Equal(30000, player.WealthTotal);
+        Assert.Equal(7500, player.WealthItems);
+    }
+
+    [Fact]
+    public async Task RollbackToAVersionWithoutWealthKeepsThePlayerWealth()
+    {
+        using var fixture = Server();
+        var nova = await fixture.RegisterAndLogin("nova", playerName: "Nova");
+        await UploadWithWealth(fixture, nova, tick: 1000, wealth: 30000);
+        await UploadWithWealth(fixture, nova, tick: 2000, wealth: 90000);
+        using var scope = fixture.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<Rimlink.Server.Storage.RimlinkDbContext>();
+        await db.SaveVersions.Where(v => v.PlayerId == nova.Player.PlayerId && v.Number == 1).ExecuteUpdateAsync(s => s.SetProperty(v => v.WealthTotal, 0L).SetProperty(v => v.WealthItems, 0L));
+
+        Assert.True(await scope.ServiceProvider.GetRequiredService<SaveStore>().Rollback(nova.Player.PlayerId, 1));
+
+        var player = await db.Players.AsNoTracking().SingleAsync(p => p.Id == nova.Player.PlayerId);
+        Assert.Equal(90000, player.WealthTotal);
     }
 }

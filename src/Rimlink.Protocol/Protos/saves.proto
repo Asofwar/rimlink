@@ -34,6 +34,8 @@ message SaveHeader {
   // Colony wealth (WealthWatcher) at save time; raid protection and loot caps read them.
   int64 wealth_total = 6;
   int64 wealth_items = 7;
+  // Dev mode was on in this game since the previous upload; recorded per version, freezes a player not allowed to use it.
+  bool dev_mode = 8;
 }
 
 message SaveInfo {

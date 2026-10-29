@@ -36,7 +36,7 @@ public static class AdminEndpoints
         group.MapPost("/players/{id:long}/kick", (long id, KickBody body, HttpContext ctx, AdminOperations ops) => ops.Kick(ctx.Actor(), id, body.Reason ?? "kicked by an admin")).RequireScope(ApiScope.Moderate);
         group.MapPost("/players/{id:long}/mute", (long id, MuteBody body, HttpContext ctx, AdminOperations ops) => ops.Mute(ctx.Actor(), id, TimeSpan.FromMinutes(body.Minutes))).RequireScope(ApiScope.Moderate);
         group.MapDelete("/players/{id:long}/mute", (long id, HttpContext ctx, AdminOperations ops) => ops.Unmute(ctx.Actor(), id)).RequireScope(ApiScope.Moderate);
-        group.MapGet("/players/{id:long}/saves", async (long id, HttpContext ctx, AdminOperations ops) => (await ops.ListSaves(ctx.Actor(), id)).Select(SaveStore.ToInfo).Select(s => new { s.Version, s.Size, s.GameTick, s.IsCurrent, CreatedAt = s.CreatedAt.ToDateTime() })).RequireScope(ApiScope.Admin);
+        group.MapGet("/players/{id:long}/saves", async (long id, HttpContext ctx, AdminOperations ops) => (await ops.ListSaves(ctx.Actor(), id)).Select(v => new { Version = v.Number, v.Size, v.GameTick, v.IsCurrent, v.CreatedAt, v.DevMode, v.WealthTotal })).RequireScope(ApiScope.Admin);
         group.MapPost("/players/{id:long}/saves/{version:int}/rollback", async (long id, int version, HttpContext ctx, AdminOperations ops) =>
             await ops.RollbackSave(ctx.Actor(), id, version) ? Results.Ok() : Results.NotFound()).RequireScope(ApiScope.Admin);
         group.MapPost("/players/{id:long}/reset", (long id, HttpContext ctx, AdminOperations ops) => ops.ResetPlayer(ctx.Actor(), id)).RequireScope(ApiScope.Admin);

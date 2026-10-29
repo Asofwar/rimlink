@@ -205,4 +205,15 @@ public class SchemaTests : IDisposable
         Assert.Equal(1L, (long)cmd.ExecuteScalar()!);
         Assert.Equal(0, db.ModpackConfigs.Count());
     }
+
+    [Fact]
+    public void IntegrityColumnsExist()
+    {
+        using var db = CreateContext();
+
+        Assert.Contains("EconomyFrozenAt", Columns("players"));
+        Assert.Contains("EconomyFreezeReason", Columns("players"));
+        foreach (string column in new[] { "DevMode", "WealthTotal", "WealthItems" }) Assert.Contains(column, Columns("save_versions"));
+        Assert.Null(db.Players.Select(p => p.EconomyFrozenAt).FirstOrDefault());
+    }
 }

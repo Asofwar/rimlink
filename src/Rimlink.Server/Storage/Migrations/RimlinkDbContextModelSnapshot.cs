@@ -450,6 +450,12 @@ namespace Rimlink.Server.Storage.Migrations
                     b.Property<uint>("ColorArgb")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("EconomyFreezeReason")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("EconomyFrozenAt")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("FactionName")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -627,6 +633,9 @@ namespace Rimlink.Server.Storage.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("DevMode")
+                        .HasColumnType("INTEGER");
+
                     b.Property<long>("GameTick")
                         .HasColumnType("INTEGER");
 
@@ -644,6 +653,12 @@ namespace Rimlink.Server.Storage.Migrations
                         .HasColumnType("BLOB");
 
                     b.Property<long>("Size")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("WealthItems")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("WealthTotal")
                         .HasColumnType("INTEGER");
 
                     b.HasKey("Id");

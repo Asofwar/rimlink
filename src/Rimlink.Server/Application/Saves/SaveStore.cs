@@ -74,6 +74,9 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, EventBus 
                     Sha256 = header.Sha256.ToByteArray(),
                     CreatedAt = DateTime.UtcNow,
                     IsCurrent = true,
+                    DevMode = header.DevMode,
+                    WealthTotal = header.WealthTotal,
+                    WealthItems = header.WealthItems,
                 };
                 db.SaveVersions.Add(version);
                 // The faction name the player chose in game is the one others should see on the map.
@@ -129,6 +132,12 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, EventBus 
         // An admin rolling back behind a transfer knowingly returns what was given away; the stale-save guard moves with it.
         var player = await db.Players.FirstAsync(p => p.Id == playerId);
         if (player.LastOutgoingTick > target.GameTick) player.LastOutgoingTick = target.GameTick;
+        // Raid protection and loot caps read the player's wealth: it is the current version's (older versions did not keep it).
+        if (target.WealthTotal > 0)
+        {
+            player.WealthTotal = target.WealthTotal;
+            player.WealthItems = target.WealthItems;
+        }
         await db.SaveChangesAsync();
         await tx.CommitAsync();
 

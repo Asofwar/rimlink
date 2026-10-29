@@ -57,7 +57,7 @@ public sealed class AdminCommandRunner(AdminOperations ops, ModpackService modpa
                 return $"{Arg(0)} unmuted";
             case "saves":
                 var saves = await ops.ListSaves(actor, await PlayerId(Arg(0)));
-                return saves.Count == 0 ? "no saves" : string.Join('\n', saves.Select(s => $"v{s.Number}{(s.IsCurrent ? " (current)" : "")} tick {s.GameTick} {s.Size / 1024} KB {s.CreatedAt:u}"));
+                return saves.Count == 0 ? "no saves" : string.Join('\n', saves.Select(s => $"v{s.Number}{(s.IsCurrent ? " (current)" : "")}{(s.DevMode ? " dev" : "")} tick {s.GameTick} {s.Size / 1024} KB {s.CreatedAt:u}"));
             case "rollback":
                 return await ops.RollbackSave(actor, await PlayerId(Arg(0)), int.Parse(Arg(1), CultureInfo.InvariantCulture)) ? $"{Arg(0)} rolled back to v{Arg(1)}" : "no such version";
             case "reset":
