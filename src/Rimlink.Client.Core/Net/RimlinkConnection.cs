@@ -85,6 +85,7 @@ public sealed class RimlinkConnection : IAsyncDisposable
         LiveApi = new Protocol.V1.Live.LiveClient(channel);
         TradesApi = new Protocol.V1.Trades.TradesClient(channel);
         SocialApi = new Protocol.V1.Social.SocialClient(channel);
+        AwayApi = new Protocol.V1.Away.AwayClient(channel);
     }
 
     /// <summary>Pins live next to the game's config; the game layer sets the path before the first connection.</summary>
@@ -130,6 +131,7 @@ public sealed class RimlinkConnection : IAsyncDisposable
     public Protocol.V1.Live.LiveClient LiveApi { get; }
     public Protocol.V1.Trades.TradesClient TradesApi { get; }
     public Protocol.V1.Social.SocialClient SocialApi { get; }
+    public Protocol.V1.Away.AwayClient AwayApi { get; }
 
     /// <summary>Logs in and starts the event stream. A modpack mismatch returns the reply (no token) and leaves the connection down.</summary>
     public async Task<LoginReply> ConnectAsync(CancellationToken cancellationToken)

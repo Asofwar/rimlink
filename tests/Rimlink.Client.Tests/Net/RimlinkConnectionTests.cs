@@ -372,4 +372,16 @@ public class RimlinkConnectionTests
         var ex = await Assert.ThrowsAsync<Grpc.Core.RpcException>(() => connection.World.GetAsync(new Empty()).ResponseAsync);
         Assert.Equal(Grpc.Core.StatusCode.Unavailable, ex.StatusCode);
     }
+
+    [Fact]
+    public async Task AwaySummaryRoundTrips()
+    {
+        using var fixture = Server();
+        await using var connection = await Support.ClientFixtures.Connected(fixture, "nova");
+
+        var summary = await connection.AwayApi.SummaryAsync(new Empty());
+
+        Assert.Empty(summary.Parcels);
+        Assert.NotNull(summary.Since); // RegisterAndLogin logged in once before this connection: the baseline is that login
+    }
 }

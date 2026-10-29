@@ -171,4 +171,33 @@ public class SharedStateTests
         Assert.Equal(3, state.PendingRollbackVersion);
         Assert.Equal(60, state.PendingShutdown?.InSeconds);
     }
+
+    [Fact]
+    public void WorldObjectUpdatedReplacesTheEntryAndRaisesTheEvent()
+    {
+        var state = new SharedState();
+        state.Apply(Added(5, 100, 2));
+        WorldObject? raised = null;
+        state.ObjectUpdated += o => raised = o;
+        var updated = new WorldObject { Id = 5, Type = "settlement", Tile = 100, Name = "S5", Owner = Player(2, "P2"), WealthTier = 4, ColonyGameDays = 12 };
+
+        state.Apply(new ServerEvent { WorldObjectUpdated = new WorldObjectUpdated { Object = updated } });
+
+        Assert.Equal(4, state.Objects.TryGet(5)!.WealthTier);
+        Assert.Equal(12, state.Objects.TryGetByTile(100)!.ColonyGameDays);
+        Assert.Same(updated, raised);
+    }
+
+    [Fact]
+    public void UpdateOfAnUnknownObjectIsIgnored()
+    {
+        var state = new SharedState();
+        bool raised = false;
+        state.ObjectUpdated += _ => raised = true;
+
+        state.Apply(new ServerEvent { WorldObjectUpdated = new WorldObjectUpdated { Object = new WorldObject { Id = 9, Type = "settlement", Tile = 3 } } });
+
+        Assert.Null(state.Objects.TryGet(9));
+        Assert.False(raised);
+    }
 }

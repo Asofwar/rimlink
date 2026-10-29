@@ -19,6 +19,8 @@ public sealed class SharedState
 
     public event Action<WorldObject>? ObjectAdded;
     public event Action<long>? ObjectRemoved;
+    /// <summary>A known object changed (an owner's wealth tier or colony age).</summary>
+    public event Action<WorldObject>? ObjectUpdated;
     public event Action<ChatMessageEvent>? ChatReceived;
     /// <summary>A "look here" from another player (live UX spec §2); the game layer shows it only while a game is running.</summary>
     public event Action<PingEvent>? Pinged;
@@ -41,6 +43,9 @@ public sealed class SharedState
                 break;
             case ServerEvent.BodyOneofCase.WorldObjectRemoved:
                 if (Objects.Remove(ev.WorldObjectRemoved.ObjectId)) ObjectRemoved?.Invoke(ev.WorldObjectRemoved.ObjectId);
+                break;
+            case ServerEvent.BodyOneofCase.WorldObjectUpdated:
+                if (Objects.Update(ev.WorldObjectUpdated.Object)) ObjectUpdated?.Invoke(ev.WorldObjectUpdated.Object);
                 break;
             case ServerEvent.BodyOneofCase.Chat:
                 Chat.Add(ev.Chat);
@@ -133,6 +138,16 @@ public sealed class WorldObjectsIndex
     public bool Add(WorldObject o)
     {
         if (!byId.TryAdd(o.Id, o)) return false;
+        if (o.Type == "settlement") settlementsByTile[o.Tile] = o;
+        return true;
+    }
+
+    /// <summary>Replaces a known object by id; false (and nothing changes) for an unknown one.</summary>
+    public bool Update(WorldObject o)
+    {
+        if (!byId.TryGetValue(o.Id, out var old)) return false;
+        byId[o.Id] = o;
+        if (old.Type == "settlement" && settlementsByTile.TryGetValue(old.Tile, out var at) && at.Id == o.Id) settlementsByTile.Remove(old.Tile);
         if (o.Type == "settlement") settlementsByTile[o.Tile] = o;
         return true;
     }
