@@ -62,17 +62,21 @@ public sealed class LiveClient(RimlinkConnection connection, ILog log)
     }
 
     /// <summary>Queues a frame; orders and deltas over the local rate are dropped with a log line, the session id is filled in.</summary>
-    public void Send(LiveClientMsg msg)
+    /// <summary>
+    /// Queues a frame; false when it was dropped here (deltas and orders over the local rate, a delta on a full queue). A delta
+    /// is a diff against what the peer has, so its sender keeps the changes for the next one instead.
+    /// </summary>
+    public bool Send(LiveClientMsg msg)
     {
         if (msg.SessionId == 0) msg.SessionId = sessionId;
         var now = DateTime.UtcNow;
-        if (msg.MCase == LiveClientMsg.MOneofCase.Delta && !deltaRate.Take(now)) { log.Warn("live: delta dropped (local rate)"); return; }
-        if (msg.MCase == LiveClientMsg.MOneofCase.Order && !orderRate.Take(now)) { log.Warn("live: order dropped (local rate)"); return; }
+        if (msg.MCase == LiveClientMsg.MOneofCase.Delta && !deltaRate.Take(now)) { log.Warn("live: delta dropped (local rate)"); return false; }
+        if (msg.MCase == LiveClientMsg.MOneofCase.Order && !orderRate.Take(now)) { log.Warn("live: order dropped (local rate)"); return false; }
         lock (gate)
         {
             if (outgoing.Count >= OutgoingCapacity)
             {
-                if (msg.MCase == LiveClientMsg.MOneofCase.Delta) { log.Warn("live: delta dropped (queue full)"); return; }
+                if (msg.MCase == LiveClientMsg.MOneofCase.Delta) { log.Warn("live: delta dropped (queue full)"); return false; }
                 var kept = outgoing.Where(m => m.MCase != LiveClientMsg.MOneofCase.Delta).ToList();
                 outgoing.Clear();
                 foreach (var m in kept) outgoing.Enqueue(m);
@@ -80,6 +84,7 @@ public sealed class LiveClient(RimlinkConnection connection, ILog log)
             outgoing.Enqueue(msg);
         }
         outgoingSignal.Release();
+        return true;
     }
 
     private Task? ending;

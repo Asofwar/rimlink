@@ -17,6 +17,7 @@ namespace Rimlink.Client.Game.Live;
 public static class LiveHost
 {
     private const int DeltaTicks = 6, FullTicks = 600, MaxFrameBytes = 262144;
+    private static readonly TimeSpan MinDeltaInterval = TimeSpan.FromMilliseconds(100);
 
     public static bool Active { get; private set; }
     public static bool Starting { get; private set; }
@@ -236,6 +237,9 @@ public static class LiveHost
         int tick = Find.TickManager.TicksGame;
         bool paused = Find.TickManager.Paused;
         if (tick - lastDeltaTick < DeltaTicks && !(paused && DateTime.UtcNow - lastDeltaAt > TimeSpan.FromSeconds(1))) return;
+        // At high speed the diffs grow instead of their number: the stream drops deltas over its rate (20 per second on both
+        // the client and the server), and a dropped diff is a change the guest never sees.
+        if (DateTime.UtcNow - lastDeltaAt < MinDeltaInterval) return;
         SendDelta(live, tick, full: tick - lastFullTick >= FullTicks);
     }
 
@@ -257,8 +261,10 @@ public static class LiveHost
                 }
                 lastFullTick = tick;
             }
-            collector.Commit(next);
-            foreach (var frame in frames) live.Send(new LiveClientMsg { Delta = frame });
+            bool all = true;
+            foreach (var frame in frames) all &= live.Send(new LiveClientMsg { Delta = frame });
+            // A frame the stream refused is not the guest's state: without the commit the next diff carries those changes again.
+            if (all) collector.Commit(next);
             DeltasSent += frames.Count;
             lastDeltaTick = tick;
             lastDeltaAt = DateTime.UtcNow;
