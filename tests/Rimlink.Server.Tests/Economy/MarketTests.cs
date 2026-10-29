@@ -163,6 +163,30 @@ public class MarketTests
     }
 
     [Fact]
+    public async Task TheLotSweepRunsAtStartNotOnlyAfterAnHour()
+    {
+        using var fixture = EconomyServer().WithSetting("Economy:LotLifetimeDays", "0");
+        var nova = await fixture.RegisterAndLogin("nova");
+        var n = Clients(fixture, nova.SessionToken);
+        await n.Market.PostAsync(Post(Items(("Steel", 2)), 10), n.Auth);
+        await Task.Delay(50); // due by now
+        var sweep = new LotExpiryService(fixture.Services.GetRequiredService<IServiceScopeFactory>(), Microsoft.Extensions.Logging.Abstractions.NullLogger<LotExpiryService>.Instance);
+
+        await sweep.StartAsync(CancellationToken.None);
+        try
+        {
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+            while ((await n.Mailbox.ListAsync(new Empty(), n.Auth)).Parcels.Count == 0 && DateTime.UtcNow < deadline) await Task.Delay(100);
+        }
+        finally
+        {
+            await sweep.StopAsync(CancellationToken.None);
+        }
+
+        Assert.Equal(ParcelKind.ParcelLotReturn, Assert.Single((await n.Mailbox.ListAsync(new Empty(), n.Auth)).Parcels).Kind);
+    }
+
+    [Fact]
     public async Task ExpiredLotOfResetPlayerIsReturnedToTheirMailbox()
     {
         using var fixture = EconomyServer().WithSetting("Economy:LotLifetimeDays", "0").WithSetting("Auth:AdminLogins:0", "admin");

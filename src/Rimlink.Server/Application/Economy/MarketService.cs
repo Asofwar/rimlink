@@ -188,7 +188,7 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
     };
 }
 
-/// <summary>Hourly sweep of expired lots.</summary>
+/// <summary>Sweep of expired lots at start (a restart does not postpone it), then hourly.</summary>
 public sealed class LotExpiryService(IServiceScopeFactory scopes, ILogger<LotExpiryService> log) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -196,12 +196,13 @@ public sealed class LotExpiryService(IServiceScopeFactory scopes, ILogger<LotExp
         using var timer = new PeriodicTimer(TimeSpan.FromHours(1));
         try
         {
-            while (await timer.WaitForNextTickAsync(stoppingToken))
+            do
             {
                 using var scope = scopes.CreateScope();
                 int n = await scope.ServiceProvider.GetRequiredService<MarketService>().ExpireDue(DateTime.UtcNow);
                 if (n > 0) log.LogInformation("Expired {Count} market lots", n);
             }
+            while (await timer.WaitForNextTickAsync(stoppingToken));
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {

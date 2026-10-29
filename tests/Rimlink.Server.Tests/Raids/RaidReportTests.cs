@@ -210,6 +210,34 @@ public class RaidReportTests
     }
 
     [Fact]
+    public async Task TheExpirySweepRunsAtStartNotOnlyAfterAnHour()
+    {
+        var p = await NovaAndBob();
+        using var fixture = p.Fixture;
+        var raid = await p.N.Raids.LaunchAsync(Launch(p.Bob.Player.PlayerId), p.N.Auth);
+        using (var scope = fixture.Services.CreateScope())
+        {
+            // Fell due while the server was down: a restart must not postpone it by another hour.
+            await scope.ServiceProvider.GetRequiredService<RimlinkDbContext>().Raids.Where(r => r.Id == raid.Id).ExecuteUpdateAsync(s => s.SetProperty(r => r.ExpiresAt, DateTime.UtcNow - TimeSpan.FromMinutes(1)));
+        }
+        var sweep = new RaidExpiryService(fixture.Services.GetRequiredService<IServiceScopeFactory>(), Microsoft.Extensions.Logging.Abstractions.NullLogger<RaidExpiryService>.Instance);
+
+        await sweep.StartAsync(CancellationToken.None);
+        try
+        {
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+            while (Assert.Single((await p.N.Raids.MineAsync(new Empty(), p.N.Auth)).Raids).State != RaidState.RaidExpired && DateTime.UtcNow < deadline)
+                await Task.Delay(100);
+        }
+        finally
+        {
+            await sweep.StopAsync(CancellationToken.None);
+        }
+
+        Assert.Equal(RaidState.RaidExpired, Assert.Single((await p.N.Raids.MineAsync(new Empty(), p.N.Auth)).Raids).State);
+    }
+
+    [Fact]
     public async Task ExpiredSnapshotRaidReturnsNothing()
     {
         var p = await NovaAndBob();

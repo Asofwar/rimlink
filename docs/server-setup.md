@@ -92,6 +92,7 @@ and the outcome comes back as parcels. Settings under `Raids` (defaults): `Enabl
 from the save header: players who last saved before this version count as wealth 0 (protected) until their next save,
 and their oldest save counts as their first. A raid expires after `ExpireRealDays` real days without a landing, and a
 landed raid gets the same window again for the report; either way the attacker's Real pawns come home as a parcel.
+Expired raids and market lots are swept when the server starts and then every hour.
 Raids are refused while frozen (`/raids freeze`); visits and the shop keep working. Visits download the host's current
 save to the visitor (only while a visit is open; a ticket nobody ended stops working after `VisitHours`); the shop lists
 what a host priced in their colony and sells it from the visitor's copy, the host's game removes the sold things at its

@@ -13,7 +13,10 @@ public static class RaidMetrics
     public static void Outcome(string outcome) => Raids.WithLabels(outcome).Inc();
 }
 
-/// <summary>Hourly sweep: raids nobody landed within the limit go back to their attacker.</summary>
+/// <summary>
+/// Sweep at start, then hourly: raids nobody landed within the limit go back to their attacker. The sweep at start
+/// keeps a restart (or a server restarted more often than hourly) from postponing raids that fell due meanwhile.
+/// </summary>
 public sealed class RaidExpiryService(IServiceScopeFactory scopes, ILogger<RaidExpiryService> log) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -21,12 +24,13 @@ public sealed class RaidExpiryService(IServiceScopeFactory scopes, ILogger<RaidE
         using var timer = new PeriodicTimer(TimeSpan.FromHours(1));
         try
         {
-            while (await timer.WaitForNextTickAsync(stoppingToken))
+            do
             {
                 using var scope = scopes.CreateScope();
                 int n = await scope.ServiceProvider.GetRequiredService<RaidService>().ExpireDue(DateTime.UtcNow);
                 if (n > 0) log.LogInformation("Expired {Count} raids", n);
             }
+            while (await timer.WaitForNextTickAsync(stoppingToken));
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
