@@ -1,5 +1,7 @@
 using Grpc.Core;
 using RimWorld;
+using RimWorld.Planet;
+using Rimlink.Client.Chat;
 using Rimlink.Client.Game;
 using Rimlink.Protocol;
 using Rimlink.Protocol.V1;
@@ -37,21 +39,42 @@ public sealed class Dialog_Chat : Window
         targetName = name;
     }
 
+    private const float CardButtonHeight = 22f;
+
     public override void DoWindowContents(Rect inRect)
     {
         Text.Font = GameFont.Small;
         var messages = RimlinkSession.State.Chat.Messages;
         var listRect = new Rect(0f, 0f, inRect.width, inRect.height - 70f);
-        var text = string.Join("\n", messages.Select(Format));
-        float height = Text.CalcHeight(text, listRect.width - 16f);
+        float width = listRect.width - 16f;
+        // One row per message: a message with cards gets its link buttons under its text.
+        var rows = messages.Select(m => (Text: Format(m), Cards: m.Kind == MessageKind.System ? [] : ChatCards.Parse(m.Text))).ToList();
+        var heights = rows.Select(r => Text.CalcHeight(r.Text, width) + (r.Cards.Count > 0 ? CardButtonHeight + 2f : 0f)).ToList();
+        float height = heights.Sum();
         if (messages.Count != lastCount) { scroll.y = Math.Max(0f, height - listRect.height); lastCount = messages.Count; }
-        Widgets.BeginScrollView(listRect, ref scroll, new Rect(0f, 0f, listRect.width - 16f, Math.Max(height, listRect.height)));
-        Widgets.Label(new Rect(0f, 0f, listRect.width - 16f, height), text);
+        Widgets.BeginScrollView(listRect, ref scroll, new Rect(0f, 0f, width, Math.Max(height, listRect.height)));
+        float rowY = 0f;
+        for (int i = 0; i < rows.Count; i++)
+        {
+            float textHeight = heights[i] - (rows[i].Cards.Count > 0 ? CardButtonHeight + 2f : 0f);
+            Widgets.Label(new Rect(0f, rowY, width, textHeight), rows[i].Text);
+            float x = 12f;
+            foreach (var card in rows[i].Cards)
+            {
+                if (Widgets.ButtonText(new Rect(x, rowY + textHeight, 150f, CardButtonHeight), CardLabel(card.Tile).Truncate(146f))) JumpTo(card.Tile);
+                x += 154f;
+            }
+            rowY += heights[i];
+        }
         Widgets.EndScrollView();
 
         float y = inRect.height - 62f;
         string targetLabel = targetPlayerId == 0 ? "Rimlink.Chat.Public".Translate() : "Rimlink.Chat.To".Translate(targetName);
         if (Widgets.ButtonText(new Rect(0f, y, 150f, 26f), targetLabel)) SetTarget(0, "");
+        var placeRect = new Rect(156f, y, 100f, 26f);
+        TooltipHandler.TipRegion(placeRect, "Rimlink.Chat.PlaceTip".Translate());
+        if (Widgets.ButtonText(placeRect, "Rimlink.Chat.Place".Translate()) && SelectedTile() is { } tile)
+            input = (input.Length == 0 || input.EndsWith(" ") ? input : input + " ") + ChatCards.Token(tile);
         y += 30f;
         GUI.SetNextControlName("RimlinkChatInput");
         input = Widgets.TextField(new Rect(0f, y, inRect.width - 90f, 28f), input, Limits.ChatMaxLength);
@@ -85,10 +108,53 @@ public sealed class Dialog_Chat : Window
         });
     }
 
+    /// <summary>The place a card would name: what is selected on the world map, else the tile of the map shown.</summary>
+    private static int? SelectedTile()
+    {
+        if (Find.World is null) return null;
+        if (Find.WorldSelector.SelectedObjects.FirstOrDefault() is { } selected) return selected.Tile;
+        if (Find.WorldSelector.SelectedTile.Valid) return Find.WorldSelector.SelectedTile;
+        return Find.CurrentMap?.Tile;
+    }
+
+    /// <summary>A card's text in this player's world: the settlement on the tile with its owner, else the tile and its biome.</summary>
+    private static string CardLabel(int tile)
+    {
+        if (Find.World is not { } world || tile < 0 || tile >= world.grid.TilesCount) return "Rimlink.Chat.CardTileBare".Translate(tile);
+        if (Find.WorldObjects.SettlementAt(tile) is { } settlement)
+        {
+            string owner = RimlinkSession.State.Objects.All.FirstOrDefault(o => o.Tile == tile && o.Owner is not null)?.Owner.Name ?? settlement.Faction?.Name ?? "?";
+            return "Rimlink.Chat.CardSettlement".Translate(settlement.LabelCap, owner);
+        }
+        return "Rimlink.Chat.CardTile".Translate(tile, world.grid[tile].PrimaryBiome?.label ?? "?");
+    }
+
+    private static void JumpTo(int tile)
+    {
+        if (Find.World is not { } world || tile < 0 || tile >= world.grid.TilesCount) return;
+        if (Find.WorldObjects.SettlementAt(tile) is { } settlement) CameraJumper.TryJumpAndSelect(new GlobalTargetInfo(settlement));
+        else CameraJumper.TryJump(new GlobalTargetInfo((PlanetTile)tile));
+    }
+
+    /// <summary>The message text with each card token shown as its label (escaped like the rest of the text).</summary>
+    private static string Body(string text)
+    {
+        var cards = ChatCards.Parse(text);
+        if (cards.Count == 0) return Escape(text);
+        var body = new System.Text.StringBuilder();
+        int at = 0;
+        foreach (var card in cards)
+        {
+            body.Append(Escape(text[at..card.Start])).Append("<color=#8cc8ff>").Append(Escape(CardLabel(card.Tile))).Append("</color>");
+            at = card.Start + card.Length;
+        }
+        return body.Append(Escape(text[at..])).ToString();
+    }
+
     private static string Format(ChatMessageEvent m)
     {
         string time = m.At?.ToDateTime().ToLocalTime().ToString("HH:mm") ?? "";
-        string body = Escape(m.Text);
+        string body = m.Kind == MessageKind.System ? Escape(m.Text) : Body(m.Text);
         if (m.Kind == MessageKind.System) return $"<color=#9aa4b5>[{time}] {body}</color>";
         if (m.Kind == MessageKind.External) return $"[{time}] <b>{"Rimlink.Chat.External".Translate(Escape(m.ExternalAuthor))}</b>: {body}";
         string who = Escape(m.From?.Name ?? "?");
