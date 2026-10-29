@@ -209,6 +209,13 @@ public static class Outgoing
                 lastReturn = DateTime.UtcNow + TimeSpan.FromMinutes(5);
                 return;
             }
+            if (things.Count == 0)
+            {
+                // Marked by an older version: nothing comes back, so no pod and no message.
+                outbox.Remove(entry.Id);
+                RimlinkLog.Instance.Info($"refused {entry.Kind} {entry.Id} held nothing to return; dropped");
+                continue;
+            }
             var center = Incoming.DropCenter(map);
             DropPodUtility.DropThingsNear(center, map, things, openDelay: 110, canInstaDropDuringInit: false, leaveSlag: false, canRoofPunch: true, forbid: false);
             outbox.Remove(entry.Id);

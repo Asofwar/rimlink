@@ -101,6 +101,22 @@ public class TransferOutboxTests : IDisposable
     }
 
     [Fact]
+    public async Task ARefusedSilverOnlySendIsDropped()
+    {
+        using var fixture = EconomyServer();
+        await using var nova = await ClientFixtures.Connected(fixture, "nova");
+        var outbox = Outbox();
+        var send = Send(nova.Login!.Player.PlayerId, new ItemList()); // to self: refused for good
+        send.Silver = 50; // wallet silver never left the colony as things: nothing comes back by pod
+        outbox.Add(send);
+
+        var report = await outbox.Replay(new EconomyClient(nova), CancellationToken.None);
+
+        Assert.Equal(1, report.Refused);
+        Assert.Empty(Outbox().Entries);
+    }
+
+    [Fact]
     public void IndeterminateStatusIsNotDefinitive()
     {
         Assert.False(TransferOutbox.IsDefinitive(new RpcException(new Status(StatusCode.Unavailable, "down"))));

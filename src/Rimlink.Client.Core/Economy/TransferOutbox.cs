@@ -85,13 +85,24 @@ public sealed class TransferOutbox
         }
     }
 
-    public void MarkRefused(string id, string reason)
+    /// <summary>
+    /// The server refused the request for good: an entry that holds things of ours stays with its reason for the game layer
+    /// to return them; one that holds nothing is dropped, so no empty pod comes back. True when the entry was kept.
+    /// </summary>
+    public bool Refuse(string id, string reason)
     {
         lock (gate)
         {
-            if (entries.FirstOrDefault(e => e.Id == id) is not { } entry) return;
-            entry.Refusal = reason;
+            if (entries.FirstOrDefault(e => e.Id == id) is not { } entry) return false;
+            if (!NothingToReturn(entry))
+            {
+                entry.Refusal = reason;
+                Save();
+                return true;
+            }
+            entries.Remove(entry);
             Save();
+            return false;
         }
     }
 
@@ -129,8 +140,8 @@ public sealed class TransferOutbox
     }
 
     /// <summary>
-    /// Sends every unanswered entry again (two attempts, a pause between them). Replies and deliver refusals remove the
-    /// entry; a refused send, post, deposit, launch or report stays with its reason for the game layer to return the contents.
+    /// Sends every unanswered entry again (two attempts, a pause between them). Replies remove the entry; a refused entry
+    /// that holds things of ours stays with its reason for the game layer to return them, any other refused entry is removed.
     /// </summary>
     public Task<ReplayReport> Replay(EconomyClient economy, CancellationToken ct) => Replay(new OutboxClients(economy, null, null), ct);
 
@@ -175,10 +186,26 @@ public sealed class TransferOutbox
     };
 
     /// <summary>
-    /// Kinds whose refusal leaves nothing to return: the entry is simply dropped. A refused report keeps its loot (it is
-    /// the defender's again) for the game layer to put back; the raiders go home at the server's expiry.
+    /// Entries whose refusal leaves nothing to return: the entry is simply dropped. Deliver, land, buy and removal acks
+    /// never hold anything of ours (the pod already dropped, the raid is on the map, the shop copy is discarded); neither
+    /// do wallet silver, raids by copies and a report without loot. A refused report keeps its loot (it is the defender's
+    /// again) for the game layer to put back; the raiders go home at the server's expiry. Keep in step with the game
+    /// layer's Outgoing.Contents.
     /// </summary>
-    private static bool NothingToReturn(OutboxKind kind) => kind is OutboxKind.Deliver or OutboxKind.Land or OutboxKind.Buy or OutboxKind.AckRemoval;
+    private static bool NothingToReturn(OutboxEntry entry)
+    {
+        if (entry.Kind is OutboxKind.Deliver or OutboxKind.Land or OutboxKind.Buy or OutboxKind.AckRemoval) return true;
+        return Decode(entry) switch
+        {
+            TransferRequest send => (send.Items?.Items.Count ?? 0) == 0 && (send.Pawns?.Pawns.Count ?? 0) == 0,
+            PostRequest post => (post.Items?.Items.Count ?? 0) == 0 && post.Pawn is null,
+            DepositRequest deposit => deposit.Silver <= 0,
+            LaunchRequest launch => launch.PawnMode != PawnMode.PawnReal || (launch.Pawns?.Pawns.Count ?? 0) == 0,
+            LiveProposal proposal => (proposal.Pawns?.Pawns.Count ?? 0) == 0,
+            RaidReport report => (report.Loot?.Items.Count ?? 0) == 0,
+            _ => false,
+        };
+    }
 
     private async Task<bool?> Attempt(OutboxClients clients, OutboxEntry entry, CancellationToken ct)
     {
@@ -210,17 +237,9 @@ public sealed class TransferOutbox
         catch (RpcException ex) when (IsDefinitive(ex))
         {
             string reason = EconomyClient.MessageOf(ex);
-            if (NothingToReturn(entry.Kind))
-            {
-                // Nothing of ours is in escrow for these (the pod already dropped, the raid is on the map, the shop copy is discarded).
-                log.Warn($"outbox: {entry.Kind} {entry.Id} refused ({reason}); dropped");
-                Remove(entry.Id);
-            }
-            else
-            {
-                log.Warn($"outbox: {entry.Kind} {entry.Id} refused ({reason}); its contents go back to the colony");
-                MarkRefused(entry.Id, reason);
-            }
+            log.Warn(Refuse(entry.Id, reason)
+                ? $"outbox: {entry.Kind} {entry.Id} refused ({reason}); its contents go back to the colony"
+                : $"outbox: {entry.Kind} {entry.Id} refused ({reason}); nothing to return, dropped");
             return false;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)

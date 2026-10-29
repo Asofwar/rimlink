@@ -154,6 +154,60 @@ public class RaidClientTests : IDisposable
     }
 
     [Fact]
+    public async Task ARefusedReportWithoutLootIsDropped()
+    {
+        using var fixture = RaidServer();
+        await using var nova = await ClientFixtures.Connected(fixture, "nova");
+        await using var bob = await ClientFixtures.Connected(fixture, "bob");
+        await MakeTargetRaidable(fixture, bob.Login!.Player.PlayerId);
+        var raid = await new RaidClient(nova).Launch(Launch(bob.Login.Player.PlayerId, pawns: 1), CancellationToken.None);
+        var outbox = Outbox();
+        var report = new RaidReport { RaidId = raid.Id, GameTick = 80000, Loot = new ItemList(), Captives = new PawnList() };
+        report.Outcomes.Add(new PawnOutcomeMsg { Index = 0, Outcome = PawnOutcome.OutcomeDead });
+        outbox.Add(report); // never announced: refused for good, and no loot to bring back
+
+        var result = await outbox.Replay(ClientsOf(bob), CancellationToken.None);
+
+        Assert.Equal(1, result.Refused);
+        Assert.Empty(Outbox().Entries);
+    }
+
+    [Fact]
+    public async Task ARefusedSnapshotLaunchIsDropped()
+    {
+        using var fixture = RaidServer();
+        await using var nova = await ClientFixtures.Connected(fixture, "nova");
+        var bob = await fixture.RegisterAndLogin("bob");
+        await MakeTargetRaidable(fixture, bob.Player.PlayerId);
+        var b = RaidClientsOf(fixture, bob.SessionToken);
+        await b.Raids.SetPeacefulAsync(new PeacefulRequest { Peaceful = true }, b.Auth);
+        var outbox = Outbox();
+        outbox.Add(Launch(bob.Player.PlayerId, pawns: 2, mode: PawnMode.PawnSnapshot)); // copies: the originals never left
+
+        var result = await outbox.Replay(ClientsOf(nova), CancellationToken.None);
+
+        Assert.Equal(1, result.Refused);
+        Assert.Empty(Outbox().Entries);
+    }
+
+    [Fact]
+    public void RefuseKeepsOnlyEntriesThatHoldSomething()
+    {
+        var outbox = Outbox();
+        var empty = outbox.Add(new RaidReport { RaidId = 1, Loot = new ItemList() });
+        var withLoot = new RaidReport { RaidId = 2, Loot = new ItemList() };
+        withLoot.Loot.Items.Add(Server.Tests.Support.EconomyFixtures.Item("Steel", 5, marketValueX100: 190));
+        var full = outbox.Add(withLoot);
+
+        outbox.Refuse(empty.Id, "raid gone");
+        outbox.Refuse(full.Id, "raid gone");
+
+        var kept = Assert.Single(Outbox().Entries);
+        Assert.Equal(full.Id, kept.Id);
+        Assert.Equal("raid gone", kept.Refusal);
+    }
+
+    [Fact]
     public async Task ShopClientPublishesAndReads()
     {
         using var fixture = RaidServer();
