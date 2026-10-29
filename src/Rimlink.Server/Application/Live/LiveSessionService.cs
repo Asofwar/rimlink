@@ -322,10 +322,25 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
         return query.OrderByDescending(s => s.Id).Take(200).ToListAsync();
     }
 
+    /// <summary>The escrowed pawns, for the host's game to spawn.</summary>
+    public async Task<PawnList> PawnsFor(long hostId, long sessionId)
+    {
+        var session = await db.LiveSessions.AsNoTracking().FirstOrDefaultAsync(s => s.Id == sessionId) ?? throw RpcErrors.Failed(ErrorCode.LiveGone, "no such live session");
+        if (session.HostPlayerId != hostId) throw new RpcException(new Status(StatusCode.PermissionDenied, "only the host spawns the guest's pawns"));
+        if (session.RaidId is { } raidId)
+        {
+            var raid = await db.Raids.AsNoTracking().FirstAsync(r => r.Id == raidId);
+            return PawnList.Parser.ParseFrom(raid.Pawns);
+        }
+        return PawnList.Parser.ParseFrom(session.Pawns ?? []);
+    }
+
     public async Task<Protocol.V1.LiveSession> ToProto(LiveSessionRow s)
     {
         var players = await db.Players.AsNoTracking().Where(p => p.Id == s.HostPlayerId || p.Id == s.GuestPlayerId).ToListAsync();
-        return ToProto(s, players.FirstOrDefault(p => p.Id == s.HostPlayerId), players.FirstOrDefault(p => p.Id == s.GuestPlayerId));
+        var proto = ToProto(s, players.FirstOrDefault(p => p.Id == s.HostPlayerId), players.FirstOrDefault(p => p.Id == s.GuestPlayerId));
+        if (s.RaidId is { } raidId) proto.Arrival = (RaidArrival)await db.Raids.AsNoTracking().Where(r => r.Id == raidId).Select(r => r.Arrival).FirstOrDefaultAsync();
+        return proto;
     }
 
     public static Protocol.V1.LiveSession ToProto(LiveSessionRow s, Player? host, Player? guest) => new()

@@ -93,10 +93,13 @@ public static class RaidResolver
         map.mapPawns.AllPawns.FirstOrDefault(p => p.thingIDNumber == id)
         ?? Find.WorldPawns.AllPawnsAliveOrDead.FirstOrDefault(p => p.thingIDNumber == id);
 
+    /// <summary>A live session ended (3b): its guest pawns are reported now, with no timeout; the raid is not in the active list.</summary>
+    public static void ResolveNow(ActiveRaid raid, Map map) => Resolve(raid, map, Current.Game.GetComponent<RimlinkGameComponent>());
+
     private static void Resolve(ActiveRaid raid, Map map, RimlinkGameComponent component)
     {
         if (!RimlinkSession.Active || RimlinkSession.Raids is not { } raids) return;
-        var report = new RaidReport { RaidId = raid.RaidId, Loot = new ItemList(), Captives = new PawnList() };
+        var report = new RaidReport { RaidId = raid.RaidId, LiveSessionId = raid.LiveSessionId, Loot = new ItemList(), Captives = new PawnList() };
         var loot = new List<LootStack>();
         var kept = new List<LootStack>();
         var survivors = new List<Pawn>();
@@ -125,12 +128,24 @@ public static class RaidResolver
                 }
                 else if (FindRaider(id, map) is { } alive && !alive.Dead && OnTheMap(alive))
                 {
-                    // Still on the map at the timeout (fighting, downed or being carried): they go home with what they carry.
-                    outcome.Outcome = PawnOutcome.OutcomeAlive;
-                    foreach (var t in LoadOf(alive)) loot.Add(new LootStack(ThingBlobs.SerializeItem(t), t, alive));
-                    if (raid.PawnMode == (int)PawnMode.PawnReal) outcome.Blob = ThingBlobs.SerializePawn(alive);
-                    survivors.Add(alive);
-                    summary.Alive++;
+                    if (raid.Visit)
+                    {
+                        // A visitor goes home as they came: the host's things stay (dropped where the pawn stands), nothing counts as loot.
+                        alive.inventory?.DropAllNearPawn(alive.PositionHeld);
+                        outcome.Outcome = PawnOutcome.OutcomeFled;
+                        outcome.Blob = ThingBlobs.SerializePawn(alive);
+                        survivors.Add(alive);
+                        summary.Fled++;
+                    }
+                    else
+                    {
+                        // Still on the map at the timeout (fighting, downed or being carried): they go home with what they carry.
+                        outcome.Outcome = PawnOutcome.OutcomeAlive;
+                        foreach (var t in LoadOf(alive)) loot.Add(new LootStack(ThingBlobs.SerializeItem(t), t, alive));
+                        if (raid.PawnMode == (int)PawnMode.PawnReal) outcome.Blob = ThingBlobs.SerializePawn(alive);
+                        survivors.Add(alive);
+                        summary.Alive++;
+                    }
                 }
                 else
                 {
@@ -171,7 +186,7 @@ public static class RaidResolver
         var outbox = RimlinkSession.Outbox;
         var entry = outbox?.Add(report); // journaled before anything leaves the map
         raid.Reported = true;
-        component.ActiveRaids.Remove(raid);
+        component.ActiveRaids.Remove(raid); // no-op for a live end resolved on the spot
 
         // Phase 2: what the report says is gone leaves the map; what it does not take stays where it was.
         try

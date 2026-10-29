@@ -17,6 +17,8 @@ public static class SaveSync
     public static bool IsSaving { get; private set; }
     public static DateTime? LastUploadUtc { get; private set; }
     public static string? LastError { get; private set; }
+    /// <summary>Server version of the last successful upload (0 before the first).</summary>
+    public static int LastVersion { get; private set; }
     /// <summary>Set when the server refused the last upload as older than a transfer; the game component shows the choice once.</summary>
     public static bool StaleSaveDetected { get; set; }
 
@@ -77,6 +79,7 @@ public static class SaveSync
                 pending.Clear();
                 LastUploadUtc = DateTime.UtcNow;
                 LastError = null;
+                LastVersion = info.Version;
                 RimlinkLog.Instance.Info($"save uploaded as v{info.Version}");
                 if (shopList is not null) await Shop.ShopSync.Publish(shopList, connection);
             }

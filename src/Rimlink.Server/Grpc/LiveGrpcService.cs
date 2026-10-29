@@ -21,6 +21,8 @@ public sealed class LiveGrpcService(LiveSessionService live, LiveRelay relay, IL
     public override async Task<LiveSession> Current(Empty request, ServerCallContext context) =>
         await live.ToProto(await live.Current(context.GetSession().PlayerId));
 
+    public override Task<PawnList> Pawns(LiveRef request, ServerCallContext context) => live.PawnsFor(context.GetSession().PlayerId, request.SessionId);
+
     public override Task<PlayerFlags> SetAutoAccept(AutoAcceptRequest request, ServerCallContext context) =>
         live.SetAutoAccept(context.GetSession().PlayerId, request.Enabled);
 

@@ -39,6 +39,8 @@ message LiveSession {
   int64 raid_id = 7;
   LiveEndReason end_reason = 8;
   google.protobuf.Timestamp created_at = 9;
+  // How the guest's pawns arrive on the host's map (from the proposal; edge for visits).
+  RaidArrival arrival = 10;
 }
 
 message LiveAnswer { int64 session_id = 1; bool accept = 2; }
@@ -157,6 +159,8 @@ service Live {
   // One stream per participant; frames go to the other participant of the same session.
   rpc Stream (stream LiveClientMsg) returns (stream LiveServerMsg);
   rpc SetAutoAccept (AutoAcceptRequest) returns (PlayerFlags);
+  // The guest's escrowed pawns, for the host to spawn (host only).
+  rpc Pawns (LiveRef) returns (PawnList);
 }
 
 message LiveInvite { LiveSession session = 1; int32 invite_seconds = 2; }

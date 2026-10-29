@@ -41,6 +41,7 @@ public sealed class LiveClient(RimlinkConnection connection, ILog log)
     public Task<LiveSession> Respond(long id, bool accept, CancellationToken ct) => connection.LiveApi.RespondAsync(new LiveAnswer { SessionId = id, Accept = accept }, deadline: Until, cancellationToken: ct).ResponseAsync;
     public Task Cancel(long id, CancellationToken ct) => connection.LiveApi.CancelAsync(new LiveRef { SessionId = id }, deadline: Until, cancellationToken: ct).ResponseAsync;
     public Task<LiveSession> Current(CancellationToken ct) => connection.LiveApi.CurrentAsync(new Empty(), deadline: Until, cancellationToken: ct).ResponseAsync;
+    public Task<PawnList> Pawns(long id, CancellationToken ct) => connection.LiveApi.PawnsAsync(new LiveRef { SessionId = id }, deadline: Until, cancellationToken: ct).ResponseAsync;
     public Task<PlayerFlags> SetAutoAccept(bool enabled, CancellationToken ct) => connection.LiveApi.SetAutoAcceptAsync(new AutoAcceptRequest { Enabled = enabled }, deadline: Until, cancellationToken: ct).ResponseAsync;
 
     /// <summary>Opens the stream and returns once the Hello went out; the stream then lives in the background until End, Close or the reconnect budget runs out.</summary>

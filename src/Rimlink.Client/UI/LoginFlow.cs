@@ -187,9 +187,14 @@ public static class LoginFlow
         var raids = new Rimlink.Client.Raids.RaidClient(connection);
         try
         {
-            if (outbox is not null) await outbox.Replay(new Rimlink.Client.Economy.OutboxClients(economy, raids, new Rimlink.Client.Visits.ShopClient(connection)), ct);
+            var live = RimlinkSession.Live ?? new Rimlink.Client.Live.LiveClient(connection, RimlinkLog.Instance);
+            if (outbox is not null) await outbox.Replay(new Rimlink.Client.Economy.OutboxClients(economy, raids, new Rimlink.Client.Visits.ShopClient(connection), live), ct);
             RimlinkSession.State.Economy.Load(await economy.Wallet(ct), await economy.Pending(ct), await economy.Lots(new MarketQuery { SellerPlayerId = me }, ct));
             RimlinkSession.State.Raids.Load(await raids.Pending(ct), await raids.Mine(ct), await raids.Flags(ct));
+            LiveSession? current = null;
+            try { current = await live.Current(ct); }
+            catch (RpcException) { }
+            RimlinkSession.State.Live.Load(connection.Login?.PendingLiveEnds ?? [], current);
         }
         catch (RpcException ex)
         {

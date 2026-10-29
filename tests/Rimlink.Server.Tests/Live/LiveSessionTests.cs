@@ -225,6 +225,27 @@ public class LiveSessionTests
     }
 
     [Fact]
+    public async Task TheHostGetsTheGuestsPawnsAndArrival()
+    {
+        var p = await NovaAndBob();
+        using var fixture = p.Fixture;
+        await p.Bob.Live.SetAutoAcceptAsync(new AutoAcceptRequest { Enabled = true }, p.Bob.Auth);
+        var proposal = Propose(p.Bob.PlayerId, LiveKind.LiveRaid, pawns: 3);
+        proposal.Arrival = RaidArrival.ArrivalPods;
+        var session = await p.Nova.Live.ProposeAsync(proposal, p.Nova.Auth);
+        Assert.Equal(RaidArrival.ArrivalPods, session.Arrival);
+
+        var pawns = await p.Bob.Live.PawnsAsync(new LiveRef { SessionId = session.Id }, p.Bob.Auth);
+        Assert.Equal(3, pawns.Pawns.Count);
+        Assert.NotEmpty(pawns.Pawns[0].ScribeXmlZstd);
+        var denied = await Assert.ThrowsAsync<RpcException>(() => p.Nova.Live.PawnsAsync(new LiveRef { SessionId = session.Id }, p.Nova.Auth).ResponseAsync);
+        Assert.Equal(StatusCode.PermissionDenied, denied.StatusCode);
+
+        var visit = await p.Nova.Live.ProposeAsync(Propose(p.Bob.PlayerId, LiveKind.LiveVisit, pawns: 1), p.Nova.Auth).ResponseAsync.ContinueWith(t => t.IsFaulted ? null : t.Result);
+        Assert.Null(visit); // LIVE_ACTIVE: the raid session is open
+    }
+
+    [Fact]
     public async Task DisabledLiveRefusesProposals()
     {
         var p = await NovaAndBob(LiveServer().WithSetting("Live:Enabled", "false"));

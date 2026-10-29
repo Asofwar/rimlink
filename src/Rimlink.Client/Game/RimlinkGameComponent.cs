@@ -27,8 +27,45 @@ public sealed class RimlinkGameComponent : GameComponent
         if (!RimlinkSession.Active) return;
         ForeignSettlements.Subscribe();
         ForeignSettlements.RebuildFromState();
+        SubscribeLive();
         // A visit's game is the host's colony: removing "sold" things there would strip the guest's copy, not the home map.
         if (!Visits.VisitSession.InVisit) Shop.ShopSync.ApplyRemovals();
+        // Live sessions that ended while this host was away: their guest pawns are still on the map and owed a report.
+        if (!Visits.VisitSession.InVisit && RimlinkSession.State.Live.PendingEnds.Count > 0)
+        {
+            var pending = RimlinkSession.State.Live.PendingEnds.ToList();
+            RimlinkSession.State.Live.PendingEnds.Clear();
+            Live.LiveHost.ResolvePendingEnds(pending);
+        }
+    }
+
+    private static bool liveSubscribed;
+    private static bool? atHomeSent;
+
+    private static void SubscribeLive()
+    {
+        if (liveSubscribed) return;
+        liveSubscribed = true;
+        var live = RimlinkSession.State.Live;
+        live.Invited += invite => { if (Current.ProgramState == ProgramState.Playing && !Visits.VisitSession.InVisit) Find.WindowStack.Add(new UI.Live.Dialog_LiveInvite(invite)); };
+        live.Started += session => { if (session.Host?.PlayerId == RimlinkSession.MyPlayerId) Live.LiveHost.Begin(session); };
+        live.Ended += session =>
+        {
+            if (session.Host?.PlayerId == RimlinkSession.MyPlayerId && Live.LiveHost.Session?.Id == session.Id && session.State == LiveState.LiveEnding) Live.LiveHost.End(session.EndReason);
+        };
+    }
+
+    /// <summary>Presence for live sessions: the server only invites a host who is at their colony.</summary>
+    private static void ReportPresence()
+    {
+        bool home = Current.ProgramState == ProgramState.Playing && !Visits.VisitSession.InVisit && Find.AnyPlayerHomeMap is not null;
+        if (atHomeSent == home || RimlinkSession.Connection is not { } connection) return;
+        atHomeSent = home;
+        _ = Task.Run(async () =>
+        {
+            try { await connection.Auth.SetAtHomeAsync(new AtHomeRequest { AtHome = home }); }
+            catch (Exception ex) { RimlinkLog.Instance.Warn("presence not reported: " + ex.Message); atHomeSent = null; }
+        });
     }
 
     public override void GameComponentOnGUI() => UI.Overlay.Draw();
@@ -40,9 +77,11 @@ public sealed class RimlinkGameComponent : GameComponent
         RimlinkSession.Inbox.DrainTo(RimlinkSession.State.Apply);
         HandleConnectionState();
         HandleNotices();
+        ReportPresence();
         Economy.Incoming.Tick();
         Raids.RaidIncoming.Tick();
         Raids.RaidResolver.Tick();
+        Live.LiveHost.Tick();
         HandleStaleSave();
     }
 
@@ -152,6 +191,8 @@ public sealed class RimlinkGameComponent : GameComponent
     {
         var connection = RimlinkSession.Connection;
         Visits.VisitSession.Reset(); // first: it still needs the connection to close an open ticket
+        Live.LiveHost.Reset();
+        atHomeSent = null;
         RimlinkSession.End();
         ForeignSettlements.Clear();
         Economy.Incoming.Reset();

@@ -206,4 +206,26 @@
   <Rimlink.Shop.Refused>Purchase refused: {0}.</Rimlink.Shop.Refused>
   <Rimlink.Shop.Removed>{0} sold item(s) were collected from your stockpiles.</Rimlink.Shop.Removed>
   <Rimlink.Raid.Failed>A raid could not be unpacked ({0}); it will try again at your next login.</Rimlink.Raid.Failed>
+
+  <Rimlink.Live.KindRaid>live raid</Rimlink.Live.KindRaid>
+  <Rimlink.Live.KindVisit>live visit</Rimlink.Live.KindVisit>
+  <Rimlink.Live.InviteTitle>Invitation: {0}</Rimlink.Live.InviteTitle>
+  <Rimlink.Live.Invite>{0} proposes a {1} on your map right now. Their pawns arrive on your map and they control them from their game; your game decides everything. {2} s to answer, silence declines.</Rimlink.Live.Invite>
+  <Rimlink.Live.Accept>Accept</Rimlink.Live.Accept>
+  <Rimlink.Live.Decline>Decline</Rimlink.Live.Decline>
+  <Rimlink.Live.Starting>Live session with {0} starting: their pawns are on their way.</Rimlink.Live.Starting>
+  <Rimlink.Live.ArrivedLabel>{0} is here</Rimlink.Live.ArrivedLabel>
+  <Rimlink.Live.Arrived>{0} arrived with {1} pawn(s) for a {2}. Your game is paused until their view is ready.</Rimlink.Live.Arrived>
+  <Rimlink.Live.GuestHere>{0} sees your map now; the game continues.</Rimlink.Live.GuestHere>
+  <Rimlink.Live.GuestLost>Connection to {0} lost; waiting for them (the game is paused).</Rimlink.Live.GuestLost>
+  <Rimlink.Live.GuestBack>{0} is back.</Rimlink.Live.GuestBack>
+  <Rimlink.Live.Ended>The live session with {0} is over ({1}).</Rimlink.Live.Ended>
+  <Rimlink.Live.Failed>The live session could not start: {0}</Rimlink.Live.Failed>
+  <Rimlink.Live.HostHud>{0} with {1}</Rimlink.Live.HostHud>
+  <Rimlink.Live.StateStarting>preparing the snapshot...</Rimlink.Live.StateStarting>
+  <Rimlink.Live.StateWaiting>waiting for the guest (paused)</Rimlink.Live.StateWaiting>
+  <Rimlink.Live.StateGuestPaused>paused by the guest ({0}/{1} pauses)</Rimlink.Live.StateGuestPaused>
+  <Rimlink.Live.StateRunning>running</Rimlink.Live.StateRunning>
+  <Rimlink.Live.Abort>Abort session</Rimlink.Live.Abort>
+  <Rimlink.Live.AbortConfirm>End the live session with {0} now? Their pawns are reported as they stand; a raid is not continued by the AI.</Rimlink.Live.AbortConfirm>
 </LanguageData>

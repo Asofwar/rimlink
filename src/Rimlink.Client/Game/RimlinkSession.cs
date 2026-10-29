@@ -21,6 +21,8 @@ public static class RimlinkSession
     public static Rimlink.Client.Raids.RaidClient? Raids => Connection is null ? null : new(Connection);
     public static Rimlink.Client.Visits.VisitClient? Visits => Connection is null ? null : new(Connection);
     public static Rimlink.Client.Visits.ShopClient? Shop => Connection is null ? null : new(Connection);
+    /// <summary>One live client per session: it owns the frame stream, so it is not recreated per call.</summary>
+    public static Rimlink.Client.Live.LiveClient? Live { get; private set; }
     /// <summary>Economy requests whose answer has not been seen; replayed at login and after a reconnect.</summary>
     public static Rimlink.Client.Economy.TransferOutbox? Outbox { get; private set; }
     public static long MyPlayerId => Login?.Player.PlayerId ?? 0;
@@ -39,6 +41,7 @@ public static class RimlinkSession
         Connection = connection;
         Login = login;
         Outbox = new(OutboxPath(endpoint, login.Player.PlayerId), RimlinkLog.Instance);
+        Live = new Rimlink.Client.Live.LiveClient(connection, RimlinkLog.Instance);
         State.Reset();
         Inbox.Clear();
         connection.EventReceived += Inbox.Enqueue;
@@ -50,6 +53,8 @@ public static class RimlinkSession
     public static void End()
     {
         if (Connection is { } c) c.EventReceived -= Inbox.Enqueue;
+        if (Live is { } live) _ = live.Close();
+        Live = null;
         Connection = null;
         Login = null;
         Outbox = null;

@@ -206,4 +206,26 @@
   <Rimlink.Shop.Removed>Проданное ({0}) забрано со складов.</Rimlink.Shop.Removed>
   <Rimlink.Raid.Failed>Рейд не удалось распаковать ({0}); попытка повторится при следующем входе.</Rimlink.Raid.Failed>
   <Rimlink.Economy.CaravanTransferGizmo>Передать</Rimlink.Economy.CaravanTransferGizmo>
+
+  <Rimlink.Live.KindRaid>живой рейд</Rimlink.Live.KindRaid>
+  <Rimlink.Live.KindVisit>живой визит</Rimlink.Live.KindVisit>
+  <Rimlink.Live.InviteTitle>Приглашение: {0}</Rimlink.Live.InviteTitle>
+  <Rimlink.Live.Invite>{0} предлагает {1} на вашей карте прямо сейчас. Его пешки появятся у вас, он управляет ими из своей игры; всё считает ваша игра. {2} с на ответ, молчание — отказ.</Rimlink.Live.Invite>
+  <Rimlink.Live.Accept>Принять</Rimlink.Live.Accept>
+  <Rimlink.Live.Decline>Отказать</Rimlink.Live.Decline>
+  <Rimlink.Live.Starting>Живая сессия с {0} начинается: его пешки в пути.</Rimlink.Live.Starting>
+  <Rimlink.Live.ArrivedLabel>{0} здесь</Rimlink.Live.ArrivedLabel>
+  <Rimlink.Live.Arrived>{0} прибыл с {1} пешк. для события «{2}». Игра на паузе, пока его зеркало не готово.</Rimlink.Live.Arrived>
+  <Rimlink.Live.GuestHere>{0} видит вашу карту; игра продолжается.</Rimlink.Live.GuestHere>
+  <Rimlink.Live.GuestLost>Связь с {0} потеряна; ждём его (игра на паузе).</Rimlink.Live.GuestLost>
+  <Rimlink.Live.GuestBack>{0} вернулся.</Rimlink.Live.GuestBack>
+  <Rimlink.Live.Ended>Живая сессия с {0} окончена ({1}).</Rimlink.Live.Ended>
+  <Rimlink.Live.Failed>Живая сессия не началась: {0}</Rimlink.Live.Failed>
+  <Rimlink.Live.HostHud>{0} с {1}</Rimlink.Live.HostHud>
+  <Rimlink.Live.StateStarting>готовим снимок...</Rimlink.Live.StateStarting>
+  <Rimlink.Live.StateWaiting>ждём гостя (пауза)</Rimlink.Live.StateWaiting>
+  <Rimlink.Live.StateGuestPaused>пауза гостя ({0}/{1} пауз)</Rimlink.Live.StateGuestPaused>
+  <Rimlink.Live.StateRunning>идёт</Rimlink.Live.StateRunning>
+  <Rimlink.Live.Abort>Прервать сессию</Rimlink.Live.Abort>
+  <Rimlink.Live.AbortConfirm>Закончить живую сессию с {0} сейчас? Его пешки отправятся как есть; рейд ИИ не продолжит.</Rimlink.Live.AbortConfirm>
 </LanguageData>

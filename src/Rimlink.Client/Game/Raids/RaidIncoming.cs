@@ -207,6 +207,9 @@ public sealed class ActiveRaid : IExposable
     public int PawnMode;
     public long LootCap;
     public bool AllowKidnap;
+    /// <summary>Live sessions (3b): the session this raid belongs to (0 for a plain 3a raid); a visit sends every living pawn home with no loot.</summary>
+    public long LiveSessionId;
+    public bool Visit;
     /// <summary>Set once the report left this game (outbox or answered), so it is not reported twice.</summary>
     public bool Reported;
     /// <summary>Raiders that left the map, with their state and load at the exit.</summary>
@@ -223,6 +226,8 @@ public sealed class ActiveRaid : IExposable
         Scribe_Values.Look(ref PawnMode, "pawnMode");
         Scribe_Values.Look(ref LootCap, "lootCap");
         Scribe_Values.Look(ref AllowKidnap, "allowKidnap");
+        Scribe_Values.Look(ref LiveSessionId, "liveSessionId");
+        Scribe_Values.Look(ref Visit, "visit");
         Scribe_Values.Look(ref Reported, "reported");
         Scribe_Collections.Look(ref Exits, "exits", LookMode.Deep);
         PawnIds ??= [];

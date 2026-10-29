@@ -20,6 +20,7 @@ public static class Overlay
             if (Widgets.ButtonText(new Rect(x, y + 26f, 220f, 26f), "Rimlink.Visit.End".Translate())) Game.Visits.VisitSession.End();
             y += 56f;
         }
+        y += Live.LiveHud.DrawHost(x, y);
         Text.Font = GameFont.Tiny;
         string status = RimlinkSession.LastState switch
         {
