@@ -24,7 +24,7 @@ public class ReconnectPolicyTests
     [InlineData(StatusCode.ResourceExhausted, null, false)]
     [InlineData(StatusCode.Unknown, null, false)]
     [InlineData(StatusCode.FailedPrecondition, ErrorCode.ServerFull, false)]
-    [InlineData(StatusCode.FailedPrecondition, ErrorCode.WorldNotCreated, false)]
+    [InlineData(StatusCode.FailedPrecondition, ErrorCode.WorldNotCreated, true)] // the world was deleted (recreated): never reconnect into a new one
     [InlineData(StatusCode.FailedPrecondition, ErrorCode.Banned, true)]
     [InlineData(StatusCode.FailedPrecondition, ErrorCode.WrongPassword, true)]
     [InlineData(StatusCode.FailedPrecondition, ErrorCode.ProtocolVersion, true)]
@@ -37,5 +37,14 @@ public class ReconnectPolicyTests
         if (code is { } c) trailers.Add("rimlink-error-bin", new ErrorDetail { Code = c, Message = "m" }.ToByteArray());
 
         Assert.Equal(refusal, ReconnectPolicy.IsRefusal(new RpcException(new Status(status, "x"), trailers)));
+    }
+
+    [Fact]
+    public void AnUnverifiedSteamTicketIsNotARefusal()
+    {
+        var ex = new RpcException(new Status(StatusCode.Unauthenticated, "Steam ticket is not valid"));
+
+        Assert.False(ReconnectPolicy.IsRefusal(ex, steamTicket: true));
+        Assert.True(ReconnectPolicy.IsRefusal(ex, steamTicket: false));
     }
 }

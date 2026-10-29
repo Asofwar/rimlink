@@ -9,6 +9,7 @@ namespace Rimlink.Client.Game;
 public sealed class RimlinkGameComponent : GameComponent
 {
     private ConnectionState shownState = ConnectionState.Connected;
+    private static readonly ExitOffer exitOffer = new();
     private static Dialog_MessageBox? outageOffer;
 
     /// <summary>Raids landed on this colony and not yet reported; saved with the game so a reload still resolves them.</summary>
@@ -180,7 +181,8 @@ public sealed class RimlinkGameComponent : GameComponent
     /// </summary>
     private static void OfferExitOnLongOutage()
     {
-        if (outageOffer is not null || Live.MirrorMode.Active || RimlinkSession.Connection is not { OutageIsLong: true }) return;
+        if (Live.MirrorMode.Active || RimlinkSession.Connection is not { } connection) return;
+        if (!exitOffer.Due(connection.ReconnectingSince, connection.OutageIsLong)) return;
         outageOffer = new Dialog_MessageBox("Rimlink.Net.LongOutage".Translate(), "Rimlink.Net.KeepWaiting".Translate(), null, "Rimlink.Net.ToMenu".Translate(), LeaveToMenu);
         Find.WindowStack.Add(outageOffer);
     }

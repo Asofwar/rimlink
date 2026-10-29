@@ -24,13 +24,15 @@ public sealed class ReconnectPolicy(TimeSpan firstDelay, TimeSpan maxDelay, Time
     }
 
     /// <summary>
-    /// The server turned the login down for good (ban, credentials, server password, protocol): retrying cannot help.
-    /// A full server or a world not created yet may change, like any network or server failure.
+    /// The server turned the login down for good (ban, credentials, server password, protocol, the world deleted): retrying
+    /// cannot help, and a world created anew must not take this colony in. A full server may change, like any network or
+    /// server failure, and so may a Steam ticket the server could not verify (Steam's Web API down answers the same way).
     /// </summary>
-    public static bool IsRefusal(RpcException ex) => ex.StatusCode switch
+    public static bool IsRefusal(RpcException ex, bool steamTicket = false) => ex.StatusCode switch
     {
-        StatusCode.Unauthenticated or StatusCode.PermissionDenied or StatusCode.InvalidArgument => true,
-        StatusCode.FailedPrecondition => Economy.EconomyClient.CodeOf(ex) is not (ErrorCode.ServerFull or ErrorCode.WorldNotCreated),
+        StatusCode.Unauthenticated => !steamTicket,
+        StatusCode.PermissionDenied or StatusCode.InvalidArgument => true,
+        StatusCode.FailedPrecondition => Economy.EconomyClient.CodeOf(ex) is not ErrorCode.ServerFull,
         _ => false,
     };
 }

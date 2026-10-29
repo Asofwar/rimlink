@@ -1,3 +1,4 @@
+using Google.Protobuf;
 using Microsoft.Extensions.DependencyInjection;
 using Rimlink.Client.Net;
 using Rimlink.Protocol.V1;
@@ -278,6 +279,39 @@ public class RimlinkConnectionTests
         Assert.Equal(ConnectionState.Failed, settled);
         Assert.Contains("griefing", connection.FailureReason);
         Assert.Null(connection.ReconnectingSince);
+    }
+
+    /// <summary>A Steam login whose ticket the server cannot verify while <see cref="SteamDown"/> (as when Steam's Web API is unreachable).</summary>
+    private sealed class SteamCredentials : ICredentialProvider
+    {
+        public volatile bool SteamDown;
+
+        public Task<LoginRequest> BuildLogin(CancellationToken cancellationToken) => Task.FromResult(new LoginRequest
+        {
+            SteamTicket = ByteString.CopyFrom(SteamDown ? "unverifiable"u8.ToArray() : FakeSteamVerifier.Ticket(76561190000000042)),
+        });
+    }
+
+    [Fact]
+    public async Task SteamThatCannotVerifyTheTicketDuringAReconnectIsWaitedFor()
+    {
+        using var fixture = Server();
+        var steam = new SteamCredentials();
+        await using var connection = Connect(fixture, steam, Fast());
+        var login = await connection.ConnectAsync(CancellationToken.None);
+
+        steam.SteamDown = true;
+        using (var scope = fixture.Services.CreateScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<AdminOperations>().Kick(Actor.Api, login.Player.PlayerId, "test");
+        }
+        await WaitForState(connection, ConnectionState.Reconnecting);
+        var whileDown = await WaitForAny(connection, TimeSpan.FromSeconds(1.5), ConnectionState.Failed, ConnectionState.Connected);
+        steam.SteamDown = false;
+        var afterwards = await WaitForAny(connection, TimeSpan.FromSeconds(10), ConnectionState.Failed, ConnectionState.Connected);
+
+        Assert.Equal(ConnectionState.Reconnecting, whileDown);
+        Assert.Equal(ConnectionState.Connected, afterwards);
     }
 
     [Fact]

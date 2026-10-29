@@ -41,6 +41,7 @@ public sealed class RimlinkConnection : IAsyncDisposable
     private ConnectionState state = ConnectionState.Disconnected;
     private long reconnectingSinceTicks;
     private volatile bool pinRefused;
+    private volatile bool steamLogin;
 
     public RimlinkConnection(ServerEndpoint endpoint, ICredentialProvider credentials, IPinPrompt pinPrompt, ILog log, ConnectionTransport? transport = null, ReconnectPolicy? reconnect = null)
     {
@@ -166,6 +167,7 @@ public sealed class RimlinkConnection : IAsyncDisposable
     {
         var request = await credentials.BuildLogin(cancellationToken);
         request.ProtocolVersion = ClientInfo.ProtocolVersion;
+        steamLogin = request.CredentialCase == LoginRequest.CredentialOneofCase.SteamTicket;
         var registration = credentials.TakeRegistration();
         if (registration is not null && registration.Mods.Count == 0) registration.Mods.AddRange(request.Mods);
 
@@ -265,7 +267,7 @@ public sealed class RimlinkConnection : IAsyncDisposable
             {
                 return false;
             }
-            catch (RpcException ex) when (pinRefused || ReconnectPolicy.IsRefusal(ex))
+            catch (RpcException ex) when (pinRefused || ReconnectPolicy.IsRefusal(ex, steamLogin))
             {
                 // Retrying cannot help (and a refused certificate would ask the player again every minute).
                 FailureReason = pinRefused ? "the server's new certificate was not trusted" : Economy.EconomyClient.MessageOf(ex);
