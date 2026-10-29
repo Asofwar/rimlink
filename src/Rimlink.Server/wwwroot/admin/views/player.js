@@ -61,6 +61,7 @@ function factsList(card) {
       card.mutedUntil && new Date(card.mutedUntil) > new Date() ? badge(t('player.mutedUntil', { at: fmtDate(card.mutedUntil) }), 'warn') : null,
       card.peaceful ? badge(t('players.peaceful')) : null,
       card.visitsClosed ? badge(t('player.visitsClosed')) : null,
+      card.economyFrozenAt ? badge(t('player.economyFrozen', { reason: card.economyFreezeReason ?? '', at: fmtDate(card.economyFrozenAt) }), 'bad') : null,
     ]],
     [t('player.steamId'), card.steamId ?? '—'],
     [t('player.login'), card.login ?? '—'],
@@ -156,7 +157,7 @@ function actionsBlock(card, done) {
 async function savesBlock(card, done) {
   const versions = await api.get(`players/${card.id}/saves`);
   return table([
-    { label: t('player.version'), render: s => [String(s.version), s.isCurrent ? badge(t('player.current'), 'on') : null] },
+    { label: t('player.version'), render: s => [String(s.version), s.isCurrent ? badge(t('player.current'), 'on') : null, s.devMode ? badge(t('player.saveDevMode'), 'warn') : null] },
     { label: t('player.size'), render: s => fmtBytes(s.size) },
     { label: t('player.tick'), key: 'gameTick' },
     { label: t('player.created'), render: s => fmtDate(s.createdAt) },
@@ -176,6 +177,7 @@ async function economyBlock(card, done) {
   const [parcels, lots] = await Promise.all([api.get(`economy/parcels/${card.id}`), api.get(`economy/lots${query({ playerId: card.id })}`)]);
   const delta = numberInput({ step: 1, placeholder: '+100 / -100', required: true });
   const reason = input({ placeholder: t('player.reason') });
+  const freezeReason = input({ placeholder: t('player.reasonOptional') });
   const refund = (kind, itemId) => busyButton(t('economy.refund'), async () => {
     if (!await confirmDialog({ title: t('economy.refundTitle', { id: itemId }), text: t('economy.refundText') })) return;
     await api.post(`economy/refund/${kind}/${itemId}`, {});
@@ -199,6 +201,16 @@ async function economyBlock(card, done) {
         const result = await api.post(`economy/wallet/${card.id}`, { delta: value, reason: reason.value.trim() || null });
         await done(t('player.balanceNow', { balance: fmtSilver(result.balance) }));
       })),
+    h('div', { class: 'row' },
+      card.economyFrozenAt
+        ? busyButton(t('player.unfreezeEconomy'), async () => {
+          await api.post(`players/${card.id}/economy`, { frozen: false, reason: null });
+          await done(t('player.economyOpenDone', { name: card.name }));
+        })
+        : [field(t('player.reason'), freezeReason), busyButton(t('player.freezeEconomy'), async () => {
+          await api.post(`players/${card.id}/economy`, { frozen: true, reason: freezeReason.value.trim() || null });
+          await done(t('player.economyFrozenDone', { name: card.name }));
+        })]),
     h('h3', null, t('economy.parcels')),
     table([
       { label: '#', key: 'id' },

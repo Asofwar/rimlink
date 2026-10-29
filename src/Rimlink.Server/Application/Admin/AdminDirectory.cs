@@ -15,7 +15,8 @@ public sealed record SettlementRow(long Id, int Tile, string Name);
 public sealed record SaveRow(int Version, long Size, long GameTick, DateTime CreatedAt);
 public sealed record BanRow(long Id, string Reason, DateTime? ExpiresAt);
 public sealed record SessionRow(string Ip, DateTime Since);
-public sealed record PlayerCard(PlayerRow Player, string? LastIp, SessionRow? Session, List<SettlementRow> Settlements, long WalletBalance, long WealthTotal, DateTime? FirstSaveAt, SaveRow? CurrentSave, List<BanRow> ActiveBans, bool VisitsClosed, DateTime? PeacefulOffAt, List<string>? Blocks = null);
+public sealed record PlayerCard(PlayerRow Player, string? LastIp, SessionRow? Session, List<SettlementRow> Settlements, long WalletBalance, long WealthTotal, DateTime? FirstSaveAt, SaveRow? CurrentSave, List<BanRow> ActiveBans, bool VisitsClosed, DateTime? PeacefulOffAt, List<string>? Blocks = null,
+    DateTime? EconomyFrozenAt = null, string? EconomyFreezeReason = null);
 public sealed record ChatLine(long Id, DateTime At, long? FromPlayerId, string? FromName, string Kind, string Text, string? Author = null);
 
 /// <summary>Read-only views for the admin panel and integrations: player directory, player card, public chat history. No audit.</summary>
@@ -89,7 +90,9 @@ public sealed class AdminDirectory(RimlinkDbContext db, SessionRegistry sessions
             player.PeacefulOffAt,
             // Whom the player blocked: a moderator sees it on the card.
             await db.PlayerBlocks.AsNoTracking().Where(b => b.BlockerPlayerId == playerId)
-                .Join(db.Players.AsNoTracking(), b => b.BlockedPlayerId, p => p.Id, (b, p) => p.Name).OrderBy(n => n).ToListAsync());
+                .Join(db.Players.AsNoTracking(), b => b.BlockedPlayerId, p => p.Id, (b, p) => p.Name).OrderBy(n => n).ToListAsync(),
+            player.EconomyFrozenAt,
+            player.EconomyFreezeReason);
     }
 
     /// <summary>

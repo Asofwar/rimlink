@@ -34,6 +34,23 @@ public class AdminCommandTests
     }
 
     [Fact]
+    public async Task PlayerFreezeAndUnfreezeRun()
+    {
+        using var fixture = Server();
+        var nova = await fixture.RegisterAndLogin("nova", playerName: "Nova");
+        string id = nova.Player.PlayerId.ToString();
+        using var cli = Cli(fixture);
+
+        await AdminCommand.Run(cli, "player-freeze", [id, "dupe", "x"]);
+        var frozen = JsonDocument.Parse(await AdminCommand.Run(cli, "player", [id])).RootElement;
+        await AdminCommand.Run(cli, "player-unfreeze", [id]);
+        var open = JsonDocument.Parse(await AdminCommand.Run(cli, "player", [id])).RootElement;
+
+        Assert.Equal("dupe x", frozen.GetProperty("economyFreezeReason").GetString());
+        Assert.Equal(JsonValueKind.Null, open.GetProperty("economyFrozenAt").ValueKind);
+    }
+
+    [Fact]
     public async Task RoleRenameSaveAllStatusAndConfigRun()
     {
         using var fixture = Server();

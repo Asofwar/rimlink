@@ -179,6 +179,10 @@ Settings under `Integrity` (defaults):
   the same via `rimlink-tools admin trades [playerId]|trade cancel <id> [reason]` and REST `GET /api/admin/trades[?playerId=]`
   (scope `moderate`), `POST /api/admin/trades/{id}/cancel` (body `{"reason": "..."}`, scope `admin`). The player card
   (`GET /api/admin/players/{id}`) lists in `blocks` the players this one blocked.
+- One player's trading (5d): chat `/freeze <player> [reason]`, `/unfreeze <player>`; `rimlink-tools admin player-freeze <playerId> [reason]`,
+  `player-unfreeze <playerId>`; REST `POST /api/admin/players/{id}/economy` with `{"frozen": true, "reason": "..."}`; the player card in the
+  web panel shows the state and has the button. A frozen player cannot send, deposit, withdraw, post or buy lots, buy in a shop or launch
+  raids; their lots and shop are not for sale; deliveries to them go on and they can take their own lots back. The player gets a notice.
 - Raids: chat `/raids list [player]|cancel <id> [--return] [reason]|freeze [reason]|unfreeze|stats`,
   `/peaceful <player> on|off` (no delay), `/shop <player>`, `/removals <player>`; the same via
   `rimlink-tools admin raids|peaceful|shop|removals …` and REST `/api/admin/raids/*` (cancel body

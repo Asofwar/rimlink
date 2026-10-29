@@ -9,6 +9,7 @@ public static class AdminDirectoryEndpoints
 {
     public sealed record RoleBody(string Role);
     public sealed record RenameBody(string Name, string? FactionName);
+    public sealed record EconomyFreezeBody(bool Frozen, string? Reason);
 
     public static void MapAdminDirectoryApi(this WebApplication app)
     {
@@ -31,6 +32,7 @@ public static class AdminDirectoryEndpoints
             {
                 r.Id, r.AccountId, r.Name, r.FactionName, r.Role, r.SteamId, r.Login, r.Online, r.LastSeenAt, r.CreatedAt, r.MutedUntil, r.Peaceful, r.Banned,
                 c.LastIp, c.Session, c.Settlements, c.WalletBalance, c.WealthTotal, c.FirstSaveAt, c.CurrentSave, c.ActiveBans, c.VisitsClosed, c.PeacefulOffAt, c.Blocks,
+                c.EconomyFrozenAt, c.EconomyFreezeReason,
             };
         }).RequireScope(ApiScope.Moderate);
 
@@ -39,6 +41,12 @@ public static class AdminDirectoryEndpoints
             if (!Enum.TryParse<Role>(body.Role, ignoreCase: true, out var role) || !string.Equals(role.ToString(), body.Role, StringComparison.OrdinalIgnoreCase))
                 return Results.Problem("role must be player, moderator or admin", statusCode: StatusCodes.Status400BadRequest);
             await ops.SetRole(ctx.Actor(), id, role);
+            return Results.Ok();
+        }).RequireScope(ApiScope.Admin);
+
+        group.MapPost("/players/{id:long}/economy", async (long id, EconomyFreezeBody body, HttpContext ctx, AdminOperations ops) =>
+        {
+            await ops.SetPlayerEconomyFrozen(ctx.Actor(), id, body.Frozen, body.Reason);
             return Results.Ok();
         }).RequireScope(ApiScope.Admin);
 

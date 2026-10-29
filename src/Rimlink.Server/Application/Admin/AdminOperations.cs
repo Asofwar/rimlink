@@ -53,6 +53,7 @@ public sealed class AdminOperations(
     Trades.TradeService trades,
     Backup.BackupService backups,
     AdminFeed feed,
+    PlayerFreeze playerFreeze,
     ILogger<AdminOperations> log)
 {
     public async Task<Backup.BackupFile> CreateBackup(Actor actor)
@@ -176,6 +177,16 @@ public sealed class AdminOperations(
         await db.SaveChangesAsync();
         events.SendTo(playerId, new ServerEvent { PlayerFlagsChanged = new PlayerFlagsChanged { Flags = RaidService.FlagsOf(player) } });
         await Audit(actor, "peaceful", player.AccountId, peaceful ? "on" : "off");
+    }
+
+    /// <summary>Freezes or opens one player's economy (integrity spec §2); the player is told, deliveries to them go on.</summary>
+    public async Task SetPlayerEconomyFrozen(Actor actor, long playerId, bool frozen, string? reason)
+    {
+        actor.Require(Role.Admin);
+        var player = await FindPlayer(playerId);
+        string details = frozen ? (string.IsNullOrWhiteSpace(reason) ? "by admin" : reason.Trim()) : "";
+        await playerFreeze.Set(playerId, frozen, frozen ? details : null);
+        await Audit(actor, frozen ? "player-economy-freeze" : "player-economy-unfreeze", player.AccountId, details);
     }
 
     public sealed record EconomyStatsResult(long SilverInWallets, int OpenLots, int PendingParcels, int TradesToday, bool Frozen, string? FreezeReason);

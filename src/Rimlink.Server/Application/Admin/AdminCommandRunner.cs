@@ -18,7 +18,8 @@ public sealed class AdminCommandRunner(AdminOperations ops, ModpackService modpa
         economy freeze [reason] | economy unfreeze | economy stats |
         raids list [player] | raids cancel <id> [--return] [reason] | raids freeze [reason] | raids unfreeze | raids stats |
         live list [player] | live end <id> [reason] | peaceful <player> on|off | shop <player> | removals <player> |
-        trades [player] | trade cancel <id> [reason]
+        trades [player] | trade cancel <id> [reason] |
+        freeze <player> [reason] | unfreeze <player>
         """;
 
     public async Task<string> Execute(Actor actor, AdminCommand command)
@@ -171,6 +172,12 @@ public sealed class AdminCommandRunner(AdminOperations ops, ModpackService modpa
             case "peaceful":
                 await ops.SetPeaceful(actor, await PlayerId(Arg(0)), Arg(1) == "on");
                 return $"peaceful mode {Arg(1)} for {Arg(0)}";
+            case "freeze":
+                await ops.SetPlayerEconomyFrozen(actor, await PlayerId(Arg(0)), true, args.Count > 1 ? Rest(1) : null);
+                return $"economy frozen for {Arg(0)}";
+            case "unfreeze":
+                await ops.SetPlayerEconomyFrozen(actor, await PlayerId(Arg(0)), false, null);
+                return $"economy open for {Arg(0)}";
             case "actions":
                 var actions = await ops.ListActions(actor, 30);
                 return actions.Count == 0 ? "no actions yet" : string.Join('\n', actions.Select(a => $"{a.At:u} #{a.ActorAccountId} {a.Action} {a.TargetAccountId} {a.Details}"));
