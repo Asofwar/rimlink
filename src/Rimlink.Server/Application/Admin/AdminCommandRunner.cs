@@ -15,7 +15,9 @@ public sealed class AdminCommandRunner(AdminOperations ops, ModpackService modpa
         broadcast <text> | role <player> <player|moderator|admin> | rename <name> [faction] | saveall |
         shutdown <seconds> [reason] | recreateworld | modpack | actions | help |
         wallet <player> [+n|-n] [reason] | parcels <player> | lots [player] | refund lot <id> | refund parcel <id> |
-        economy freeze [reason] | economy unfreeze | economy stats
+        economy freeze [reason] | economy unfreeze | economy stats |
+        raids list [player] | raids cancel <id> [--return] [reason] | raids freeze [reason] | raids unfreeze | raids stats |
+        live list [player] | live end <id> [reason] | peaceful <player> on|off | shop <player> | removals <player>
         """;
 
     public async Task<string> Execute(Actor actor, AdminCommand command)
@@ -140,6 +142,15 @@ public sealed class AdminCommandRunner(AdminOperations ops, ModpackService modpa
                         var rs = await ops.RaidStats(actor);
                         return $"queued {rs.Queued}, announced {rs.Announced}, landed {rs.Landed}, resolved today {rs.ResolvedToday}, expired {rs.Expired}, cancelled {rs.Cancelled}{(rs.Frozen ? $", FROZEN: {rs.FreezeReason}" : "")}";
                     default: throw new RpcException(new Status(StatusCode.InvalidArgument, "raids list [player] | cancel <id> [reason] | freeze [reason] | unfreeze | stats"));
+                }
+            case "live":
+                switch (Arg(0))
+                {
+                    case "list":
+                        var sessions = await ops.ListLive(actor, args.Count > 1 ? await PlayerId(Arg(1)) : null);
+                        return sessions.Count == 0 ? "no live sessions" : string.Join("\n", sessions.Select(s => $"#{s.Id} {(LiveKind)s.Kind} host {s.HostPlayerId} guest {s.GuestPlayerId} {s.State}{(s.EndReason is { } er ? " " + (LiveEndReason)er : "")} created {s.CreatedAt:u}"));
+                    case "end": return await ops.EndLive(actor, long.Parse(Arg(1)), args.Count > 2 ? Rest(2) : "ended by admin") ? "live session ending" : "no such live session";
+                    default: throw new RpcException(new Status(StatusCode.InvalidArgument, "live list [player] | end <id> [reason]"));
                 }
             case "shop":
                 var shopRows = await ops.ListShop(actor, await PlayerId(Arg(0)));

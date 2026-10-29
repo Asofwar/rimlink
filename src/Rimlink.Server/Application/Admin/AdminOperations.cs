@@ -9,6 +9,8 @@ using Parcel = Rimlink.Server.Storage.Entities.Parcel;
 using Transfer = Rimlink.Server.Storage.Entities.Transfer;
 using Rimlink.Server.Application.Events;
 using Rimlink.Server.Application.Raids;
+using Rimlink.Server.Application.Live;
+using LiveSessionRow = Rimlink.Server.Storage.Entities.LiveSession;
 using Rimlink.Server.Application.Visits;
 using ShopItem = Rimlink.Server.Storage.Entities.ShopItem;
 using Raid = Rimlink.Server.Storage.Entities.Raid;
@@ -38,6 +40,7 @@ public sealed class AdminOperations(
     MarketService market,
     FreezeState freeze,
     RaidService raids,
+    LiveSessionService live,
     RaidFreezeState raidFreeze,
     ShopService shop,
     VisitService visits,
@@ -71,6 +74,24 @@ public sealed class AdminOperations(
         actor.Require(Role.Admin);
         if (!await raids.Cancel(raidId, reason, returnPawns)) return false;
         await Audit(actor, "raid-cancel", null, $"raid {raidId}: {reason}{(returnPawns ? " (pawns returned)" : "")}");
+        return true;
+    }
+
+    public Task<List<LiveSessionRow>> ListLive(Actor actor, long? playerId)
+    {
+        actor.Require(Role.Moderator);
+        return live.List(playerId);
+    }
+
+    /// <summary>Ends a live session from outside: both games get LiveEnded, the host still reports the guest's pawns.</summary>
+    public async Task<bool> EndLive(Actor actor, long sessionId, string reason)
+    {
+        actor.Require(Role.Admin);
+        var row = await db.LiveSessions.AsNoTracking().FirstOrDefaultAsync(s => s.Id == sessionId);
+        if (row is null || row.State is LiveStateDb.Ended or LiveStateDb.Fallback or LiveStateDb.Ending) return false;
+        if (row.State == LiveStateDb.Proposed) await live.Respond(row.HostPlayerId, sessionId, accept: false);
+        else await live.MarkEnding(sessionId, LiveEndReason.EndAdmin);
+        await Audit(actor, "live-end", null, $"live session {sessionId}: {reason}");
         return true;
     }
 

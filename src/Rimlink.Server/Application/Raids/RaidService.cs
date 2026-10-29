@@ -26,7 +26,8 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
     private static readonly RaidStateDb[] FinalStates = [RaidStateDb.Resolved, RaidStateDb.Expired, RaidStateDb.Cancelled];
     private static readonly RaidStateDb[] PendingStates = [RaidStateDb.Queued, RaidStateDb.Announced];
 
-    public async Task<Raid> Launch(long attackerId, LaunchRequest r)
+    /// <param name="controller">Live raids (3b) stay invisible to the target's 3a pipeline until <see cref="HandOverToAi"/>.</param>
+    public async Task<Raid> Launch(long attackerId, LaunchRequest r, RaidController controller = RaidController.ControllerAi)
     {
         gate.RequireOpen();
         var o = options.Value;
@@ -54,7 +55,7 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
             PawnMode = (int)r.PawnMode,
             Timing = (int)r.Timing,
             Arrival = (int)r.Arrival,
-            Controller = (int)RaidController.ControllerAi,
+            Controller = (int)controller,
             State = RaidStateDb.Queued,
             Pawns = r.Pawns.ToByteArray(),
             LootCap = rules.LootCap(target, r.PawnMode, r.Timing),
@@ -70,13 +71,24 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
         await tx.CommitAsync();
 
         RaidMetrics.Outcome("launched");
-        events.SendTo(target.Id, new ServerEvent { RaidQueued = new RaidQueued { Raid = ToProto(raid, attacker, target, includeBlobs: false) } });
+        if (controller == RaidController.ControllerAi) events.SendTo(target.Id, new ServerEvent { RaidQueued = new RaidQueued { Raid = ToProto(raid, attacker, target, includeBlobs: false) } });
         log.LogInformation("Player {Attacker} launched raid {Raid} at player {Target}: {Count} pawns, {Mode}/{Timing}/{Arrival}", attackerId, raid.Id, target.Id, r.Pawns.Pawns.Count, r.PawnMode, r.Timing, r.Arrival);
         return raid;
     }
 
     public Task<List<Raid>> Pending(long targetId) =>
-        db.Raids.AsNoTracking().Where(r => r.TargetPlayerId == targetId && PendingStates.Contains(r.State)).OrderBy(r => r.Id).ToListAsync();
+        db.Raids.AsNoTracking().Where(r => r.TargetPlayerId == targetId && PendingStates.Contains(r.State) && r.Controller != (int)RaidController.ControllerLive).OrderBy(r => r.Id).ToListAsync();
+
+    /// <summary>A live session fell back: the raid row becomes an ordinary 3a raid and the target's game learns about it now.</summary>
+    public async Task HandOverToAi(long raidId)
+    {
+        var raid = await db.Raids.FirstOrDefaultAsync(r => r.Id == raidId);
+        if (raid is null || raid.Controller != (int)RaidController.ControllerLive || raid.State != RaidStateDb.Queued) return;
+        raid.Controller = (int)RaidController.ControllerAi;
+        await db.SaveChangesAsync();
+        events.SendTo(raid.TargetPlayerId, new ServerEvent { RaidQueued = new RaidQueued { Raid = await ToProto(raid, includeBlobs: false) } });
+        log.LogInformation("Raid {Raid} handed over to the AI pipeline", raid.Id);
+    }
 
     public Task<List<Raid>> Mine(long attackerId) =>
         db.Raids.AsNoTracking().Where(r => r.AttackerPlayerId == attackerId).OrderByDescending(r => r.Id).Take(50).ToListAsync();
@@ -95,6 +107,7 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
     {
         await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
         var raid = await TargetRaid(targetId, raidId);
+        if (raid.Controller == (int)RaidController.ControllerLive) throw new RpcException(new Status(StatusCode.FailedPrecondition, "a live raid is not announced"));
         if (raid.State == RaidStateDb.Queued)
         {
             gate.RequireOpen();
@@ -114,6 +127,7 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
         await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
         var raid = await TargetRaid(targetId, raidId);
         if (raid.State == RaidStateDb.Landed) return;
+        if (raid.Controller == (int)RaidController.ControllerLive) throw new RpcException(new Status(StatusCode.FailedPrecondition, "a live raid does not land"));
         if (raid.State != RaidStateDb.Announced) throw new RpcException(new Status(StatusCode.FailedPrecondition, "the raid has not been announced"));
         raid.State = RaidStateDb.Landed;
         raid.LandedTick = gameTick;
@@ -139,17 +153,20 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
         return raid;
     }
 
-    /// <summary>The defender's game is done with the raid: survivors, loot and captives become parcels for the attacker.</summary>
-    public async Task Report(long targetId, RaidReport r)
+    /// <summary>The defender's game is done with the raid: survivors, loot and captives become parcels for the attacker. Returns the raid (null when it was already resolved).</summary>
+    public async Task<Raid?> Report(long targetId, RaidReport r)
     {
         var parcels = new List<Parcel>();
         RaidSummary summary;
         long attackerId;
+        Raid reported;
         await using (var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable))
         {
             var raid = await TargetRaid(targetId, r.RaidId, allowResolved: true);
-            if (raid.State == RaidStateDb.Resolved) return;
-            if (raid.State != RaidStateDb.Landed) throw new RpcException(new Status(StatusCode.FailedPrecondition, "the raid has not landed"));
+            if (raid.State == RaidStateDb.Resolved) return null;
+            // A live raid never lands through the 3a pipeline: its guests were spawned by the host's game straight from Queued.
+            bool live = raid.Controller == (int)RaidController.ControllerLive && raid.State == RaidStateDb.Queued;
+            if (raid.State != RaidStateDb.Landed && !live) throw new RpcException(new Status(StatusCode.FailedPrecondition, "the raid has not landed"));
             long lootValue = reports.Validate(raid, r);
 
             summary = new RaidSummary { LootValue = lootValue, Captives = r.Captives?.Pawns.Count ?? 0 };
@@ -169,6 +186,7 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
             raid.ResolvedAt = DateTime.UtcNow;
             raid.SummaryJson = JsonFormatter.Default.Format(summary);
             attackerId = raid.AttackerPlayerId;
+            reported = raid;
 
             if (r.Loot is { Items.Count: > 0 })
                 parcels.Add(await mailbox.Create(attackerId, targetId, ParcelKindDb.Loot, r.Loot, null, 0, null, ignoreMailboxLimit: true));
@@ -188,6 +206,7 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
         RaidMetrics.Outcome("resolved");
         events.SendTo(attackerId, new ServerEvent { RaidResolved = new RaidResolved { RaidId = r.RaidId, Summary = summary } });
         foreach (var parcel in parcels) await mailbox.Announce(parcel);
+        return reported;
     }
 
     /// <summary>
@@ -291,7 +310,7 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
     public static PlayerFlags FlagsOf(Player p)
     {
         var now = DateTime.UtcNow;
-        var flags = new PlayerFlags { Peaceful = RaidRules.IsPeaceful(p, now), VisitsClosed = p.VisitsClosed };
+        var flags = new PlayerFlags { Peaceful = RaidRules.IsPeaceful(p, now), VisitsClosed = p.VisitsClosed, AutoAcceptLive = p.AutoAcceptLive };
         if (!p.Peaceful && p.PeacefulOffAt is { } until && until > now) flags.PeacefulOffAt = Timestamp.FromDateTime(DateTime.SpecifyKind(until, DateTimeKind.Utc));
         return flags;
     }

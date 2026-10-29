@@ -51,6 +51,12 @@ public static class AdminCommand
                     "stats" => await rest.Get("raids/stats"),
                     _ => throw new InvalidOperationException("raids list [playerId] | cancel <id> [reason] | freeze [reason] | unfreeze | stats"),
                 },
+                "live" => a[0] switch
+                {
+                    "list" => await rest.Get(a.Length > 1 ? $"live?playerId={a[1]}" : "live"),
+                    "end" => await rest.Post($"live/{a[1]}/end", new { reason = string.Join(' ', a.Skip(2)) }),
+                    _ => throw new InvalidOperationException("live list [playerId] | end <id> [reason]"),
+                },
                 "shop" => await rest.Get($"shop/{a[0]}"),
                 "removals" => await rest.Get($"shop/{a[0]}/removals"),
                 "peaceful" => await rest.Post($"players/{a[0]}/peaceful", new { peaceful = a[1] == "on" }),

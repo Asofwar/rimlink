@@ -80,6 +80,8 @@ message RaidReport {
   ItemList loot = 4;
   // Kidnapped colonists of the defender (at most one, only when allow_kidnap).
   PawnList captives = 5;
+  // Live sessions (3b): the session this report ends; raid_id is 0 for a live visit.
+  int64 live_session_id = 6;
 }
 
 message PeacefulRequest { bool peaceful = 1; }

@@ -4,7 +4,7 @@ using Rimlink.Server.Application.Raids;
 
 namespace Rimlink.Server.Grpc;
 
-public sealed class RaidsGrpcService(RaidService raids) : Protocol.V1.Raids.RaidsBase
+public sealed class RaidsGrpcService(RaidService raids, Application.Live.LiveSessionService live) : Protocol.V1.Raids.RaidsBase
 {
     public override async Task<Raid> Launch(LaunchRequest request, ServerCallContext context) =>
         await raids.ToProto(await raids.Launch(context.GetSession().PlayerId, request), includeBlobs: false);
@@ -29,7 +29,14 @@ public sealed class RaidsGrpcService(RaidService raids) : Protocol.V1.Raids.Raid
 
     public override async Task<Empty> Report(RaidReport request, ServerCallContext context)
     {
-        await raids.Report(context.GetSession().PlayerId, request);
+        long playerId = context.GetSession().PlayerId;
+        if (request.RaidId == 0 && request.LiveSessionId != 0)
+        {
+            await live.ReportVisit(playerId, request); // a live visit has no raid row
+            return new Empty();
+        }
+        var raid = await raids.Report(playerId, request);
+        if (raid is not null && raid.Controller == (int)RaidController.ControllerLive) await live.Ended(raid.Id);
         return new Empty();
     }
 

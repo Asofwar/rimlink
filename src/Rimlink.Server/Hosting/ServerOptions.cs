@@ -88,6 +88,8 @@ public sealed class LiveOptions
     public int OrdersPerSecond { get; set; } = 30;
     /// <summary>A live stream without any frame for this long counts as lost (tests lower it).</summary>
     public int HeartbeatTimeoutSeconds { get; set; } = 10;
+    /// <summary>How often invitations, waits and heartbeats are checked.</summary>
+    public int SweepSeconds { get; set; } = 5;
 }
 
 public sealed class AdminOptions

@@ -182,6 +182,9 @@ namespace Rimlink.Server.Storage.Migrations
                     b.Property<int>("Kind")
                         .HasColumnType("INTEGER");
 
+                    b.Property<long?>("LostPlayerId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<byte[]>("Pawns")
                         .HasColumnType("BLOB");
 
@@ -196,6 +199,9 @@ namespace Rimlink.Server.Storage.Migrations
 
                     b.Property<int>("State")
                         .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("WaitingSince")
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 

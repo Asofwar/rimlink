@@ -252,6 +252,9 @@ public sealed class LiveSession
     public DateTime? EndedAt { get; set; }
     public int? EndReason { get; set; }
     public string? ClientRequestId { get; set; }
+    /// <summary>Set while Waiting: when the lost peer went missing, and who.</summary>
+    public DateTime? WaitingSince { get; set; }
+    public long? LostPlayerId { get; set; }
 }
 
 public sealed class Visit
