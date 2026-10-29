@@ -8,7 +8,7 @@ core, and a Harmony mod. Nothing here may be copied from other multiplayer mods 
 | Path | What it is | In `Rimlink.sln` |
 |---|---|---|
 | `src/Rimlink.Protocol` | protobuf/gRPC contracts (`Protos/*.proto`), `ProtocolVersion` | yes |
-| `src/Rimlink.Server` | ASP.NET Core 10 server: gRPC game API, REST admin API, EF Core + SQLite, migrations | yes |
+| `src/Rimlink.Server` | ASP.NET Core 10 server: gRPC game API, REST admin API (scoped tokens), EF Core + SQLite, migrations; `wwwroot/` holds the web admin panel (`/admin/`) and the public page (`/`), plain ES modules without a build step | yes |
 | `src/Rimlink.Client.Core` | client logic with no game references: connection, state, outbox, save transfer, live client | yes |
 | `src/Rimlink.Client` | the RimWorld mod: Harmony patches, UI, game components. Built against the game, **not** in the solution | no |
 | `src/Rimlink.Tools` | admin CLI | yes |
@@ -132,7 +132,8 @@ Conventions that follow from this:
    `Rimlink` category drive every flow that needs a second player.
 4. Documentation moves with behaviour: `docs/player-guide.md` (players), `docs/server-setup.md` (admins, config, metrics),
    `deploy/appsettings.example.json` (every key), `README.md` status, `docs/manual-checklist.md`.
-5. Version: `mod/About/About.xml` `<modVersion>` and `ClientInfo.Version` stay equal; one bump per sub-project.
+5. Version: `mod/About/About.xml` `<modVersion>`, `ClientInfo.Version` and `Directory.Build.props` `<Version>` (the
+   server reports it in `/status`) stay equal; one bump per sub-project.
    `ProtocolVersion.Current` changes only on an incompatible protocol change (there has been none).
 
 ## Rules that are not obvious from the code

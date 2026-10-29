@@ -16,9 +16,12 @@ Rimlink needs the exact server version it was built with (the server tells you w
 
 ## 2. Connect
 
+Many servers have a public page at `https://<address>:<port>/`: it lists the modpack in load order with Workshop
+links (subscribe before the first connection), the login modes, the address to add and the certificate fingerprint.
+
 1. **Multiplayer** → **Add server**: name, address (host or IP) and port (default `25560`), **Connect**.
 2. The first time you connect, the game shows the server's certificate fingerprint. Compare it with the
-   fingerprint your admin gave you and confirm. If the fingerprint later **changes**, the game asks again —
+   fingerprint your admin gave you, or with the one on the server's public page, and confirm. If the fingerprint later **changes**, the game asks again —
    do not accept a changed fingerprint unless the admin announced a new certificate.
 3. Login:
    - With Steam running, the server verifies your Steam account; nothing to type.

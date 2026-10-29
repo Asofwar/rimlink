@@ -133,12 +133,68 @@ still ends as a mailbox parcel, as in 5a/5b.
   and REST `GET /api/admin/live[?playerId=]`, `POST /api/admin/live/{id}/end` (body `{"reason": "..."}`). Ending a running session makes
   the host report the guest's pawns as they stand (a live raid is not continued by the AI); ending one that is already waiting for
   that report returns the escrowed pawns to the guest instead.
-- Every admin action is logged (`/actions`).
+- Every admin action is logged (`/actions`) with who did it: `api` (the `Admin:ApiToken`), `api:<token name>` (a named
+  token, see §6b), `panel` (the web panel), or the player who typed a chat command. A REST caller may add
+  `X-Rimlink-Actor: <label>` (1–64 characters, no control characters, otherwise 400) and is logged as
+  `api:<label>` / `api:<token name>:<label>`; the Discord bot sends `discord:<user> (<id>)`.
+- Panel and integration routes (all under `/api/admin`, JSON):
+  - players: `GET /players?q=&limit=50&offset=0` (name/faction substring, exact SteamID, login or `#id`; exact name
+    first, then online), `GET /players/{id}` (card), `POST /players/{id}/role {"role": "moderator"}`,
+    `POST /players/{id}/rename {"name": "...", "factionName": "..."}`, `GET /economy/wallet/{id}`; `steamId` is a JSON
+    string there (17 digits do not fit a JavaScript number);
+  - server: `POST /saveall`, `GET /status`, `GET /config` (secrets shown as `set`), `GET /chat?playerId=&before=|after=&limit=`
+    (public channel only), `GET /actions?before=`;
+  - backups: `GET /backups`, `POST /backups` (make one now; 409 while one runs), `GET /backups/{name}` (download).
+  - CLI: `rimlink-tools admin players [query]|player <id>|role <id> <role>|rename <id> <name> [faction]|saveall|chat [playerId]|status|config|backups|backup|backup-get <name> <file>`.
+
+## 6a. Web panel
+
+- `https://<host>:<port>/admin/` — log in with the `Admin:ApiToken` value. The browser keeps a session cookie
+  (`HttpOnly`, `Secure`, `SameSite=Strict`) for `Panel:SessionHours` (default 12, 1–168); the token itself is not
+  stored. Sessions live in memory: a server restart logs everyone out. 5 wrong tokens from one IP within 10 minutes
+  lock that IP out until the 10 minutes pass (failures are logged with the IP).
+- Without `Admin:ApiToken` the panel is off (404); named tokens never open it.
+- `https://<host>:<port>/` — the public page: status, how to connect (address, login modes, the certificate
+  fingerprint players compare with the trust window on first connect), the modpack with Workshop links, players
+  online, world stats. `Panel:Public=false` turns it off, `Panel:PublicPlayerNames=false` hides the names,
+  `Panel:ServerName`, `Panel:Description` and `Panel:PublicAddress` (shown address; empty = the host and port of the
+  request) fill it in. `Panel:Enabled=false` turns off both pages.
+- With the self-signed certificate browsers show a warning first. For a public panel use your own certificate
+  (§2): `Tls:CertificatePath` / `Tls:KeyPath`.
+- Safe to expose: the public page and its `/api/public/status` (no IPs, SteamIDs or account ids, cached for 15 s).
+  `/metrics` stays open as before; keep it behind a firewall if you do not want it public.
+
+## 6b. API tokens
+
+`Admin:ApiToken` is the full-admin token (CLI, panel, old configs). Integrations get their own named tokens, each
+revocable on its own and named in the audit log:
+
+```json
+"Admin": {
+  "ApiToken": "long-random-string",
+  "Tokens": [ { "Name": "discord", "Token": "another-long-random-string", "Scopes": [ "read", "chat", "moderate" ] } ]
+}
+```
+
+- `Name`: `a-z`, `0-9`, `-`, up to 32, unique; `Token`: at least 24 characters, unlike any other; `Scopes`: any of
+  `read`, `chat`, `moderate`, `admin`. A bad entry stops the server at start with a message naming it.
+- `admin` includes everything, `moderate` includes `read`, `chat` includes nothing else. A missing scope answers 403
+  `this needs the <scope> scope`.
+- `read`: `GET /status`, `/players` (without login, SteamID, ban/mute state and last seen unless the token also has
+  `moderate`; search by login or SteamID then finds nothing), `/chat`, `/modpack`, `/economy/stats`, `/economy/lots`,
+  `/raids`, `/raids/stats`, `/live`, `/events`.
+- `chat`: `POST /chat`.
+- `moderate`: `GET /players/online`, `/players/{id}`, `/economy/wallet/{id}`, `/economy/parcels/{id}`, `/shop/{id}`,
+  `/shop/{id}/removals`, `/bans`, `/actions`; kick, mute, unmute, broadcast, save-all.
+- `admin`: everything else — bans and pardons, saves and rollback, reset, role, rename, peaceful, wallet changes,
+  refunds, freezes, raid cancel, live end, shutdown, world recreation, modpack changes, `/config`, backups.
 
 ## 7. Backups
 
 - Automatic: `Backup:IntervalHours` (default 24, 0 = off), `Backup:Keep` archives kept in `backups/`.
-- Manual, safe while running: `rimlink-tools backup --data <dir> [--out file.tar.zst]`.
+- Manual, safe while running: `rimlink-tools backup --data <dir> [--out file.tar.zst]`, or the panel's Backups screen /
+  `POST /api/admin/backups`. A backup made from the panel lands in `backups/` with the scheduled ones and counts towards
+  `Backup:Keep`, so it can push out the oldest scheduled archive.
 - Restore (server stopped): `rimlink-tools restore --data <dir> --from file.tar.zst`.
 
 ## 8. Monitoring

@@ -18,3 +18,10 @@ services:
       # Rimlink__Server__ServerPassword: "secret"
       # Rimlink__Tls__CertificatePath: /data/tls/fullchain.pem
       # Rimlink__Tls__KeyPath: /data/tls/privkey.pem
+      # Web panel at https://host:25560/admin/ and public page at https://host:25560/ (docs/server-setup.md §6a).
+      # Rimlink__Panel__ServerName: "My server"
+      # Rimlink__Panel__PublicAddress: "play.example.org:25560"
+      # A named token for an integration (§6b): name, token, scopes.
+      # Rimlink__Admin__Tokens__0__Name: discord
+      # Rimlink__Admin__Tokens__0__Token: "${DISCORD_API_TOKEN:-}"
+      # Rimlink__Admin__Tokens__0__Scopes__0: read
