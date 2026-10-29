@@ -57,6 +57,9 @@ public static class AdminDirectoryEndpoints
             return Results.Ok();
         }).RequireScope(ApiScope.Moderate);
 
+        group.MapGet("/status", (ServerStatus status) => status.Admin()).RequireScope(ApiScope.Read);
+        group.MapGet("/config", (ServerStatus status) => status.Config()).RequireScope(ApiScope.Admin);
+
         group.MapGet("/backups", (Backup.BackupService backups) => backups.List()).RequireScope(ApiScope.Admin);
         group.MapPost("/backups", async (HttpContext ctx, AdminOperations ops) =>
         {
