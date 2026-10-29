@@ -9,23 +9,27 @@ namespace Rimlink.Client.Economy;
 /// </summary>
 public static class BlobDefs
 {
-    /// <summary>"label (defName)" for each missing item or pawn kind, the def name alone for a missing stuff; each once, in blob order.</summary>
+    /// <summary>
+    /// "label (defName)" for each missing item or pawn kind, the def name alone for a missing stuff; each def once (labelled as its
+    /// first blob, since stacks of one def differ in quality and hit points), in blob order.
+    /// </summary>
     public static IReadOnlyList<string> Missing(ItemList? items, PawnList? pawns, Func<string, bool> thingDefExists, Func<string, bool> pawnKindExists)
     {
         var missing = new List<string>();
-        void Add(string name)
+        var seen = new HashSet<string>();
+        void Add(string def, string name)
         {
-            if (!missing.Contains(name)) missing.Add(name);
+            if (seen.Add(def)) missing.Add(name);
         }
 
         foreach (var item in items?.Items ?? Enumerable.Empty<ItemBlob>())
         {
-            if (item.DefName.Length > 0 && !thingDefExists(item.DefName)) Add(item.Label.Length > 0 ? $"{item.Label} ({item.DefName})" : item.DefName);
-            if (item.StuffDef.Length > 0 && !thingDefExists(item.StuffDef)) Add(item.StuffDef);
+            if (item.DefName.Length > 0 && !thingDefExists(item.DefName)) Add(item.DefName, item.Label.Length > 0 ? $"{item.Label} ({item.DefName})" : item.DefName);
+            if (item.StuffDef.Length > 0 && !thingDefExists(item.StuffDef)) Add(item.StuffDef, item.StuffDef);
         }
         foreach (var pawn in pawns?.Pawns ?? Enumerable.Empty<PawnBlob>())
         {
-            if (pawn.KindDef.Length > 0 && !pawnKindExists(pawn.KindDef)) Add(pawn.Name.Length > 0 ? $"{pawn.Name} ({pawn.KindDef})" : pawn.KindDef);
+            if (pawn.KindDef.Length > 0 && !pawnKindExists(pawn.KindDef)) Add("kind:" + pawn.KindDef, pawn.Name.Length > 0 ? $"{pawn.Name} ({pawn.KindDef})" : pawn.KindDef);
         }
         return missing;
     }

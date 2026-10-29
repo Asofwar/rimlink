@@ -38,6 +38,14 @@ public class BlobDefsTests
     }
 
     [Fact]
+    public void ADefIsNamedOnceWhateverItsStacksAreLabelled()
+    {
+        var missing = Missing(Items(new ItemBlob { DefName = "ModRifle", Label = "rifle (good)" }, new ItemBlob { DefName = "ModRifle", Label = "rifle (normal) 85%" }), null);
+
+        Assert.Equal(["rifle (good) (ModRifle)"], missing);
+    }
+
+    [Fact]
     public void AMissingStuffAndAMissingPawnKindAreNamedOnceEach()
     {
         var pawns = new PawnList();
