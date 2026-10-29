@@ -32,7 +32,9 @@ builder.Host.UseSerilog((context, services, config) => config
 builder.Services.Configure<ServerOptions>(builder.Configuration.GetSection(ServerOptions.Section));
 builder.Services.Configure<TlsOptions>(builder.Configuration.GetSection(TlsOptions.Section));
 builder.Services.Configure<AuthOptions>(builder.Configuration.GetSection(AuthOptions.Section));
-builder.Services.Configure<AdminOptions>(builder.Configuration.GetSection(AdminOptions.Section));
+builder.Services.AddOptions<AdminOptions>().Bind(builder.Configuration.GetSection(AdminOptions.Section))
+    .Validate(o => o.FeedBufferSize is >= 100 and <= 100000 && o.FeedPingSeconds is >= 1 and <= 300, "Admin:FeedBufferSize must be 100-100000 and Admin:FeedPingSeconds 1-300")
+    .ValidateOnStart();
 builder.Services.Configure<BackupOptions>(builder.Configuration.GetSection(BackupOptions.Section));
 builder.Services.Configure<EconomyOptions>(builder.Configuration.GetSection(EconomyOptions.Section));
 builder.Services.Configure<RaidOptions>(builder.Configuration.GetSection(RaidOptions.Section));
@@ -98,6 +100,7 @@ builder.Services.AddSingleton<Rimlink.Server.Application.Live.LiveTimeoutService
 builder.Services.AddSingleton<Rimlink.Server.Application.Live.LiveRelay>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<Rimlink.Server.Application.Live.LiveTimeoutService>());
 builder.Services.AddSingleton<PresenceNotifier>();
+builder.Services.AddSingleton<Rimlink.Server.Application.Feed.AdminFeed>();
 builder.Services.AddSingleton<ApiTokens>();
 builder.Services.AddSingleton<PanelSessions>();
 builder.Services.AddHttpClient<ISteamTicketVerifier, SteamWebApiTicketVerifier>(client => client.Timeout = TimeSpan.FromSeconds(10));
@@ -107,6 +110,7 @@ app.Services.GetRequiredService<ApiTokens>(); // validates Admin:Tokens: a bad e
 app.Services.MigrateRimlinkStorage();
 ModpackService.LoadDefs(app.Services);
 app.Services.GetRequiredService<PresenceNotifier>(); // subscribes to session events
+app.Services.GetRequiredService<Rimlink.Server.Application.Feed.AdminFeed>(); // server.started is the feed's first event
 
 app.UseSerilogRequestLogging();
 app.UseHttpMetrics();
@@ -130,6 +134,7 @@ app.MapGrpcService<VisitsGrpcService>();
 app.MapGrpcService<ShopGrpcService>();
 app.MapAdminApi();
 app.MapAdminDirectoryApi();
+app.MapAdminFeedApi();
 app.MapPanelApi();
 app.MapPublicApi();
 

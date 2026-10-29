@@ -99,6 +99,10 @@ public sealed class AdminOptions
     public string? ApiToken { get; set; }
     /// <summary>Named, scoped tokens for integrations (Discord bot, scripts); see <c>Rest/ApiTokens</c>.</summary>
     public List<ApiTokenOptions> Tokens { get; set; } = [];
+    /// <summary>Events the admin feed keeps for subscribers resuming by <c>Last-Event-ID</c> (100–100000).</summary>
+    public int FeedBufferSize { get; set; } = 1000;
+    /// <summary>Seconds without an event before the feed sends a <c>ping</c> (1–300).</summary>
+    public int FeedPingSeconds { get; set; } = 15;
 }
 
 public sealed class ApiTokenOptions
