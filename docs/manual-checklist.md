@@ -93,6 +93,10 @@
   (`Could not load reference to Verse.ThingDef named S2TestWidget`, NRE в `Thing.ExposeData`), `parcel 5 could not be unpacked: blob
   did not contain a Thing`, сообщение `ParcelFailed`, `Deliver` нет; при каждом входе — та же попытка. `economy/refund/parcel/5` →
   посылка 6 хозяину, распакована. Причина в сообщении не называет деф (предложение в разделе прогона).
+  Сделано (ветка `asofwar/s2-proposals`): дефы блоба сверяются до загрузки. Посылка 13 (10 `S2TestWidget`): `parcel 13 could not be
+  unpacked: S2 test widget (S2TestWidget) …`, сообщение «A parcel could not be unpacked (S2 test widget (S2TestWidget): … a mod is
+  missing); it stays in your mailbox.», красных ошибок Scribe перед ним нет (текст строки потом переписан без двоеточия: игра делала
+  заглавную букву после него).
 - [x] **Заморозка / outbox.** `economy freeze` → Отправить: вещи ушли с карты, сейв выгружен, сообщение «Сервер не ответил
   (trading is paused: test). Передача сохранена…», запись `Send` в `Saves/Rimlink/<server>_<id>/outbox.json`; `unfreeze` →
   выход в меню → вход: `outbox: Send … answered on replay`, `outbox replay: 1 completed`, одна посылка у получателя.
@@ -169,16 +173,25 @@
   открытии `Dropped Silver… in a null map`). После исправления (рейды 3 и 7): блоб без груза (4754 байт вместо 4801), у хозяина один
   стек 400 из `Loot`, ошибки нет. Ветка «жив к таймауту» (`ALIVE` с грузом) в игре не поймана (вор уходит с карты за 600 тиков),
   исправлена так же и проверена только чтением кода.
+  То, с чем рейдер прибыл, — не лут (ветка `asofwar/s2-proposals`): караван гостя (Will, в инвентаре 200 серебра) → «Raid Host-s2's
+  colony...» → Copies, Instant → рейдер уходит с карты, ничего не взяв (`JobGiver_ExitMapBest`). До исправления — рейд 11: `resolved: …
+  fled 1 … loot 200`, посылка `Loot` 12 с копией этих 200 серебра гостю. После — рейд 12: `fled 1 … loot 0`, на сервере `Resolved
+  {fled: 1}`, посылки нет. Real-вариант (свои вещи едут домой в блобе) в игре не прогнан: рейд из каравана в режиме Real после
+  подтверждения не запустился (в логе ничего), проверен чтением кода.
 - [x] **Пленный рейдер.** Захват → `CAPTURED`, остаётся у защитника.
   Прогон 2026-10-29 (стенд s2): рейд копиями 4 (Blizzard) на Nova-s2, dev «T: Damage Until Down», god mode: спальное место на открытой
   земле не годится («Cannot capture: No reachable, un-reserved, enclosed prisoner-marked bed»), нужна закрытая комната с дверью и крышей
   (стены и дверь god mode, крышу строят колонисты) и «For prisoners» на кровати. Vivis → «Capture Blizzard» → `Raid 4 resolved by player
   2: { "captured": 1 }`; пленник остаётся у Nova-s2.
-- [ ] **Визит при смене модпака хозяина.** Копия не грузится → `Visit.Failed`, своя колония возвращается.
-  Прогон 2026-10-29 (стенд s2): у хозяина включён мод `local.s2testdef` (10 `S2TestWidget` на карте), у гостя нет. Визит не падает:
-  копия грузится с красными ошибками игры (`Could not load reference to Verse.ThingDef named S2TestWidget`, `Exception spawning loaded
-  thing null`), вещей мода в копии нет, `visit 1 at Host-s2: 1 guests`, «Закончить визит» → `Visits/End`, своя колония на месте.
-  `Visit.Failed` бывает, только если загрузка не прошла совсем. Ожидание пункта не совпадает с поведением — предложение в разделе прогона.
+- [x] **Визит при смене модпака хозяина.** У хозяина мод, которого нет у гостя: визит отказывается до загрузки копии — `Visit.Failed` с
+  перечнем модов, гость остаётся в своей колонии. Список берётся из заголовка скачанной копии (решение —
+  `docs/superpowers/specs/2026-10-29-rimlink-s2-proposals-design.md`).
+  Прогон 2026-10-29 (стенд s2): у хозяина включён мод `local.s2testdef` (10 `S2TestWidget` на карте), у гостя нет. До исправления визит не
+  падал: копия грузилась с красными ошибками игры (`Could not load reference to Verse.ThingDef named S2TestWidget`, `Exception spawning
+  loaded thing null`), вещей мода в копии не было. После (ветка `asofwar/s2-proposals`), визит 3: `Visits/Begin` → `DownloadOf` →
+  `visit 3: Host-s2's colony needs mods this game does not run: S2 Test Def` → `Visits/End` через секунду, файл копии удалён, гость в своей
+  колонии (тик тот же). Первая попытка (визит 2) ещё загрузила копию: разбор заголовка пропускал каждый второй мод, тест ядра проходил
+  случайно (мод стоял на чётной позиции) — исправлено, тест проверяет каждую позицию.
 
 ## Живые сессии (прогон 2026-10-29, два клиента: хозяин admin в полном экране, гость Nova через `-savedatafolder`, dev-ярлыки «Live raid/visit a player with selected pawns», сервер с `Rimlink__Live__ReconnectWaitMinutes=1`)
 
@@ -388,7 +401,7 @@ Nova-s3, игра на английском.
     рейдер) больше не попадает в блоб уходящего рейдера; отклонённый отчёт возвращает и похищенных колонистов (раньше — только лут, без
     лута запись удалялась). Последние два — только сборкой и тестом ядра (`RefuseKeepsEveryEntryThatHoldsThingsOfOurs`), в игре не
     воспроизводились.
-- Предложения (не меняли, ждут решения):
+- Предложения (утверждены и сделаны на ветке `asofwar/s2-proposals`, решения — `2026-10-29-rimlink-s2-proposals-design.md`):
   - груз, с которым рейдер прибыл, не считать лутом: у рейда копиями это копии вещей атакующего — сбежав, копия приносит их посылкой
     `Loot` (дюп в пределах лимита лута, для копий он уже вдвое меньше); у Real-рейдера его собственные вещи сверх лимита остаются у защитника.
     Записывать при высадке, что было у рейдера, и не брать это в лут;

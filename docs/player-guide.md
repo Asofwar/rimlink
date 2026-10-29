@@ -95,7 +95,8 @@ copy of the host's colony.
   Pick the raiders, then **Real** (they leave your colony; survivors come back as a parcel with their wounds, the
   captured stay with the defender) or **Copies** (nothing leaves, half the loot), and **Warned** (the target gets a
   letter and a day of their play to prepare) or **Instant** (half the loot). The raiders fight as a normal raid in the
-  target's game; what they steal arrives in your mailbox, capped by the target's wealth and the server's limit.
+  target's game; what they steal arrives in your mailbox, capped by the target's wealth and the server's limit. What
+  the raiders took along themselves is not loot: real raiders bring it home, copies lose it with the copy.
 - **Being raided**: a letter announces the raid; captured raiders are yours, what they carry away is gone. The
   **Raids** tab of the Rimlink window lists raids coming at you and your own.
 - **Peaceful mode** (Raids tab): nobody can raid you and you cannot raid; switching it off takes a day. While it is
@@ -105,6 +106,8 @@ copy of the host's colony.
   uploaded, then a copy of the host's colony loads with copies of your pawns walking in. Nothing taken there goes
   home; things the host marked **For sale** show a **Buy** button, paid from your wallet and delivered to your colony
   by drop pod after the visit. **End visit** brings your own colony back. Tick **Do not receive visitors** to opt out.
+  A host who plays with mods you do not have cannot be visited: the visit stops before the copy loads and names the
+  missing mods; you stay in your colony. The same goes for live sessions.
 - **Selling**: in your colony select an item and use **For sale...**; the shelf is published with your next save and
   sold things are collected from your stockpiles at your next login. A sale while you play shows a message with the
   buyer, the item and the price.
@@ -153,7 +156,7 @@ the result a moment later.
 | `A refused transfer is coming back by drop pod` | A kept transfer was refused when retried (recipient gone, not in the modpack…); its contents are back. |
 | `Raid refused: …` (cooldown, protected, peaceful, already under way) | Nothing left your colony; try later or another target. |
 | `The raid by X is over: …` | Your colony reported the outcome; the attacker gets their parcels. |
-| `The visit could not start: …` | The host closed visits, has no colony yet, or their save could not load on your side (missing mods); your own colony is reloaded. |
+| `The visit could not start: …` | The host closed visits, has no colony yet, plays with mods you do not have (they are named), or their save could not load on your side; you stay in or return to your own colony. |
 | `Purchase refused: …` | Sold out meanwhile or not enough silver; nothing was paid. |
 | `Invitation: live raid` / `live visit` | Another player wants to play on your map right now. Decline or wait: a raid goes on as a normal raid, a visit's pawns go home. |
 | `X is not online at their colony.` | A live session needs the host online and in their colony. Make a normal raid or visit, or try later. |
@@ -161,7 +164,7 @@ the result a moment later.
 | `Connection to X lost; waiting for them.` | The other side dropped. The host's game pauses for a few minutes; then the session ends (a raid goes to the AI, a visit's pawns come home). |
 | `The live session with X is over (…)` | Ended by a player, by a limit or by an admin. A guest's pawns come home by parcel once the host reports. |
 | `None of your pawns at X can act any more …` | The host's game ended the live session because all your pawns there are dead, captured or gone. Those still alive come home by parcel. |
-| `A parcel could not be unpacked` | A mod needed by that item is missing or broken on your side; the parcel stays in your mailbox for later. |
+| `A parcel could not be unpacked` | A mod needed by that item is missing (the item is named) or broken on your side; the parcel stays in your mailbox for later. |
 | `The server refused this settlement` | The tile was taken meanwhile or you already have a settlement. Choose another tile. |
 | Save upload failed (message in the log) | The upload is retried at your next login; do not delete `Saves/Rimlink/`. |
 
