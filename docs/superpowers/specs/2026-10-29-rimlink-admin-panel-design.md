@@ -1,6 +1,7 @@
 # Rimlink — веб-панель администратора: дизайн
 
-Дата: 2026-10-29. Статус: утверждён в обсуждении, ждёт вычитки.
+Дата: 2026-10-29. Статус: утверждён; дополнен решениями владельца по общим с Discord-ботом маршрутам
+(именованные токены с областями, точное имя первым в поиске, курсор `after=` в чате).
 Основа: `2026-10-28-rimlink-core-design.md` (§1: веб-панель — отдельный подпроект поверх REST-API ядра; §8: роли,
 `/api/admin/*`, `Admin:ApiToken`, журнал `admin_actions`, `/health`, `/metrics`, бэкапы), REST-API в
 `src/Rimlink.Server/Rest/AdminEndpoints.cs`, операции в `Application/Admin/AdminOperations.cs`, CLI в
@@ -21,6 +22,16 @@
 - Фронтенд — статические HTML, CSS и JS (ES-модули) без сборки и без Node в репозитории. Данные идут через REST
   тем же API, что у CLI и будущего Discord-бота.
 - Вход по `Admin:ApiToken`, после него cookie-сессия; сам токен в браузере не хранится.
+- Интеграции (Discord-бот, скрипты) получают именованные токены с областями прав (`Admin:Tokens`, §3).
+  `Admin:ApiToken` остаётся токеном полного админа для CLI и панели; старые конфиги работают без изменений.
+- Общие REST-маршруты задаёт эта спека:
+  - актор из запроса и `X-Rimlink-Actor`, журнал `ActorName`, области токенов;
+  - каталог и карточка игрока, статус, чтение чата.
+  Discord-бот (`2026-10-29-rimlink-discord-bot-design.md`) строится на них и добавляет свои части:
+  - ленту `GET /api/admin/events`;
+  - `POST /api/admin/chat`, `kind=external` и поле `author` в строках `GET /chat`;
+  - поля `sellerName`/`summary` у лотов.
+  Серверные задачи панели идут в `main` первыми.
 - Админка v1 покрывает всё, что уже умеют REST и CLI: игроки и баны, экономика, рейды и живые сессии, сервер и
   модпак. Сверх этого:
   - каталог и карточка игрока;
@@ -87,7 +98,9 @@ wwwroot/
 - `Rest/PublicEndpoints.cs` — публичный статус.
 - `Rest/AdminDirectoryEndpoints.cs` — новые admin-маршруты, чтобы не раздувать `AdminEndpoints.cs`.
 - `Rest/AdminAuth.cs` — фильтр авторизации вместо нынешнего `RequireToken`: Bearer или cookie, CSRF-проверки,
-  актор в `HttpContext`, перевод `RpcException` в коды HTTP.
+  проверка области маршрута, актор в `HttpContext`, перевод `RpcException` в коды HTTP.
+- `Rest/ApiTokens.cs` — `Admin:ApiToken` и `Admin:Tokens`: проверка при старте, поиск токена, его области.
+  `Application/Admin/ApiScope.cs` — области и правило «какая область что включает».
 - `Application/Admin/PanelSessions.cs` — сессии в памяти и счётчик неудачных входов.
 - `Application/Admin/AdminDirectory.cs` — чтение без аудита: каталог, карточка игрока, история чата.
 - `Application/Admin/ServerStatus.cs` — статус для админа и публичный статус, конфиг без секретов.
@@ -108,8 +121,9 @@ wwwroot/
 | `Description` | `""` | описание сервера, простой текст до 1000 символов |
 | `PublicAddress` | `""` | адрес для подключения на публичной странице; пусто — хост и порт из запроса |
 
-Пустой `Admin:ApiToken` выключает REST-API, как сейчас. Тогда же `/admin/*` и `/api/panel/*` отвечают 404,
-публичная страница продолжает работать.
+REST-API включён, если задан `Admin:ApiToken` или хотя бы один токен в `Admin:Tokens`; без них — 401, как сейчас.
+Панель (`/admin/*`, `/api/panel/*`) работает только при непустом `Admin:ApiToken`, иначе отвечает 404. Именованный
+токен в панель не пускает. Публичная страница от токенов не зависит.
 
 Обновление данных — опросом: обзор админки раз в 10 с, публичная страница раз в 30 с, остальные экраны — при
 открытии и по кнопке «Обновить».
@@ -133,22 +147,47 @@ wwwroot/
 **Перебор токена.** 5 неудачных входов с одного IP (`ClientAddress.Normalize`) за 10 минут — дальше 429 до конца
 окна. Каждая неудача пишется в лог предупреждением с IP. Удачный вход счётчик IP не сбрасывает.
 
+**Токены и области.**
+- `Admin:ApiToken` — токен полного админа без имени, как сейчас: CLI, панель, старые конфиги.
+- `Admin:Tokens` — список именованных токенов для интеграций: `[{name, token, scopes}]`.
+  - `name` совпадает с `^[a-z0-9-]{1,32}$`, имена уникальны.
+  - `token` — не короче 24 символов, не совпадает с другим токеном и с `ApiToken`.
+  - `scopes` — непустой набор из `read`, `chat`, `moderate`, `admin`.
+  - Нарушение любого правила останавливает старт сервера с понятной ошибкой: неверный токен лучше заметить сразу,
+    а не по 401 у бота.
+- Что включает область:
+  - `admin` включает все остальные;
+  - `moderate` включает `read`;
+  - `chat` не включает ничего другого.
+  - `ApiToken` и cookie-сессия панели имеют все области.
+- Каждый маршрут `/api/admin/*` объявляет нужную область (таблица в §4). Маршрут без объявления требует `admin`,
+  а тест не даёт такому появиться. Не хватает области — 403 с `detail` `this needs the <scope> scope`.
+- Роль актора для проверок внутри `AdminOperations`: `Admin`, если у токена есть `admin`, иначе `Moderator`.
+  Главная граница — область маршрута, проверка роли в операциях остаётся второй линией.
+
 **Авторизация `/api/admin/*`.**
-- Фильтр принимает либо `Authorization: Bearer <токен>` (как сейчас), либо действующую cookie-сессию. Без того и
-  другого — 401.
+- Фильтр принимает либо `Authorization: Bearer <токен>` (`ApiToken` или токен из `Admin:Tokens`), либо действующую
+  cookie-сессию. Без того и другого или с неизвестным токеном — 401.
+- Токены сравниваются за постоянное время, перебираются все, без раннего выхода.
 - Фильтр кладёт `Actor` в `HttpContext.Items`, маршруты берут актора оттуда (`context.Actor()`), а не жёстко
   `Actor.Api`. Это механическая правка всех существующих лямбд.
-- Bearer даёт `Actor.Api` (`api`), cookie — новый `Actor.Panel` (account 0, роль admin, имя `panel`).
-- Bearer-запрос может передать `X-Rimlink-Actor: <подпись>` — это для Discord-бота: `discord:<имя>`.
-  - Подпись очищается: управляющие символы удаляются, длина режется до 64.
-  - Актор называется `api:<подпись>`.
-  - Держатель токена и так всемогущ, поэтому подпись только поясняет журнал и прав не даёт.
+- Имена акторов:
+  - `ApiToken` → `api`;
+  - именованный токен → `api:<name>`;
+  - cookie → новый `Actor.Panel` (account 0, роль admin, имя `panel`).
+- Bearer-запрос может передать `X-Rimlink-Actor: <подпись>`, например Discord-бот — `discord:<имя> (<id>)`.
+  - Подпись — 1–64 символа без управляющих. Иначе, в том числе для пустого заголовка, 400 с `detail`
+    `X-Rimlink-Actor must be 1-64 characters without control characters`. Проверка идёт после проверки токена:
+    неверный токен с плохим заголовком — всё равно 401.
+  - Актор называется `api:<подпись>` для `ApiToken` и `api:<name>:<подпись>` для именованного токена.
+  - Подпись только поясняет журнал и прав не даёт: права задаёт токен.
   - Для cookie-запросов заголовок игнорируется.
 
 **Журнал.**
 - `admin_actions` получает колонку `ActorName` (nullable, миграция `AdminActionActorName`). `Audit` пишет туда
   `actor.Name`.
 - Старые строки остаются с `null`. Панель показывает для них `api`, если `ActorAccountId = 0`, иначе имя игрока.
+- Лента бота (`admin.action`) берёт имя актора из того же `ActorName`.
 
 **CSRF.** Cookie `SameSite=Strict` не уходит с чужих сайтов. Сверх этого для cookie-запросов кроме GET/HEAD
 (и для `POST /api/panel/login`):
@@ -191,16 +230,28 @@ Bearer-запросы этих проверок не проходят: у них
 
 ## 4. Расширения REST-API
 
-Все новые admin-маршруты лежат под `/api/admin`, проходят фильтр §3 и выполняются от актора-админа. JSON —
-camelCase, как у существующих. Поля только добавляются, существующие ответы не меняют форму. Те же маршруты
-доступны Discord-боту по Bearer.
+Все новые admin-маршруты лежат под `/api/admin` и проходят фильтр §3. Каждый маршрут требует область из таблицы
+ниже. JSON — camelCase, как у существующих. Поля только добавляются, существующие ответы не меняют форму. Те же
+маршруты доступны Discord-боту по его токену.
+
+**Области маршрутов** (существующие и новые; маршруты бота — со ссылкой на его спеку). Принцип: чтение без
+персональных данных — `read`; IP, кошельки, посылки, журнал и мягкая модерация — `moderate`; всё необратимое,
+денежное и конфигурационное — `admin`, как у ролей в `AdminOperations`.
+
+| Область | Маршруты |
+|---|---|
+| `read` | `GET /status`, `GET /players`, `GET /chat`, `GET /modpack`, `GET /economy/stats`, `GET /economy/lots`, `GET /raids`, `GET /raids/stats`, `GET /live`, `GET /events` (бот) |
+| `chat` | `POST /chat` (бот) |
+| `moderate` | `GET /players/online`, `GET /players/{id}`, `GET /economy/wallet/{id}`, `GET /economy/parcels/{id}`, `GET /shop/{id}`, `GET /shop/{id}/removals`, `GET /bans`, `GET /actions`, `POST /players/{id}/kick`, `POST /players/{id}/mute`, `DELETE /players/{id}/mute`, `POST /broadcast`, `POST /saveall` |
+| `admin` | `GET /players/{id}/saves`, `POST /players/{id}/saves/{version}/rollback`, `POST /players/{id}/reset`, `POST /players/{id}/role`, `POST /players/{id}/rename`, `POST /players/{id}/peaceful`, `POST /bans`, `DELETE /bans/{id}`, `POST /shutdown`, `POST /world/recreate`, `PUT /modpack`, `PUT /modpack/defs`, `POST /economy/wallet/{id}`, `POST /economy/refund/lot/{id}`, `POST /economy/refund/parcel/{id}`, `POST /economy/freeze`, `POST /raids/{id}/cancel`, `POST /raids/freeze`, `POST /live/{id}/end`, `GET /config`, `GET /backups`, `POST /backups`, `GET /backups/{name}` |
 
 **Игроки.**
 - `GET /players?q=&limit=50&offset=0` → `{total, items}`, где элемент —
   `{id, accountId, name, factionName, role, steamId, login, online, lastSeenAt, createdAt, mutedUntil, peaceful, banned}`.
   - `q`: `#<id>` — точный id игрока; число из 17 цифр — точный SteamID; иначе подстрока имени или фракции без
     учёта регистра либо точный логин. Пустой `q` — все игроки.
-  - Сортировка: онлайн первыми, затем по `lastSeenAt` по убыванию.
+  - Сортировка: точное совпадение имени с `q` (без учёта регистра) первым, затем онлайн, затем по `lastSeenAt` по
+    убыванию.
   - `limit` 1–200, `offset` ≥ 0, иначе 400.
   - `banned` — есть активный бан на аккаунт или SteamID.
 - `GET /players/{id}` → карточка: поля элемента списка, а также:
@@ -226,15 +277,19 @@ camelCase, как у существующих. Поля только добав�
   - Сбой одной части (например, нет доступа к каталогу бэкапов) превращает это поле в `null` и пишется в лог;
     ответ целиком не падает.
 - `GET /config` → действующие значения секций `Server`, `Tls`, `Auth`, `Backup`, `Economy`, `Raids`, `Live`,
-  `Panel`.
+  `Panel`, плюс `admin: {apiToken, tokens: [{name, scopes}]}`.
   - Секреты `Server:ServerPassword`, `Auth:SteamWebApiKey`, `Admin:ApiToken` заменяются на `"set"`, если заданы,
-    или `""`.
+    или `""`. Значения `Admin:Tokens[].token` не выводятся вовсе, только имена и области.
   - Список секретов задан явно в `ServerStatus`; новые секретные ключи добавляются в него.
 
 **Чат и журнал.**
-- `GET /chat?playerId=&before=&limit=100` → только общий канал (`ToPlayerId == null`), новые первыми:
-  `[{id, at, fromPlayerId, fromName, kind, text}]`. `before` — id, ниже которого читать. `limit` 1–500.
-  Личные сообщения этим маршрутом не отдаются.
+- `GET /chat?playerId=&before=&after=&limit=100` → только общий канал (`ToPlayerId == null`):
+  `[{id, at, fromPlayerId, fromName, kind, text}]`. `limit` 1–500.
+  - Без курсора или с `before=<id>` — новые первыми: самые свежие строки (ниже `before`, если он задан).
+  - С `after=<id>` — по возрастанию `id`, строки новее `after`. Это курсор вперёд для мостов и опроса.
+  - `before` и `after` вместе — 400.
+  - Личные сообщения этим маршрутом не отдаются.
+  - Бот добавляет к строкам поле `author` и значение `kind` `external` (его спека).
 - `GET /actions` добавляет поля `actorName` и `targetName` и параметр `?before=`.
 - `GET /bans` добавляет поле `playerName` (`null`, если бан не на аккаунт).
 
@@ -349,10 +404,11 @@ xUnit в `tests/Rimlink.Server.Tests` против настоящего серв
 | Файл | Что проверяет |
 |---|---|
 | `Panel/PanelAuthTests` | флаги cookie; неверный токен → 401; шестая ошибка с одного IP → 429; выход и истечение сессии (ручной `TimeProvider` в `Support`); cookie-POST без `X-Rimlink-Panel` или с чужим `Origin` → 403; Bearer работает как раньше; пустой `Admin:ApiToken` → 404 на `/admin/` и `/api/panel/*` |
-| `Admin/AuditActorTests` | `ActorName` = `panel` для cookie, `api` для Bearer, `api:discord:x` с заголовком; длинный и с управляющими символами заголовок очищается |
+| `Admin/AuditActorTests` | `ActorName` = `panel` для cookie, `api` для `ApiToken`, `api:discord:x` с заголовком, `api:bot` и `api:bot:discord:x` для именованного токена; пустой, длиннее 64 или с управляющими символами заголовок → 400; неверный токен с плохим заголовком → 401 |
+| `Admin/ApiScopeTests` | токен `read` читает `/status` и получает 403 на `POST /broadcast`; `moderate` кикает, но получает 403 на `POST /bans`; `chat` получает 403 на `GET /status`; `admin` может всё; неверная конфигурация `Admin:Tokens` (плохое имя, дубликат, короткий токен, пустые или неизвестные области) останавливает старт; у каждого маршрута `/api/admin/*` объявлена область |
 | `Storage/SchemaTests` | колонка `admin_actions.ActorName` |
-| `Admin/AdminDirectoryTests` | поиск по имени, SteamID, логину, `#id`; пагинация и границы; онлайн первыми; поля карточки; в `/chat` нет личных сообщений; роль; переименование и 409; `saveall` |
-| `Admin/StatusConfigTests` | поля `/status`; значения токена, пароля сервера и Steam-ключа не встречаются в JSON `/config` и `/status` |
+| `Admin/AdminDirectoryTests` | поиск по имени, SteamID, логину, `#id`; точное имя первым; пагинация и границы; онлайн первыми; поля карточки; в `/chat` нет личных сообщений; `after=` по возрастанию, `before`+`after` → 400; роль; переименование и 409; `saveall` |
+| `Admin/StatusConfigTests` | поля `/status`; значения токенов (включая `Admin:Tokens`), пароля сервера и Steam-ключа не встречаются в JSON `/config` и `/status`; `config.admin.tokens` показывает имена и области |
 | `Backup/BackupRestTests` | создание → архив в списке → скачанные байты равны файлу; `..`, чужие и несуществующие имена → 404; второй параллельный бэкап → 409 |
 | `Panel/PublicStatusTests` | без авторизации; в теле нет IP и SteamID; `PublicPlayerNames=false` → `players: null`; `Panel:Public=false` → 404 |
 | `Panel/StaticFilesTests` | `/` и `/admin/` отдают HTML с CSP и `nosniff`; `/api/admin/*` с `no-store`; gRPC-вызов на том же сервере работает; `Panel:Enabled=false` → 404 на статику |
@@ -366,8 +422,10 @@ JS-кода юнит-тестами не покрываем: Node в репоз�
 ## 8. Документация, версия, поставка
 
 - `docs/server-setup.md`: раздел «Web panel» — включение, вход, TLS и настоящий сертификат, публичная страница,
-  ключи `Panel:*`, что безопасно открывать наружу. Списки REST и CLI в «Administration» дополняются.
-- `deploy/appsettings.example.json`: секция `Panel` со всеми ключами; `deploy/docker-compose.yml`: закомментированные
+  ключи `Panel:*`, что безопасно открывать наружу. Раздел «API tokens» — `Admin:Tokens`, области и их маршруты,
+  имена акторов в журнале. Списки REST и CLI в «Administration» дополняются.
+- `deploy/appsettings.example.json`: секция `Panel` со всеми ключами и пример `Admin:Tokens` (один токен
+  `discord` с `read, chat, moderate`); `deploy/docker-compose.yml`: закомментированные
   примеры `Rimlink__Panel__*`.
 - `docs/player-guide.md`: публичная страница — модпак и сверка отпечатка.
 - `README.md`: строка статуса.
@@ -385,5 +443,11 @@ JS-кода юнит-тестами не покрываем: Node в репоз�
   Цена: перезапуск сервера требует повторного входа.
 - Ручной бэкап считается в `Backup:Keep`. Диск ограничен. Цена: ручной архив может вытеснить плановый —
   поведение описано в `server-setup.md`.
-- Подпись `X-Rimlink-Actor` вводится сейчас, хотя панели она не нужна. Это одна строка в фильтре, и журнал не
-  придётся менять второй раз ради Discord-бота.
+- Подпись `X-Rimlink-Actor` вводится сейчас, хотя панели она не нужна: журнал не придётся менять второй раз ради
+  Discord-бота. Неверная подпись — 400, а не молчаливая очистка, как в плане бота: ошибка клиента видна сразу.
+- Именованные токены с областями (решение владельца после сверки с ботом). Утечка токена бота не даёт выключения,
+  пересоздания мира и конфига, если владелец не выдал ему `admin`. `Admin:ApiToken` остаётся полным, поэтому CLI и
+  старые конфиги не меняются. Цена: таблица областей поддерживается вместе с маршрутами; тест ловит маршрут без
+  области.
+- Общие с ботом маршруты задаёт эта спека, бот строится на них (решение владельца). Серверные задачи панели идут в
+  `main` первыми, бот перебазируется.

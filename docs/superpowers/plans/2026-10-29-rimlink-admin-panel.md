@@ -4,7 +4,7 @@
 
 **Goal:** The owner runs the whole server from a browser (`/admin/`) and players see a public status page (`/`), both served by `Rimlink.Server` itself over the same REST API the CLI and the future Discord bot use.
 
-**Architecture:** Static ES-module pages in `src/Rimlink.Server/wwwroot` (no build step) talk to `/api/admin/*` with a cookie session obtained by entering `Admin:ApiToken`; the existing Bearer path stays for CLI and bot. New read services (`AdminDirectory`, `ServerStatus`, `BackupService`) and a few new routes fill the gaps (player directory, card, chat, status, config, backups, public status); every mutation still goes through `AdminOperations` with its audit, which now records the actor's name.
+**Architecture:** Static ES-module pages in `src/Rimlink.Server/wwwroot` (no build step) talk to `/api/admin/*` with a cookie session obtained by entering `Admin:ApiToken`. The Bearer path stays for the CLI (`Admin:ApiToken`, full admin) and gains named, scoped tokens for integrations (`Admin:Tokens`); every route declares the scope it needs. These shared routes are the base the Discord bot plan builds on, so the server tasks (1–7) land on `main` first. New read services (`AdminDirectory`, `ServerStatus`, `BackupService`) and a few new routes fill the gaps (player directory, card, chat, status, config, backups, public status); every mutation still goes through `AdminOperations` with its audit, which now records the actor's name.
 
 **Tech Stack:** .NET 10, ASP.NET Core minimal APIs + static files, EF Core SQLite (one migration), xUnit + `WebApplicationFactory`, vanilla JS (ES modules), CSS.
 
@@ -15,8 +15,10 @@
 - `.proto` files, `ProtocolVersion.Current`, `src/Rimlink.Client*`, `mod/` do not change. Existing REST routes keep their paths and response shapes; fields are only added.
 - No new NuGet packages, no Node/npm, no CDN. The only external URLs in `wwwroot` are Workshop links built from a numeric id: `https://steamcommunity.com/sharedfiles/filedetails/?id=<id>`.
 - Exact values (spec §2–§4):
-  - cookie `rimlink_panel`; panel header `X-Rimlink-Panel: 1`; actor header `X-Rimlink-Actor`, label ≤ 64 chars;
-  - actor names `api`, `panel`, `api:<label>`;
+  - cookie `rimlink_panel`; panel header `X-Rimlink-Panel: 1`;
+  - actor header `X-Rimlink-Actor`: 1–64 chars without control characters, otherwise 400 `X-Rimlink-Actor must be 1-64 characters without control characters`;
+  - actor names: `api` (`ApiToken`), `api:<label>`, `api:<tokenName>`, `api:<tokenName>:<label>`, `panel`;
+  - `Admin:Tokens[]`: `name` `^[a-z0-9-]{1,32}$` unique; `token` ≥ 24 chars, distinct from the others and from `ApiToken`; `scopes` a non-empty subset of `read`, `chat`, `moderate`, `admin`. `admin` grants everything, `moderate` grants `read`, `chat` grants nothing else. A missing scope → 403 `this needs the <scope> scope`. The route → scope table is spec §4, verbatim;
   - at most 20 sessions; 5 failed logins per IP per 10 minutes, then 429;
   - `Panel:SessionHours` default 12, clamped to 1–168;
   - public status cache 15 s; overview poll 10 s; public page poll 30 s;
@@ -92,36 +94,73 @@
 - [ ] **Step 4: Run** the full suite `dotnet test Rimlink.sln -nologo -v q` — Expected: all green (`KestrelTlsTests` included).
 - [ ] **Step 5: Commit** — `git add -A` (only this task's files), then `git commit -m "Add panel options, a shared server certificate and the server version"`.
 
-### Task 2: Actor from the request and actor names in the audit log
+### Task 2: Scoped API tokens, the actor from the request and actor names in the audit log
 
 **Files:**
-- Create: `src/Rimlink.Server/Rest/AdminAuth.cs`, `src/Rimlink.Server/Rest/AdminToken.cs`
-- Modify: `src/Rimlink.Server/Rest/AdminEndpoints.cs` (remove `RequireToken`; every route takes `HttpContext ctx` and passes `ctx.Actor()`; `/actions` adds `actorName`), `src/Rimlink.Server/Application/Admin/Actor.cs`, `src/Rimlink.Server/Application/Admin/AdminOperations.cs` (`Audit` writes `ActorName`), `src/Rimlink.Server/Storage/Entities/Entities.cs` (`AdminAction.ActorName string?`)
+- Create: `src/Rimlink.Server/Rest/AdminAuth.cs`, `src/Rimlink.Server/Rest/AdminToken.cs`, `src/Rimlink.Server/Rest/ApiTokens.cs`, `src/Rimlink.Server/Application/Admin/ApiScope.cs`
+- Modify:
+  - `src/Rimlink.Server/Hosting/ServerOptions.cs`: `AdminOptions.Tokens`;
+  - `src/Rimlink.Server/Rest/AdminEndpoints.cs`: remove `RequireToken`; every route takes `HttpContext ctx`, passes `ctx.Actor()` and declares its scope; `/actions` adds `actorName`;
+  - `src/Rimlink.Server/Application/Admin/Actor.cs`;
+  - `src/Rimlink.Server/Application/Admin/AdminOperations.cs`: `Audit` writes `ActorName`;
+  - `src/Rimlink.Server/Storage/Entities/Entities.cs`: `AdminAction.ActorName string?`;
+  - `src/Rimlink.Server/Program.cs`: `AddSingleton<ApiTokens>()`, resolved once right after `Build()` so a bad config stops the start;
+  - `deploy/appsettings.example.json`: `Admin:Tokens` example with one token `discord` and scopes `read, chat, moderate`.
 - Create: migration `dotnet ef migrations add AdminActionActorName --project src/Rimlink.Server`
-- Test: `tests/Rimlink.Server.Tests/Admin/AuditActorTests.cs`, `tests/Rimlink.Server.Tests/Storage/SchemaTests.cs` (new case)
+- Test: `tests/Rimlink.Server.Tests/Admin/AuditActorTests.cs`, `tests/Rimlink.Server.Tests/Admin/ApiScopeTests.cs`, `tests/Rimlink.Server.Tests/Storage/SchemaTests.cs` (new case)
 
 **Interfaces:**
 - Produces:
-  - `Actor.Panel` = `new(0, 0, Role.Admin, "panel")`; `public static Actor ApiAs(string? label)` → `Api` when the label is null after sanitising, else `Api with { Name = "api:" + label }`.
+  - `public sealed class ApiTokenOptions { public string Name { get; set; } = ""; public string Token { get; set; } = ""; public string[] Scopes { get; set; } = []; }`; `AdminOptions.Tokens : List<ApiTokenOptions>` (default empty).
+  - `ApiScope`:
+    - `[Flags] public enum ApiScope { None = 0, Read = 1, Chat = 2, Moderate = 4, Admin = 8 }`;
+    - `public static class ApiScopes` with `static ApiScope Expand(ApiScope held)` (`Admin` → all four; `Moderate` → `Moderate | Read`), `static bool Grants(ApiScope held, ApiScope needed)` (`(Expand(held) & needed) == needed`), and `static bool TryParse(string name, out ApiScope scope)` (lowercase names only).
+  - `public sealed record RequiredScope(ApiScope Scope)` (endpoint metadata) and `public static TBuilder RequireScope<TBuilder>(this TBuilder builder, ApiScope scope) where TBuilder : IEndpointConventionBuilder` (adds the metadata).
   - `AdminToken`: `public static bool Matches(string? expected, string? given)` — false when `expected` is blank; `given` is trimmed; constant-time comparison of the UTF-8 bytes (the logic of the old filter).
+  - `ApiTokens`:
+    - `public sealed record ApiTokenMatch(string? Name, ApiScope Scopes)` — `Name` null for `ApiToken`;
+    - `public sealed class ApiTokens(IOptions<AdminOptions> options)`. The constructor validates the rules of the Global Constraints and throws `InvalidOperationException` naming the bad entry, never the token value;
+    - `public bool Enabled` — `ApiToken` set or any named token;
+    - `public ApiTokenMatch? Find(string? bearer)` — compares against every token with `AdminToken.Matches`, with no early exit.
+  - `Actor`:
+    - `Actor.Panel` = `new(0, 0, Role.Admin, "panel")`;
+    - `public static Actor ForToken(ApiTokenMatch match, string? label)`. Role is `Admin` when `Grants(match.Scopes, Admin)`, otherwise `Moderator`. `Name` is `"api"`, `"api:" + label`, `"api:" + name`, or `"api:" + name + ":" + label`. `AccountId` and `PlayerId` stay 0.
   - `AdminAuth`:
     - `public const string ActorHeader = "X-Rimlink-Actor"`;
     - `public static RouteGroupBuilder RequireAdmin(this RouteGroupBuilder group)` adds the endpoint filter;
     - `public static Actor Actor(this HttpContext context)` reads `context.Items[typeof(Actor)]`;
-    - `internal static string? SanitizeLabel(string? raw)` drops `char.IsControl` characters, trims, cuts to 64, and returns null when empty.
-  - The filter: Bearer via `AdminToken.Matches`, else 401. It stores `Actor.ApiAs(header)`, sets `Cache-Control: no-store`, and maps `RpcException` as before plus `AlreadyExists` → 409, `ResourceExhausted` → 429, `Unavailable` → 503.
+    - `public static ApiScope Scopes(this HttpContext context)` reads `context.Items[typeof(ApiScope)]` (all four for `ApiToken` and the panel);
+    - `internal static bool IsValidLabel(string value)` — 1–64 chars, none `char.IsControl`.
+  - The filter, in order:
+    1. Bearer via `ApiTokens.Find`: none → 401.
+    2. A present `X-Rimlink-Actor` failing `IsValidLabel` → 400 with the exact detail.
+    3. The endpoint's `RequiredScope` (default `Admin` when absent) not granted → 403 `this needs the <scope> scope` (lowercase scope name).
+    4. Store the actor and the scopes, set `Cache-Control: no-store`, call the route.
+    5. Map `RpcException` as before, plus `AlreadyExists` → 409, `ResourceExhausted` → 429, `Unavailable` → 503.
+  - Every existing route gets `.RequireScope(...)` per spec §4.
   - `/modpack` PUT and `/modpack/defs` pass `ctx.Actor().Role` and `ctx.Actor().Name` instead of `Role.Admin, "api"`.
 
-- [ ] **Step 1: Write the failing tests**
-  - `AuditActorTests.BearerActionsAreSignedApi` — POST `/api/admin/broadcast` with Bearer; first item of GET `/api/admin/actions` has `actorName == "api"`; the response carries `Cache-Control: no-store`.
+- [ ] **Step 1: Write the failing tests** (named tokens are configured with `WithSetting("Admin:Tokens:0:Name", "bot")`, `…:Token`, `…:Scopes:0`, …)
+  - `AuditActorTests.ApiTokenActionsAreSignedApi` — POST `/api/admin/broadcast` with `ApiToken`; first item of GET `/api/admin/actions` has `actorName == "api"`; the response carries `Cache-Control: no-store`.
   - `AuditActorTests.ActorHeaderSignsTheAction` — the same with `X-Rimlink-Actor: discord:Mira` → `actorName == "api:discord:Mira"`.
-  - `AuditActorTests.SanitizeLabelDropsControlCharactersAndCutsTo64` — `SanitizeLabel("a\tb\u0007c") == "abc"`; `SanitizeLabel(new string('x', 100)).Length == 64`; `SanitizeLabel("   ") == null`; `SanitizeLabel(null) == null`.
+  - `AuditActorTests.NamedTokenSignsWithItsName` — token `bot` (scopes `moderate`): broadcast → `api:bot`; with the header `discord:Mod (42)` → `api:bot:discord:Mod (42)`.
+  - `AuditActorTests.BadActorHeaderIs400` — header of 65 chars → 400 with the exact detail; `"a\u0001"` (sent with `TryAddWithoutValidation`) → 400; an empty value → 400; a wrong token with a bad header → 401.
   - `AuditActorTests.TokenMatchingTrimsAndRefusesBlank` — `Matches("t", " t\n")` true; `Matches("", "")` false; `Matches("t", "u")` false.
+  - `ApiScopeTests.ScopesGateRoutes`:
+    - `read` token: GET `/modpack` → 200; GET `/players/online` → 403; POST `/broadcast` → 403 with detail `this needs the moderate scope`;
+    - `moderate` token: POST `/players/{id}/kick` on a logged-in player → 200; POST `/bans` → 403; GET `/players/online` → 200;
+    - `chat` token: GET `/modpack` → 403;
+    - `admin` token: POST `/bans` → 200;
+    - `ApiToken` reaches everything above.
+  - `ApiScopeTests.ScopeExpansion` — `Grants(Admin, Read|Chat|Moderate)`, `Grants(Moderate, Read)`, `!Grants(Moderate, Admin)`, `!Grants(Chat, Read)`, `!Grants(Read, Chat)`.
+  - `ApiScopeTests.BadTokenConfigStopsTheStart` — each of: name `Bot!`, two tokens named `bot`, a token of 23 chars, a token equal to `ApiToken`, empty scopes, scope `owner`. `new ServerFixture()…CreateClient()` throws, and the message names the entry, not the token value.
+  - `ApiScopeTests.RestIsOnWithOnlyNamedTokens` — `ApiToken` empty plus one `read` token: GET `/status` with that token → 200.
+  - `ApiScopeTests.EveryAdminRouteDeclaresAScope` — every `RouteEndpoint` from `EndpointDataSource` whose pattern starts with `api/admin` has `RequiredScope` metadata.
   - `SchemaTests.AdminActionsHaveActorName` — after `Migrate()`, `PRAGMA table_info(admin_actions)` lists `ActorName` (same style as the existing cases).
-- [ ] **Step 2: Run** `dotnet test tests/Rimlink.Server.Tests --filter "FullyQualifiedName~AuditActorTests|FullyQualifiedName~SchemaTests" -nologo -v q` — Expected: build errors / FAIL.
+- [ ] **Step 2: Run** `dotnet test tests/Rimlink.Server.Tests --filter "FullyQualifiedName~AuditActorTests|FullyQualifiedName~ApiScopeTests|FullyQualifiedName~SchemaTests" -nologo -v q` — Expected: build errors / FAIL.
 - [ ] **Step 3: Implement** the types and route changes, then add the migration (no `-nologo` on `dotnet ef`). `AdminEndpoints.MapAdminApi` uses `app.MapGroup("/api/admin").RequireAdmin()`.
 - [ ] **Step 4: Run** `dotnet test Rimlink.sln -nologo -v q` — Expected: all green, `AdminRestTests` unchanged and passing.
-- [ ] **Step 5: Commit** — `git commit -m "Take the admin actor from the request and record its name in the audit log"`.
+- [ ] **Step 5: Commit** — `git commit -m "Add scoped API tokens, take the admin actor from the request and record its name in the audit log"`.
 
 ### Task 3: Panel login, cookie sessions and CSRF checks
 
@@ -152,7 +191,8 @@
       - `POST /api/panel/logout` → 200, ends the session and deletes the cookie;
       - `GET /api/panel/session` → 200 `{expiresAt}` or 401.
     - All three routes: 404 when `!Panel:Enabled` or `Admin:ApiToken` is blank; 403 when the CSRF check fails (login and logout); `Cache-Control: no-store`.
-  - `AdminAuth`: `internal static bool PassesCsrf(HttpRequest request)` — `X-Rimlink-Panel == "1"`, and `Origin`, when present, equals `$"{request.Scheme}://{request.Host}"` (ordinal, ignore case). The filter tries Bearer first. Without an `Authorization` header it reads the cookie: an unknown session → 401; a non-GET/HEAD request failing `PassesCsrf` → 403; otherwise `Actor.Panel`.
+  - `AdminAuth`: `internal static bool PassesCsrf(HttpRequest request)` — `X-Rimlink-Panel == "1"`, and `Origin`, when present, equals `$"{request.Scheme}://{request.Host}"` (ordinal, ignore case). The filter tries Bearer first. Without an `Authorization` header it reads the cookie: an unknown session → 401; a non-GET/HEAD request failing `PassesCsrf` → 403; otherwise `Actor.Panel` with all four scopes, and the route's scope check passes.
+  - Login compares only against `Admin:ApiToken`: a named token never opens a panel session.
   - Test support:
     - `Task<string> PanelLogin(this ServerFixture f, string token)` — returns the cookie value, asserts 200;
     - `HttpClient PanelClient(this ServerFixture f, string cookieValue)` — default headers `Cookie: rimlink_panel=<v>` and `X-Rimlink-Panel: 1`. TestServer is plain HTTP, so the cookie is sent by header, not by a cookie container.
@@ -173,7 +213,8 @@
   - `LoginWithoutThePanelHeaderIs403`.
   - `BearerNeedsNoPanelHeader` — Bearer POST `/api/admin/broadcast` with `Origin: https://evil.example` and no panel header → 200.
   - `CookieActionsAreSignedPanel` — cookie broadcast → `actorName == "panel"`.
-  - `PanelApiIsOffWithoutToken` — fixture with `Admin:ApiToken=""`: login and session → 404.
+  - `PanelApiIsOffWithoutToken` — fixture with `Admin:ApiToken=""` and one named `admin` token: login and session → 404.
+  - `NamedTokenCannotLogIn` — `ApiToken` set, plus a named `admin` token: login with the named token → 401.
 - [ ] **Step 2: Run** `dotnet test tests/Rimlink.Server.Tests --filter FullyQualifiedName~PanelAuthTests -nologo -v q` — Expected: build errors / FAIL.
 - [ ] **Step 3: Implement** `PanelSessions`, `PanelEndpoints` and the cookie branch of the filter as specified.
 - [ ] **Step 4: Run** `dotnet test Rimlink.sln -nologo -v q` — Expected: all green.
@@ -202,9 +243,9 @@
     - `public sealed record PlayerCard(PlayerRow Player, string? LastIp, SessionRow? Session, List<SettlementRow> Settlements, long WalletBalance, long WealthTotal, DateTime? FirstSaveAt, SaveRow? CurrentSave, List<BanRow> ActiveBans, bool VisitsClosed, DateTime? PeacefulOffAt)`. The REST response flattens `Player` into the top level: `new { …row fields…, lastIp, session, … }`.
     - `public sealed record ChatLine(long Id, DateTime At, long? FromPlayerId, string? FromName, string Kind, string Text)` — `Kind` is `player` or `system`.
   - `public sealed class AdminDirectory(RimlinkDbContext db, SessionRegistry sessions, BanService bans, WalletService wallet)` with methods:
-    - `Task<PlayerPage> Search(string? q, int limit, int offset)`. `limit` outside 1–200 or `offset < 0` → `RpcException(InvalidArgument)`. Filter: `#<n>` → `Id == n`; `^\d{17}$` → `Account.SteamId == n`; otherwise name or faction contains q (case-insensitive) or `Account.Login == q`. Sort and page in memory, because online state lives in `SessionRegistry`: online first, then `LastSeenAt` descending, then `Id`. `Banned` = an active ban on the account id or the SteamId.
+    - `Task<PlayerPage> Search(string? q, int limit, int offset)`. `limit` outside 1–200 or `offset < 0` → `RpcException(InvalidArgument)`. Filter: `#<n>` → `Id == n`; `^\d{17}$` → `Account.SteamId == n`; otherwise name or faction contains q (case-insensitive) or `Account.Login == q`. Sort and page in memory, because online state lives in `SessionRegistry`: a name equal to `q` (case-insensitive) first, then online, then `LastSeenAt` descending, then `Id`. `Banned` = an active ban on the account id or the SteamId.
     - `Task<PlayerCard> Card(long playerId)` → `NotFound` when missing.
-    - `Task<List<ChatLine>> Chat(long? playerId, long? before, int limit)` — only `ToPlayerId == null`; newest first; `limit` outside 1–500 → `InvalidArgument`.
+    - `Task<List<ChatLine>> Chat(long? playerId, long? before, long? after, int limit)` — only `ToPlayerId == null`. Without a cursor or with `before`: newest first (ids below `before`). With `after`: ascending ids above `after`. Both cursors, or `limit` outside 1–500 → `InvalidArgument`.
   - Routes in `MapAdminDirectoryApi(this WebApplication app)` on `app.MapGroup("/api/admin").RequireAdmin()`:
     - `GET /players`, `GET /players/{id:long}`;
     - `POST /players/{id:long}/role` with body `record RoleBody(string Role)`: parsed case-insensitively into `Role`, anything else → 400 problem;
@@ -212,15 +253,18 @@
     - `GET /economy/wallet/{id:long}` → `{balance}`;
     - `POST /saveall`;
     - `GET /chat`.
+    - Each route carries `.RequireScope(...)` per spec §4: `/players` and `/chat` → `Read`; `/players/{id}`, `GET /economy/wallet/{id}` and `/saveall` → `Moderate`; role and rename → `Admin`.
 
 - [ ] **Step 1: Write the failing tests** (players via `RegisterAndLogin("nova", playerName: "Nova")`, `"mira"`/`"Mira"`, `"orin"`/`"Orin"`; Bearer client as in `AdminRestTests`)
   - `SearchFindsByNameFactionSteamIdLoginAndId` — `q=nov` → only Nova; `q=mira` (login) → Mira; `q=#<orin id>` → Orin. Set Orin's `Account.SteamId = 76561198000000001` in the DB, then `q=76561198000000001` → Orin.
+  - `SearchPutsTheExactNameFirst` — players `Novak` (online) and `Nova` (kicked, offline); `q=nova` → `items[0].name == "Nova"`, then `Novak`.
   - `SearchPutsOnlinePlayersFirstAndPages` — kick Mira and Orin via REST; `items[0].name == "Nova"`; `limit=1&offset=1` → `total == 3`, one item.
   - `SearchRejectsOutOfRangeLimits` — `limit=0`, `limit=201`, `offset=-1` → 400 each.
   - `CardShowsSessionWalletAndSave` — POST `economy/wallet/<nova>` `{delta: 50}` → card `walletBalance == 50`, `session` not null, `online` true, `currentSave` null; GET `economy/wallet/<nova>` → `{balance: 50}`.
   - `CardShowsActiveBans` — ban Mira for 3 days → her card `banned == true`, `activeBans.Length == 1`.
   - `UnknownPlayerIs404` — `/players/999999` → 404.
   - `ChatShowsOnlyThePublicChannel` — Nova sends public `"hello"` and a direct `"secret"` to Mira (`Chat.SendAsync` with Nova's bearer metadata). `/chat` texts contain `"hello"`, not `"secret"`; `/chat?playerId=<mira>` has no line from Nova; `limit=501` → 400.
+  - `ChatPagesBothWays` — public lines `a`, `b`, `c`. `/chat` → `c, b, a`. `?before=<id of c>` → `b, a`. `?after=<id of a>` → `b, c`. `?before=1&after=1` → 400.
   - `RoleAndRenameWork` — role `"moderator"` → card `role == "moderator"`; role `"king"` → 400; rename Nova to `"Mira"` → 409; to an invalid name `""` → 400; to `"Nova2"` → card `name == "Nova2"`.
   - `SaveAllIsLogged` — POST `/saveall` → 200; `/actions` contains `saveall`.
   - `ActionsCarryTargetNameAndPageBackwards` — kick Nova → `actions[0].targetName == "Nova"`; `?before=<actions[0].id>` has no item with that id.
@@ -260,6 +304,7 @@
     - `GET /api/admin/backups`;
     - `POST /api/admin/backups` → `{name, size}`;
     - `GET /api/admin/backups/{name}` → `Results.File(path, "application/octet-stream", name)`, or 404.
+    - All three carry `.RequireScope(ApiScope.Admin)`.
 
 - [ ] **Step 1: Write the failing tests**
   - `CreateListAndDownload` — POST → 200, `name` matches the pattern; GET list contains it; downloaded bytes equal `File.ReadAllBytes(<DataDir>/backups/<name>)`; `/actions` contains `backup` and `backup-download`.
@@ -288,7 +333,8 @@
 - Produces:
   - `public sealed class ServerStatus(...)` (scoped), with methods:
     - `Task<object> Admin()` — fields of spec §4 `/status`: `version`, `protocolVersion`, `startedAt`, `uptimeSeconds`, `playersOnline`, `maxPlayers`, `playersTotal`, `worldExists`, `worldCreatedAt`, `settlements`, `economy {frozen, reason}`, `raids {frozen, reason, active}`, `liveActive`, `saves {count, totalBytes}`, `backups {count, lastAt}`, `certificateFingerprint`, `certificateSelfSigned`. A failure in one part → that field `null`, plus a warning in the log. `startedAt` = `Process.GetCurrentProcess().StartTime.ToUniversalTime()`, captured once.
-    - `JsonObject Config()` — sections `server`, `tls`, `auth`, `backup`, `economy`, `raids`, `live`, `panel` (options serialised with web defaults) plus `admin: {apiToken}`. Secrets come from `internal static readonly (string Section, string Key)[] Secrets = [("server","serverPassword"), ("auth","steamWebApiKey"), ("admin","apiToken")]` and become `"set"` when non-blank, otherwise `""`.
+    - `JsonObject Config()` — sections `server`, `tls`, `auth`, `backup`, `economy`, `raids`, `live`, `panel` (options serialised with web defaults) plus `admin: {apiToken, tokens: [{name, scopes}]}`. Secrets come from `internal static readonly (string Section, string Key)[] Secrets = [("server","serverPassword"), ("auth","steamWebApiKey"), ("admin","apiToken")]` and become `"set"` when non-blank, otherwise `""`. `admin` is built by hand from `AdminOptions`, never serialised, so `Tokens[].Token` cannot leak.
+  - Scopes: `GET /status` → `Read`, `GET /config` → `Admin`. `/status` keeps `certificateFingerprint` and `certificateSelfSigned`; the Discord bot pins from it.
     - `Task<PublicStatus> Public()` — record with the spec §4 fields except `address`.
   - `public sealed class PublicStatusCache(TimeProvider time)` (singleton): `Task<PublicStatus> Get(Func<Task<PublicStatus>> build)`. Rebuilds when the cached value is older than 15 s; two concurrent misses build once (`SemaphoreSlim`).
   - `PublicEndpoints.MapPublicApi(this WebApplication app)`: `GET /api/public/status`, 404 unless `Panel:Enabled && Panel:Public`. The response is the cached `PublicStatus` plus `address` = `Panel:PublicAddress`, or `$"{Request.Host.Host}:{Server:Port}"` when blank.
@@ -296,7 +342,8 @@
 
 - [ ] **Step 1: Write the failing tests**
   - `StatusConfigTests.StatusReportsPlayersWorldAndCertificate` — Nova online → `playersOnline == 1`, `playersTotal == 1`, `worldExists == true`, `version == ServerVersion.Current`, `certificateFingerprint == <ServerCertificate>.Fingerprint`, `certificateSelfSigned == true`, `saves.count == 0`.
-  - `StatusConfigTests.ConfigHidesSecrets` — settings `Server:ServerPassword=pw-secret-1`, `Auth:SteamWebApiKey=steam-secret-2`, token `test-admin-token`. Raw bodies of `/config` and `/status` contain none of the three strings. `config.server.serverPassword == "set"`, `config.auth.steamWebApiKey == "set"`, `config.admin.apiToken == "set"`, `config.economy.marketFeePercent == 0`, `config.panel.sessionHours == 12`.
+  - `StatusConfigTests.ConfigHidesSecrets` — settings `Server:ServerPassword=pw-secret-1`, `Auth:SteamWebApiKey=steam-secret-2`, token `test-admin-token`. Raw bodies of `/config` and `/status` contain none of the three strings. `config.server.serverPassword == "set"`, `config.auth.steamWebApiKey == "set"`, `config.admin.apiToken == "set"`, `config.economy.marketFeePercent == 0`, `config.panel.sessionHours == 12`. With a named token `bot` (token `bot-token-secret-0123456789`, scopes `read, chat`), the body does not contain `bot-token-secret-0123456789`, and `config.admin.tokens[0]` is `{name: "bot", scopes: ["read", "chat"]}`.
+  - `StatusConfigTests.StatusNeedsReadAndConfigNeedsAdmin` — `read` token: `/status` → 200, `/config` → 403.
   - `PublicStatusTests.PublicStatusNeedsNoAuth` — anonymous GET → 200, `serverName == "Rimlink"`.
   - `PublicStatusTests.PublicStatusHasNoAddressesOrSteamIds` — `Panel:PublicAddress=play.example:25560`; Nova online with SteamId `76561198000000001` set in the DB. The body contains neither `127.0.0.1` nor `76561198000000001`; `address == "play.example:25560"`; `players[0].name == "Nova"`.
   - `PublicStatusTests.PlayerNamesCanBeHidden` — `Panel:PublicPlayerNames=false` → `players` is JSON null, `playersOnline == 1`.
@@ -517,7 +564,12 @@
   - a real certificate via `Tls:CertificatePath`/`KeyPath`; the public page and its keys; `Panel:Enabled=false`;
   - that `/metrics` stays open as before;
   - ruling note: a manual backup counts towards `Backup:Keep`;
-  - section 6 lists the new REST routes, the `X-Rimlink-Actor` header and the new CLI commands.
+  - section 6 lists the new REST routes, the `X-Rimlink-Actor` header and the new CLI commands;
+  - new section "API tokens":
+    - `Admin:Tokens` with an example, the four scopes and what each includes;
+    - the route → scope table from spec §4;
+    - the actor names in the audit log;
+    - that only `Admin:ApiToken` opens the panel, and that a bad token config stops the start.
 - `docker-compose.yml`: commented `Rimlink__Panel__ServerName` / `Rimlink__Panel__PublicAddress` lines.
 - `player-guide.md`: the public page (modpack, fingerprint check).
 - `README.md`: status line mentions the web panel.
