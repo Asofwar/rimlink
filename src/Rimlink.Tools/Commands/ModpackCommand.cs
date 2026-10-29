@@ -6,7 +6,7 @@ namespace Rimlink.Tools.Commands;
 /// <summary>Reads the active mod list of a RimWorld install and uploads it as the server modpack.</summary>
 public static class ModpackCommand
 {
-    public sealed record Entry(int Position, string PackageId, string Version, ulong WorkshopId, string Url, string Kind);
+    public sealed record Entry(int Position, string PackageId, string Version, ulong WorkshopId, string Url, string Kind, string FilesHash);
 
     public static Command Build()
     {
@@ -23,21 +23,21 @@ public static class ModpackCommand
             var entries = Collect(parse.GetValue(modsConfig)!, parse.GetValue(modsDirs) ?? []);
             if (parse.GetValue(dryRun) || parse.GetValue(server) is null)
             {
-                foreach (var e in entries) Console.WriteLine($"{e.Position}. {e.PackageId} {e.Version} {(e.WorkshopId != 0 ? $"workshop:{e.WorkshopId}" : "")}");
+                foreach (var e in entries) Console.WriteLine($"{e.Position}. {e.PackageId} {e.Version} {(e.WorkshopId != 0 ? $"workshop:{e.WorkshopId}" : "")} {(e.FilesHash.Length > 0 ? "files:" + e.FilesHash[..12] : "files: not found")}");
                 return;
             }
             using var rest = new RestClient(parse.GetValue(server)!, parse.GetValue(token) ?? throw new InvalidOperationException("--token is required"), parse.GetValue(insecure));
             Console.WriteLine(await rest.Put("modpack", new { entries }));
         });
 
-        return new Command("modpack", "Server modpack management") { import, ModpackDefsCommand.Build() };
+        return new Command("modpack", "Server modpack management") { import, ModpackDefsCommand.Build(), ModpackConfigsCommand.Build() };
     }
 
     public static List<Entry> Collect(string modsConfigPath, string[] modsDirs)
     {
         var active = XDocument.Load(modsConfigPath).Root!.Element("activeMods")!.Elements("li").Select(e => e.Value.Trim().ToLowerInvariant()).ToList();
 
-        var known = new Dictionary<string, (string version, ulong workshop)>(StringComparer.OrdinalIgnoreCase);
+        var known = new Dictionary<string, (string version, ulong workshop, string root)>(StringComparer.OrdinalIgnoreCase);
         foreach (string dir in modsDirs.Where(Directory.Exists))
         {
             foreach (string about in Directory.EnumerateFiles(dir, "About.xml", SearchOption.AllDirectories))
@@ -52,7 +52,7 @@ public static class ModpackCommand
                     string modRoot = Path.GetDirectoryName(Path.GetDirectoryName(about)!)!;
                     string idFile = Path.Combine(modRoot, "About", "PublishedFileId.txt");
                     ulong workshop = File.Exists(idFile) && ulong.TryParse(File.ReadAllText(idFile).Trim(), out var w) ? w : 0;
-                    known[id] = (version, workshop);
+                    known[id] = (version, workshop, modRoot);
                 }
                 catch (Exception ex) when (ex is System.Xml.XmlException or IOException)
                 {
@@ -65,7 +65,8 @@ public static class ModpackCommand
         {
             string bare = id.EndsWith("_steam") ? id[..^"_steam".Length] : id;
             known.TryGetValue(bare, out var info);
-            return new Entry(i, bare, info.version ?? "", info.workshop, "", "required");
+            string files = info.root is null ? "" : Rimlink.Protocol.ModContent.Scan(info.root).FilesHash;
+            return new Entry(i, bare, info.version ?? "", info.workshop, "", "required", files);
         }).ToList();
     }
 }
