@@ -1,4 +1,5 @@
 using System.Xml;
+using System.Xml.Linq;
 
 namespace Rimlink.Client.Visits;
 
@@ -12,39 +13,23 @@ public static class SaveMods
     /// <summary>The names (or package ids, when the save has no name for one) of the save's mods that <paramref name="isActive"/> rejects, in save order.</summary>
     public static IReadOnlyList<string> Missing(Stream save, Func<string, bool> isActive)
     {
-        var ids = new List<string>();
-        var names = new List<string>();
         using var reader = XmlReader.Create(save, new XmlReaderSettings { IgnoreComments = true, IgnoreWhitespace = true, DtdProcessing = DtdProcessing.Prohibit });
-        List<string>? into = null;
         while (reader.Read())
         {
-            if (reader.NodeType == XmlNodeType.Element)
+            if (reader.NodeType != XmlNodeType.Element) continue;
+            if (reader.Name == "game") break; // past the header without one
+            if (reader.Name != "meta") continue;
+            var meta = (XElement)XNode.ReadFrom(reader);
+            var ids = meta.Element("modIds")?.Elements("li").Select(e => e.Value.Trim()).ToList() ?? [];
+            var names = meta.Element("modNames")?.Elements("li").Select(e => e.Value.Trim()).ToList() ?? [];
+            var missing = new List<string>();
+            for (int i = 0; i < ids.Count; i++)
             {
-                switch (reader.Name)
-                {
-                    case "modIds": into = ids; break;
-                    case "modNames": into = names; break;
-                    case "modSteamIds": into = null; break;
-                    case "li" when into is not null: into.Add(reader.ReadElementContentAsString().Trim()); continue;
-                    case "game": return Filter(ids, names, isActive); // past the header: nothing more to learn
-                }
+                if (ids[i].Length == 0 || isActive(ids[i])) continue;
+                missing.Add(i < names.Count && names[i].Length > 0 ? names[i] : ids[i]);
             }
-            else if (reader.NodeType == XmlNodeType.EndElement && reader.Name == "meta")
-            {
-                return Filter(ids, names, isActive);
-            }
+            return missing;
         }
-        return Filter(ids, names, isActive);
-    }
-
-    private static List<string> Filter(List<string> ids, List<string> names, Func<string, bool> isActive)
-    {
-        var missing = new List<string>();
-        for (int i = 0; i < ids.Count; i++)
-        {
-            if (ids[i].Length == 0 || isActive(ids[i])) continue;
-            missing.Add(i < names.Count && names[i].Length > 0 ? names[i] : ids[i]);
-        }
-        return missing;
+        return [];
     }
 }

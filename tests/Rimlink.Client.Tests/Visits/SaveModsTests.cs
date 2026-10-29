@@ -48,6 +48,19 @@ public class SaveModsTests
     }
 
     [Fact]
+    public void EveryModInTheListIsChecked()
+    {
+        // Each position: a mod at any index of the list is found (the s2 run's missing mod was the 8th of 10).
+        string[] ids = ["brrainz.harmony", "ludeon.rimworld", "local.s2testdef", "Asofwar.Rimlink"];
+        string[] names = ["Harmony", "Core", "S2 Test Def", "Rimlink"];
+        for (int i = 0; i < ids.Length; i++)
+        {
+            string lacking = ids[i];
+            Assert.Equal([names[i]], SaveMods.Missing(Save(Header), id => !string.Equals(id, lacking, StringComparison.OrdinalIgnoreCase)));
+        }
+    }
+
+    [Fact]
     public void NothingIsMissingWhenEveryModRuns()
     {
         Assert.Empty(SaveMods.Missing(Save(Header), _ => true));
