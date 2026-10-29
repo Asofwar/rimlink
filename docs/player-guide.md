@@ -126,8 +126,9 @@ the result a moment later.
   the schedule; everything else on the map is view only. You may pause a limited number of times (the server's limit, 10
   pauses of a minute by default); the host pauses freely. If your view falls behind, it asks the host for a fresh snapshot
   and reloads it.
-- **Ending**: **End session** (guest) or **Abort session** (host). Your pawns come home by parcel as they are, with their
-  wounds and inventory; a raid's loot follows the normal raid rules. If a connection drops, the other side waits a few
+- **Ending**: **End session** (guest) or **Abort session** (host). The session also ends by itself once none of the guest's
+  pawns can act on the map any more (all dead, captured or gone; a downed pawn still counts). Your pawns come home by parcel
+  as they are, with their wounds and inventory; a raid's loot follows the normal raid rules. If a connection drops, the other side waits a few
   minutes: a lost guest's raid is then handed to the host's AI, a lost host's session ends and the host's game reports it at
   their next login.
 - **Auto-accept live sessions** (Raids tab) accepts invitations without the dialog. Peaceful mode and **Do not receive

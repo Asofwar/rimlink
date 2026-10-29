@@ -33,6 +33,8 @@ public static class LiveHost
     private static long lootCap;
     private static bool resyncing;
     private static DateTime lastResyncAt;
+    private static DateTime lastGuestCheck;
+    private static int emptyChecks;
     /// <summary>
     /// Sessions this game already reported or handed to the AI. The server's ended event for such a session arrives after the
     /// host ended it itself; it is not a pending end (a second, empty report would end a degraded raid with its escrow).
@@ -86,6 +88,7 @@ public static class LiveHost
         if (map is null || !RimlinkSession.Active) { Starting = false; Session = null; return; }
         Map = map;
         lootCap = cap;
+        emptyChecks = 0;
         var owners = MapComponent_LiveOwners.Of(map);
         var spawned = new List<Pawn>();
         try
@@ -222,6 +225,13 @@ public static class LiveHost
                     break;
             }
         }
+        if (!resyncing && DateTime.UtcNow - lastGuestCheck >= TimeSpan.FromSeconds(1))
+        {
+            lastGuestCheck = DateTime.UtcNow;
+            // Two checks in a row, so the frame showing the last pawn's death or capture reaches the guest before the end does.
+            if (!RaidResolver.NoneCanAct(MapComponent_LiveOwners.Of(map).IdsOf(session.Guest.PlayerId).OfType<int>(), exits, map)) emptyChecks = 0;
+            else if (++emptyChecks >= 2) { EndWithoutGuests(session); return; }
+        }
         if (!GuestHere || resyncing) return;
         int tick = Find.TickManager.TicksGame;
         bool paused = Find.TickManager.Paused;
@@ -296,6 +306,17 @@ public static class LiveHost
 
     /// <summary>The stream is gone for good (reconnect budget spent, the session no longer exists on the server).</summary>
     private static void OnStreamEnded(LiveEndReason reason) => MainThread.Post(() => { if (Active) End(reason); });
+
+    /// <summary>
+    /// No guest pawn can act any more (dead, captured or gone): the host ends the session as the guest's End would, instead of
+    /// leaving the guest in a mirror with nothing to control (ruling P6 in the live spec).
+    /// </summary>
+    private static void EndWithoutGuests(LiveSession session)
+    {
+        RimlinkLog.Instance.Info($"live session {session.Id}: no pawn of {session.Guest.Name} can act on the map any more; ending the session");
+        if (RimlinkSession.Live is { } live) _ = live.End(LiveEndReason.EndNormal);
+        End(LiveEndReason.EndNormal);
+    }
 
     /// <summary>The host's "abort": ends the session for both sides; the guest's pawns are reported at once.</summary>
     public static void Abort()

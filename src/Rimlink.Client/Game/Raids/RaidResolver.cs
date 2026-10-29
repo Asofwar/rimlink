@@ -96,8 +96,12 @@ public static class RaidResolver
     private static bool IsOver(ActiveRaid raid, Map map)
     {
         if (Find.TickManager.TicksGame >= raid.LandedTick + TimeoutTicks) return true;
-        return raid.PawnIds.All(id => raid.Exits.Any(e => e.PawnId == id) || FindRaider(id, map) is not { } p || p.Dead || p.IsPrisonerOfColony || !OnTheMap(p));
+        return NoneCanAct(raid.PawnIds, raid.Exits, map);
     }
+
+    /// <summary>No raider can still act: each one left the map, died, is a prisoner, or is simply gone (a downed one on the map, or carried, still may be captured).</summary>
+    public static bool NoneCanAct(IEnumerable<int> ids, IEnumerable<RaiderExit> exits, Map map) =>
+        ids.All(id => exits.Any(e => e.PawnId == id) || FindRaider(id, map) is not { } p || p.Dead || p.IsPrisonerOfColony || !OnTheMap(p));
 
     /// <summary>Spawned, or held by something spawned (a carrier, a drop pod or its skyfaller).</summary>
     private static bool OnTheMap(Pawn p) => p.SpawnedOrAnyParentSpawned;
