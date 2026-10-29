@@ -210,16 +210,11 @@ public static class RaidResolver
                 stack.Thing!.holdingOwner?.Remove(stack.Thing);
                 stack.Thing.Destroy(DestroyMode.Vanish);
             }
-            foreach (var pawn in survivors)
-            {
-                if (pawn.Spawned) pawn.DeSpawn();
-                pawn.holdingOwner?.Remove(pawn);
-                pawn.Destroy(DestroyMode.Vanish);
-            }
+            foreach (var pawn in survivors) PawnExit.Remove(pawn);
             foreach (var p in captives)
             {
                 RimlinkFactions.Raiders.kidnapped.RemoveKidnappedPawn(p);
-                if (p == captive) p.Destroy(DestroyMode.Vanish);
+                if (p == captive) PawnExit.Remove(p);
                 else GenSpawn.Spawn(p, CellFinder.RandomEdgeCell(map), map);
             }
             raid.Lord?.Cleanup();

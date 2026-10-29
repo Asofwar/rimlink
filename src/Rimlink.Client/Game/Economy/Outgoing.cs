@@ -100,7 +100,7 @@ public static class Outgoing
             {
                 caravan.RemovePawn(pawn);
                 taken.Add(new Taken(null, ThingBlobs.SerializePawn(pawn), p => caravan.AddPawn((Pawn)p, addCarriedPawnToWorldPawnsIfAny: true)));
-                pawn.Destroy(DestroyMode.Vanish);
+                PawnExit.Remove(pawn);
             }
             foreach (var thing in things)
             {
@@ -132,7 +132,7 @@ public static class Outgoing
             {
                 caravan.RemovePawn(pawn);
                 taken.Add(new Taken(null, ThingBlobs.SerializePawn(pawn), p => caravan.AddPawn((Pawn)p, addCarriedPawnToWorldPawnsIfAny: true)));
-                pawn.Destroy(DestroyMode.Vanish);
+                PawnExit.Remove(pawn);
             }
         }
         catch (Exception ex)
@@ -166,7 +166,7 @@ public static class Outgoing
                     var home = Find.AnyPlayerHomeMap;
                     if (home is not null) DropPodUtility.DropThingsNear(DropCellFinder.TradeDropSpot(home), home, [p], openDelay: 110, canInstaDropDuringInit: false, leaveSlag: false, canRoofPunch: false, forbid: false);
                 }));
-                pawn.Destroy(DestroyMode.Vanish);
+                PawnExit.Remove(pawn);
             }
         }
         catch (Exception ex)
@@ -266,7 +266,7 @@ public static class Outgoing
                 var cell = pawn.Position;
                 if (pawn.Spawned) pawn.DeSpawn();
                 taken.Add(new Taken(null, ThingBlobs.SerializePawn(pawn), p => GenSpawn.Spawn(p, cell, map)));
-                pawn.Destroy(DestroyMode.Vanish);
+                PawnExit.Remove(pawn);
             }
             return taken;
         }

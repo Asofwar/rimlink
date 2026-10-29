@@ -74,7 +74,7 @@ public sealed class RimlinkGameComponent : GameComponent
         live.Ended += session =>
         {
             if (session.Host?.PlayerId == RimlinkSession.MyPlayerId && Live.LiveHost.Session?.Id == session.Id && session.State == LiveState.LiveEnding) Live.LiveHost.End(session.EndReason);
-            else if (session.Host?.PlayerId == RimlinkSession.MyPlayerId && !Live.LiveHost.Active && session.State == LiveState.LiveEnding
+            else if (session.Host?.PlayerId == RimlinkSession.MyPlayerId && !Live.LiveHost.Active && !Live.LiveHost.Settled(session.Id) && session.State == LiveState.LiveEnding
                 && Current.ProgramState == ProgramState.Playing && !Visits.VisitSession.InVisit)
                 Live.LiveHost.ResolvePendingEnds([session]); // ended while this host was not hosting it (a reload within the wait): the pawns are still on the map
             else if (session.Guest?.PlayerId == RimlinkSession.MyPlayerId && session.State == LiveState.LiveEnding) Live.LiveGuest.OnEnded(session);

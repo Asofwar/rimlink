@@ -33,6 +33,13 @@ public static class LiveHost
     private static long lootCap;
     private static bool resyncing;
     private static DateTime lastResyncAt;
+    /// <summary>
+    /// Sessions this game already reported or handed to the AI. The server's ended event for such a session arrives after the
+    /// host ended it itself; it is not a pending end (a second, empty report would end a degraded raid with its escrow).
+    /// </summary>
+    private static readonly HashSet<long> settled = [];
+
+    public static bool Settled(long sessionId) => settled.Contains(sessionId);
     private static readonly TimeSpan ResyncCooldown = TimeSpan.FromSeconds(30);
     private static Lord? guestLord;
     /// <summary>Guest pawns that walked off the map during the session, with what they carried (reported as fled).</summary>
@@ -104,7 +111,7 @@ public static class LiveHost
         catch (Exception ex)
         {
             Log.Error("[Rimlink] live: the guest's pawns could not be spawned: " + ex);
-            foreach (var p in spawned) { if (p.Spawned) p.DeSpawn(); p.Destroy(DestroyMode.Vanish); }
+            foreach (var p in spawned) PawnExit.Remove(p);
             owners.ForgetAll(session.Guest.PlayerId);
             Starting = false; Session = null;
             _ = live.Cancel(session.Id, CancellationToken.None);
@@ -182,8 +189,7 @@ public static class LiveHost
                     break;
                 case LiveServerMsg.MOneofCase.PeerHello:
                     GuestHere = true;
-                    LiveTempo.WaitingPause = false;
-                    LiveTempo.HostWish = TimeSpeed.Normal;
+                    LiveTempo.WaitingPause = false; // the host's own pause (HostWish) stays as the host set it
                     LiveTempo.Apply();
                     Messages.Message("Rimlink.Live.GuestHere".Translate(session.Guest.Name), MessageTypeDefOf.PositiveEvent, historical: false);
                     break;
@@ -315,6 +321,7 @@ public static class LiveHost
         Messages.Message("Rimlink.Live.Ended".Translate(session.Guest?.Name ?? "?", reason.ToString()), MessageTypeDefOf.NeutralEvent, historical: true);
         if (map is not null && Find.Maps.Contains(map))
         {
+            settled.Add(session.Id); // a map that is gone (a reload) settles nothing: the ended event then reports from the loaded colony
             if (reason == LiveEndReason.EndGuestLost && session.Kind == LiveKind.LiveRaid) Degrade(session, map);
             else Resolve(session, map);
         }
@@ -385,7 +392,7 @@ public static class LiveHost
         foreach (var session in pending)
         {
             var map = Find.Maps.FirstOrDefault(m => m.IsPlayerHome && MapComponent_LiveOwners.Of(m).IdsOf(session.Guest.PlayerId).Count > 0) ?? Find.AnyPlayerHomeMap;
-            if (map is null) continue;
+            if (map is null || !settled.Add(session.Id)) continue;
             RimlinkLog.Instance.Info($"live session {session.Id}: reporting its end after the host's return");
             Resolve(session, map);
         }
@@ -406,8 +413,7 @@ public static class LiveHost
                 int n = 0;
                 foreach (var p in map.mapPawns.AllPawns.Where(p => owners.OwnerOf(p) == owner).ToList())
                 {
-                    if (p.Spawned) p.DeSpawn();
-                    if (!p.Destroyed) p.Destroy(DestroyMode.Vanish);
+                    PawnExit.Remove(p);
                     n++;
                 }
                 owners.ForgetAll(owner);

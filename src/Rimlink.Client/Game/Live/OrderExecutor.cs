@@ -25,8 +25,14 @@ public static class OrderExecutor
             case Order.OOneofCase.Pause: return LiveTempo.SetGuestPause(o.Pause);
         }
         var owners = MapComponent_LiveOwners.Of(map);
-        var pawn = map.mapPawns.AllPawnsSpawned.FirstOrDefault(p => p.thingIDNumber == o.PawnId);
-        if (pawn is null) return "no such pawn on the map";
+        var pawn = map.mapPawns.AllPawns.FirstOrDefault(p => p.thingIDNumber == o.PawnId);
+        if (pawn is null)
+        {
+            // A pawn that died with the order in flight is inside its corpse.
+            var corpse = map.listerThings.ThingsInGroup(ThingRequestGroup.Corpse).OfType<Corpse>().FirstOrDefault(c => c.InnerPawn?.thingIDNumber == o.PawnId);
+            return corpse is not null && owners.OwnerOf(corpse.InnerPawn) == guestId ? "dead" : "no such pawn on the map";
+        }
+        if (!pawn.Spawned) return owners.OwnerOf(pawn) == guestId ? "carried or held" : "no such pawn on the map";
         if (owners.OwnerOf(pawn) != guestId) return "not your pawn";
         if (pawn.Dead) return "dead";
         if (pawn.Downed && o.OCase != Order.OOneofCase.Draft) return "downed";

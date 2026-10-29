@@ -32,7 +32,8 @@ public static class LiveTempo
     public static void Begin()
     {
         Active = true;
-        HostWish = TimeSpeed.Paused;
+        HostWish = TimeSpeed.Normal; // the waiting pause holds the game until the guest's Hello; a pause the host sets meanwhile stays
+
         GuestWish = TimeSpeed.Normal;
         GuestPaused = false;
         GuestPausesUsed = 0;
@@ -43,6 +44,7 @@ public static class LiveTempo
     public static void Reset()
     {
         Active = false;
+        HostWish = TimeSpeed.Normal;
         WaitingPause = false;
         GuestPaused = false;
     }

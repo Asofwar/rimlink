@@ -63,6 +63,21 @@ public static class Patch_TickManager_CurTimeSpeed_Live
     }
 }
 
+/// <summary>
+/// The host's pawn tables (work, schedule, assignments) leave out the guest's visitors: they are the host's faction for the
+/// game's sake, but the guest manages them (the colonist bar still shows them, as guests on the map).
+/// </summary>
+[HarmonyPatch(typeof(MainTabWindow_PawnTable), "Pawns", MethodType.Getter)]
+public static class Patch_MainTabWindow_PawnTable_Pawns_Live
+{
+    public static void Postfix(ref IEnumerable<Pawn> __result)
+    {
+        if (!LiveHost.Active || LiveHost.Map is not { } map || Find.CurrentMap != map) return;
+        var owners = MapComponent_LiveOwners.Of(map);
+        __result = __result.Where(p => !owners.IsOwned(p)).ToList();
+    }
+}
+
 /// <summary>The host neither selects nor commands the guest's pawns.</summary>
 [HarmonyPatch(typeof(Selector), nameof(Selector.Select))]
 public static class Patch_Selector_Select_Live
