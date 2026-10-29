@@ -52,6 +52,7 @@ public class RefusalKeysTests
         [
             ("Application/Economy/MarketService.cs", "RpcErrors.Failed(reason.Code, reason.Key, reason.Message, reason.Args)"),
             ("Application/Economy/TransferService.cs", "RpcErrors.Failed(reason.Code, reason.Key, reason.Message, reason.Args)"),
+            ("Application/Incidents/IncidentService.cs", "RpcErrors.Failed(refusal.Code, refusal.Key, refusal.Message, refusal.Args)"),
             ("Application/Live/LiveSessionService.cs", "RpcErrors.Failed(reason.Code, reason.Key, reason.Message, reason.Args)"),
             ("Application/Raids/RaidReportValidator.cs", "RpcErrors.Failed(reason.Code, reason.Key, reason.Message, reason.Args)"),
             ("Application/Raids/RaidReportValidator.cs", "RpcErrors.Failed(survivorReason.Code, survivorReason.Key, survivorReason.Message, survivorReason.Args)"),

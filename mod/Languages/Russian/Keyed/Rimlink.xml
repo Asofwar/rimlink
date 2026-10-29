@@ -533,6 +533,13 @@
   <Rimlink.Refusal.Trades.NoteTooLong>Записка длиннее {0} символов</Rimlink.Refusal.Trades.NoteTooLong>
   <Rimlink.Refusal.Trades.NoteControlChars>В записке есть управляющие символы</Rimlink.Refusal.Trades.NoteControlChars>
   <Rimlink.Refusal.Trades.PartnerFrozen>Торговля игрока {0} заморожена</Rimlink.Refusal.Trades.PartnerFrozen>
+  <Rimlink.Refusal.Incidents.Disabled>Платные события на этом сервере отключены</Rimlink.Refusal.Incidents.Disabled>
+  <Rimlink.Refusal.Incidents.KindCooldown>Вы уже посылали игроку {0} событие менее {1} ч. назад</Rimlink.Refusal.Incidents.KindCooldown>
+  <Rimlink.Refusal.Incidents.QueueFull>У игрока {0} уже ждут событий: {1}</Rimlink.Refusal.Incidents.QueueFull>
+  <Rimlink.Refusal.Incidents.UnknownEntry>На этом сервере нет события «{0}»</Rimlink.Refusal.Incidents.UnknownEntry>
+  <Rimlink.Refusal.Incidents.Self>Нельзя заказать событие против себя</Rimlink.Refusal.Incidents.Self>
+  <Rimlink.Refusal.Incidents.NoPods>Событие «{0}» не может прийти в капсулах</Rimlink.Refusal.Incidents.NoPods>
+  <Rimlink.Refusal.Incidents.Level>Уровень — от 1 до 4</Rimlink.Refusal.Incidents.Level>
   <Rimlink.Settlement.InspectFaction>Колония игрока {0}, фракция {1}</Rimlink.Settlement.InspectFaction>
   <Rimlink.Settlement.Online>Сейчас в сети</Rimlink.Settlement.Online>
   <Rimlink.Settlement.SeenToday>Был в сети сегодня</Rimlink.Settlement.SeenToday>

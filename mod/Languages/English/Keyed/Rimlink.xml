@@ -533,6 +533,13 @@
   <Rimlink.Refusal.Trades.NoteTooLong>note longer than {0} characters</Rimlink.Refusal.Trades.NoteTooLong>
   <Rimlink.Refusal.Trades.NoteControlChars>note contains control characters</Rimlink.Refusal.Trades.NoteControlChars>
   <Rimlink.Refusal.Trades.PartnerFrozen>{0}'s trading is frozen</Rimlink.Refusal.Trades.PartnerFrozen>
+  <Rimlink.Refusal.Incidents.Disabled>paid incidents are disabled on this server</Rimlink.Refusal.Incidents.Disabled>
+  <Rimlink.Refusal.Incidents.KindCooldown>you sent {0} an event less than {1} hours ago</Rimlink.Refusal.Incidents.KindCooldown>
+  <Rimlink.Refusal.Incidents.QueueFull>{0} already has {1} events waiting</Rimlink.Refusal.Incidents.QueueFull>
+  <Rimlink.Refusal.Incidents.UnknownEntry>no event '{0}' on this server</Rimlink.Refusal.Incidents.UnknownEntry>
+  <Rimlink.Refusal.Incidents.Self>you cannot order an event against yourself</Rimlink.Refusal.Incidents.Self>
+  <Rimlink.Refusal.Incidents.NoPods>'{0}' cannot come by drop pods</Rimlink.Refusal.Incidents.NoPods>
+  <Rimlink.Refusal.Incidents.Level>level is 1 to 4</Rimlink.Refusal.Incidents.Level>
   <Rimlink.Settlement.InspectFaction>Colony of player {0}, faction {1}</Rimlink.Settlement.InspectFaction>
   <Rimlink.Settlement.Online>Online now</Rimlink.Settlement.Online>
   <Rimlink.Settlement.SeenToday>Last seen today</Rimlink.Settlement.SeenToday>

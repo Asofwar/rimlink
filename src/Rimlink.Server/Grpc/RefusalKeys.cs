@@ -168,4 +168,12 @@ public static class RefusalKeys
     public const string TradesNoteTooLong = "Trades.NoteTooLong";
     public const string TradesNoteControlChars = "Trades.NoteControlChars";
     public const string TradesPartnerFrozen = "Trades.PartnerFrozen";
+
+    public const string IncidentsDisabled = "Incidents.Disabled";
+    public const string IncidentsKindCooldown = "Incidents.KindCooldown";
+    public const string IncidentsQueueFull = "Incidents.QueueFull";
+    public const string IncidentsUnknownEntry = "Incidents.UnknownEntry";
+    public const string IncidentsSelf = "Incidents.Self";
+    public const string IncidentsNoPods = "Incidents.NoPods";
+    public const string IncidentsLevel = "Incidents.Level";
 }
