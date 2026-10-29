@@ -47,7 +47,15 @@ public static class SaveSync
         var pending = Pending;
         try
         {
+            string path = SaveFilePath;
+            var before = File.Exists(path) ? File.GetLastWriteTimeUtc(path) : DateTime.MinValue;
             GameDataSaveLoader.SaveGame(SaveFileName); // the postfix starts an upload that fails or is cancelled; the flag below covers both
+            // SaveGame logs and swallows its own exceptions: only a rewritten file counts as saved.
+            if (!File.Exists(path) || File.GetLastWriteTimeUtc(path) == before)
+            {
+                RimlinkLog.Instance.Warn($"local save failed ({reason}): the file was not written");
+                return false;
+            }
             pending.Set();
             RimlinkLog.Instance.Info($"saved locally for a later upload ({reason})");
             return true;

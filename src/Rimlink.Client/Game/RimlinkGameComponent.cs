@@ -119,6 +119,8 @@ public sealed class RimlinkGameComponent : GameComponent
         if (afterLoadNotice is not { } key || Current.Game == noticeSetIn || Current.ProgramState != ProgramState.Playing) return;
         afterLoadNotice = null;
         noticeSetIn = null;
+        // The load failed (back to the menu) and this is a later game: a new session says nothing about the ended one.
+        if (RimlinkSession.Active) return;
         Find.WindowStack.Add(new Dialog_MessageBox(key.Translate()));
     }
 
