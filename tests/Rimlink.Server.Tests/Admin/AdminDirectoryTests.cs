@@ -90,6 +90,19 @@ public class AdminDirectoryTests
         Assert.Equal(["Nova", "Novak"], Names(await Get(rest, "/api/admin/players?q=nova")));
     }
 
+    [Fact]
+    public async Task SearchFindsCyrillicNamesInAnyCase()
+    {
+        // SQLite's lower() folds ASCII only; the name match must not depend on it.
+        using var fixture = Server();
+        await fixture.RegisterAndLogin("mira", playerName: "Мира");
+        var rest = fixture.Rest();
+
+        Assert.Equal(["Мира"], Names(await Get(rest, $"/api/admin/players?q={Uri.EscapeDataString("мира")}")));
+        Assert.Equal(["Мира"], Names(await Get(rest, $"/api/admin/players?q={Uri.EscapeDataString("МИР")}")));
+        Assert.Equal(["Мира"], Names(await Get(fixture.Rest(PubToken), $"/api/admin/players?q={Uri.EscapeDataString("ира")}")));
+    }
+
     [Theory]
     [InlineData("limit=0")]
     [InlineData("limit=201")]

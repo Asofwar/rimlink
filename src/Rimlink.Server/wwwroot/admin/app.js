@@ -83,7 +83,9 @@ async function showShell() {
   clear(app);
   try {
     serverName = (await api.get('config')).panel?.serverName?.trim() || 'Rimlink';
-  } catch {
+  } catch (error) {
+    // A 401 here already showed the login screen; drawing the shell over it would leave a "logged in" header.
+    if (error.status === 401) return;
     serverName = 'Rimlink';
   }
   document.title = t('app.title', { name: serverName });

@@ -16,6 +16,8 @@ public sealed class PanelSessions(IOptions<PanelOptions> options, TimeProvider t
     public const int MaxSessions = 20;
     public const int MaxFailures = 5;
     public static readonly TimeSpan FailureWindow = TimeSpan.FromMinutes(10);
+    /// <summary>Above this many tracked addresses, failures older than the window are dropped on the next failure.</summary>
+    public const int MaxTrackedIps = 1000;
 
     private readonly Lock gate = new();
     private readonly Dictionary<string, PanelSession> sessions = new(StringComparer.Ordinal);
@@ -70,12 +72,20 @@ public sealed class PanelSessions(IOptions<PanelOptions> options, TimeProvider t
         }
     }
 
+    internal int FailureEntries
+    {
+        get { lock (gate) return failures.Count; }
+    }
+
     /// <summary>The window starts at the first failure; a successful login does not reset it.</summary>
     public void RecordFailure(string ip)
     {
         var now = time.GetUtcNow();
         lock (gate)
         {
+            // An address that never comes back would otherwise stay forever; the login endpoint is public.
+            if (failures.Count >= MaxTrackedIps)
+                foreach (var stale in failures.Where(f => now - f.Value.Start >= FailureWindow).Select(f => f.Key).ToList()) failures.Remove(stale);
             failures[ip] = failures.TryGetValue(ip, out var entry) && now - entry.Start < FailureWindow
                 ? (entry.Start, entry.Count + 1)
                 : (now, 1);

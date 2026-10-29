@@ -2,7 +2,8 @@
 // lines and mod fields are untrusted, so nothing here parses HTML.
 import { t } from './i18n.js';
 
-const SAFE_HREF = /^(https:\/\/|#|\/)/;
+// https:// links, in-page routes and same-origin paths; "//host" (protocol-relative, external) is not a path.
+const SAFE_HREF = /^(https:\/\/|#|\/(?!\/))/;
 
 /** Creates an element. attrs: class, id, href (https://, # or / only), on<Event> handlers, value/checked/disabled, others as attributes. */
 export function h(tag, attrs, ...children) {

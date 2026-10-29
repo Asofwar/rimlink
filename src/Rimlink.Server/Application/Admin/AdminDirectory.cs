@@ -32,17 +32,21 @@ public sealed class AdminDirectory(RimlinkDbContext db, SessionRegistry sessions
 
         var query = db.Players.AsNoTracking().Include(p => p.Account).AsQueryable();
         string term = q?.Trim() ?? "";
+        bool byText = false;
         if (term.Length > 0)
         {
-            string lower = term.ToLowerInvariant();
             if (term[0] == '#' && long.TryParse(term[1..], out long id)) query = query.Where(p => p.Id == id);
             else if (full && term.Length == 17 && term.All(char.IsAsciiDigit)) query = query.Where(p => p.Account.SteamId == long.Parse(term));
-            else if (full) query = query.Where(p => p.Name.ToLower().Contains(lower) || p.FactionName.ToLower().Contains(lower) || p.Account.Login == term);
-            else query = query.Where(p => p.Name.ToLower().Contains(lower) || p.FactionName.ToLower().Contains(lower));
+            else byText = true;
         }
 
         // Online state lives in the session registry, so sorting and paging happen here (players per server: thousands at most).
+        // The name/faction match is in memory too: SQLite's lower() folds ASCII only, so Cyrillic names would never match.
         var players = await query.ToListAsync();
+        if (byText)
+            players = players.Where(p => p.Name.Contains(term, StringComparison.OrdinalIgnoreCase)
+                || p.FactionName.Contains(term, StringComparison.OrdinalIgnoreCase)
+                || (full && p.Account.Login == term)).ToList();
         var banned = await BannedSets();
         var online = sessions.All.Select(s => s.PlayerId).ToHashSet();
         var rows = players

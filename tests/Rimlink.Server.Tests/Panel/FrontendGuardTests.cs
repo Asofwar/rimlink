@@ -46,6 +46,22 @@ public partial class FrontendGuardTests
         Assert.Empty(offenders);
     }
 
+    [Theory]
+    [InlineData("https://steamcommunity.com/sharedfiles/filedetails/?id=1", true)]
+    [InlineData("#/players/2", true)]
+    [InlineData("/api/admin/backups/rimlink-20261029-120000.tar.zst", true)]
+    [InlineData("//evil.example/x", false)]
+    [InlineData("javascript:alert(1)", false)]
+    [InlineData("http://example.org", false)]
+    public void LinksAreOnlyHttpsHashOrSameOriginPaths(string href, bool allowed)
+    {
+        // dom.js turns an href into a link only when SAFE_HREF matches; a protocol-relative "//host" is an external link.
+        string dom = File.ReadAllText(Path.Combine(RepoPaths.WwwRoot, "shared", "dom.js"));
+        var rule = new Regex(SafeHref().Match(dom).Groups[1].Value);
+
+        Assert.Equal(allowed, rule.IsMatch(href));
+    }
+
     [Fact]
     public void HtmlHasNoInlineCode()
     {
@@ -84,6 +100,9 @@ public partial class FrontendGuardTests
 
     [GeneratedRegex(@"\.innerHTML|\.outerHTML|insertAdjacentHTML|document\.write|\beval\s*\(|new\s+Function\s*\(")]
     private static partial Regex Sinks();
+
+    [GeneratedRegex(@"const SAFE_HREF = /(.+)/;")]
+    private static partial Regex SafeHref();
 
     [GeneratedRegex(@"\.(append|replaceChildren|prepend)\(")]
     private static partial Regex NativeAppend();
