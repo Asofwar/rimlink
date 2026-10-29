@@ -34,9 +34,39 @@ public static class Outgoing
         return true;
     }
 
+    /// <summary>
+    /// A raid waits for or is on this colony, a live raid is hosted, or enemies are on the home map: nothing leaves until it
+    /// is over (the server refuses the same for its own raids; enemies on the map only this client sees).
+    /// </summary>
+    public static bool UnderThreat(Map? home)
+    {
+        if (RimlinkSession.State.Raids.Incoming.Any(r => r.Controller != RaidController.ControllerLive)) return true;
+        if (Current.Game?.GetComponent<RimlinkGameComponent>() is { ActiveRaids.Count: > 0 }) return true;
+        if (Live.LiveHost.Active && Live.LiveHost.Session?.Kind == LiveKind.LiveRaid) return true;
+        // During a visit or as a live guest the loaded map is someone else's copy: its enemies are not ours.
+        if (Visits.VisitSession.InVisit || Live.LiveGuest.Session is not null) return false;
+        return home is not null && GenHostility.AnyHostileActiveThreatToPlayer(home);
+    }
+
+    private static bool RefusedUnderThreat(int fromTheMap, long walletSilver)
+    {
+        if ((fromTheMap == 0 && walletSilver == 0) || !UnderThreat(Find.AnyPlayerHomeMap)) return false;
+        Messages.Message("Rimlink.Economy.UnderThreat".Translate(), MessageTypeDefOf.RejectInput, historical: false);
+        return true;
+    }
+
+    private static bool RefusedInDebt()
+    {
+        var state = RimlinkSession.State.Economy;
+        if (!state.InDebt) return false;
+        Messages.Message("Rimlink.Economy.InDebt".Translate(-state.Balance), MessageTypeDefOf.RejectInput, historical: false);
+        return true;
+    }
+
     public static void SendItems(Map map, long toPlayerId, string toName, IReadOnlyList<Pick> picks, IReadOnlyList<Pawn> pawns, long silver)
     {
         if (RefusedInVisit(picks.Count + pawns.Count)) return;
+        if (RefusedUnderThreat(picks.Count + pawns.Count, silver) || RefusedInDebt()) return;
         if (CheckLimits(picks.Count, pawns.Count) is { } limit) { Messages.Message(limit, MessageTypeDefOf.RejectInput, historical: false); return; }
         var taken = TakeFromMap(map, picks, pawns);
         if (taken is null) return;
@@ -87,6 +117,7 @@ public static class Outgoing
     {
         IReadOnlyList<Pawn> pawns = pawn is null ? [] : [pawn];
         if (RefusedInVisit(picks.Count + pawns.Count)) return;
+        if (RefusedUnderThreat(picks.Count + pawns.Count, 0) || RefusedInDebt()) return;
         if (CheckLimits(picks.Count, pawns.Count) is { } limit) { Messages.Message(limit, MessageTypeDefOf.RejectInput, historical: false); return; }
         var taken = TakeFromMap(map, picks, pawns);
         if (taken is null) return;
@@ -108,6 +139,7 @@ public static class Outgoing
     public static void Deposit(Map map, int silver)
     {
         if (RefusedInVisit(silver)) return;
+        if (RefusedUnderThreat(silver, 0)) return;
         var picks = new List<Pick>();
         int left = silver;
         var source = BlobDebugActions.PickAnywhere && Prefs.DevMode
@@ -133,8 +165,10 @@ public static class Outgoing
     }
 
     /// <summary>From a caravan standing on another player's settlement: inventory items and members. A colonist must stay to carry what remains.</summary>
+    /// <summary>A caravan hands over what already left the home map: not refused under threat (debts still close it).</summary>
     public static void SendFromCaravan(Caravan caravan, long toPlayerId, string toName, IReadOnlyList<Thing> things, IReadOnlyList<Pawn> pawns)
     {
+        if (RefusedInDebt()) return;
         if (CheckLimits(things.Count, pawns.Count) is { } limit) { Messages.Message(limit, MessageTypeDefOf.RejectInput, historical: false); return; }
         if (pawns.Count > 0 && !caravan.PawnsListForReading.Except(pawns).Any(caravan.IsOwner))
         {
@@ -167,7 +201,7 @@ public static class Outgoing
             return;
         }
         Run(taken, "Rimlink.Economy.Sent".Translate(toName),
-            (items, pawnList, tick) => new TransferRequest { ClientRequestId = EconomyClient.NewRequestId(), ToPlayerId = toPlayerId, Items = items, Pawns = pawnList, Silver = 0, GameTick = tick },
+            (items, pawnList, tick) => new TransferRequest { ClientRequestId = EconomyClient.NewRequestId(), ToPlayerId = toPlayerId, Items = items, Pawns = pawnList, Silver = 0, GameTick = tick, FromCaravan = true },
             request => RimlinkSession.Economy!.Send((TransferRequest)request, CancellationToken.None));
     }
 

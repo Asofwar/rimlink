@@ -1,5 +1,6 @@
 using RimWorld;
 using Rimlink.Client.Game.Economy;
+using Rimlink.Client.Game;
 using UnityEngine;
 using Verse;
 
@@ -47,7 +48,11 @@ public sealed class ThingPicker(Map map, bool allowPawns)
         {
             bool on = counts.TryGetValue(thing, out int n) && n > 0;
             bool was = on;
-            Widgets.CheckboxLabeled(new Rect(0f, y, w - 120f, 26f), $"{thing.LabelCapNoCount} ×{thing.stackCount}", ref on);
+            bool forbidden = Forbidden(thing.def.defName) || Forbidden(thing.Stuff?.defName);
+            if (forbidden) on = false;
+            var row = new Rect(0f, y, w - 120f, 26f);
+            Widgets.CheckboxLabeled(row, $"{thing.LabelCapNoCount} ×{thing.stackCount}", ref on, disabled: forbidden);
+            if (forbidden) TooltipHandler.TipRegion(row, "Rimlink.Economy.Forbidden".Translate());
             if (on != was) counts[thing] = on ? thing.stackCount : 0;
             if (on)
             {
@@ -67,11 +72,18 @@ public sealed class ThingPicker(Map map, bool allowPawns)
             foreach (var pawn in colonists)
             {
                 bool on = pawns.Contains(pawn);
-                Widgets.CheckboxLabeled(new Rect(0f, y, w, 26f), pawn.LabelCap + (pawn.RaceProps.Humanlike ? "" : $" ({pawn.KindLabel})"), ref on);
+                bool forbidden = Forbidden(pawn.kindDef.defName);
+                if (forbidden) on = false;
+                var row = new Rect(0f, y, w, 26f);
+                Widgets.CheckboxLabeled(row, pawn.LabelCap + (pawn.RaceProps.Humanlike ? "" : $" ({pawn.KindLabel})"), ref on, disabled: forbidden);
+                if (forbidden) TooltipHandler.TipRegion(row, "Rimlink.Economy.Forbidden".Translate());
                 if (on) pawns.Add(pawn); else pawns.Remove(pawn);
                 y += 28f;
             }
         }
         Widgets.EndScrollView();
     }
+
+    /// <summary>The admin forbade this def in sends and lots (the server refuses it anyway).</summary>
+    private static bool Forbidden(string? defName) => defName is not null && RimlinkSession.State.Economy.IsForbidden(defName);
 }

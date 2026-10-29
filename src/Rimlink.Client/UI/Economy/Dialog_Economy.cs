@@ -192,7 +192,10 @@ public sealed class Dialog_Economy : Window
         picker!.Draw(new Rect(left.x, left.y, left.width, left.height - 70f));
         Widgets.Label(new Rect(left.x, left.yMax - 64f, 120f, 26f), "Rimlink.Economy.PriceLabel".Translate());
         Widgets.TextFieldNumeric(new Rect(left.x + 124f, left.yMax - 64f, 120f, 26f), ref lotPrice, ref lotPriceBuffer, 1, 1_000_000);
-        if (Widgets.ButtonText(new Rect(left.x, left.yMax - 30f, 200f, 28f), "Rimlink.Economy.PostLot".Translate()) && picker.AnythingPicked)
+        string? lotsClosed = OutflowClosed(threat: true);
+        var postRect = new Rect(left.x, left.yMax - 30f, 200f, 28f);
+        if (lotsClosed is not null) ClosedNote(new Rect(postRect.xMax + 6f, postRect.y, left.width - postRect.width - 6f, 28f), lotsClosed);
+        if (Widgets.ButtonText(postRect, "Rimlink.Economy.PostLot".Translate(), active: lotsClosed is null) && picker.AnythingPicked)
         {
             var picks = picker.Picks;
             var pawns = picker.Pawns;
@@ -232,7 +235,7 @@ public sealed class Dialog_Economy : Window
         {
             picker!.Draw(new Rect(0f, rect.y + 34f, rect.width, rect.height - 104f));
             Widgets.Label(new Rect(0f, rect.yMax - 64f, 160f, 26f), "Rimlink.Economy.SilverFromWallet".Translate(State.Balance));
-            Widgets.TextFieldNumeric(new Rect(164f, rect.yMax - 64f, 120f, 26f), ref sendSilver, ref sendSilverBuffer, 0, (int)Math.Min(int.MaxValue, State.Balance));
+            Widgets.TextFieldNumeric(new Rect(164f, rect.yMax - 64f, 120f, 26f), ref sendSilver, ref sendSilverBuffer, 0, (int)Math.Clamp(State.Balance, 0, int.MaxValue));
         }
         else
         {
@@ -240,7 +243,11 @@ public sealed class Dialog_Economy : Window
             caravanPicker.Draw(new Rect(0f, rect.y + 34f, rect.width, rect.height - 70f));
         }
 
-        if (Widgets.ButtonText(new Rect(0f, rect.yMax - 30f, 200f, 28f), "Rimlink.Economy.SendButton".Translate()))
+        // A caravan hands over what already left the map: only a debt closes it.
+        string? sendClosed = OutflowClosed(threat: caravan is null);
+        var sendRect = new Rect(0f, rect.yMax - 30f, 200f, 28f);
+        if (sendClosed is not null) ClosedNote(new Rect(sendRect.xMax + 6f, sendRect.y, rect.width - sendRect.width - 6f, 28f), sendClosed);
+        if (Widgets.ButtonText(sendRect, "Rimlink.Economy.SendButton".Translate(), active: sendClosed is null))
         {
             if (recipient is null) { status = "Rimlink.Economy.PickRecipient".Translate(); return; }
             if (RimlinkSession.State.Social.IsBlocked(recipient.PlayerId)) { status = "Rimlink.Social.YouBlocked".Translate(recipient.Name); return; }
@@ -265,15 +272,37 @@ public sealed class Dialog_Economy : Window
 
     private CaravanPicker? caravanPicker;
 
+    private static readonly Color ClosedColor = new(1f, 0.45f, 0.4f);
+
+    /// <summary>Why lots and sends are closed now: a threat to the colony (when <paramref name="threat"/>) or a storage debt.</summary>
+    private string? OutflowClosed(bool threat) =>
+        threat && Outgoing.UnderThreat(Find.AnyPlayerHomeMap) ? "Rimlink.Economy.UnderThreat".Translate()
+        : State.InDebt ? "Rimlink.Economy.InDebt".Translate(-State.Balance) : null;
+
+    private static void ClosedNote(Rect rect, string text)
+    {
+        GUI.color = ClosedColor;
+        Text.Font = GameFont.Tiny;
+        Widgets.Label(rect, text);
+        Text.Font = GameFont.Small;
+        GUI.color = Color.white;
+    }
+
     private void DrawWallet(Rect rect)
     {
         Text.Font = GameFont.Medium;
+        if (State.InDebt) GUI.color = ClosedColor;
         Widgets.Label(new Rect(0f, rect.y, rect.width, 32f), "Rimlink.Economy.Balance".Translate(State.Balance));
+        GUI.color = Color.white;
         Text.Font = GameFont.Small;
-        float y = rect.y + 40f;
+        if (State.InDebt) ClosedNote(new Rect(0f, rect.y + 30f, rect.width, 20f), "Rimlink.Economy.InDebt".Translate(-State.Balance));
+        float y = rect.y + 50f;
+        // A deposit pays a debt off, so only a threat closes it.
+        bool depositClosed = Outgoing.UnderThreat(Find.AnyPlayerHomeMap);
         Widgets.Label(new Rect(0f, y + 3f, 200f, 26f), "Rimlink.Economy.DepositLabel".Translate());
         Widgets.TextFieldNumeric(new Rect(204f, y, 120f, 26f), ref depositSilver, ref depositBuffer, 1, 1_000_000);
-        if (Widgets.ButtonText(new Rect(330f, y, 160f, 26f), "Rimlink.Economy.Deposit".Translate())) Outgoing.Deposit(map!, depositSilver);
+        if (Widgets.ButtonText(new Rect(330f, y, 160f, 26f), "Rimlink.Economy.Deposit".Translate(), active: !depositClosed)) Outgoing.Deposit(map!, depositSilver);
+        if (depositClosed) ClosedNote(new Rect(496f, y, rect.width - 496f, 26f), "Rimlink.Economy.UnderThreat".Translate());
         y += 32f;
         Widgets.Label(new Rect(0f, y + 3f, 200f, 26f), "Rimlink.Economy.WithdrawLabel".Translate());
         Widgets.TextFieldNumeric(new Rect(204f, y, 120f, 26f), ref withdrawSilver, ref withdrawBuffer, 1, 1_000_000);

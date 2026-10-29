@@ -35,6 +35,9 @@ public static class Incoming
         if (Current.ProgramState == ProgramState.Playing && Find.CurrentMap is { IsPlayerHome: true } map) Outgoing.ReturnRefused(map);
     }
 
+    /// <summary>The parcel dropped in this session (a storage fee refers to it, not to a lot).</summary>
+    public static bool DeliveredThisSession(long parcelId) => spawnedThisSession.Contains(parcelId);
+
     public static void DeliverPending()
     {
         lastAttempt = DateTime.UtcNow;
