@@ -35,12 +35,8 @@ public sealed class EconomyClient(RimlinkConnection connection)
     public static string NewRequestId() => Guid.NewGuid().ToString("N");
 
     /// <summary>The server's error code from the "rimlink-error-bin" trailer, or null for a plain gRPC failure.</summary>
-    public static ErrorCode? CodeOf(RpcException ex) =>
-        ex.Trailers.FirstOrDefault(t => t.Key == "rimlink-error-bin") is { } trailer ? ErrorDetail.Parser.ParseFrom(trailer.ValueBytes).Code : null;
+    public static ErrorCode? CodeOf(RpcException ex) => RpcErrorDetail.Read(ex).Code;
 
     /// <summary>The server's message when it sent one, otherwise the gRPC status.</summary>
-    public static string MessageOf(RpcException ex) =>
-        ex.Trailers.FirstOrDefault(t => t.Key == "rimlink-error-bin") is { } trailer
-            ? ErrorDetail.Parser.ParseFrom(trailer.ValueBytes).Message
-            : $"{ex.StatusCode}: {ex.Status.Detail}";
+    public static string MessageOf(RpcException ex) => RpcErrorDetail.Read(ex).Message;
 }

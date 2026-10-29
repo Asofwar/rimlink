@@ -139,6 +139,19 @@ public class TransferOutboxTests : IDisposable
     }
 
     [Fact]
+    public void RefusalKeyAndArgsSurviveSaveAndLoad()
+    {
+        var outbox = Outbox();
+        var entry = outbox.Add(new PostRequest { ClientRequestId = "p", Price = 3, Items = Items(("Steel", 1)) });
+
+        Assert.True(outbox.Refuse(entry.Id, new Refusal(ErrorCode.LiveActive, "Hosta is in a live session already", "Live.HostBusy", ["Hosta"])));
+
+        var reloaded = Assert.Single(Outbox().Entries);
+        Assert.Equal(("Hosta is in a live session already", "Live.HostBusy"), (reloaded.Refusal, reloaded.RefusalKey));
+        Assert.Equal(["Hosta"], reloaded.RefusalArgs);
+    }
+
+    [Fact]
     public void IndeterminateStatusIsNotDefinitive()
     {
         Assert.False(TransferOutbox.IsDefinitive(new RpcException(new Status(StatusCode.Unavailable, "down"))));

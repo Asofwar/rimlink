@@ -20,6 +20,9 @@ public sealed class OutboxEntry
     public byte[] Payload { get; set; } = [];
     /// <summary>Set when the server refused the request for good: the game layer returns the contents, then removes the entry.</summary>
     public string? Refusal { get; set; }
+    /// <summary>The refusal's key and arguments, so the game layer shows it in the player's language (null from older entries).</summary>
+    public string? RefusalKey { get; set; }
+    public List<string>? RefusalArgs { get; set; }
     public DateTime CreatedUtc { get; set; }
 }
 
@@ -91,14 +94,18 @@ public sealed class TransferOutbox
     /// The server refused the request for good: an entry that holds things of ours stays with its reason for the game layer
     /// to return them; one that holds nothing is dropped, so no empty pod comes back. True when the entry was kept.
     /// </summary>
-    public bool Refuse(string id, string reason)
+    public bool Refuse(string id, string reason) => Refuse(id, new Refusal(null, reason, null, []));
+
+    public bool Refuse(string id, Refusal refusal)
     {
         lock (gate)
         {
             if (entries.FirstOrDefault(e => e.Id == id) is not { } entry) return false;
             if (!NothingToReturn(entry))
             {
-                entry.Refusal = reason;
+                entry.Refusal = refusal.Message;
+                entry.RefusalKey = refusal.Key;
+                entry.RefusalArgs = refusal.Key is null ? null : [.. refusal.Args];
                 Save();
                 return true;
             }
@@ -245,8 +252,9 @@ public sealed class TransferOutbox
         }
         catch (RpcException ex) when (IsDefinitive(ex))
         {
-            string reason = EconomyClient.MessageOf(ex);
-            log.Warn(Refuse(entry.Id, reason)
+            var refusal = RpcErrorDetail.Read(ex);
+            string reason = refusal.Message;
+            log.Warn(Refuse(entry.Id, refusal)
                 ? $"outbox: {entry.Kind} {entry.Id} refused ({reason}); its contents go back to the colony"
                 : $"outbox: {entry.Kind} {entry.Id} refused ({reason}); nothing to return, dropped");
             return false;
