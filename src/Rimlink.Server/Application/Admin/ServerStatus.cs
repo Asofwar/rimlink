@@ -41,6 +41,7 @@ public sealed class ServerStatus(
     IOptions<LiveOptions> live,
     IOptions<PanelOptions> panel,
     IOptions<AdminOptions> admin,
+    IOptions<HygieneOptions> hygiene,
     ILogger<ServerStatus> log)
 {
     public static readonly DateTime StartedAt = Process.GetCurrentProcess().StartTime.ToUniversalTime();
@@ -92,6 +93,7 @@ public sealed class ServerStatus(
             ["raids"] = JsonSerializer.SerializeToNode(raids.Value, Web),
             ["live"] = JsonSerializer.SerializeToNode(live.Value, Web),
             ["panel"] = JsonSerializer.SerializeToNode(panel.Value, Web),
+            ["hygiene"] = JsonSerializer.SerializeToNode(hygiene.Value, Web),
             // Built by hand, never serialised: Tokens[].Token must not leave the server.
             ["admin"] = new JsonObject
             {

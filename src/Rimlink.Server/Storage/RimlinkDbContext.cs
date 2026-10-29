@@ -31,6 +31,7 @@ public sealed class RimlinkDbContext(DbContextOptions<RimlinkDbContext> options)
     public DbSet<PendingRemoval> PendingRemovals => Set<PendingRemoval>();
     public DbSet<Trade> Trades => Set<Trade>();
     public DbSet<PlayerBlock> PlayerBlocks => Set<PlayerBlock>();
+    public DbSet<ArchivedColony> ArchivedColonies => Set<ArchivedColony>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -81,7 +82,16 @@ public sealed class RimlinkDbContext(DbContextOptions<RimlinkDbContext> options)
             e.ToTable("save_versions");
             e.HasIndex(s => new { s.PlayerId, s.Number }).IsUnique();
         });
-        model.Entity<AdminAction>(e => e.ToTable("admin_actions"));
+        model.Entity<AdminAction>(e =>
+        {
+            e.ToTable("admin_actions");
+            e.HasIndex(a => new { a.TargetAccountId, a.At });
+        });
+        model.Entity<ArchivedColony>(e =>
+        {
+            e.ToTable("archived_colonies");
+            e.HasIndex(c => new { c.PlayerId, c.State });
+        });
 
         model.Entity<Wallet>(e =>
         {

@@ -69,4 +69,18 @@ public class StatusConfigTests
         Assert.Equal(HttpStatusCode.OK, (await bot.GetAsync("/api/admin/status")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await bot.GetAsync("/api/admin/config")).StatusCode);
     }
+
+    [Fact]
+    public async Task ConfigShowsHygiene()
+    {
+        using var fixture = new ServerFixture().WithSetting("Admin:ApiToken", AdminRestExtensions.ApiToken);
+
+        var hygiene = JsonDocument.Parse(await fixture.Rest().GetStringAsync("/api/admin/config")).RootElement.GetProperty("hygiene");
+
+        Assert.Equal(14, hygiene.GetProperty("archiveAfterDays").GetInt32());
+        Assert.Equal(100000, hygiene.GetProperty("archiveMaxWealth").GetInt64());
+        Assert.Equal(60, hygiene.GetProperty("archiveMaxColonyDays").GetInt32());
+        Assert.Equal(6, hygiene.GetProperty("sweepHours").GetInt32());
+        Assert.Equal(4, hygiene.GetProperty("wealthTiers").GetArrayLength());
+    }
 }

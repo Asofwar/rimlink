@@ -231,5 +231,40 @@ public class SchemaTests : IDisposable
         using var second = CreateContext();
         second.ForbiddenDefs.Add(new ForbiddenDef { DefName = "Gun_Revolver" });
         Assert.Throws<DbUpdateException>(() => second.SaveChanges());
+    private long Scalar(string sql)
+    {
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = sql;
+        return (long)cmd.ExecuteScalar()!;
+    }
+
+    [Fact]
+    public void ArchivedColoniesTableExists()
+    {
+        using var db = CreateContext();
+
+        string[] expected = ["Id", "PlayerId", "Tile", "Name", "SettledAt", "ArchivedAt", "Reason", "ArchivedBy", "WealthTotal",
+            "ColonyGameDays", "LastActiveAt", "Dir", "State", "RestoredAt", "RestoredBy"];
+        var columns = Columns("archived_colonies");
+        foreach (string column in expected) Assert.Contains(column, columns);
+        Assert.Equal(1L, Scalar("SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND tbl_name = 'archived_colonies' AND sql LIKE '%PlayerId%State%'"));
+        Assert.Empty(db.ArchivedColonies);
+    }
+
+    [Fact]
+    public void AccountsHaveLastSessionEnd()
+    {
+        using var db = CreateContext();
+
+        Assert.Contains("LastSessionEndAt", Columns("accounts"));
+        Assert.Null(db.Accounts.Select(a => a.LastSessionEndAt).FirstOrDefault());
+    }
+
+    [Fact]
+    public void AdminActionsAreIndexedByTarget()
+    {
+        using var db = CreateContext();
+
+        Assert.Equal(1L, Scalar("SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND tbl_name = 'admin_actions' AND sql LIKE '%TargetAccountId%At%'"));
     }
 }

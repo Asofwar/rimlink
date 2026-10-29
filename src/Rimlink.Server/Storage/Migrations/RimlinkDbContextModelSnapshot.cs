@@ -29,6 +29,9 @@ namespace Rimlink.Server.Storage.Migrations
                     b.Property<DateTime?>("LastSeenAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTime?>("LastSessionEndAt")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Login")
                         .HasColumnType("TEXT")
                         .UseCollation("NOCASE");
@@ -84,7 +87,68 @@ namespace Rimlink.Server.Storage.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TargetAccountId", "At");
+
                     b.ToTable("admin_actions", (string)null);
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.ArchivedColony", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("ArchivedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ArchivedBy")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("ColonyGameDays")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Dir")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("LastActiveAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("PlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("RestoredAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RestoredBy")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("SettledAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("State")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Tile")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("WealthTotal")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlayerId", "State");
+
+                    b.ToTable("archived_colonies", (string)null);
                 });
 
             modelBuilder.Entity("Rimlink.Server.Storage.Entities.Ban", b =>
@@ -1012,6 +1076,17 @@ namespace Rimlink.Server.Storage.Migrations
                         .HasFilter("\"Type\" = 'settlement'");
 
                     b.ToTable("world_objects", (string)null);
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.ArchivedColony", b =>
+                {
+                    b.HasOne("Rimlink.Server.Storage.Entities.Player", "Player")
+                        .WithMany()
+                        .HasForeignKey("PlayerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Player");
                 });
 
             modelBuilder.Entity("Rimlink.Server.Storage.Entities.Player", b =>

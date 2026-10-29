@@ -21,8 +21,38 @@ public sealed class Account
     public Role Role { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? LastSeenAt { get; set; }
+    /// <summary>When the last session ended (disconnect or logout); not written when a new login replaces it or the server dies.</summary>
+    public DateTime? LastSessionEndAt { get; set; }
 
     public Player? Player { get; set; }
+}
+
+public enum ArchiveState
+{
+    Archived = 0,
+    Restored = 1,
+}
+
+/// <summary>A colony moved out of the world: its settlement data and where its save files wait (<see cref="Dir"/>, under the data directory).</summary>
+public sealed class ArchivedColony
+{
+    public long Id { get; set; }
+    public long PlayerId { get; set; }
+    public Player Player { get; set; } = null!;
+    public int Tile { get; set; }
+    public string Name { get; set; } = "";
+    public DateTime SettledAt { get; set; }
+    public DateTime ArchivedAt { get; set; }
+    /// <summary><c>auto</c> (the sweep) or <c>admin</c>.</summary>
+    public string Reason { get; set; } = "";
+    public string ArchivedBy { get; set; } = "";
+    public long WealthTotal { get; set; }
+    public int? ColonyGameDays { get; set; }
+    public DateTime? LastActiveAt { get; set; }
+    public string Dir { get; set; } = "";
+    public ArchiveState State { get; set; }
+    public DateTime? RestoredAt { get; set; }
+    public string? RestoredBy { get; set; }
 }
 
 public sealed class Player

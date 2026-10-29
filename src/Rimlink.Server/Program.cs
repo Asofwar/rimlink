@@ -48,6 +48,9 @@ builder.Services.Configure<PanelOptions>(builder.Configuration.GetSection(PanelO
 builder.Services.AddOptions<IntegrityOptions>().Bind(builder.Configuration.GetSection(IntegrityOptions.Section))
     .Validate(IntegrityOptions.IsValid, "Integrity:WealthFreezePerDay must be 0 or at least Integrity:WealthWarnPerDay, and neither negative")
     .ValidateOnStart();
+builder.Services.AddOptions<HygieneOptions>().Bind(builder.Configuration.GetSection(HygieneOptions.Section))
+    .Validate(o => o.IsValid, "Hygiene: days, wealth and age must be 0 or more, SweepHours 1-168, WealthTiers four increasing positive numbers")
+    .ValidateOnStart();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.ConfigureHttpJsonOptions(json => json.SerializerOptions.Converters.Add(new UtcDateTimeConverter()));
 // Built from the bound options (test settings are not visible to the values read above before Build()).
