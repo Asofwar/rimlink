@@ -233,7 +233,11 @@ public sealed class RimlinkGameComponent : GameComponent
     public static void EndSession()
     {
         var connection = RimlinkSession.Connection;
-        Visits.VisitSession.Reset(); // first: it still needs the connection to close an open ticket
+        // First, and waited for: a ticket End sent after the logout below arrives with an expired session and leaves the
+        // ticket open for Raids:VisitHours (no visit or live session for this player meanwhile).
+        var visitEnd = Visits.VisitSession.Reset();
+        try { visitEnd?.Wait(TimeSpan.FromSeconds(3)); }
+        catch (AggregateException ex) { RimlinkLog.Instance.Warn("visit ticket not closed: " + ex.InnerException?.Message); }
         Live.LiveHost.Reset();
         Live.LiveGuest.Reset();
         atHomeSent = null;

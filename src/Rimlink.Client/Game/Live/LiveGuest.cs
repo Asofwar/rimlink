@@ -73,7 +73,7 @@ public static class LiveGuest
     private static bool Ready(PlayerRef host, int pawns)
     {
         if (!RimlinkSession.Active || RimlinkSession.Live is null) return false;
-        if (Session is not null || MirrorMode.Active || VisitSession.InVisit) { Messages.Message("Rimlink.Live.Busy".Translate(), MessageTypeDefOf.RejectInput, historical: false); return false; }
+        if (Session is not null || MirrorMode.Active || VisitSession.InVisit || VisitSession.Starting) { Messages.Message("Rimlink.Live.Busy".Translate(), MessageTypeDefOf.RejectInput, historical: false); return false; }
         if (Raids.RaidOutgoing.CheckLimits(pawns) is { } limit) { Messages.Message(limit, MessageTypeDefOf.RejectInput, historical: false); return false; }
         return true;
     }
@@ -339,6 +339,13 @@ public static class LiveGuest
     public static void SendSchedule(Pawn pawn, int hour, TimeAssignmentDef assignment) => Send(new Order { PawnId = pawn.thingIDNumber, Schedule = new Schedule { Hour = hour, AssignmentDef = assignment.defName } }, "schedule");
 
     /// <summary>The speed buttons: a pause asks the host (budgeted), a speed is the guest's wish (the host runs at the slower of the two).</summary>
+    /// <summary>The pause button or Space in the mirror: lifts our own pause or asks for one; a pause the host set is theirs to lift.</summary>
+    public static void TogglePause()
+    {
+        if (MirrorMode.PausedBy == 2) Send(new Order { Pause = false }, "unpause");
+        else if (MirrorMode.PausedBy == 0) Send(new Order { Pause = true }, "pause");
+    }
+
     public static void SendSpeed(TimeSpeed speed)
     {
         if (speed == TimeSpeed.Paused) Send(new Order { Pause = true }, "pause");

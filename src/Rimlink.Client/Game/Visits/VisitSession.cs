@@ -25,6 +25,8 @@ public static class VisitSession
     /// player's colony, so nothing that acts on "the home map" (deliveries, raids, shop removals, saves) may run.
     /// </summary>
     public static bool InVisit => Active || Pending is not null;
+    /// <summary>The visit ticket was asked for and the answer is not in yet: no second visit or live proposal meanwhile.</summary>
+    public static bool Starting { get; private set; }
     public static long VisitId { get; private set; }
     public static long HostId { get; private set; }
     public static string HostName { get; private set; } = "";
@@ -37,7 +39,7 @@ public static class VisitSession
     /// <summary>Caravan (or pod) guests on the host's tile: copies of them go visiting; the originals wait where they are.</summary>
     public static void Begin(PlayerRef host, IReadOnlyList<Pawn> guests)
     {
-        if (!RimlinkSession.Active || RimlinkSession.Visits is not { } visits || RimlinkSession.Shop is not { } shop || Active || Pending is not null) return;
+        if (!RimlinkSession.Active || RimlinkSession.Visits is not { } visits || RimlinkSession.Shop is not { } shop || Active || Pending is not null || Starting) return;
         if (guests.Count == 0) { Messages.Message("Rimlink.Visit.NoPawns".Translate(), MessageTypeDefOf.RejectInput, historical: false); return; }
         List<PawnBlob> blobs;
         try
@@ -53,6 +55,7 @@ public static class VisitSession
         long tick = Find.TickManager.TicksGame;
         var wait = new Dialog_Wait("Rimlink.Visit.Preparing".Translate(host.Name), new CancellationTokenSource());
         Find.WindowStack.Add(wait);
+        Starting = true;
         _ = Task.Run(async () =>
         {
             VisitTicket ticket;
@@ -65,10 +68,10 @@ public static class VisitSession
             catch (Exception ex)
             {
                 string reason = ex is Grpc.Core.RpcException rpc ? EconomyClient.MessageOf(rpc) : ex.Message;
-                MainThread.Post(() => { wait.Close(); Messages.Message("Rimlink.Visit.Failed".Translate(reason), MessageTypeDefOf.RejectInput, historical: false); });
+                MainThread.Post(() => { Starting = false; wait.Close(); Messages.Message("Rimlink.Visit.Failed".Translate(reason), MessageTypeDefOf.RejectInput, historical: false); });
                 return;
             }
-            MainThread.Post(() => SaveAndLoad(new VisitPending(ticket.VisitId, host.PlayerId, host.Name, blobs, shopList), wait, visits));
+            MainThread.Post(() => { Starting = false; SaveAndLoad(new VisitPending(ticket.VisitId, host.PlayerId, host.Name, blobs, shopList), wait, visits); });
         });
     }
 
@@ -240,17 +243,19 @@ public static class VisitSession
     /// its ticket. The ticket is closed on a best-effort basis while the connection still exists (the server closes a
     /// forgotten one after Raids:VisitHours anyway) and the host's copy is deleted; the caller takes the game to the menu.
     /// </summary>
-    public static void Reset()
+    /// <summary>Ends the visit with the session; returns the ticket's End call (or null), which the caller lets finish before disconnecting.</summary>
+    public static Task? Reset()
     {
         long visitId = Active ? VisitId : Pending?.VisitId ?? 0;
         long hostId = Active ? HostId : Pending?.HostId ?? 0;
         Active = false;
         Pending = null;
+        Starting = false;
         HostShop.Clear();
         if (hostId != 0) DeleteVisitFile(hostId);
-        if (visitId == 0) return;
+        if (visitId == 0) return null;
         RimlinkLog.Instance.Info($"visit {visitId} ends with the session");
-        if (RimlinkSession.Visits is { } visits) _ = visits.End(visitId, CancellationToken.None);
+        return RimlinkSession.Visits is { } visits ? visits.End(visitId, CancellationToken.None) : null;
     }
 }
 

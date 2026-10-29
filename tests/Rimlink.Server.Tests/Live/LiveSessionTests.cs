@@ -33,6 +33,44 @@ public class LiveSessionTests
         return await query(scope.ServiceProvider.GetRequiredService<RimlinkDbContext>());
     }
 
+    /// <summary>Bob gets a colony on the server so he can be visited.</summary>
+    private static async Task GiveBobASave(ServerFixture fixture, LiveClients bob)
+    {
+        var b = RaidClientsOf(fixture, bob.Login.SessionToken);
+        byte[] save = SaveFixtures.MakeSave(ServerFixture.WorldSeed, "Bob", tick: 10);
+        await SaveFixtures.Upload(b.Saves, bob.Login.SessionToken, save, SaveFixtures.HeaderFor(save, ServerFixture.WorldSeed, "Bob", tick: 10));
+    }
+
+    [Fact]
+    public async Task ProposeIsRefusedWhileTheGuestIsOnAVisit()
+    {
+        var p = await NovaAndBob();
+        using var fixture = p.Fixture;
+        await GiveBobASave(fixture, p.Bob);
+        var n = RaidClientsOf(fixture, p.Nova.Login.SessionToken);
+        await n.Visits.BeginAsync(new VisitRequest { TargetPlayerId = p.Bob.PlayerId, GameTick = 5 }, n.Auth);
+
+        var ex = await Assert.ThrowsAsync<RpcException>(async () => await p.Nova.Live.ProposeAsync(Propose(p.Bob.PlayerId, LiveKind.LiveVisit), p.Nova.Auth));
+
+        Assert.Equal(ErrorCode.LiveActive, ex.ErrorDetail()!.Code);
+        Assert.False(await Db(fixture, db => db.LiveSessions.AnyAsync()));
+    }
+
+    [Fact]
+    public async Task AVisitIsRefusedDuringALiveSession()
+    {
+        var p = await NovaAndBob();
+        using var fixture = p.Fixture;
+        await GiveBobASave(fixture, p.Bob);
+        await p.Nova.Live.ProposeAsync(Propose(p.Bob.PlayerId, LiveKind.LiveVisit), p.Nova.Auth);
+        var n = RaidClientsOf(fixture, p.Nova.Login.SessionToken);
+
+        var ex = await Assert.ThrowsAsync<RpcException>(async () => await n.Visits.BeginAsync(new VisitRequest { TargetPlayerId = p.Bob.PlayerId, GameTick = 5 }, n.Auth));
+
+        Assert.Equal(ErrorCode.LiveActive, ex.ErrorDetail()!.Code);
+        Assert.False(await Db(fixture, db => db.Visits.AnyAsync()));
+    }
+
     [Fact]
     public async Task TheSessionCarriesTheGuestPauseBudgetFromTheServerConfig()
     {

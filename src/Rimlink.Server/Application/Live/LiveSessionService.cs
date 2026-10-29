@@ -27,7 +27,7 @@ namespace Rimlink.Server.Application.Live;
 public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, RaidRules rules, ParcelValidator validator, MailboxService mailbox,
     SessionRegistry registry, EventBus events, LiveRelay relay, IOptions<LiveOptions> options, IOptions<RaidOptions> raidOptions, ILogger<LiveSessionService> log)
 {
-    private static readonly LiveStateDb[] FinalStates = [LiveStateDb.Ended, LiveStateDb.Fallback];
+    public static readonly LiveStateDb[] FinalStates = [LiveStateDb.Ended, LiveStateDb.Fallback];
 
     public async Task<LiveSessionRow> Propose(long guestId, LiveProposal p)
     {
@@ -48,6 +48,10 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
             throw RpcErrors.Failed(ErrorCode.LiveActive, "you already have a live session");
         if (await db.LiveSessions.AnyAsync(s => !FinalStates.Contains(s.State) && (s.GuestPlayerId == host.Id || s.HostPlayerId == host.Id)))
             throw RpcErrors.Failed(ErrorCode.LiveActive, $"{host.Name} is in a live session already");
+        // An open visit ticket (3a) is a session too: a proposal sent while the visit copy loads must not open a second one.
+        var visitsSince = DateTime.UtcNow - TimeSpan.FromHours(raidOptions.Value.VisitHours);
+        if (await db.Visits.AnyAsync(v => v.VisitorPlayerId == guestId && v.EndedAt == null && v.StartedAt > visitsSince))
+            throw RpcErrors.Failed(ErrorCode.LiveActive, "you are on a visit");
         if (validator.Validate(null, p.Pawns) is { } reason) throw RpcErrors.Failed(ParcelValidator.CodeFor(reason), reason);
 
         var session = new LiveSessionRow { Kind = (int)p.Kind, HostPlayerId = host.Id, GuestPlayerId = guestId, State = LiveStateDb.Proposed, CreatedAt = DateTime.UtcNow,

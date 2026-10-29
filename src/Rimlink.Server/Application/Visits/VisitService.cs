@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using Rimlink.Protocol.V1;
 using Rimlink.Server.Hosting;
 using Rimlink.Server.Application.Events;
+using Rimlink.Server.Application.Live;
 using Rimlink.Server.Application.Raids;
 using Rimlink.Server.Application.Saves;
 using Rimlink.Server.Grpc;
@@ -24,6 +25,8 @@ public sealed class VisitService(RimlinkDbContext db, SaveStore saves, EventBus 
         if (hostId == visitorId) throw RpcErrors.Failed(ErrorCode.SelfTrade, "you cannot visit yourself");
         var host = await db.Players.AsNoTracking().FirstOrDefaultAsync(p => p.Id == hostId) ?? throw RpcErrors.Failed(ErrorCode.RecipientUnknown, "no such player");
         if (host.VisitsClosed) throw RpcErrors.Failed(ErrorCode.VisitsClosed, $"{host.Name} does not receive visitors");
+        if (await db.LiveSessions.AnyAsync(s => !LiveSessionService.FinalStates.Contains(s.State) && (s.GuestPlayerId == visitorId || s.HostPlayerId == visitorId)))
+            throw RpcErrors.Failed(ErrorCode.LiveActive, "you are in a live session");
         if (!await saves.HasSave(hostId)) throw new RpcException(new Status(StatusCode.NotFound, $"{host.Name} has no colony on the server yet"));
 
         var now = DateTime.UtcNow;

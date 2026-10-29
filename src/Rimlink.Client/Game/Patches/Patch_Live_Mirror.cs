@@ -30,6 +30,18 @@ public static class Patch_TickManager_CurTimeSpeed_Mirror
     }
 }
 
+/// <summary>The pause button and Space write the speed field directly, past the setter patch above: in the mirror they go to the host as a pause order.</summary>
+[HarmonyPatch(typeof(TickManager), nameof(TickManager.TogglePaused))]
+public static class Patch_TickManager_TogglePaused_Mirror
+{
+    public static bool Prefix()
+    {
+        if (!MirrorMode.Active || MirrorMode.Applying) return true;
+        if (!MirrorMode.SettlingIn) LiveGuest.TogglePause();
+        return false;
+    }
+}
+
 /// <summary>Every ordered job (right-click menu, attack and equip gizmos) on one of our pawns becomes an order frame; nobody else's pawns take orders.</summary>
 [HarmonyPatch(typeof(Pawn_JobTracker), nameof(Pawn_JobTracker.TryTakeOrderedJob))]
 public static class Patch_Pawn_JobTracker_TryTakeOrderedJob_Mirror
