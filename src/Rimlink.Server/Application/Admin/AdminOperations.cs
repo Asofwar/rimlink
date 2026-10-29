@@ -26,6 +26,9 @@ namespace Rimlink.Server.Application.Admin;
 
 public sealed record LotView(long Id, long SellerPlayerId, string SellerName, long Price, DateTime CreatedAt, DateTime ExpiresAt, string Status, string Summary);
 
+public sealed record TradeView(long Id, long InitiatorId, string InitiatorName, long PartnerId, string PartnerName, string Status, int Revision,
+    string InitiatorSide, string PartnerSide, DateTime CreatedAt, DateTime ExpiresAt, DateTime? ClosedAt, string? CloseReason);
+
 public sealed record OnlinePlayer(long PlayerId, long AccountId, string Name, string FactionName, Role Role, string Ip, DateTime Since);
 
 /// <summary>Every administrative operation, with the role check and the audit log in one place. gRPC, REST and chat commands all call this.</summary>
@@ -47,6 +50,7 @@ public sealed class AdminOperations(
     RaidFreezeState raidFreeze,
     ShopService shop,
     VisitService visits,
+    Trades.TradeService trades,
     Backup.BackupService backups,
     AdminFeed feed,
     ILogger<AdminOperations> log)
@@ -81,6 +85,27 @@ public sealed class AdminOperations(
     }
 
     public sealed record RaidStatsResult(int Queued, int Announced, int Landed, int ResolvedToday, int Expired, int Cancelled, bool Frozen, string? FreezeReason);
+
+    public async Task<List<TradeView>> ListTrades(Actor actor, long? playerId)
+    {
+        actor.Require(Role.Moderator);
+        var rows = await trades.ListFor(playerId);
+        var ids = rows.SelectMany(t => new[] { t.InitiatorPlayerId, t.PartnerPlayerId }).Distinct().ToList();
+        var names = await db.Players.AsNoTracking().Where(p => ids.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Name);
+        string Side(byte[] items, byte[] pawns, long silver) => TransferService.Summary(ItemList.Parser.ParseFrom(items), PawnList.Parser.ParseFrom(pawns), silver);
+        return rows.Select(t => new TradeView(t.Id, t.InitiatorPlayerId, names.GetValueOrDefault(t.InitiatorPlayerId, "?"), t.PartnerPlayerId, names.GetValueOrDefault(t.PartnerPlayerId, "?"),
+            t.Status.ToString(), t.Revision, Side(t.InitiatorItems, t.InitiatorPawns, t.InitiatorSilver), Side(t.PartnerItems, t.PartnerPawns, t.PartnerSilver),
+            t.CreatedAt, t.ExpiresAt, t.ClosedAt, t.CloseReason)).ToList();
+    }
+
+    /// <summary>Ends an open trade; each side goes back to its owner.</summary>
+    public async Task<bool> CancelTrade(Actor actor, long tradeId, string reason)
+    {
+        actor.Require(Role.Admin);
+        if (!await trades.AdminCancel(tradeId, reason)) return false;
+        await Audit(actor, "trade-cancel", null, $"trade {tradeId}: {reason}");
+        return true;
+    }
 
     public Task<List<Raid>> ListRaids(Actor actor, long? playerId)
     {
@@ -397,6 +422,7 @@ public sealed class AdminOperations(
         await raids.CancelAllOf(playerId, "colony reset");
         await shop.ClearOf(playerId);
         await visits.EndAllOf(playerId);
+        await trades.CancelAllOf(playerId, "colony reset");
         await Audit(actor, "reset", player.AccountId, archive);
         log.LogInformation("Player {Name} reset by {Actor}", player.Name, actor.Name);
     }

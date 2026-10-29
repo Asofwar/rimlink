@@ -17,7 +17,8 @@ public sealed class AdminCommandRunner(AdminOperations ops, ModpackService modpa
         wallet <player> [+n|-n] [reason] | parcels <player> | lots [player] | refund lot <id> | refund parcel <id> |
         economy freeze [reason] | economy unfreeze | economy stats |
         raids list [player] | raids cancel <id> [--return] [reason] | raids freeze [reason] | raids unfreeze | raids stats |
-        live list [player] | live end <id> [reason] | peaceful <player> on|off | shop <player> | removals <player>
+        live list [player] | live end <id> [reason] | peaceful <player> on|off | shop <player> | removals <player> |
+        trades [player] | trade cancel <id> [reason]
         """;
 
     public async Task<string> Execute(Actor actor, AdminCommand command)
@@ -123,6 +124,15 @@ public sealed class AdminCommandRunner(AdminOperations ops, ModpackService modpa
                         return $"silver in wallets {s.SilverInWallets}, open lots {s.OpenLots}, pending parcels {s.PendingParcels}, trades today {s.TradesToday}{(s.Frozen ? $", FROZEN: {s.FreezeReason}" : "")}";
                     default: throw new RpcException(new Status(StatusCode.InvalidArgument, "economy freeze [reason] | unfreeze | stats"));
                 }
+            case "trades":
+            {
+                var list = await ops.ListTrades(actor, args.Count > 0 ? await PlayerId(Arg(0)) : null);
+                return list.Count == 0 ? "no trades" : string.Join('\n', list.Select(t =>
+                    $"#{t.Id} {t.InitiatorName} <-> {t.PartnerName} {t.Status.ToLowerInvariant()} r{t.Revision}: [{t.InitiatorSide}] for [{t.PartnerSide}]{(t.CloseReason is null ? "" : $" ({t.CloseReason})")}"));
+            }
+            case "trade":
+                if (Arg(0) != "cancel") throw new RpcException(new Status(StatusCode.InvalidArgument, "trade cancel <id> [reason]"));
+                return await ops.CancelTrade(actor, long.Parse(Arg(1), CultureInfo.InvariantCulture), args.Count > 2 ? Rest(2) : "cancelled by admin") ? "trade cancelled" : "no such open trade";
             case "raids":
                 switch (Arg(0))
                 {

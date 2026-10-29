@@ -30,7 +30,7 @@ public static class AdminDirectoryEndpoints
             return new
             {
                 r.Id, r.AccountId, r.Name, r.FactionName, r.Role, r.SteamId, r.Login, r.Online, r.LastSeenAt, r.CreatedAt, r.MutedUntil, r.Peaceful, r.Banned,
-                c.LastIp, c.Session, c.Settlements, c.WalletBalance, c.WealthTotal, c.FirstSaveAt, c.CurrentSave, c.ActiveBans, c.VisitsClosed, c.PeacefulOffAt,
+                c.LastIp, c.Session, c.Settlements, c.WalletBalance, c.WealthTotal, c.FirstSaveAt, c.CurrentSave, c.ActiveBans, c.VisitsClosed, c.PeacefulOffAt, c.Blocks,
             };
         }).RequireScope(ApiScope.Moderate);
 

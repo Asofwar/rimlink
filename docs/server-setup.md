@@ -82,6 +82,14 @@ player id 0), `SendCooldownSeconds` 5. A save uploaded with a game tick older th
 (`SAVE_STALE`): that file would bring back what was given away. An admin rollback behind a transfer is allowed and
 logged as such.
 
+Gifts and trades: a player's gift waits for the recipient's accept or refuse (unless the recipient ticked "accept gifts
+at once"); a refused gift goes back to its sender (items and pawns as a parcel, silver to the wallet), and one left
+unanswered for `GiftDecisionDays` (7) is refused by the hourly sweep. Two-way trades keep both sides in server escrow
+until both players confirmed the same version; an open trade expires after `TradeLifetimeDays` (7) and a player may
+take part in `MaxOpenTrades` (5) open trades at once. `Social:MaxBlocks` (200) caps a player's block list; moderators
+and admins cannot be blocked. A block or a colony reset closes the open trades between the two players (or of that
+player), each side going back to its owner.
+
 ## 5b. Raids, visits and the shop
 
 Asynchronous raids: an attacker's pawns wait on the server until the target next plays, fight there as a vanilla raid
@@ -123,6 +131,10 @@ still ends as a mailbox parcel, as in 5a/5b.
 - Economy: chat `/wallet <player> [+n|-n] [reason]`, `/parcels <player>`, `/lots [player]`, `/refund lot <id>`,
   `/refund parcel <id>` (undelivered gift back to its sender), `/economy freeze [reason]|unfreeze|stats`; the same via
   `rimlink-tools admin wallet|parcels|lots|refund|economy …` and REST `/api/admin/economy/*`.
+- Trades: chat `/trades [player]` (moderator), `/trade cancel <id> [reason]` (admin; each side goes back to its owner);
+  the same via `rimlink-tools admin trades [playerId]|trade cancel <id> [reason]` and REST `GET /api/admin/trades[?playerId=]`
+  (scope `moderate`), `POST /api/admin/trades/{id}/cancel` (body `{"reason": "..."}`, scope `admin`). The player card
+  (`GET /api/admin/players/{id}`) lists in `blocks` the players this one blocked.
 - Raids: chat `/raids list [player]|cancel <id> [--return] [reason]|freeze [reason]|unfreeze|stats`,
   `/peaceful <player> on|off` (no delay), `/shop <player>`, `/removals <player>`; the same via
   `rimlink-tools admin raids|peaceful|shop|removals …` and REST `/api/admin/raids/*` (cancel body
@@ -211,7 +223,8 @@ revocable on its own and named in the audit log:
 
 ## 8. Monitoring
 
-`GET /health` (used by the Docker health check) and Prometheus metrics at `GET /metrics` (economy: `rimlink_trades_total{kind}`, `rimlink_silver_moved_total`, `rimlink_parcels_pending`, `rimlink_economy_errors_total{code}`; raids: `rimlink_raids_total{outcome}`, `rimlink_raids_active`, `rimlink_visits_total`, `rimlink_shop_sales_total`; live sessions:
+`GET /health` (used by the Docker health check) and Prometheus metrics at `GET /metrics` (economy: `rimlink_trades_total{kind}`, `rimlink_silver_moved_total`, `rimlink_parcels_pending`, `rimlink_economy_errors_total{code}`; gifts and trades: `rimlink_gifts_refused_total`, `rimlink_player_trades_total{outcome}` (`opened|completed|cancelled|expired`);
+raids: `rimlink_raids_total{outcome}`, `rimlink_raids_active`, `rimlink_visits_total`, `rimlink_shop_sales_total`; live sessions:
 `rimlink_live_proposed_total{kind}`, `rimlink_live_sessions_total{kind,end_reason}`, `rimlink_live_frames_total{dir}`, `rimlink_live_active`;
 admin feed: `rimlink_admin_feed_subscribers`). Logs go to the console
 and `logs/server-<date>.log`.

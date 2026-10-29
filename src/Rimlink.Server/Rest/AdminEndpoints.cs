@@ -98,6 +98,9 @@ public static class AdminEndpoints
             var names = await directory.NamesByPlayer(raids.SelectMany(r => new[] { r.AttackerPlayerId, r.TargetPlayerId }));
             return raids.Select(r => new { r.Id, r.AttackerPlayerId, attackerName = NameOf(names, r.AttackerPlayerId), r.TargetPlayerId, targetName = NameOf(names, r.TargetPlayerId), State = r.State.ToString(), PawnMode = ((PawnMode)r.PawnMode).ToString(), Timing = ((RaidTiming)r.Timing).ToString(), r.LootCap, r.CreatedAt, r.LandAtTick, r.LandedTick, r.ResolvedAt, r.ExpiresAt });
         }).RequireScope(ApiScope.Read);
+        group.MapGet("/trades", async (HttpContext ctx, AdminOperations ops, [FromQuery] long? playerId = null) => await ops.ListTrades(ctx.Actor(), playerId)).RequireScope(ApiScope.Moderate);
+        group.MapPost("/trades/{id:long}/cancel", async (long id, ReasonBody body, HttpContext ctx, AdminOperations ops) =>
+            await ops.CancelTrade(ctx.Actor(), id, body.Reason ?? "cancelled by admin") ? Results.Ok() : Results.NotFound()).RequireScope(ApiScope.Admin);
         group.MapPost("/raids/{id:long}/cancel", async (long id, CancelRaidBody body, HttpContext ctx, AdminOperations ops) =>
             await ops.CancelRaid(ctx.Actor(), id, body.Reason ?? "cancelled by admin", body.ReturnPawns) ? Results.Ok() : Results.NotFound()).RequireScope(ApiScope.Admin);
         group.MapPost("/raids/freeze", async (FreezeBody body, HttpContext ctx, AdminOperations ops) => { await ops.SetRaidsFrozen(ctx.Actor(), body.Frozen, body.Reason); return Results.Ok(); }).RequireScope(ApiScope.Admin);

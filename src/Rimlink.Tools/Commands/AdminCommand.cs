@@ -10,7 +10,7 @@ public static class AdminCommand
         var server = new Option<string>("--server") { Description = "Server base URL, e.g. https://host:25560", Required = true };
         var token = new Option<string>("--token") { Description = "Admin:ApiToken", Required = true };
         var insecure = new Option<bool>("--insecure") { Description = "Accept a self-signed server certificate" };
-        var name = new Argument<string>("command") { Description = "online | players [query] | player <playerId> | role <playerId> player|moderator|admin | rename <playerId> <name> [faction] | kick <playerId> [reason] | ban <playerId> [days] [reason] | pardon <banId> | bans | mute <playerId> <minutes> | unmute <playerId> | saves <playerId> | rollback <playerId> <version> | reset <playerId> | broadcast <text> | say <author> <text> | saveall | shutdown <seconds> [reason] | recreateworld | modpack | actions | chat [playerId] | status | config | backups | backup | backup-get <name> <file> | wallet <playerId> [+n|-n] [reason] | parcels <playerId> | lots [playerId] | refund lot <id> | refund parcel <id> | economy freeze [reason]|unfreeze|stats | raids list [playerId]|cancel <id> [reason]|freeze [reason]|unfreeze|stats | peaceful <playerId> on|off | shop <playerId> | removals <playerId>" };
+        var name = new Argument<string>("command") { Description = "online | players [query] | player <playerId> | role <playerId> player|moderator|admin | rename <playerId> <name> [faction] | kick <playerId> [reason] | ban <playerId> [days] [reason] | pardon <banId> | bans | mute <playerId> <minutes> | unmute <playerId> | saves <playerId> | rollback <playerId> <version> | reset <playerId> | broadcast <text> | say <author> <text> | saveall | shutdown <seconds> [reason] | recreateworld | modpack | actions | chat [playerId] | status | config | backups | backup | backup-get <name> <file> | wallet <playerId> [+n|-n] [reason] | parcels <playerId> | lots [playerId] | refund lot <id> | refund parcel <id> | economy freeze [reason]|unfreeze|stats | raids list [playerId]|cancel <id> [reason]|freeze [reason]|unfreeze|stats | peaceful <playerId> on|off | shop <playerId> | removals <playerId> | trades [playerId] | trade cancel <id> [reason]" };
         var args = new Argument<string[]>("args") { Arity = ArgumentArity.ZeroOrMore };
 
         var command = new Command("admin", "Run an admin operation on a running server") { server, token, insecure, name, args };
@@ -61,6 +61,12 @@ public static class AdminCommand
                 "parcels" => await rest.Get($"economy/parcels/{a[0]}"),
                 "lots" => await rest.Get(a.Length > 0 ? $"economy/lots?playerId={a[0]}" : "economy/lots"),
                 "refund" => await rest.Post($"economy/refund/{a[0]}/{a[1]}", null),
+                "trades" => await rest.Get(a.Length > 0 ? $"trades?playerId={a[0]}" : "trades"),
+                "trade" => a[0] switch
+                {
+                    "cancel" => await rest.Post($"trades/{a[1]}/cancel", new { reason = string.Join(' ', a.Skip(2)) is { Length: > 0 } r ? r : "cancelled by admin" }),
+                    _ => throw new InvalidOperationException("trade cancel <id> [reason]"),
+                },
                 "raids" => a[0] switch
                 {
                     "list" => await rest.Get(a.Length > 1 ? $"raids?playerId={a[1]}" : "raids"),

@@ -69,6 +69,22 @@ public class AdminCommandTests
     }
 
     [Fact]
+    public async Task TradesAndTradeCancel()
+    {
+        using var fixture = Server();
+        var nova = await fixture.RegisterAndLogin("nova", playerName: "Nova");
+        var bob = await fixture.RegisterAndLogin("bob", playerName: "Bob");
+        var trades = new Rimlink.Protocol.V1.Trades.TradesClient(fixture.CreateChannel());
+        var trade = await trades.OpenAsync(SocialFixtures.OpenTrade(bob.Player.PlayerId, note: "hi"), GrpcTestExtensions.Bearer(nova.SessionToken));
+        using var cli = Cli(fixture);
+
+        Assert.Equal(trade.Id, JsonDocument.Parse(await AdminCommand.Run(cli, "trades", [nova.Player.PlayerId.ToString()])).RootElement[0].GetProperty("id").GetInt64());
+        await AdminCommand.Run(cli, "trade", ["cancel", trade.Id.ToString(), "by", "cli"]);
+
+        Assert.Equal("Cancelled", JsonDocument.Parse(await AdminCommand.Run(cli, "trades", [])).RootElement[0].GetProperty("status").GetString());
+    }
+
+    [Fact]
     public async Task UnknownCommandThrows()
     {
         using var fixture = Server();
