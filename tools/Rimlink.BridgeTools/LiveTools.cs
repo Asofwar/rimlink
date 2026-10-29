@@ -13,6 +13,17 @@ namespace Rimlink.BridgeTools;
 /// </summary>
 public sealed class LiveTools
 {
+    [Tool("rimlink/letter_pause", Description = "Set this player's letter-pause threshold as the mod settings do (never, major, any); during a live session the guest's goes to the host",
+        ResultDescription = "success/started; rimlink/status live.letterPause shows it")]
+    public Task<object> LetterPauseTool(IRimBridgeContext ctx,
+        [ToolParameter(Description = "never, major or any", Required = true)] string mode) => Bridge.OnMain(ctx, () =>
+    {
+        LetterPause? chosen = mode.ToLowerInvariant() switch { "never" => LetterPause.Never, "major" => LetterPause.Major, "any" => LetterPause.Any, _ => null };
+        if (chosen is not { } value) return Bridge.Fail("mode must be never, major or any");
+        LiveTempo.ChangeOwnThreshold(value);
+        return Targets.Started($"letter pause: {value}");
+    });
+
     [Tool("rimlink/live_resync", Description = "Guest: ask the host for a fresh snapshot, as the mirror does after too many unknown ids",
         ResultDescription = "success/started; the host saves (live-snapshot) and the guest reloads the copy")]
     public Task<object> LiveResync(IRimBridgeContext ctx) => Bridge.OnMain(ctx, () =>

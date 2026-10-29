@@ -26,6 +26,9 @@ public sealed class LiveClient(RimlinkConnection connection, ILog log)
     private AsyncDuplexStreamingCall<LiveClientMsg, LiveServerMsg>? call;
     private long sessionId;
     private int role, snapshotSeq;
+
+    /// <summary>This player's letter-pause threshold, sent in every Hello (the host learns the guest's from it).</summary>
+    public LetterPause HelloLetterPause { get; set; }
     private DateTime lost = DateTime.MinValue;
 
     public FrameQueue Incoming { get; } = new();
@@ -206,7 +209,7 @@ public sealed class LiveClient(RimlinkConnection connection, ILog log)
             {
                 current = connection.LiveApi.Stream(cancellationToken: ct);
                 call = current;
-                await current.RequestStream.WriteAsync(new LiveClientMsg { SessionId = sessionId, Hello = new Hello { Role = role, SnapshotSeq = snapshotSeq } }, ct);
+                await current.RequestStream.WriteAsync(new LiveClientMsg { SessionId = sessionId, Hello = new Hello { Role = role, SnapshotSeq = snapshotSeq, LetterPause = HelloLetterPause } }, ct);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

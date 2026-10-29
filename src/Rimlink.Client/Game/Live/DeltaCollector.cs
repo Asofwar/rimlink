@@ -69,6 +69,17 @@ public sealed class DeltaCollector(Map map)
     /// <summary>Damage and cell events since the last delta; cleared with <see cref="Commit"/>.</summary>
     public List<DamageEvent> Damage => damage;
     public List<CellChange> Cells => cells;
+    /// <summary>Threat letters of the host's game since the last delta, for the guest's letter stack; cleared with <see cref="Commit"/>.</summary>
+    public List<GuestMessage> Letters { get; } = [];
+
+    /// <summary>A host letter as the guest's mirror shows it: label, text, def, and what it points at (a thing by id, else a cell).</summary>
+    public void Letter(Letter letter)
+    {
+        var message = new GuestMessage { Letter = true, Label = letter.Label.ToString(), LetterDef = letter.def.defName, Text = (letter as ChoiceLetter)?.Text.ToString() ?? "" };
+        if (letter.lookTargets?.PrimaryTarget is { IsValid: true } target)
+            message.Look = target.HasThing ? new Target { ThingId = target.Thing.thingIDNumber } : new Target { Cell = new Cell { X = target.Cell.x, Z = target.Cell.z } };
+        if (Letters.Count < 20) Letters.Add(message);
+    }
 
     public void Commit(MirrorMap next)
     {
@@ -80,6 +91,7 @@ public sealed class DeltaCollector(Map map)
         changed.Clear();
         damage.Clear();
         cells.Clear();
+        Letters.Clear();
     }
 
     public void Spawned(Thing t)

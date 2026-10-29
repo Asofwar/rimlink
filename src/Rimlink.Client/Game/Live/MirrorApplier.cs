@@ -74,6 +74,7 @@ public static class MirrorApplier
                 if (FindThing(e.VictimId, map) is { Spawned: true } victim) MoteMaker.ThrowText(victim.DrawPos, map, e.Amount.ToString("0"), 1.5f);
             }
             foreach (var blob in d.GuestPawnBlobs) Transplant(blob, map);
+            foreach (var m in d.Messages) if (m.Letter) Letter(m, map);
         }
         catch (Exception ex)
         {
@@ -141,6 +142,20 @@ public static class MirrorApplier
         {
             RimlinkLog.Instance.Warn("mirror: a pawn blob could not be applied: " + ex.Message);
         }
+    }
+
+    /// <summary>A threat letter of the host's game, in the mirror's letter stack (the label also names a letter pause in the HUD).</summary>
+    private static void Letter(GuestMessage m, Map map)
+    {
+        MirrorMode.LetterLabel = m.Label;
+        var def = DefDatabase<LetterDef>.GetNamedSilentFail(m.LetterDef) ?? LetterDefOf.NeutralEvent;
+        var look = m.Look?.TCase switch
+        {
+            Target.TOneofCase.ThingId when FindThing(m.Look.ThingId, map) is { Spawned: true } thing => new LookTargets(thing),
+            Target.TOneofCase.Cell when new IntVec3(m.Look.Cell.X, 0, m.Look.Cell.Z) is var cell && cell.InBounds(map) => new LookTargets(cell, map),
+            _ => LookTargets.Invalid,
+        };
+        Find.LetterStack.ReceiveLetter(m.Label, m.Text, def, look);
     }
 
     private static int unknownLogged;

@@ -22,6 +22,8 @@ public static class MirrorMode
     public static bool Applying { get; set; }
     public static long TargetTick { get; set; }
     public static int PausedBy { get; set; }
+    /// <summary>The label of the host's last threat letter: what a letter pause (PausedBy 3) is about.</summary>
+    public static string? LetterLabel { get; set; }
     public static int SnapshotVersion { get; set; }
     /// <summary>The game pauses itself right after a load; speed writes in the first seconds are not the player's wish.</summary>
     public static DateTime EnteredAt { get; private set; }

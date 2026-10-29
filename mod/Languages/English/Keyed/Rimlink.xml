@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LanguageData>
   <Rimlink.Settings.Servers>Saved servers: {0}. Manage them from the Multiplayer button in the main menu.</Rimlink.Settings.Servers>
+  <Rimlink.Settings.LetterPause>Pause a live session on letters:</Rimlink.Settings.LetterPause>
+  <Rimlink.Settings.LetterPauseTip>When a threat letter arrives in the host's game during a live session. The stricter choice of the two players applies; either player lifts the pause, and it does not count against the guest's pauses.</Rimlink.Settings.LetterPauseTip>
+  <Rimlink.Settings.LetterPause.Never>never</Rimlink.Settings.LetterPause.Never>
+  <Rimlink.Settings.LetterPause.Major>on major threats</Rimlink.Settings.LetterPause.Major>
+  <Rimlink.Settings.LetterPause.Any>on any threat</Rimlink.Settings.LetterPause.Any>
   <Rimlink.MainMenu.Multiplayer>Multiplayer</Rimlink.MainMenu.Multiplayer>
   <Rimlink.MainMenu.ServerSettings>Mod settings of {0} in effect: use mine</Rimlink.MainMenu.ServerSettings>
   <Rimlink.MainMenu.ServerSettingsConfirm>Use your own mod settings instead of those of {0}? The game restarts.</Rimlink.MainMenu.ServerSettingsConfirm>
@@ -291,6 +296,10 @@
   <Rimlink.Live.GuestHud>{0} at {1}</Rimlink.Live.GuestHud>
   <Rimlink.Live.StateHostLost>host lost, waiting</Rimlink.Live.StateHostLost>
   <Rimlink.Live.StateHostPaused>paused by the host</Rimlink.Live.StateHostPaused>
+  <Rimlink.Live.StateLetterPaused>paused: letter "{0}" (either of you can play on)</Rimlink.Live.StateLetterPaused>
+  <Rimlink.Live.MarkHost>H</Rimlink.Live.MarkHost>
+  <Rimlink.Live.MarkGuest>G</Rimlink.Live.MarkGuest>
+  <Rimlink.Live.SpeedVotes>Host wants {0}, guest wants {1}: the game runs at {2}</Rimlink.Live.SpeedVotes>
   <Rimlink.Live.StateTick>tick {0}, pauses {1}/{2}</Rimlink.Live.StateTick>
   <Rimlink.Live.EndSession>End session</Rimlink.Live.EndSession>
   <Rimlink.Live.EndSessionConfirm>End the live session? Your pawns come home by parcel as they are now.</Rimlink.Live.EndSessionConfirm>

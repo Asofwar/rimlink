@@ -251,6 +251,7 @@ public static class LiveGuest
         HostGone = false;
         live.Ended -= OnStreamEnded;
         live.Ended += OnStreamEnded;
+        live.HelloLetterPause = RimlinkMod.Settings.LetterPause;
         _ = Task.Run(async () =>
         {
             try { await live.Open(session.Id, LiveClient.GuestRole, session.SnapshotVersion, CancellationToken.None); }
@@ -373,6 +374,9 @@ public static class LiveGuest
         if (MirrorMode.PausedBy == 2) Send(new Order { Pause = false }, "unpause");
         else if (MirrorMode.PausedBy == 0) Send(new Order { Pause = true }, "pause");
     }
+
+    /// <summary>Our letter-pause threshold changed during the session: the host decides pauses, so it needs to know.</summary>
+    public static void SendLetterPause(LetterPause mode) => Send(new Order { LetterPause = mode }, "letter_pause");
 
     public static void SendSpeed(TimeSpeed speed)
     {

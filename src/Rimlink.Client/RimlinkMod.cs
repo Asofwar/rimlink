@@ -1,4 +1,5 @@
 using HarmonyLib;
+using Rimlink.Protocol.V1;
 using UnityEngine;
 using Verse;
 
@@ -24,6 +25,11 @@ public sealed class RimlinkMod : Mod
         var listing = new Listing_Standard();
         listing.Begin(inRect);
         listing.Label("Rimlink.Settings.Servers".Translate(Settings.Servers.Count));
+        listing.GapLine();
+        listing.Label("Rimlink.Settings.LetterPause".Translate(), tooltip: "Rimlink.Settings.LetterPauseTip".Translate());
+        foreach (var mode in new[] { LetterPause.Never, LetterPause.Major, LetterPause.Any })
+            if (listing.RadioButton(("Rimlink.Settings.LetterPause." + mode).Translate(), Settings.LetterPause == mode) && Settings.LetterPause != mode)
+                Game.Live.LiveTempo.ChangeOwnThreshold(mode);
         listing.End();
     }
 }
@@ -33,9 +39,13 @@ public sealed class RimlinkSettings : ModSettings
     /// <summary>Saved servers as "name|host|port"; edited from the multiplayer window.</summary>
     public List<string> Servers = [];
 
+    /// <summary>Which of the host's letters pause a live session for this player (live UX spec §4).</summary>
+    public LetterPause LetterPause = LetterPause.Major;
+
     public override void ExposeData()
     {
         Scribe_Collections.Look(ref Servers, "servers", LookMode.Value);
+        Scribe_Values.Look(ref LetterPause, "letterPause", LetterPause.Major);
         Servers ??= [];
     }
 }

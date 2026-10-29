@@ -66,8 +66,11 @@ public sealed class StatusTools
                 kind = live?.Kind.ToString(),
                 state = live?.State.ToString(),
                 role = live is null ? null : live.Host?.PlayerId == me ? "host" : "guest",
-                // 0 none, 1 host (or waiting for the guest), 2 guest; as each side's HUD shows it.
+                // 0 none, 1 host (or waiting for the guest), 2 guest, 3 letter; as each side's HUD shows it.
                 pausedBy = LiveHost.Active ? LiveTempo.PausedBy : LiveGuest.Session is not null ? MirrorMode.PausedBy : (int?)null,
+                letterLabel = LiveHost.Active ? LiveTempo.Rules.LetterLabel : LiveGuest.Session is not null ? MirrorMode.LetterLabel : null,
+                letterPause = Client.RimlinkMod.Settings.LetterPause.ToString(),
+                guestLetterPause = LiveHost.Active ? LiveTempo.Rules.GuestThreshold.ToString() : null,
                 guestPausesUsed = LiveHost.Active ? LiveTempo.GuestPausesUsed : LiveGuest.Session is not null ? LiveGuest.PausesUsed : (int?)null,
             },
             lastPing = state.LastPing is { } ping ? new { from = ping.From?.Name, tile = ping.Tile, x = ping.Cell?.X, z = ping.Cell?.Z } : null,

@@ -36,7 +36,12 @@ public sealed class Dialog_LiveInvite : Window
         Widgets.Label(new Rect(0f, 40f, inRect.width, 90f), "Rimlink.Live.Invite".Translate(s.Guest?.Name ?? "?", kind, left));
         if (Widgets.ButtonText(new Rect(0f, inRect.height - 40f, inRect.width / 2f - 8f, 32f), "Rimlink.Live.Accept".Translate())) Answer(true);
         if (Widgets.ButtonText(new Rect(inRect.width / 2f + 8f, inRect.height - 40f, inRect.width / 2f - 8f, 32f), "Rimlink.Live.Decline".Translate())) Answer(false);
-        if (left == 0 && !answered) Close(); // the server fell back already
+        if (left == 0 && !answered)
+        {
+            // The server fell back already, and tells only the guest: the invite is over here too.
+            if (RimlinkSession.State.Live.PendingInvite?.Session.Id == s.Id) RimlinkSession.State.Live.ClearInvite();
+            Close();
+        }
         if (RimlinkSession.State.Live.PendingInvite?.Session.Id != s.Id && !answered) Close(); // started, ended or fell back meanwhile
     }
 

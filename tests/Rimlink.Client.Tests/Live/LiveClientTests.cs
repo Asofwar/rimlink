@@ -94,6 +94,24 @@ public class LiveClientTests : IDisposable
     }
 
     [Fact]
+    public async Task GuestHelloCarriesTheLetterPause()
+    {
+        var s = await Started();
+        using var fixture = s.Fixture;
+        await using var nova = s.Nova;
+        using var host = await OpenHost(s.Fixture, s.Bob, s.Session.Id);
+        using var alive = new CancellationTokenSource();
+        var keepAlive = KeepAlive(host, s.Session.Id, alive.Token);
+        var guest = new LiveClient(nova, new ConsoleLog()) { HelloLetterPause = LetterPause.Any };
+
+        await guest.Open(s.Session.Id, LiveRelay.GuestRole, 1, CancellationToken.None);
+
+        Assert.Equal(LetterPause.Any, (await Read(host, LiveServerMsg.MOneofCase.PeerHello)).PeerHello.LetterPause);
+        await guest.Close();
+        alive.Cancel();
+    }
+
+    [Fact]
     public async Task OpenSendsHelloAndHeartbeats()
     {
         var s = await Started(LiveServer().WithSetting("Live:HeartbeatTimeoutSeconds", "3"));

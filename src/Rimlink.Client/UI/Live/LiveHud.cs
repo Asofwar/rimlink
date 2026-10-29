@@ -18,6 +18,7 @@ public static class LiveHud
         Widgets.Label(new Rect(x, y, 220f, 24f), "Rimlink.Live.GuestHud".Translate(kind, session.Host?.Name ?? "?"));
         Text.Font = GameFont.Tiny;
         string state = LiveGuest.HostGone ? "Rimlink.Live.StateHostLost".Translate()
+            : MirrorMode.PausedBy == 3 ? "Rimlink.Live.StateLetterPaused".Translate(MirrorMode.LetterLabel ?? "?")
             : MirrorMode.PausedBy == 1 ? "Rimlink.Live.StateHostPaused".Translate()
             : MirrorMode.PausedBy == 2 ? "Rimlink.Live.StateGuestPaused".Translate(LiveGuest.PausesUsed, LiveTempo.GuestPauses)
             : "Rimlink.Live.StateTick".Translate(MirrorMode.TargetTick, LiveGuest.PausesUsed, LiveTempo.GuestPauses);
@@ -36,6 +37,7 @@ public static class LiveHud
         string kind = LiveHost.Session?.Kind == LiveKind.LiveRaid ? "Rimlink.Live.KindRaid".Translate() : "Rimlink.Live.KindVisit".Translate();
         string state = LiveHost.Starting ? "Rimlink.Live.StateStarting".Translate()
             : !LiveHost.GuestHere ? "Rimlink.Live.StateWaiting".Translate()
+            : LiveTempo.PausedBy == 3 ? "Rimlink.Live.StateLetterPaused".Translate(LiveTempo.Rules.LetterLabel ?? "?")
             : LiveTempo.PausedBy == 2 ? "Rimlink.Live.StateGuestPaused".Translate(LiveTempo.GuestPausesUsed, LiveTempo.GuestPauses)
             : "Rimlink.Live.StateRunning".Translate();
         Widgets.Label(new Rect(x, y, 220f, 24f), "Rimlink.Live.HostHud".Translate(kind, LiveHost.GuestName));

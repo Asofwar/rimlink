@@ -23,6 +23,9 @@ public static class OrderExecutor
         {
             case Order.OOneofCase.SetSpeed: return LiveTempo.SetGuestSpeed(o.SetSpeed);
             case Order.OOneofCase.Pause: return LiveTempo.SetGuestPause(o.Pause);
+            case Order.OOneofCase.LetterPause:
+                LiveTempo.Rules.GuestThreshold = o.LetterPause;
+                return null;
         }
         var owners = MapComponent_LiveOwners.Of(map);
         var pawn = map.mapPawns.AllPawns.FirstOrDefault(p => p.thingIDNumber == o.PawnId);

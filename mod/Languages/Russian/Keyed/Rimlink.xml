@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LanguageData>
   <Rimlink.Settings.Servers>Сохранённых серверов: {0}. Управление — через кнопку «Мультиплеер» в главном меню.</Rimlink.Settings.Servers>
+  <Rimlink.Settings.LetterPause>Пауза живой сессии по письму:</Rimlink.Settings.LetterPause>
+  <Rimlink.Settings.LetterPauseTip>Когда в игре хозяина во время живой сессии приходит письмо об угрозе. Действует более строгий выбор из двух игроков; снимает паузу любой из них, бюджет пауз гостя она не тратит.</Rimlink.Settings.LetterPauseTip>
+  <Rimlink.Settings.LetterPause.Never>никогда</Rimlink.Settings.LetterPause.Never>
+  <Rimlink.Settings.LetterPause.Major>при крупных угрозах</Rimlink.Settings.LetterPause.Major>
+  <Rimlink.Settings.LetterPause.Any>при любой угрозе</Rimlink.Settings.LetterPause.Any>
   <Rimlink.MainMenu.Multiplayer>Мультиплеер</Rimlink.MainMenu.Multiplayer>
   <Rimlink.MainMenu.ServerSettings>Действуют настройки модов {0}: вернуть свои</Rimlink.MainMenu.ServerSettings>
   <Rimlink.MainMenu.ServerSettingsConfirm>Вернуть свои настройки модов вместо настроек {0}? Игра перезапустится.</Rimlink.MainMenu.ServerSettingsConfirm>
@@ -291,6 +296,10 @@
   <Rimlink.Live.GuestHud>{0} у {1}</Rimlink.Live.GuestHud>
   <Rimlink.Live.StateHostLost>хозяин потерян, ждём</Rimlink.Live.StateHostLost>
   <Rimlink.Live.StateHostPaused>пауза хозяина</Rimlink.Live.StateHostPaused>
+  <Rimlink.Live.StateLetterPaused>пауза: письмо «{0}» (снять может любой из вас)</Rimlink.Live.StateLetterPaused>
+  <Rimlink.Live.MarkHost>Х</Rimlink.Live.MarkHost>
+  <Rimlink.Live.MarkGuest>Г</Rimlink.Live.MarkGuest>
+  <Rimlink.Live.SpeedVotes>Хозяин хочет {0}, гость {1} — идёт {2}</Rimlink.Live.SpeedVotes>
   <Rimlink.Live.StateTick>тик {0}, паузы {1}/{2}</Rimlink.Live.StateTick>
   <Rimlink.Live.EndSession>Закончить сессию</Rimlink.Live.EndSession>
   <Rimlink.Live.EndSessionConfirm>Закончить живую сессию? Пешки вернутся посылкой как есть.</Rimlink.Live.EndSessionConfirm>

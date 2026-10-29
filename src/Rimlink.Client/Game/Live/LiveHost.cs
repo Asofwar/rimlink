@@ -168,6 +168,7 @@ public static class LiveHost
             {
                 try
                 {
+                    live.HelloLetterPause = RimlinkMod.Settings.LetterPause;
                     if (first) await live.Open(session.Id, LiveClient.HostRole, version, CancellationToken.None);
                     live.Send(new LiveClientMsg { SnapshotReady = new SnapshotReady { SaveVersion = version } });
                     MainThread.Post(() =>
@@ -204,6 +205,7 @@ public static class LiveHost
                 case LiveServerMsg.MOneofCase.PeerHello:
                     GuestHere = true;
                     guestSeen = true;
+                    LiveTempo.Rules.GuestThreshold = frame.PeerHello.LetterPause;
                     LiveTempo.WaitingPause = false; // the host's own pause (HostWish) stays as the host set it
                     LiveTempo.Apply();
                     Messages.Message("Rimlink.Live.GuestHere".Translate(session.Guest.Name), MessageTypeDefOf.PositiveEvent, historical: false);
@@ -256,6 +258,7 @@ public static class LiveHost
             var frames = DeltaCodec.Diff(collector.Current, next, MaxFrameBytes);
             if (collector.Damage.Count > 0) frames[0].Damage.AddRange(collector.Damage);
             if (collector.Cells.Count > 0) frames[0].Cells.AddRange(collector.Cells);
+            if (collector.Letters.Count > 0) frames[0].Messages.AddRange(collector.Letters);
             var healthSent = new List<(int Id, int Health)>();
             if (full)
             {
@@ -392,7 +395,9 @@ public static class LiveHost
         Active = false;
         Starting = false;
         GuestHere = false;
-        LiveTempo.Reset(); // the game keeps the speed it runs at (a raid handed to the AI while waiting for the guest stays paused)
+        // The game keeps the speed it runs at (a raid handed to the AI while waiting for the guest stays paused), unless the guest
+        // never arrived (refused the host's mods, left while loading): then the waiting pause was all the session did.
+        LiveTempo.Reset(restoreSpeed: !guestSeen);
         OrderExecutor.VirtualDrafted.Clear();
         if (RimlinkSession.Live is { } live) _ = live.Close();
         RimlinkLog.Instance.Info($"live session {session.Id} ended: {reason}");
