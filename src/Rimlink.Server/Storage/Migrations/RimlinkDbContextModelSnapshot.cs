@@ -135,6 +135,9 @@ namespace Rimlink.Server.Storage.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("ExternalAuthor")
+                        .HasColumnType("TEXT");
+
                     b.Property<long?>("FromPlayerId")
                         .HasColumnType("INTEGER");
 

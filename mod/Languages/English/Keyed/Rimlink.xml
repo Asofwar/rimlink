@@ -52,6 +52,7 @@
   <Rimlink.Chat.Public>To: everyone</Rimlink.Chat.Public>
   <Rimlink.Chat.To>To: {0} (click for public)</Rimlink.Chat.To>
   <Rimlink.Chat.Send>Send</Rimlink.Chat.Send>
+  <Rimlink.Chat.External>[Discord] {0}</Rimlink.Chat.External>
   <Rimlink.Players.Title>Players online: {0}</Rimlink.Players.Title>
   <Rimlink.Players.Message>Message</Rimlink.Players.Message>
   <Rimlink.Overlay.Online>Rimlink: {0} online</Rimlink.Overlay.Online>

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Rimlink.Protocol;
 using Rimlink.Protocol.V1;
 using Rimlink.Server.Application.Events;
+using Rimlink.Server.Application.Feed;
 using Rimlink.Server.Application.Sessions;
 using Rimlink.Server.Grpc;
 using Rimlink.Server.Storage;
@@ -11,14 +12,23 @@ using Rimlink.Server.Storage.Entities;
 
 namespace Rimlink.Server.Application.Chat;
 
-public sealed class ChatService(RimlinkDbContext db, EventBus events, IServiceProvider services, ILogger<ChatService> log)
+public sealed class ChatService(RimlinkDbContext db, EventBus events, AdminFeed feed, IServiceProvider services, ILogger<ChatService> log)
 {
-    public async Task Send(Session sender, string text, long toPlayerId)
+    public const int ExternalAuthorMaxLength = 32;
+
+    /// <summary>The game chat's rules for a line: trimmed, not empty, at most <see cref="Limits.ChatMaxLength"/>, no control characters but newlines.</summary>
+    public static string CleanText(string text)
     {
         text = text.Trim();
         if (text.Length == 0) throw new RpcException(new Status(StatusCode.InvalidArgument, "message is empty"));
         if (text.Length > Limits.ChatMaxLength) throw new RpcException(new Status(StatusCode.InvalidArgument, $"message longer than {Limits.ChatMaxLength} characters"));
         if (text.Any(c => char.IsControl(c) && c != '\n')) throw new RpcException(new Status(StatusCode.InvalidArgument, "message contains control characters"));
+        return text;
+    }
+
+    public async Task Send(Session sender, string text, long toPlayerId)
+    {
+        text = CleanText(text);
 
         if (Admin.ChatCommandParser.Parse(text) is { } command)
         {
@@ -36,7 +46,7 @@ public sealed class ChatService(RimlinkDbContext db, EventBus events, IServicePr
             throw new RpcException(new Status(StatusCode.NotFound, "no such player"));
 
         var message = new ChatMessage { FromPlayerId = from.Id, ToPlayerId = toPlayerId == 0 ? null : toPlayerId, Text = text, Kind = Storage.Entities.MessageKind.Player, SentAt = DateTime.UtcNow };
-        await Persist(message);
+        await Persist(message, new FeedPlayer(from.Id, from.Name));
 
         var ev = new ServerEvent { Chat = ToEvent(message, from.ToRef()) };
         if (toPlayerId == 0)
@@ -66,11 +76,26 @@ public sealed class ChatService(RimlinkDbContext db, EventBus events, IServicePr
         return rows.Select(m => ToEvent(m, m.FromPlayerId is { } id && senders.TryGetValue(id, out var p) ? p.ToRef() : null)).ToList();
     }
 
+    /// <summary>
+    /// A public line from outside the game (the Discord bot): stored with its author, sent to everyone as <c>EXTERNAL</c>. Never
+    /// parsed as a <c>/</c> command. Returns the line's id.
+    /// </summary>
+    public async Task<long> External(string author, string text)
+    {
+        author = author.Trim();
+        if (author.Length is 0 or > ExternalAuthorMaxLength || author.Any(char.IsControl))
+            throw new RpcException(new Status(StatusCode.InvalidArgument, $"author must be 1-{ExternalAuthorMaxLength} characters without control characters"));
+        var message = new ChatMessage { Text = CleanText(text), Kind = Storage.Entities.MessageKind.External, ExternalAuthor = author, SentAt = DateTime.UtcNow };
+        await Persist(message, null);
+        events.Broadcast(new ServerEvent { Chat = ToEvent(message, null) });
+        return message.Id;
+    }
+
     /// <summary>Server-generated line for everyone (join, leave, announcements).</summary>
     public async Task System(string text)
     {
         var message = new ChatMessage { Text = text, Kind = Storage.Entities.MessageKind.System, SentAt = DateTime.UtcNow };
-        await Persist(message);
+        await Persist(message, null);
         events.Broadcast(new ServerEvent { Chat = ToEvent(message, null) });
     }
 
@@ -89,10 +114,12 @@ public sealed class ChatService(RimlinkDbContext db, EventBus events, IServicePr
         await db.SaveChangesAsync();
     }
 
-    private async Task Persist(ChatMessage message)
+    private async Task Persist(ChatMessage message, FeedPlayer? from)
     {
         db.ChatMessages.Add(message);
         await db.SaveChangesAsync();
+        if (message.ToPlayerId is null)
+            feed.Publish(FeedTypes.ChatMessage, new ChatData(message.Id, message.Kind.ToString().ToLowerInvariant(), from, message.ExternalAuthor, message.Text));
         // Keep the table at ChatStored rows.
         long? cutoff = await db.ChatMessages.OrderByDescending(m => m.Id).Skip(Limits.ChatStored).Select(m => (long?)m.Id).FirstOrDefaultAsync();
         if (cutoff is { } c) await db.ChatMessages.Where(m => m.Id <= c).ExecuteDeleteAsync();
@@ -104,7 +131,13 @@ public sealed class ChatService(RimlinkDbContext db, EventBus events, IServicePr
         From = from,
         ToPlayerId = m.ToPlayerId ?? 0,
         Text = m.Text,
-        Kind = m.Kind == Storage.Entities.MessageKind.System ? Protocol.V1.MessageKind.System : Protocol.V1.MessageKind.Player,
+        Kind = m.Kind switch
+        {
+            Storage.Entities.MessageKind.System => Protocol.V1.MessageKind.System,
+            Storage.Entities.MessageKind.External => Protocol.V1.MessageKind.External,
+            _ => Protocol.V1.MessageKind.Player,
+        },
         At = Timestamp.FromDateTime(DateTime.SpecifyKind(m.SentAt, DateTimeKind.Utc)),
+        ExternalAuthor = m.ExternalAuthor ?? "",
     };
 }

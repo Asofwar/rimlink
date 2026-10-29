@@ -85,6 +85,7 @@ public sealed class Dialog_Chat : Window
         string time = m.At?.ToDateTime().ToLocalTime().ToString("HH:mm") ?? "";
         string body = Escape(m.Text);
         if (m.Kind == MessageKind.System) return $"<color=#9aa4b5>[{time}] {body}</color>";
+        if (m.Kind == MessageKind.External) return $"[{time}] <b>{"Rimlink.Chat.External".Translate(Escape(m.ExternalAuthor))}</b>: {body}";
         string who = Escape(m.From?.Name ?? "?");
         string dm = m.ToPlayerId != 0 ? " <color=#c8a2ff>(dm)</color>" : "";
         return $"[{time}] <b>{who}</b>{dm}: {body}";

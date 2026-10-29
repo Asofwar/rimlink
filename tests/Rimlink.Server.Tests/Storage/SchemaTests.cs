@@ -105,6 +105,18 @@ public class SchemaTests : IDisposable
     }
 
     [Fact]
+    public void ChatMessagesHaveExternalAuthor()
+    {
+        using var db = CreateContext();
+
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = "SELECT name FROM pragma_table_info('chat_messages')";
+        var columns = new List<string>();
+        using (var reader = cmd.ExecuteReader()) while (reader.Read()) columns.Add(reader.GetString(0));
+        Assert.Contains("ExternalAuthor", columns);
+    }
+
+    [Fact]
     public void NegativeWalletBalanceIsRejected()
     {
         using var db = CreateContext();

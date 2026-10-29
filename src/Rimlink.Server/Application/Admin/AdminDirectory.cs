@@ -16,7 +16,7 @@ public sealed record SaveRow(int Version, long Size, long GameTick, DateTime Cre
 public sealed record BanRow(long Id, string Reason, DateTime? ExpiresAt);
 public sealed record SessionRow(string Ip, DateTime Since);
 public sealed record PlayerCard(PlayerRow Player, string? LastIp, SessionRow? Session, List<SettlementRow> Settlements, long WalletBalance, long WealthTotal, DateTime? FirstSaveAt, SaveRow? CurrentSave, List<BanRow> ActiveBans, bool VisitsClosed, DateTime? PeacefulOffAt);
-public sealed record ChatLine(long Id, DateTime At, long? FromPlayerId, string? FromName, string Kind, string Text);
+public sealed record ChatLine(long Id, DateTime At, long? FromPlayerId, string? FromName, string Kind, string Text, string? Author = null);
 
 /// <summary>Read-only views for the admin panel and integrations: player directory, player card, public chat history. No audit.</summary>
 public sealed class AdminDirectory(RimlinkDbContext db, SessionRegistry sessions, BanService bans, WalletService wallet)
@@ -106,7 +106,7 @@ public sealed class AdminDirectory(RimlinkDbContext db, SessionRegistry sessions
         var messages = await query.Take(limit).ToListAsync();
         var senders = messages.Where(m => m.FromPlayerId is not null).Select(m => m.FromPlayerId!.Value).Distinct().ToList();
         var names = await db.Players.AsNoTracking().Where(p => senders.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Name);
-        return messages.Select(m => new ChatLine(m.Id, m.SentAt, m.FromPlayerId, m.FromPlayerId is { } f && names.TryGetValue(f, out var n) ? n : null, m.Kind.ToString().ToLowerInvariant(), m.Text)).ToList();
+        return messages.Select(m => new ChatLine(m.Id, m.SentAt, m.FromPlayerId, m.FromPlayerId is { } f && names.TryGetValue(f, out var n) ? n : null, m.Kind.ToString().ToLowerInvariant(), m.Text, m.ExternalAuthor)).ToList();
     }
 
     /// <summary>Player names by account id, for the audit log and the ban list.</summary>

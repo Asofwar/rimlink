@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Mvc;
 using Rimlink.Protocol.V1;
 using Rimlink.Server.Application.Admin;
+using Rimlink.Server.Application.Chat;
 using Rimlink.Server.Application.Modpack;
 using Rimlink.Server.Application.Saves;
 
@@ -14,6 +15,7 @@ public static class AdminEndpoints
     public sealed record KickBody(string? Reason);
     public sealed record MuteBody(double Minutes);
     public sealed record TextBody(string Text);
+    public sealed record ChatBody(string Author, string Text);
     public sealed record ShutdownBody(int InSeconds, string? Reason);
     public sealed record ModpackEntryBody(int Position, string PackageId, string? Version, ulong WorkshopId, string? Url, [property: JsonConverter(typeof(JsonStringEnumConverter))] EntryKind Kind);
     public sealed record ModpackBody(List<ModpackEntryBody> Entries);
@@ -53,6 +55,7 @@ public static class AdminEndpoints
         }).RequireScope(ApiScope.Admin);
         group.MapDelete("/bans/{id:long}", async (long id, HttpContext ctx, AdminOperations ops) => await ops.Pardon(ctx.Actor(), id) ? Results.Ok() : Results.NotFound()).RequireScope(ApiScope.Admin);
 
+        group.MapPost("/chat", async (ChatBody body, ChatService chat) => Results.Ok(new { id = await chat.External(body.Author ?? "", body.Text ?? "") })).RequireScope(ApiScope.Chat);
         group.MapPost("/broadcast", (TextBody body, HttpContext ctx, AdminOperations ops) => ops.Broadcast(ctx.Actor(), body.Text)).RequireScope(ApiScope.Moderate);
         group.MapPost("/shutdown", (ShutdownBody body, HttpContext ctx, AdminOperations ops) => ops.Shutdown(ctx.Actor(), body.InSeconds, body.Reason ?? "server shutdown")).RequireScope(ApiScope.Admin);
         group.MapPost("/world/recreate", (HttpContext ctx, AdminOperations ops) => ops.RecreateWorld(ctx.Actor())).RequireScope(ApiScope.Admin);

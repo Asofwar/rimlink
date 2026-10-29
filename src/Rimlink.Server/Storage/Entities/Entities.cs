@@ -2,7 +2,7 @@ namespace Rimlink.Server.Storage.Entities;
 
 public enum Role { Player = 0, Moderator = 1, Admin = 2 }
 
-public enum MessageKind { Player = 0, System = 1 }
+public enum MessageKind { Player = 0, System = 1, External = 2 }
 
 public enum EntryKind { Required = 0, Allowed = 1 }
 
@@ -102,6 +102,8 @@ public sealed class ChatMessage
     public string Text { get; set; } = "";
     public MessageKind Kind { get; set; }
     public DateTime SentAt { get; set; }
+    /// <summary>The author of an <see cref="MessageKind.External"/> line (a Discord name); null otherwise.</summary>
+    public string? ExternalAuthor { get; set; }
 }
 
 public sealed class ModpackEntry

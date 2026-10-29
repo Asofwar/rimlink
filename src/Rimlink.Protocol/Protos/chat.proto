@@ -16,6 +16,8 @@ service Chat {
 enum MessageKind {
   PLAYER = 0;
   SYSTEM = 1;
+  // A line from outside the game (the Discord bot): no sender player, the author's name in external_author.
+  EXTERNAL = 2;
 }
 
 message SendRequest {
@@ -31,6 +33,7 @@ message ChatMessageEvent {
   string text = 4;
   MessageKind kind = 5;
   google.protobuf.Timestamp at = 6;
+  string external_author = 7;
 }
 
 message ChatHistory {

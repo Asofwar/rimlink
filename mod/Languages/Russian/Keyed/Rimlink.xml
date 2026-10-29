@@ -52,6 +52,7 @@
   <Rimlink.Chat.Public>Кому: всем</Rimlink.Chat.Public>
   <Rimlink.Chat.To>Кому: {0} (нажмите, чтобы писать всем)</Rimlink.Chat.To>
   <Rimlink.Chat.Send>Отправить</Rimlink.Chat.Send>
+  <Rimlink.Chat.External>[Discord] {0}</Rimlink.Chat.External>
   <Rimlink.Players.Title>Игроков онлайн: {0}</Rimlink.Players.Title>
   <Rimlink.Players.Message>Написать</Rimlink.Players.Message>
   <Rimlink.Overlay.Online>Rimlink: онлайн {0}</Rimlink.Overlay.Online>
