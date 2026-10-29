@@ -9,7 +9,7 @@ using Parcel = Rimlink.Server.Storage.Entities.Parcel;
 namespace Rimlink.Server.Application.Economy;
 
 /// <summary>Direct player-to-player transfers: items and pawns leave the sender's game, silver leaves their wallet, all into a parcel.</summary>
-public sealed class TransferService(RimlinkDbContext db, WalletService wallet, MailboxService mailbox, ParcelValidator validator, EconomyGate gate, ILogger<TransferService> log)
+public sealed class TransferService(RimlinkDbContext db, WalletService wallet, MailboxService mailbox, ParcelValidator validator, EconomyGate gate, EconomyGuard guard, ILogger<TransferService> log)
 {
     public async Task<Parcel> Send(long fromPlayerId, TransferRequest request)
     {
@@ -29,6 +29,9 @@ public sealed class TransferService(RimlinkDbContext db, WalletService wallet, M
         // After the repeat check: a send that went through before a block must not be refused on its replay (the client would put the things back).
         await Social.BlockRules.RequireNotBlocked(db, fromPlayerId, request.ToPlayerId);
         await gate.RequireNotFrozen(fromPlayerId);
+        // A caravan hands over what already left the map; wallet silver and things from the map stay while under threat.
+        bool fromMap = (request.Items.Items.Count > 0 || request.Pawns.Pawns.Count > 0) && !request.FromCaravan;
+        if (fromMap || request.Silver > 0) await guard.RequireNoThreat(fromPlayerId);
 
         var parcel = await mailbox.Create(request.ToPlayerId, fromPlayerId, ParcelKindDb.Gift, request.Items, request.Pawns, request.Silver,
             string.IsNullOrEmpty(request.ClientRequestId) ? null : request.ClientRequestId);

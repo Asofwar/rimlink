@@ -270,10 +270,12 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
     private async Task<bool> Close(Raid raid, RaidStateDb state, bool returnPawns, string reason)
     {
         Parcel? back = null;
+        bool wasIncoming;
         await using (var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable))
         {
             await db.Entry(raid).ReloadAsync();
             if (FinalStates.Contains(raid.State)) return false;
+            wasIncoming = raid.State is RaidStateDb.Queued or RaidStateDb.Announced;
             raid.State = state;
             raid.ResolvedAt = DateTime.UtcNow;
             if (returnPawns && raid.PawnMode == (int)PawnMode.PawnReal)
@@ -285,6 +287,8 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
         RaidMetrics.Outcome(state.ToString().ToLowerInvariant());
         if (state == RaidStateDb.Expired) events.SendTo(raid.AttackerPlayerId, new ServerEvent { RaidExpired = new RaidExpired { RaidId = raid.Id } });
         else events.SendTo(raid.AttackerPlayerId, new ServerEvent { Notice = new Notice { Text = $"Your raid was cancelled: {reason}" } });
+        // The target's client still lists a raid that never landed as incoming (and keeps its economy closed): tell it.
+        if (wasIncoming) events.SendTo(raid.TargetPlayerId, new ServerEvent { RaidExpired = new RaidExpired { RaidId = raid.Id } });
         if (back is not null) await mailbox.Announce(back);
         log.LogInformation("Raid {Raid} {State}: {Reason}", raid.Id, state, reason);
         return true;

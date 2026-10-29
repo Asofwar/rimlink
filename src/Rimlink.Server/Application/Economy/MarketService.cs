@@ -17,7 +17,7 @@ using Rimlink.Server.Application.Feed;
 namespace Rimlink.Server.Application.Economy;
 
 /// <summary>The board: a lot holds the seller's items in escrow until bought, withdrawn or expired.</summary>
-public sealed class MarketService(RimlinkDbContext db, WalletService wallet, MailboxService mailbox, ParcelValidator validator, EconomyGate gate,
+public sealed class MarketService(RimlinkDbContext db, WalletService wallet, MailboxService mailbox, ParcelValidator validator, EconomyGate gate, EconomyGuard guard,
     TransferService transfers, EventBus events, AdminFeed feed, IOptions<EconomyOptions> options, ILogger<MarketService> log)
 {
     public const int PageSize = 50;
@@ -38,6 +38,7 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
             if (existing is not null) return existing;
         }
         await gate.RequireNotFrozen(sellerId);
+        await guard.RequireNoThreat(sellerId);
         int open = await db.Lots.CountAsync(l => l.SellerPlayerId == sellerId && l.Status == LotStatusDb.Open);
         if (open >= options.Value.MaxLotsPerPlayer)
             throw RpcErrors.Failed(ErrorCode.Unspecified, RefusalKeys.EconomyLotLimit, $"you already have {open} open lots (limit {options.Value.MaxLotsPerPlayer})", open, options.Value.MaxLotsPerPlayer);

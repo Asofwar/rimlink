@@ -54,7 +54,7 @@ public sealed class WalletService(RimlinkDbContext db, EventBus events)
     }
 
     /// <summary>Silver taken off the map goes into the wallet; the save tick is stamped like any outgoing transfer.</summary>
-    public async Task<long> Deposit(long playerId, DepositRequest request, TransferService transfers, EconomyGate gate)
+    public async Task<long> Deposit(long playerId, DepositRequest request, TransferService transfers, EconomyGate gate, EconomyGuard guard)
     {
         gate.RequireOpen();
         if (request.Silver < 1) throw RpcErrors.Failed(ErrorCode.Unspecified, RefusalKeys.EconomySilverTooLow, "silver must be at least 1");
@@ -62,6 +62,8 @@ public sealed class WalletService(RimlinkDbContext db, EventBus events)
         if (!string.IsNullOrEmpty(request.ClientRequestId) && await db.Transfers.AnyAsync(t => t.ClientRequestId == request.ClientRequestId))
             return await Balance(playerId);
         await gate.RequireNotFrozen(playerId);
+        // After the replay check: a deposit the server already took must not be refused (the client would return the silver).
+        await guard.RequireNoThreat(playerId);
         await Apply(playerId, request.Silver, "deposit", 0);
         await transfers.StampOutgoing(playerId, request.GameTick);
         db.Transfers.Add(new Transfer { FromPlayerId = playerId, Kind = "deposit", GameTick = request.GameTick, Summary = $"{request.Silver} silver", At = DateTime.UtcNow, ClientRequestId = string.IsNullOrEmpty(request.ClientRequestId) ? null : request.ClientRequestId });

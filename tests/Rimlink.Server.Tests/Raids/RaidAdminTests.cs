@@ -38,6 +38,21 @@ public class RaidAdminTests
     }
 
     [Fact]
+    public async Task CancelledQueuedRaidTellsTheTarget()
+    {
+        using var fixture = Server();
+        var p = await NovaAndBob(fixture);
+        var raid = await p.N.Raids.LaunchAsync(Launch(p.Bob.Player.PlayerId), p.N.Auth);
+        var events = new Protocol.V1.Events.EventsClient(fixture.CreateChannel());
+        using var bobStream = events.Subscribe(new Empty(), p.B.Auth);
+
+        (await Rest(fixture).PostAsJsonAsync($"/api/admin/raids/{raid.Id}/cancel", new { reason = "abuse" })).EnsureSuccessStatusCode();
+
+        // The target's client stops treating the raid as incoming (and stops blocking its economy).
+        Assert.Equal(raid.Id, await EconomyFixtures.ReadEvent(bobStream, ServerEvent.BodyOneofCase.RaidExpired, e => e.RaidExpired.RaidId));
+    }
+
+    [Fact]
     public async Task CancelReturnsThePawnsAndAudits()
     {
         using var fixture = Server();

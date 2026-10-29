@@ -432,6 +432,7 @@
   <Rimlink.Refusal.Economy.Paused>Торговля приостановлена: {0}</Rimlink.Refusal.Economy.Paused>
   <Rimlink.Refusal.Economy.PlayerFrozen>Ваша торговля заморожена: {0}</Rimlink.Refusal.Economy.PlayerFrozen>
   <Rimlink.Refusal.Economy.SellerFrozen>Торговля этого продавца заморожена</Rimlink.Refusal.Economy.SellerFrozen>
+  <Rimlink.Refusal.Economy.UnderThreat>Ваша колония под атакой: вклады, лоты и отправки подождут, пока она не кончится</Rimlink.Refusal.Economy.UnderThreat>
   <Rimlink.Refusal.Raids.Paused>Рейды приостановлены: {0}</Rimlink.Refusal.Raids.Paused>
   <Rimlink.Refusal.Live.WrongRole>Эта роль в живой сессии вам не принадлежит</Rimlink.Refusal.Live.WrongRole>
   <Rimlink.Refusal.Live.OnlyHostSpawns>Только хозяин может разместить персонажей гостя</Rimlink.Refusal.Live.OnlyHostSpawns>
