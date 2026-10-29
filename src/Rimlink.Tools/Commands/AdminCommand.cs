@@ -10,18 +10,36 @@ public static class AdminCommand
         var server = new Option<string>("--server") { Description = "Server base URL, e.g. https://host:25560", Required = true };
         var token = new Option<string>("--token") { Description = "Admin:ApiToken", Required = true };
         var insecure = new Option<bool>("--insecure") { Description = "Accept a self-signed server certificate" };
-        var name = new Argument<string>("command") { Description = "online | kick <playerId> [reason] | ban <playerId> [days] [reason] | pardon <banId> | bans | mute <playerId> <minutes> | unmute <playerId> | saves <playerId> | rollback <playerId> <version> | reset <playerId> | broadcast <text> | shutdown <seconds> [reason] | recreateworld | modpack | actions | wallet <playerId> [+n|-n] [reason] | parcels <playerId> | lots [playerId] | refund lot <id> | refund parcel <id> | economy freeze [reason]|unfreeze|stats | raids list [playerId]|cancel <id> [reason]|freeze [reason]|unfreeze|stats | peaceful <playerId> on|off | shop <playerId> | removals <playerId>" };
+        var name = new Argument<string>("command") { Description = "online | players [query] | player <playerId> | role <playerId> player|moderator|admin | rename <playerId> <name> [faction] | kick <playerId> [reason] | ban <playerId> [days] [reason] | pardon <banId> | bans | mute <playerId> <minutes> | unmute <playerId> | saves <playerId> | rollback <playerId> <version> | reset <playerId> | broadcast <text> | saveall | shutdown <seconds> [reason] | recreateworld | modpack | actions | chat [playerId] | status | config | backups | backup | backup-get <name> <file> | wallet <playerId> [+n|-n] [reason] | parcels <playerId> | lots [playerId] | refund lot <id> | refund parcel <id> | economy freeze [reason]|unfreeze|stats | raids list [playerId]|cancel <id> [reason]|freeze [reason]|unfreeze|stats | peaceful <playerId> on|off | shop <playerId> | removals <playerId>" };
         var args = new Argument<string[]>("args") { Arity = ArgumentArity.ZeroOrMore };
 
         var command = new Command("admin", "Run an admin operation on a running server") { server, token, insecure, name, args };
         command.SetAction(async parse =>
         {
             using var rest = new RestClient(parse.GetValue(server)!, parse.GetValue(token)!, parse.GetValue(insecure));
-            string[] a = parse.GetValue(args) ?? [];
-            string rest1 = string.Join(' ', a.Skip(1));
-            string result = parse.GetValue(name)! switch
+            Console.WriteLine(await Run(rest, parse.GetValue(name)!, parse.GetValue(args) ?? []));
+        });
+        return command;
+    }
+
+    /// <summary>One admin command against the REST API; returns what the CLI prints.</summary>
+    public static async Task<string> Run(RestClient rest, string command, string[] a)
+    {
+        string rest1 = string.Join(' ', a.Skip(1));
+        return command switch
             {
                 "online" => await rest.Get("players/online"),
+                "players" => await rest.Get(a.Length > 0 ? $"players?q={Uri.EscapeDataString(string.Join(' ', a))}" : "players"),
+                "player" => await rest.Get($"players/{a[0]}"),
+                "role" => await rest.Post($"players/{a[0]}/role", new { role = a[1] }),
+                "rename" => await rest.Post($"players/{a[0]}/rename", new { name = a[1], factionName = a.Length > 2 ? string.Join(' ', a.Skip(2)) : null }),
+                "saveall" => await rest.Post("saveall", null),
+                "chat" => await rest.Get(a.Length > 0 ? $"chat?playerId={a[0]}" : "chat"),
+                "status" => await rest.Get("status"),
+                "config" => await rest.Get("config"),
+                "backups" => await rest.Get("backups"),
+                "backup" => await rest.Post("backups", null),
+                "backup-get" => await Download(rest, a[0], a[1]),
                 "kick" => await rest.Post($"players/{a[0]}/kick", new { reason = rest1 }),
                 "ban" => await rest.Post("bans", a.Length > 1 && double.TryParse(a[1], System.Globalization.CultureInfo.InvariantCulture, out double days)
                     ? new { playerId = long.Parse(a[0]), days = (double?)days, reason = string.Join(' ', a.Skip(2)) }
@@ -69,8 +87,11 @@ public static class AdminCommand
                 },
                 var other => throw new InvalidOperationException($"unknown command '{other}'"),
             };
-            Console.WriteLine(result);
-        });
-        return command;
+    }
+
+    private static async Task<string> Download(RestClient rest, string name, string file)
+    {
+        await rest.Download($"backups/{Uri.EscapeDataString(name)}", file);
+        return $"saved {file}";
     }
 }
