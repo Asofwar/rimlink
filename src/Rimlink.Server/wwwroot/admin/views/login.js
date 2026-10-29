@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { h, banner, showError } from '../../shared/dom.js';
+import { h, banner, showError, append } from '../../shared/dom.js';
 import { t } from '../../shared/i18n.js';
 
 /** The token form. The token goes to /api/panel/login once and is never stored; onSuccess opens the shell. */
@@ -28,6 +28,6 @@ export function render(root, onSuccess) {
     }
   });
 
-  root.append(h('div', { class: 'login-page' }, form));
+  append(root, h('div', { class: 'login-page' }, form));
   input.focus();
 }

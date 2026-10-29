@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { h, table, busyButton, section, field, banner, confirmDialog, showError } from '../../shared/dom.js';
+import { h, table, busyButton, section, field, banner, confirmDialog, showError, append, replace } from '../../shared/dom.js';
 import { t } from '../../shared/i18n.js';
 import { input, numberInput } from '../ui.js';
 
@@ -10,7 +10,7 @@ export function render(root) {
   const config = h('div');
   let serverName = '';
 
-  root.append(
+  append(root, 
     h('h1', null, t('nav.server')),
     section(t('server.broadcast'),
       field(t('server.broadcastText'), text),
@@ -51,7 +51,7 @@ export function render(root) {
     try {
       const values = await api.get('config');
       serverName = values.panel?.serverName?.trim() ?? '';
-      config.replaceChildren(...Object.entries(values).map(([name, settings]) => h('div', null,
+      replace(config, ...Object.entries(values).map(([name, settings]) => h('div', null,
         h('h3', null, name),
         table([
           { label: t('server.key'), key: 'key' },

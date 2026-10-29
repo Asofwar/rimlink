@@ -33,8 +33,9 @@ export function h(tag, attrs, ...children) {
   return el;
 }
 
-export function append(el, children) {
-  for (const child of [children].flat(Infinity)) {
+/** Appends children, skipping null/undefined/false and flattening arrays (native append would print them as text). */
+export function append(el, ...children) {
+  for (const child of children.flat(Infinity)) {
     if (child === null || child === undefined || child === false) continue;
     el.append(child instanceof Node ? child : document.createTextNode(String(child)));
   }
@@ -44,6 +45,11 @@ export function append(el, children) {
 export function clear(el) {
   while (el.firstChild) el.removeChild(el.firstChild);
   return el;
+}
+
+/** Replaces the children of el, with the same rules as append. */
+export function replace(el, ...children) {
+  return append(clear(el), ...children);
 }
 
 /** A table in a horizontally scrolling wrapper. columns: [{ key, label, render?(row) }]. */
@@ -93,7 +99,13 @@ export function banner(message, kind = 'error') {
   const item = h('div', { class: `banner ${kind}`, role: kind === 'error' ? 'alert' : 'status' }, h('span', null, message), close);
   close.addEventListener('click', () => item.remove());
   host.append(item);
-  if (kind !== 'error') setTimeout(() => item.remove(), 5000);
+  setTimeout(() => item.remove(), kind === 'error' ? 15000 : 5000);
+}
+
+/** Removes every banner (on navigation and after login, so old errors do not cover the next screen). */
+export function clearBanners() {
+  const host = document.getElementById('banners');
+  if (host) clear(host);
 }
 
 /** Shows an API or network error as a banner. */

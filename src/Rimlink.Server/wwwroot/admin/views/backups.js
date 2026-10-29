@@ -1,12 +1,12 @@
 import { api } from '../api.js';
-import { h, table, busyButton, banner, showError } from '../../shared/dom.js';
+import { h, table, busyButton, banner, showError, append, replace } from '../../shared/dom.js';
 import { t } from '../../shared/i18n.js';
 import { fmtDate, fmtBytes } from '../../shared/format.js';
 import { refreshButton } from '../ui.js';
 
 export function render(root) {
   const list = h('div');
-  root.append(
+  append(root, 
     h('div', { class: 'toolbar' },
       h('h1', { class: 'grow' }, t('nav.backups')),
       busyButton(t('backups.now'), async () => {
@@ -21,7 +21,7 @@ export function render(root) {
   async function load() {
     try {
       const files = await api.get('backups');
-      list.replaceChildren(table([
+      replace(list, table([
         { label: t('backups.name'), key: 'name' },
         { label: t('player.size'), render: f => fmtBytes(f.size) },
         { label: t('player.created'), render: f => fmtDate(f.createdAt) },

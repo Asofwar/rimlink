@@ -1,5 +1,5 @@
 // The public server page: status, how to connect, modpack, players online, world stats. Read-only, no login.
-import { h, clear, table, section } from './shared/dom.js';
+import { h, table, section, replace } from './shared/dom.js';
 import { t, loadI18n, setLang, lang } from './shared/i18n.js';
 
 const POLL_MS = 30000;
@@ -53,7 +53,7 @@ function render(s) {
     render(s);
   });
 
-  clear(page).append(
+  replace(page, 
     h('header', { class: 'hero' },
       h('h1', null, s.serverName),
       s.description ? h('p', null, s.description) : null,
@@ -104,7 +104,7 @@ async function refresh() {
     offline = true;
   }
   if (last) render(last);
-  else clear(page).append(h('p', { class: 'muted' }, t('public.offline')));
+  else replace(page, h('p', { class: 'muted' }, t('public.offline')));
 }
 
 await loadI18n();

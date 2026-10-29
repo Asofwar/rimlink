@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { h, busyButton, banner, confirmDialog, showError } from '../../shared/dom.js';
+import { h, busyButton, banner, confirmDialog, showError, append, replace } from '../../shared/dom.js';
 import { t } from '../../shared/i18n.js';
 import { refreshButton } from '../ui.js';
 
@@ -9,7 +9,7 @@ export function render(root) {
   let original = [];
   let rows = [];
 
-  root.append(
+  append(root, 
     h('div', { class: 'toolbar' }, h('h1', { class: 'grow' }, t('nav.modpack')), refreshButton(load)),
     h('p', { class: 'muted' }, t('modpack.hint')),
     body);
@@ -50,7 +50,7 @@ export function render(root) {
     const add = h('button', { type: 'button' }, t('modpack.add'));
     add.addEventListener('click', () => { rows.push({ packageId: '', version: '', workshopId: '', url: '', kind: 'Required' }); draw(); });
 
-    body.replaceChildren(
+    replace(body, 
       h('div', { class: 'table-wrap' }, h('table', null,
         h('thead', null, h('tr', null, ['#', t('modpack.packageId'), t('modpack.version'), t('modpack.workshopId'), t('public.link'), t('public.kind'), ''].map(label => h('th', null, label)))),
         tableBody)),

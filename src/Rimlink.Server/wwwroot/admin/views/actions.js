@@ -1,5 +1,5 @@
 import { api, query } from '../api.js';
-import { h, table, showError } from '../../shared/dom.js';
+import { h, table, showError, append, replace } from '../../shared/dom.js';
 import { t } from '../../shared/i18n.js';
 import { fmtDate } from '../../shared/format.js';
 import { actorName, refreshButton } from '../ui.js';
@@ -11,7 +11,7 @@ export function render(root) {
   const more = h('button', { type: 'button' }, t('common.loadMore'));
   let entries = [];
 
-  root.append(h('div', { class: 'toolbar' }, h('h1', { class: 'grow' }, t('nav.actions')), refreshButton(() => load(true))), list, h('div', { class: 'toolbar' }, more));
+  append(root, h('div', { class: 'toolbar' }, h('h1', { class: 'grow' }, t('nav.actions')), refreshButton(() => load(true))), list, h('div', { class: 'toolbar' }, more));
 
   async function load(reset) {
     try {
@@ -19,7 +19,7 @@ export function render(root) {
       const page = await api.get(`actions${query({ limit: PAGE, before })}`);
       entries = reset ? page : entries.concat(page);
       more.disabled = page.length < PAGE;
-      list.replaceChildren(table([
+      replace(list, table([
         { label: t('actions.at'), render: a => fmtDate(a.at) },
         { label: t('actions.actor'), render: actorName },
         { label: t('actions.action'), key: 'action' },

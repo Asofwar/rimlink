@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { h, table, busyButton, section, banner } from '../../shared/dom.js';
+import { h, table, busyButton, section, banner, append, replace } from '../../shared/dom.js';
 import { t } from '../../shared/i18n.js';
 import { fmtDate, fmtBytes, fmtDuration } from '../../shared/format.js';
 import { playerLink, stat, poll, actorName, roleName } from '../ui.js';
@@ -10,11 +10,11 @@ export function render(root) {
   const stats = h('div', { class: 'stats' });
   const online = h('div');
   const recent = h('div');
-  root.append(h('h1', null, t('nav.overview')), stats, section(t('overview.online'), online), section(t('overview.recent'), recent));
+  append(root, h('h1', null, t('nav.overview')), stats, section(t('overview.online'), online), section(t('overview.recent'), recent));
 
   async function refresh() {
     const [status, players, actions] = await Promise.all([api.get('status'), api.get('players/online'), api.get('actions?limit=10')]);
-    stats.replaceChildren(
+    replace(stats, 
       stat(t('overview.players'), t('overview.playersValue', { online: status.playersOnline, max: status.maxPlayers, total: status.playersTotal ?? '—' })),
       stat(t('overview.uptime'), fmtDuration(status.uptimeSeconds)),
       stat(t('overview.world'), status.worldExists ? t('overview.settlements', { count: status.settlements ?? '—' }) : t('overview.noWorld')),
@@ -24,7 +24,7 @@ export function render(root) {
       stat(t('overview.lastBackup'), status.backups?.lastAt ? fmtDate(status.backups.lastAt) : t('overview.never')),
       stat(t('overview.version'), `${status.version} / ${status.protocolVersion}`));
 
-    online.replaceChildren(table([
+    replace(online, table([
       { label: t('player.name'), render: p => playerLink(p.playerId, p.name) },
       { label: t('player.role'), render: p => roleName(p.role) },
       { label: t('player.ip'), key: 'ip' },
@@ -44,7 +44,7 @@ export function render(root) {
       },
     ], players, t('overview.nobody')));
 
-    recent.replaceChildren(table([
+    replace(recent, table([
       { label: t('actions.at'), render: a => fmtDate(a.at) },
       { label: t('actions.actor'), render: actorName },
       { label: t('actions.action'), key: 'action' },

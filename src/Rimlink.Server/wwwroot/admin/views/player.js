@@ -1,5 +1,5 @@
 import { api, query } from '../api.js';
-import { h, table, busyButton, section, field, banner, confirmDialog, showError } from '../../shared/dom.js';
+import { h, table, busyButton, section, field, banner, confirmDialog, showError, append, replace } from '../../shared/dom.js';
 import { t } from '../../shared/i18n.js';
 import { fmtDate, fmtBytes, fmtSilver } from '../../shared/format.js';
 import { playerLink, badge, fill, input, numberInput } from '../ui.js';
@@ -14,7 +14,7 @@ export function render(root, params) {
   const shop = h('div');
   const raids = h('div');
   const chat = h('div');
-  root.append(
+  append(root, 
     h('h1', null, t('player.title', { id })),
     section(t('player.facts'), facts),
     section(t('player.actions'), actions),
@@ -38,8 +38,8 @@ export function render(root, params) {
       return;
     }
     root.querySelector('h1').textContent = card.name;
-    facts.replaceChildren(factsList(card));
-    actions.replaceChildren(actionsBlock(card, done));
+    replace(facts, factsList(card));
+    replace(actions, actionsBlock(card, done));
     fill(saves, () => savesBlock(card, done));
     fill(economy, () => economyBlock(card, done));
     fill(shop, () => shopBlock(id));

@@ -39,6 +39,7 @@ builder.Services.Configure<RaidOptions>(builder.Configuration.GetSection(RaidOpt
 builder.Services.Configure<LiveOptions>(builder.Configuration.GetSection(LiveOptions.Section));
 builder.Services.Configure<PanelOptions>(builder.Configuration.GetSection(PanelOptions.Section));
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.ConfigureHttpJsonOptions(json => json.SerializerOptions.Converters.Add(new UtcDateTimeConverter()));
 // Built from the bound options (test settings are not visible to the values read above before Build()).
 builder.Services.AddSingleton(sp => new ServerCertificate(
     sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<ServerOptions>>().Value,

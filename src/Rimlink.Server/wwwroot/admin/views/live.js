@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { h, table, busyButton, section, field, banner, confirmDialog, showError } from '../../shared/dom.js';
+import { h, table, busyButton, section, field, banner, confirmDialog, showError, append, replace } from '../../shared/dom.js';
 import { t } from '../../shared/i18n.js';
 import { fmtDate } from '../../shared/format.js';
 import { playerLink, input, refreshButton } from '../ui.js';
@@ -9,14 +9,14 @@ const FINAL = ['Ended', 'Fallback'];
 export function render(root) {
   const list = h('div');
   const reason = input({ placeholder: t('player.reason') });
-  root.append(
+  append(root, 
     h('div', { class: 'toolbar' }, h('h1', { class: 'grow' }, t('nav.live')), refreshButton(load)),
     section(t('live.sessions'), h('div', { class: 'row' }, field(t('live.endReason'), reason)), list));
 
   async function load() {
     try {
       const sessions = await api.get('live');
-      list.replaceChildren(table([
+      replace(list, table([
         { label: '#', key: 'id' },
         { label: t('live.kind'), key: 'kind' },
         { label: t('live.host'), render: s => playerLink(s.hostPlayerId) },

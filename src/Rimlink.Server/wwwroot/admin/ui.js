@@ -1,5 +1,5 @@
 // Small building blocks shared by the admin screens.
-import { h, showError } from '../shared/dom.js';
+import { h, showError, replace } from '../shared/dom.js';
 import { t } from '../shared/i18n.js';
 
 const ROLES = ['player', 'moderator', 'admin'];
@@ -45,9 +45,9 @@ export function poll(refresh, ms) {
 /** Loads one block of a page; a failure shows the error inside the block instead of breaking the page. */
 export async function fill(container, load) {
   try {
-    container.replaceChildren(await load());
+    replace(container, await load());
   } catch (error) {
-    container.replaceChildren(h('p', { class: 'muted' }, error?.detail || t('common.error.status', { status: error?.status ?? '?' })));
+    replace(container, h('p', { class: 'muted' }, error?.detail || t('common.error.status', { status: error?.status ?? '?' })));
     if (error?.status === 0) showError(error);
   }
 }

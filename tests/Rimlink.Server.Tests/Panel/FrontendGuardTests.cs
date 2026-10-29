@@ -33,6 +33,20 @@ public partial class FrontendGuardTests
     }
 
     [Fact]
+    public void ViewsUseTheNullSafeHelpers()
+    {
+        // Native Element.append/replaceChildren print null and arrays as text ("nullnull" in the header); shared/dom.js
+        // append()/replace() skip null and flatten arrays.
+        var offenders = Files("*.js")
+            .Where(f => Path.GetFileName(f) != "dom.js")
+            .Where(f => NativeAppend().IsMatch(File.ReadAllText(f)))
+            .Select(Path.GetFileName)
+            .ToList();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
     public void HtmlHasNoInlineCode()
     {
         foreach (string file in Files("*.html"))
@@ -70,6 +84,9 @@ public partial class FrontendGuardTests
 
     [GeneratedRegex(@"\.innerHTML|\.outerHTML|insertAdjacentHTML|document\.write|\beval\s*\(|new\s+Function\s*\(")]
     private static partial Regex Sinks();
+
+    [GeneratedRegex(@"\.(append|replaceChildren|prepend)\(")]
+    private static partial Regex NativeAppend();
 
     [GeneratedRegex(@"<script(?![^>]*\bsrc=)[^>]*>", RegexOptions.IgnoreCase)]
     private static partial Regex InlineScript();

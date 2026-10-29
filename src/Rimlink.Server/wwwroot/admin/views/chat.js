@@ -1,5 +1,5 @@
 import { api, query } from '../api.js';
-import { h, table, busyButton, field, banner, showError } from '../../shared/dom.js';
+import { h, table, busyButton, field, banner, showError, append, replace } from '../../shared/dom.js';
 import { t } from '../../shared/i18n.js';
 import { fmtDate } from '../../shared/format.js';
 import { playerLink, numberInput, refreshButton } from '../ui.js';
@@ -13,7 +13,7 @@ export function render(root) {
   const more = h('button', { type: 'button' }, t('common.loadMore'));
   let lines = [];
 
-  root.append(
+  append(root, 
     h('div', { class: 'toolbar' }, h('h1', { class: 'grow' }, t('nav.chat')), field(t('chat.player'), player), refreshButton(() => load(true))),
     list,
     h('div', { class: 'toolbar' }, more));
@@ -25,7 +25,7 @@ export function render(root) {
   }
 
   function draw() {
-    list.replaceChildren(table([
+    replace(list, table([
       { label: t('chat.at'), render: l => fmtDate(l.at) },
       { label: t('chat.from'), render: author },
       { label: t('chat.text'), render: l => h('span', { class: 'chat-line' }, l.text) },

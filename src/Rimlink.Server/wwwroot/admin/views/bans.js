@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { h, table, busyButton, section, field, banner, confirmDialog, showError } from '../../shared/dom.js';
+import { h, table, busyButton, section, field, banner, confirmDialog, showError, append, replace } from '../../shared/dom.js';
 import { t } from '../../shared/i18n.js';
 import { fmtDate } from '../../shared/format.js';
 import { input, numberInput, refreshButton } from '../ui.js';
@@ -14,7 +14,7 @@ export function render(root) {
   const days = numberInput({ min: 0, step: 'any', placeholder: t('player.banForever') });
   const reason = input({ placeholder: t('player.reason') });
 
-  root.append(
+  append(root, 
     h('div', { class: 'toolbar' }, h('h1', { class: 'grow' }, t('nav.bans')), refreshButton(load)),
     section(t('bans.new'), h('div', { class: 'row' },
       field(t('bans.kind'), kind),
@@ -38,7 +38,7 @@ export function render(root) {
   async function load() {
     try {
       const bans = await api.get('bans');
-      list.replaceChildren(table([
+      replace(list, table([
         { label: '#', key: 'id' },
         { label: t('player.name'), render: b => b.playerName ?? '' },
         { label: t('player.steamId'), render: b => b.steamIdText ?? '' },

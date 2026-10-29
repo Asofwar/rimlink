@@ -1,7 +1,7 @@
 // The admin panel shell: login, header, navigation and a hash router (#/players/12). Each screen is a module in
 // views/ exporting render(root, params) and optionally returning a function that stops its polling.
 import { api, resetUnauthorized } from './api.js';
-import { h, clear, showError } from '../shared/dom.js';
+import { h, clear, clearBanners, showError, append, replace } from '../shared/dom.js';
 import { t, loadI18n, setLang, lang } from '../shared/i18n.js';
 import * as login from './views/login.js';
 
@@ -48,6 +48,7 @@ async function showRoute() {
   stopView?.();
   stopView = null;
   clear(main);
+  clearBanners();
   const { view, params } = match(currentPath());
   for (const link of document.querySelectorAll('nav.sidebar a')) {
     link.classList.toggle('active', link.dataset.route === (view === 'player' ? 'players' : currentPath().split('/')[0]));
@@ -56,7 +57,7 @@ async function showRoute() {
   try {
     module = await import(`./views/${view}.js`);
   } catch {
-    main.append(h('p', { class: 'muted' }, t('common.soon')));
+    append(main, h('p', { class: 'muted' }, t('common.soon')));
     return;
   }
   try {
@@ -69,12 +70,12 @@ async function showRoute() {
 async function refreshHeader(chips) {
   try {
     const status = await api.get('status');
-    clear(chips).append(
+    replace(chips, 
       h('span', { class: 'chip' }, t('header.online', { online: status.playersOnline, max: status.maxPlayers })),
       status.economy?.frozen ? h('span', { class: 'chip warn', title: status.economy.reason ?? '' }, t('header.economyFrozen')) : null,
       status.raids?.frozen ? h('span', { class: 'chip warn', title: status.raids.reason ?? '' }, t('header.raidsFrozen')) : null);
   } catch (error) {
-    if (error.status !== 401) clear(chips).append(h('span', { class: 'chip danger' }, t('common.error.network')));
+    if (error.status !== 401) replace(chips, h('span', { class: 'chip danger' }, t('common.error.network')));
   }
 }
 
@@ -106,7 +107,7 @@ async function showShell() {
   });
 
   const nav = h('nav', { class: 'sidebar' }, NAV.map(route => h('a', { href: `#/${route}`, 'data-route': route }, t(`nav.${route || 'overview'}`))));
-  app.append(
+  append(app, 
     h('header', { class: 'topbar' }, h('strong', { class: 'brand' }, serverName), chips, h('div', { class: 'spacer' }), language, logout),
     h('div', { class: 'layout' }, nav, h('main', { id: 'view' })));
 
@@ -124,6 +125,7 @@ function showLogin() {
   document.title = t('login.title');
   login.render(app, () => {
     resetUnauthorized();
+    clearBanners();
     showShell();
   });
 }

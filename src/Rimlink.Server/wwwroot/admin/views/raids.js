@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { h, table, busyButton, section, field, banner, confirmDialog, showError } from '../../shared/dom.js';
+import { h, table, busyButton, section, field, banner, confirmDialog, showError, append, replace } from '../../shared/dom.js';
 import { t } from '../../shared/i18n.js';
 import { fmtDate } from '../../shared/format.js';
 import { playerLink, stat, input, refreshButton } from '../ui.js';
@@ -16,7 +16,7 @@ export function render(root) {
   const returnPawns = h('input', { type: 'checkbox', id: 'return-pawns' });
   let raids = [];
 
-  root.append(
+  append(root, 
     h('div', { class: 'toolbar' }, h('h1', { class: 'grow' }, t('nav.raids')), refreshButton(load)),
     stats,
     section(t('raids.freezeTitle'), freeze),
@@ -29,7 +29,7 @@ export function render(root) {
   filter.addEventListener('change', draw);
 
   function draw() {
-    list.replaceChildren(table([
+    replace(list, table([
       { label: '#', key: 'id' },
       { label: t('raids.attacker'), render: r => playerLink(r.attackerPlayerId) },
       { label: t('raids.target'), render: r => playerLink(r.targetPlayerId) },
@@ -53,16 +53,16 @@ export function render(root) {
     try {
       const [s, all] = await Promise.all([api.get('raids/stats'), api.get('raids')]);
       raids = all;
-      stats.replaceChildren(
+      replace(stats, 
         stat(t('raids.queued'), s.queued),
         stat(t('raids.announced'), s.announced),
         stat(t('raids.landed'), s.landed),
         stat(t('raids.resolvedToday'), s.resolvedToday),
         stat(t('raids.expired'), s.expired),
         stat(t('raids.cancelledCount'), s.cancelled));
-      freeze.replaceChildren(freezeForm('raids/freeze', s.frozen, s.freezeReason, load));
+      replace(freeze, freezeForm('raids/freeze', s.frozen, s.freezeReason, load));
       const chosen = filter.value;
-      filter.replaceChildren(h('option', { value: '' }, t('raids.all')), [...new Set(all.map(r => r.state))].sort().map(state => h('option', { value: state }, state)));
+      replace(filter, h('option', { value: '' }, t('raids.all')), [...new Set(all.map(r => r.state))].sort().map(state => h('option', { value: state }, state)));
       filter.value = chosen;
       draw();
     } catch (error) {

@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { h, table, busyButton, section, field, banner, confirmDialog, showError } from '../../shared/dom.js';
+import { h, table, busyButton, section, field, banner, confirmDialog, showError, append, replace } from '../../shared/dom.js';
 import { t } from '../../shared/i18n.js';
 import { fmtDate, fmtSilver } from '../../shared/format.js';
 import { playerLink, stat, input, refreshButton } from '../ui.js';
@@ -8,7 +8,7 @@ export function render(root) {
   const stats = h('div', { class: 'stats' });
   const freeze = h('div');
   const lots = h('div');
-  root.append(
+  append(root, 
     h('div', { class: 'toolbar' }, h('h1', { class: 'grow' }, t('nav.economy')), refreshButton(load)),
     stats,
     section(t('economy.freezeTitle'), freeze),
@@ -17,14 +17,14 @@ export function render(root) {
   async function load() {
     try {
       const [s, all] = await Promise.all([api.get('economy/stats'), api.get('economy/lots')]);
-      stats.replaceChildren(
+      replace(stats, 
         stat(t('economy.silverInWallets'), fmtSilver(s.silverInWallets)),
         stat(t('economy.openLots'), s.openLots),
         stat(t('economy.pendingParcels'), s.pendingParcels),
         stat(t('economy.tradesToday'), s.tradesToday),
         stat(t('economy.state'), s.frozen ? t('public.frozen') : t('public.running')));
-      freeze.replaceChildren(freezeForm('economy/freeze', s.frozen, s.freezeReason, load));
-      lots.replaceChildren(table([
+      replace(freeze, freezeForm('economy/freeze', s.frozen, s.freezeReason, load));
+      replace(lots, table([
         { label: '#', key: 'id' },
         { label: t('economy.seller'), render: l => playerLink(l.sellerPlayerId, l.sellerName) },
         { label: t('economy.summary'), render: l => l.summary ?? '' },
