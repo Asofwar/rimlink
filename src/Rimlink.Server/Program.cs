@@ -71,6 +71,7 @@ builder.Services.AddScoped<ModpackService>();
 builder.Services.AddScoped<ChatService>();
 builder.Services.AddScoped<AdminOperations>();
 builder.Services.AddScoped<AdminCommandRunner>();
+builder.Services.AddScoped<AdminDirectory>();
 builder.Services.AddSingleton<FreezeState>();
 builder.Services.AddSingleton<Rimlink.Server.Application.Raids.RaidFreezeState>();
 builder.Services.AddSingleton<ModpackDefs>();
@@ -123,6 +124,7 @@ app.MapGrpcService<RaidsGrpcService>();
 app.MapGrpcService<VisitsGrpcService>();
 app.MapGrpcService<ShopGrpcService>();
 app.MapAdminApi();
+app.MapAdminDirectoryApi();
 app.MapPanelApi();
 
 app.Run();

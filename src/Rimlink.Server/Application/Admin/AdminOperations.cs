@@ -429,10 +429,13 @@ public sealed class AdminOperations(
         log.LogWarning("World recreated by {Actor}; old data in {Archive}", actor.Name, archive);
     }
 
-    public Task<List<AdminAction>> ListActions(Actor actor, int limit = 100)
+    /// <summary>Newest first; <paramref name="before"/> pages back to entries with a smaller id.</summary>
+    public Task<List<AdminAction>> ListActions(Actor actor, int limit = 100, long? before = null)
     {
         actor.Require(Role.Moderator);
-        return db.AdminActions.AsNoTracking().OrderByDescending(a => a.Id).Take(limit).ToListAsync();
+        var query = db.AdminActions.AsNoTracking();
+        if (before is { } b) query = query.Where(a => a.Id < b);
+        return query.OrderByDescending(a => a.Id).Take(limit).ToListAsync();
     }
 
     private async Task RemoveObjectsOf(long playerId)

@@ -37,7 +37,12 @@ public static class AdminEndpoints
             await ops.RollbackSave(ctx.Actor(), id, version) ? Results.Ok() : Results.NotFound()).RequireScope(ApiScope.Admin);
         group.MapPost("/players/{id:long}/reset", (long id, HttpContext ctx, AdminOperations ops) => ops.ResetPlayer(ctx.Actor(), id)).RequireScope(ApiScope.Admin);
 
-        group.MapGet("/bans", async (HttpContext ctx, AdminOperations ops) => (await ops.ListBans(ctx.Actor())).Select(b => new { b.Id, b.AccountId, b.SteamId, b.Ip, b.Reason, b.ExpiresAt, b.CreatedAt })).RequireScope(ApiScope.Moderate);
+        group.MapGet("/bans", async (HttpContext ctx, AdminOperations ops, AdminDirectory directory) =>
+        {
+            var bans = await ops.ListBans(ctx.Actor());
+            var names = await directory.NamesByAccount(bans.Where(b => b.AccountId is not null).Select(b => b.AccountId!.Value));
+            return bans.Select(b => new { b.Id, b.AccountId, b.SteamId, b.Ip, b.Reason, b.ExpiresAt, b.CreatedAt, playerName = b.AccountId is { } a && names.TryGetValue(a, out var n) ? n : null });
+        }).RequireScope(ApiScope.Moderate);
         group.MapPost("/bans", async (BanBody body, HttpContext ctx, AdminOperations ops) =>
         {
             long? playerId = body.PlayerId;
@@ -51,7 +56,12 @@ public static class AdminEndpoints
         group.MapPost("/broadcast", (TextBody body, HttpContext ctx, AdminOperations ops) => ops.Broadcast(ctx.Actor(), body.Text)).RequireScope(ApiScope.Moderate);
         group.MapPost("/shutdown", (ShutdownBody body, HttpContext ctx, AdminOperations ops) => ops.Shutdown(ctx.Actor(), body.InSeconds, body.Reason ?? "server shutdown")).RequireScope(ApiScope.Admin);
         group.MapPost("/world/recreate", (HttpContext ctx, AdminOperations ops) => ops.RecreateWorld(ctx.Actor())).RequireScope(ApiScope.Admin);
-        group.MapGet("/actions", async (HttpContext ctx, AdminOperations ops, [FromQuery] int limit = 100) => (await ops.ListActions(ctx.Actor(), limit)).Select(a => new { a.Id, a.At, a.ActorAccountId, a.ActorName, a.Action, a.TargetAccountId, a.Details })).RequireScope(ApiScope.Moderate);
+        group.MapGet("/actions", async (HttpContext ctx, AdminOperations ops, AdminDirectory directory, [FromQuery] int limit = 100, [FromQuery] long? before = null) =>
+        {
+            var actions = await ops.ListActions(ctx.Actor(), limit, before);
+            var names = await directory.NamesByAccount(actions.Where(a => a.TargetAccountId is not null).Select(a => a.TargetAccountId!.Value));
+            return actions.Select(a => new { a.Id, a.At, a.ActorAccountId, a.ActorName, a.Action, a.TargetAccountId, targetName = a.TargetAccountId is { } t && names.TryGetValue(t, out var n) ? n : null, a.Details });
+        }).RequireScope(ApiScope.Moderate);
 
         group.MapGet("/modpack", async (ModpackService modpack) => new ModpackBody((await modpack.Get()).Select(e => new ModpackEntryBody(e.Position, e.PackageId, e.Version, e.WorkshopId, e.Url, e.Kind)).ToList())).RequireScope(ApiScope.Read);
         group.MapPut("/modpack/defs", async (DefsBody body, HttpContext ctx, ModpackService modpack, ModpackDefs defs) =>
