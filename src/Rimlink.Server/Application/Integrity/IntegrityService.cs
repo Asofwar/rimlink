@@ -49,17 +49,21 @@ public sealed class IntegrityService(RimlinkDbContext db, PlayerFreeze freeze, A
         else await Alert(player, "integrity-wealth", Kind_WealthWarn, stored.Number, result, frozen: false, details);
     }
 
-    /// <summary>Silver worth of what reached the player by parcel with a delivery tick in (<paramref name="fromTickExclusive"/>, <paramref name="toTickInclusive"/>].</summary>
+    /// <summary>
+    /// Silver worth of what reached the player's map by parcel with a delivery tick in (<paramref name="fromTickExclusive"/>,
+    /// <paramref name="toTickInclusive"/>]. A parcel's silver is credited to the wallet on delivery, except a withdrawal's, which
+    /// lands as stacks; the client saves right after a delivery, so a delivery at the base save's tick is already in it.
+    /// </summary>
     public async Task<long> ImportedBetween(long playerId, long fromTickExclusive, long toTickInclusive)
     {
         var parcels = await db.Parcels.AsNoTracking()
             .Where(p => p.ToPlayerId == playerId && p.DeliveredAt != null && p.DeliveredTick > fromTickExclusive && p.DeliveredTick <= toTickInclusive)
-            .Select(p => new { p.Silver, p.Items, p.Pawns })
+            .Select(p => new { p.Kind, p.Silver, p.Items, p.Pawns })
             .ToListAsync();
         long x100 = 0, silver = 0;
         foreach (var p in parcels)
         {
-            silver += p.Silver;
+            if (p.Kind == ParcelKindDb.Withdraw) silver += p.Silver;
             if (p.Items.Length > 0) x100 += ItemList.Parser.ParseFrom(p.Items).Items.Sum(i => i.MarketValueX100 * i.Count);
             if (p.Pawns.Length > 0) x100 += PawnList.Parser.ParseFrom(p.Pawns).Pawns.Sum(b => b.MarketValueX100);
         }

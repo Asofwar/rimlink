@@ -25,7 +25,9 @@ public status page at `/`; integrations use named API tokens with scopes. Discor
 channels, the public chat bridged both ways, public queries and role-gated admin commands, through the admin event feed
 (Server-Sent Events) and the REST API with a scoped token. Safe trades: a player's gift waits for accept or refuse,
 a personal block list (DMs, gifts, trades, public chat lines), and two-way trades on server escrow with counter-offers
-and double confirmation.
+and double confirmation. Integrity: dev mode only for admins while connected, saves made with dev mode flagged, a
+wealth-jump check per save (admin alert, then a freeze of that player's trading), the world's storyteller and difficulty
+held for every colony, and the colony saved and uploaded when the game is closed.
 
 - Players: `docs/player-guide.md`
 - Server admins: `docs/server-setup.md`

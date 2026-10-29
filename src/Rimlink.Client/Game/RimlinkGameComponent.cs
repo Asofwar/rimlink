@@ -30,6 +30,10 @@ public sealed class RimlinkGameComponent : GameComponent
         long wealthTotal = 0, wealthItems = 0;
         if (Scribe.mode == LoadSaveMode.Saving && Find.AnyPlayerHomeMap is { } home)
         {
+            // The watcher recounts every 5000 ticks; a save right after a delivery must report the delivered things, or the
+            // next save looks like a wealth jump the server cannot explain (the delivery is already behind this save).
+            // The upload header (SaveSync.OnSaved, right after this) reads the same fresh count.
+            home.wealthWatcher.ForceRecount();
             wealthTotal = (long)home.wealthWatcher.WealthTotal;
             wealthItems = (long)home.wealthWatcher.WealthItems;
         }

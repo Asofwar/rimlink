@@ -39,13 +39,13 @@ public class IntegrityServiceTests
     private static Task<List<string>> Audit(ServerFixture fixture) =>
         Db(fixture, db => db.AdminActions.AsNoTracking().OrderBy(a => a.Id).Select(a => a.Action + " " + a.ActorName).ToListAsync());
 
-    private static async Task Delivered(ServerFixture fixture, LoginReply to, long tick, ItemList? items = null, PawnList? pawns = null, long silver = 0)
+    private static async Task Delivered(ServerFixture fixture, LoginReply to, long tick, ItemList? items = null, PawnList? pawns = null, long silver = 0, ParcelKindDb kind = ParcelKindDb.Purchase)
     {
         await Db(fixture, async db =>
         {
             db.Parcels.Add(new Parcel
             {
-                ToPlayerId = to.Player.PlayerId, Kind = ParcelKindDb.Purchase, Items = (items ?? new ItemList()).ToByteArray(),
+                ToPlayerId = to.Player.PlayerId, Kind = kind, Items = (items ?? new ItemList()).ToByteArray(),
                 Pawns = (pawns ?? new PawnList()).ToByteArray(), Silver = silver, CreatedAt = DateTime.UtcNow, DeliveredAt = DateTime.UtcNow, DeliveredTick = tick,
             });
             return await db.SaveChangesAsync();
@@ -154,8 +154,9 @@ public class IntegrityServiceTests
         await Upload(fixture, nova, tick: 1000, wealth: 50000);
         var pawn = Pawn("Colonist", "Ann");
         pawn.MarketValueX100 = 10_000_000;
-        await Delivered(fixture, nova, tick: 30000, pawns: new PawnList { Pawns = { pawn } }, silver: 5000);
-        await Delivered(fixture, nova, tick: 90000, silver: 100000); // after the new save: not imported yet
+        await Delivered(fixture, nova, tick: 30000, pawns: new PawnList { Pawns = { pawn } });
+        await Delivered(fixture, nova, tick: 30000, silver: 5000, kind: ParcelKindDb.Withdraw); // physical silver
+        await Delivered(fixture, nova, tick: 90000, silver: 100000, kind: ParcelKindDb.Withdraw); // after the new save: not imported yet
 
         await Upload(fixture, nova, tick: 61000, wealth: 176000);
 
@@ -163,6 +164,22 @@ public class IntegrityServiceTests
         var alert = FeedProbe.Data(await probe.Next(FeedTypes.IntegrityAlert));
         Assert.Equal(21000, alert.GetProperty("net").GetInt64());
         Assert.Equal("wealth-warn", alert.GetProperty("kind").GetString());
+    }
+
+    [Fact]
+    public async Task SilverCreditedToTheWalletIsNotImported()
+    {
+        using var fixture = Server();
+        using var probe = fixture.Probe();
+        var nova = await fixture.RegisterAndLogin("nova", playerName: "Nova");
+        await Upload(fixture, nova, tick: 1000, wealth: 50000);
+        // A gift's silver goes to the wallet on delivery, not onto the map: it does not explain a richer colony.
+        await Delivered(fixture, nova, tick: 30000, silver: 50000, kind: ParcelKindDb.Gift);
+
+        await Upload(fixture, nova, tick: 31000, wealth: 100000);
+
+        var alert = FeedProbe.Data(await probe.Next(FeedTypes.IntegrityAlert));
+        Assert.Equal(50000, alert.GetProperty("net").GetInt64());
     }
 
     [Fact]
