@@ -261,7 +261,8 @@ not a modified client that lies about its wealth or its dev mode.
   - backups: `GET /backups`, `POST /backups` (make one now; 409 while one runs), `GET /backups/{name}` (download).
   - archive (5d): `GET /archive?state=archived|restored|all` (scope `moderate`, newest first, up to 500),
     `POST /players/{id}/archive` and `POST /archive/{id}/restore` (scope `admin`); refusals are 404 `unknown archive` and 409
-    `no colony`, `already restored`, `player has a colony`, `tile taken`, `archive damaged`. Chat command `/archive list | <player> |
+    `no colony`, `player is online` (only offline players are archived), `already restored`, `player has a colony`, `tile taken`,
+    `archive damaged`. Chat command `/archive list | <player> |
     restore <id>`; CLI `rimlink-tools admin archived [state] | archive <playerId> | restore-colony <id>`. Every archive and restore
     by an admin is in the audit log (`archive`, `restore`; the sweep acts as `system:hygiene`).
   - names next to ids (`null` when no player has that id any more): `GET /raids` `attackerName`, `targetName`;

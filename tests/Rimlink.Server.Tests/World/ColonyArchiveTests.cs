@@ -20,8 +20,11 @@ public class ColonyArchiveTests
 {
     private static readonly Actor Admin = Actor.Api;
 
+    /// <summary>Archives the player's colony after ending their session (online players are refused).</summary>
     private static async Task<ArchiveOutcome> Archive(ServerFixture fixture, long playerId, string reason = "admin")
     {
+        var sessions = fixture.Services.GetRequiredService<Application.Sessions.SessionRegistry>();
+        if (sessions.ByPlayer(playerId) is { } session) sessions.End(session.Token);
         using var scope = fixture.Services.CreateScope();
         return await scope.ServiceProvider.GetRequiredService<ColonyArchive>().Archive(playerId, reason, Admin);
     }
@@ -116,20 +119,22 @@ public class ColonyArchiveTests
         Assert.IsType<ArchiveOutcome.NoColony>(await Archive(fixture, nova.Player.PlayerId));
     }
 
-    [Fact]
-    public async Task ArchivingAnOnlinePlayerEndsTheSession()
+    [Theory]
+    [InlineData("admin")]
+    [InlineData("auto")]
+    public async Task ArchiveOfAnOnlinePlayerIsRefused(string reason)
     {
+        // A client whose session ends logs in again at once, and that login would bring the colony straight back.
         using var fixture = HygieneServer();
         var nova = await Settled(fixture, "nova", tile: 100);
-        using var stream = new Protocol.V1.Events.EventsClient(fixture.CreateChannel()).Subscribe(new Empty(), Bearer(nova.Token));
-        // The stream is attached once it delivers something: queued events still reach it after the session ends.
-        await fixture.RegisterAndLogin("mira", playerName: "Mira");
-        Assert.True(await NextEvent(stream, ServerEvent.BodyOneofCase.PlayerJoined));
+        using var scope = fixture.Services.CreateScope();
 
-        Assert.IsType<ArchiveOutcome.Archived>(await Archive(fixture, nova.PlayerId));
+        var outcome = await scope.ServiceProvider.GetRequiredService<ColonyArchive>().Archive(nova.PlayerId, reason, Admin);
 
-        Assert.True(await NextEvent(stream, ServerEvent.BodyOneofCase.Notice));
-        Assert.Null(fixture.Services.GetRequiredService<Application.Sessions.SessionRegistry>().ByPlayer(nova.PlayerId));
+        Assert.IsType<ArchiveOutcome.PlayerOnline>(outcome);
+        Assert.NotNull(fixture.Services.GetRequiredService<Application.Sessions.SessionRegistry>().ByPlayer(nova.PlayerId));
+        Assert.True(await Db(fixture, db => db.WorldObjects.AnyAsync(o => o.OwnerPlayerId == nova.PlayerId)));
+        Assert.Equal(0, await Db(fixture, db => db.ArchivedColonies.CountAsync()));
     }
 
     [Fact]

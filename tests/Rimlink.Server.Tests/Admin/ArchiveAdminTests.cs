@@ -94,6 +94,8 @@ public class ArchiveAdminTests
         await Settled(fixture, "mira", tile: 100);
 
         Assert.Equal((HttpStatusCode.Conflict, "no colony"), await Problem(await fixture.Rest().PostAsync($"/api/admin/players/{plain.Player.PlayerId}/archive", null)));
+        var online = await Settled(fixture, "olga", tile: 300);
+        Assert.Equal((HttpStatusCode.Conflict, "player is online"), await Problem(await fixture.Rest().PostAsync($"/api/admin/players/{online.PlayerId}/archive", null)));
         Assert.Equal(HttpStatusCode.NotFound, (await fixture.Rest().PostAsync("/api/admin/players/999999/archive", null)).StatusCode);
         Assert.Equal((HttpStatusCode.NotFound, "unknown archive"), await Problem(await fixture.Rest().PostAsync("/api/admin/archive/999999/restore", null)));
         Assert.Equal((HttpStatusCode.Conflict, "tile taken"), await Problem(await fixture.Rest().PostAsync($"/api/admin/archive/{id}/restore", null)));

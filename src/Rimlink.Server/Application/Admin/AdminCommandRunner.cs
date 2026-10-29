@@ -191,6 +191,7 @@ public sealed class AdminCommandRunner(AdminOperations ops, ModpackService modpa
                     {
                         string name = Rest(0);
                         var outcome = await ops.ArchiveColony(actor, await PlayerId(name));
+                        if (outcome is Rimlink.Server.Application.World.ArchiveOutcome.PlayerOnline) return $"{name} is online: only offline players are archived";
                         if (outcome is not Rimlink.Server.Application.World.ArchiveOutcome.Archived archived) return $"{name} has no colony";
                         var row = (await ops.ListArchived(actor, "archived")).First(r => r.Id == archived.ArchiveId);
                         return $"'{row.Colony}' of {row.PlayerName} archived as #{row.Id}";

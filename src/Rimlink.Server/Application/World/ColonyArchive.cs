@@ -18,7 +18,7 @@ public abstract record ArchiveOutcome
 {
     public sealed record Archived(long ArchiveId) : ArchiveOutcome;
     public sealed record NoColony : ArchiveOutcome;
-    /// <summary>An automatic archive found the player online after all (a login won the race).</summary>
+    /// <summary>The player is online: only offline players are archived (their next login would restore the colony at once).</summary>
     public sealed record PlayerOnline : ArchiveOutcome;
 }
 
@@ -58,19 +58,15 @@ public sealed class ColonyArchive(
     public async Task<ArchiveOutcome> Archive(long playerId, string reason, Actor actor)
     {
         using var held = await locks.Hold(playerId);
-        if (reason == "auto" && sessions.ByPlayer(playerId) is not null) return new ArchiveOutcome.PlayerOnline();
         var settlement = await db.WorldObjects.Include(o => o.Owner).ThenInclude(p => p.Account)
             .FirstOrDefaultAsync(o => o.OwnerPlayerId == playerId && o.Type == WorldObjectTypes.Settlement);
         if (settlement is null) return new ArchiveOutcome.NoColony();
+        // Never while the player plays: a client whose session ends logs in again at once, and that login restores the colony.
+        if (sessions.ByPlayer(playerId) is not null) return new ArchiveOutcome.PlayerOnline();
         var player = settlement.Owner;
         var versions = await db.SaveVersions.Where(v => v.PlayerId == playerId).OrderBy(v => v.Number).ToListAsync();
         files.EnsureFilesExist(playerId, versions); // before any side effect: a colony whose saves are gone stays as it is
 
-        if (sessions.ByPlayer(playerId) is { } session)
-        {
-            events.SendTo(playerId, new ServerEvent { Notice = new Notice { Text = "Your colony was moved to the archive by an admin" } });
-            sessions.End(session.Token);
-        }
         await raids.CancelAllOf(playerId, "colony archived", returnOwnPawns: true);
         await visits.EndAllOf(playerId);
         await live.EndAllOf(playerId, LiveEndReason.EndAdmin);
