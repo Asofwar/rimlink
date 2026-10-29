@@ -402,22 +402,22 @@ public static class Outgoing
                 }
                 catch (RpcException ex) when (TransferOutbox.IsDefinitive(ex))
                 {
-                    string reason = Rimlink.Client.UI.RefusalText.Of(ex);
-                    RimlinkLog.Instance.Warn($"transfer refused: {reason}");
+                    var refusal = Rimlink.Client.Net.RpcErrorDetail.Read(ex);
+                    RimlinkLog.Instance.Warn($"transfer refused: {refusal.Message}");
                     if (entry is not null) outbox!.Remove(entry.Id);
                     MainThread.Post(() =>
                     {
                         Restore(taken);
-                        Messages.Message("Rimlink.Economy.Failed".Translate(reason), MessageTypeDefOf.RejectInput, historical: false);
+                        Messages.Message("Rimlink.Economy.Failed".Translate(RefusalText.Of(refusal)), MessageTypeDefOf.RejectInput, historical: false);
                         SaveSync.TriggerSave("transfer-restore");
                     });
                 }
                 catch (Exception ex)
                 {
                     // Unknown outcome: the entry stays in the outbox and is replayed with the same key; nothing is restored and nothing is lost.
-                    string reason = ex is RpcException rpc ? Rimlink.Client.UI.RefusalText.Of(rpc) : ex.Message;
-                    RimlinkLog.Instance.Warn($"transfer unanswered, kept in the outbox: {reason}");
-                    MainThread.Post(() => Messages.Message("Rimlink.Economy.Unanswered".Translate(reason), MessageTypeDefOf.NegativeEvent, historical: false));
+                    var refusal = Rimlink.Client.Net.RpcErrorDetail.Read(ex);
+                    RimlinkLog.Instance.Warn($"transfer unanswered, kept in the outbox: {refusal.Message}");
+                    MainThread.Post(() => Messages.Message("Rimlink.Economy.Unanswered".Translate(RefusalText.Of(refusal)), MessageTypeDefOf.NegativeEvent, historical: false));
                 }
             });
         }

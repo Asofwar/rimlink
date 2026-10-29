@@ -23,6 +23,18 @@ public static class MainThread
         return tcs.Task;
     }
 
+    /// <summary>A value computed on the main thread (a translated text), for a background flow that awaits it; never block on it there.</summary>
+    public static Task<T> Get<T>(Func<T> read)
+    {
+        var tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+        Post(() =>
+        {
+            try { tcs.SetResult(read()); }
+            catch (Exception ex) { tcs.SetException(ex); }
+        });
+        return tcs.Task;
+    }
+
     /// <summary>Main thread only.</summary>
     public static void Drain()
     {

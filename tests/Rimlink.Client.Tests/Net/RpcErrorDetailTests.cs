@@ -43,4 +43,21 @@ public class RpcErrorDetailTests
         Assert.Null(refusal.Code);
         Assert.Null(refusal.Key);
     }
+
+    /// <summary>A background catch reads any failure into a refusal; the mod translates it later, on the main thread.</summary>
+    [Fact]
+    public void ReadOfAnyExceptionGivesARefusal()
+    {
+        var detail = new ErrorDetail { Code = ErrorCode.LiveActive, Message = "busy", Key = "Live.HostBusy" };
+        Exception refused = Refused(detail);
+
+        var fromRpc = RpcErrorDetail.Read(refused);
+        var fromOther = RpcErrorDetail.Read(new TimeoutException("the call timed out"));
+
+        Assert.Equal(("Live.HostBusy", "busy"), (fromRpc.Key, fromRpc.Message));
+        Assert.Equal("the call timed out", fromOther.Message);
+        Assert.Null(fromOther.Key);
+        Assert.Null(fromOther.Code);
+        Assert.Empty(fromOther.Args);
+    }
 }

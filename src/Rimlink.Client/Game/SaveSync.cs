@@ -16,7 +16,10 @@ public static class SaveSync
     public static PendingUpload Pending => new(SaveDir);
     public static bool IsSaving { get; private set; }
     public static DateTime? LastUploadUtc { get; private set; }
-    public static string? LastError { get; private set; }
+    /// <summary>Why the last finished upload failed, null after a success; a server refusal is translated when read on the main thread.</summary>
+    public static string? LastError => lastRefusal is { } refusal ? Rimlink.Client.UI.RefusalText.Of(refusal) : lastFailure;
+    private static Refusal? lastRefusal;
+    private static string? lastFailure;
     /// <summary>Server version of the last successful upload (0 before the first).</summary>
     public static int LastVersion { get; private set; }
     /// <summary>Set when the server refused the last upload as older than a transfer; the game component shows the choice once.</summary>
@@ -88,7 +91,8 @@ public static class SaveSync
                 var info = await new SaveTransfer(connection).UploadAsync(path, meta, timeout.Token);
                 pending.Clear();
                 LastUploadUtc = DateTime.UtcNow;
-                LastError = null;
+                lastRefusal = null;
+                lastFailure = null;
                 LastVersion = info.Version;
                 RimlinkLog.Instance.Info($"save uploaded as v{info.Version}");
                 if (shopList is not null) await Shop.ShopSync.Publish(shopList, connection);
@@ -96,14 +100,17 @@ public static class SaveSync
             catch (Grpc.Core.RpcException ex) when (Rimlink.Client.Economy.EconomyClient.CodeOf(ex) == Rimlink.Protocol.V1.ErrorCode.SaveStale)
             {
                 // Not a retry case: this file would bring back what was given away. The player decides in game.
-                LastError = Rimlink.Client.UI.RefusalText.Of(ex);
+                var refusal = RpcErrorDetail.Read(ex);
+                lastFailure = null;
+                lastRefusal = refusal;
                 StaleSaveDetected = true;
-                RimlinkLog.Instance.Warn($"save refused as stale: {LastError}");
+                RimlinkLog.Instance.Warn($"save refused as stale: {refusal.Message}");
             }
             catch (Exception ex)
             {
                 pending.Set();
-                LastError = ex.Message;
+                lastRefusal = null;
+                lastFailure = ex.Message;
                 RimlinkLog.Instance.Warn($"save upload failed, will retry at next login: {ex.Message}");
             }
         });

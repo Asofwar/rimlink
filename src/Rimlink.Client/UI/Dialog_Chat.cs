@@ -107,7 +107,8 @@ public sealed class Dialog_Chat : Window
             try { await connection.Chat.SendAsync(new SendRequest { Text = line, ToPlayerId = to }); }
             catch (RpcException ex)
             {
-                MainThread.Post(() => Messages.Message(RefusalText.Of(ex), MessageTypeDefOf.RejectInput, historical: false));
+                var refusal = Rimlink.Client.Net.RpcErrorDetail.Read(ex);
+                MainThread.Post(() => Messages.Message(RefusalText.Of(refusal), MessageTypeDefOf.RejectInput, historical: false));
             }
         });
     }

@@ -110,8 +110,8 @@ public sealed class Dialog_Economy : Window
             }
             catch (Exception ex)
             {
-                string reason = ex is RpcException rpc ? Rimlink.Client.UI.RefusalText.Of(rpc) : ex.Message;
-                MainThread.Post(() => { status = reason; busy = false; });
+                var refusal = Rimlink.Client.Net.RpcErrorDetail.Read(ex);
+                MainThread.Post(() => { status = RefusalText.Of(refusal); busy = false; });
             }
         });
     }
@@ -401,8 +401,8 @@ public sealed class Dialog_Economy : Window
             }
             catch (Exception ex)
             {
-                string reason = ex is RpcException rpc ? Rimlink.Client.UI.RefusalText.Of(rpc) : ex.Message;
-                MainThread.Post(() => { status = reason; busy = false; });
+                var refusal = Rimlink.Client.Net.RpcErrorDetail.Read(ex);
+                MainThread.Post(() => { status = RefusalText.Of(refusal); busy = false; });
             }
         });
     }
@@ -444,8 +444,8 @@ public sealed class Dialog_Economy : Window
             }
             catch (Exception ex)
             {
-                string reason = ex is RpcException rpc ? Rimlink.Client.UI.RefusalText.Of(rpc) : ex.Message;
-                MainThread.Post(() => { status = reason; busy = false; });
+                var refusal = Rimlink.Client.Net.RpcErrorDetail.Read(ex);
+                MainThread.Post(() => { status = RefusalText.Of(refusal); busy = false; });
             }
         });
     }
@@ -464,8 +464,8 @@ public sealed class Dialog_Economy : Window
             }
             catch (Exception ex)
             {
-                string reason = ex is RpcException rpc ? Rimlink.Client.UI.RefusalText.Of(rpc) : ex.Message;
-                MainThread.Post(() => { status = reason; busy = false; });
+                var refusal = Rimlink.Client.Net.RpcErrorDetail.Read(ex);
+                MainThread.Post(() => { status = RefusalText.Of(refusal); busy = false; });
             }
         });
     }

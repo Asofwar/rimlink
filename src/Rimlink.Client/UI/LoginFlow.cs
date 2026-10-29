@@ -105,7 +105,7 @@ public static class LoginFlow
             }
             catch (RpcException ex)
             {
-                string error = ErrorMessage(ex);
+                string error = await ErrorMessage(ex);
                 await Fail(connection, wait, error);
                 return new LoginOutcome(LoginOutcomeKind.Failed, error);
             }
@@ -137,13 +137,13 @@ public static class LoginFlow
             {
                 // The Steam ticket was refused (server without a Steam key, or Steam offline): offer the account login.
                 credentials.PreferPassword = true;
-                credentials.LastError = RefusalText.Of(ex);
+                credentials.LastError = await ErrorMessage(ex);
             }
             catch (RpcException ex) when (ex.StatusCode is StatusCode.Unauthenticated or StatusCode.AlreadyExists or StatusCode.InvalidArgument
                                           && credentials.LastPassword is not null)
             {
                 // Wrong password or a refused registration (name taken, bad name): ask again instead of failing the whole flow.
-                credentials.LastError = RefusalText.Of(ex);
+                credentials.LastError = await ErrorMessage(ex);
                 credentials.ForgetPassword();
             }
             catch (RpcException ex) when (ErrorCodeOf(ex) == ErrorCode.WrongPassword && !serverPasswordAsked && credentials.Interactive)
@@ -177,7 +177,7 @@ public static class LoginFlow
             string kept = Path.ChangeExtension(savePath, $".{(stale ? "stale" : "rejected")}-{DateTime.Now:yyyyMMdd-HHmm}.rws");
             File.Move(savePath, kept, overwrite: true);
             pending.Clear();
-            string reason = ErrorMessage(ex);
+            string reason = await ErrorMessage(ex);
             RimlinkLog.Instance.Warn($"pending local save refused ({reason}); kept as {kept}");
             MainThread.Post(() => Find.WindowStack.Add(new Dialog_MessageBox("Rimlink.Save.Rejected".Translate(reason, Path.GetFileName(kept)))));
             return false;
@@ -224,7 +224,12 @@ public static class LoginFlow
 
     private static ErrorCode? ErrorCodeOf(RpcException ex) => Rimlink.Client.Economy.EconomyClient.CodeOf(ex);
 
-    private static string ErrorMessage(RpcException ex) => RefusalText.Of(ex);
+    /// <summary>The refusal in the player's language: read here, translated on the main thread (the login runs in the background).</summary>
+    private static Task<string> ErrorMessage(RpcException ex)
+    {
+        var refusal = RpcErrorDetail.Read(ex);
+        return MainThread.Get(() => RefusalText.Of(refusal));
+    }
 
     /// <summary>Seed, faction name and tick straight from the .rws header, without loading the game.</summary>
     private static SaveMeta ReadMeta(string rwsPath)

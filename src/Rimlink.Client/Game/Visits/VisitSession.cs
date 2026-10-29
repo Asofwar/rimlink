@@ -67,8 +67,8 @@ public static class VisitSession
             }
             catch (Exception ex)
             {
-                string reason = ex is Grpc.Core.RpcException rpc ? Rimlink.Client.UI.RefusalText.Of(rpc) : ex.Message;
-                MainThread.Post(() => { Starting = false; wait.Close(); Messages.Message("Rimlink.Visit.Failed".Translate(reason), MessageTypeDefOf.RejectInput, historical: false); });
+                var refusal = Rimlink.Client.Net.RpcErrorDetail.Read(ex);
+                MainThread.Post(() => { Starting = false; wait.Close(); Messages.Message("Rimlink.Visit.Failed".Translate(RefusalText.Of(refusal)), MessageTypeDefOf.RejectInput, historical: false); });
                 return;
             }
             MainThread.Post(() => { Starting = false; SaveAndLoad(new VisitPending(ticket.VisitId, host.PlayerId, host.Name, blobs, shopList), wait, visits); });
@@ -139,8 +139,8 @@ public static class VisitSession
             }
             catch (Exception ex)
             {
-                string reason = ex is Grpc.Core.RpcException rpc ? Rimlink.Client.UI.RefusalText.Of(rpc) : ex.Message;
-                MainThread.Post(() => { wait.Close(); Fail(pending, visits, reason, onFailure); });
+                var refusal = Rimlink.Client.Net.RpcErrorDetail.Read(ex);
+                MainThread.Post(() => { wait.Close(); Fail(pending, visits, RefusalText.Of(refusal), onFailure); });
                 return;
             }
             MainThread.Post(() =>

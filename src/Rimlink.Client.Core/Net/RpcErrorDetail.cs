@@ -17,4 +17,7 @@ public static class RpcErrorDetail
         var detail = ErrorDetail.Parser.ParseFrom(trailer.ValueBytes);
         return new Refusal(detail.Code, detail.Message, detail.Key.Length == 0 ? null : detail.Key, detail.Args.ToList());
     }
+
+    /// <summary>Any failure as a refusal: a server refusal as above, anything else (a timeout, a transport error) by its message.</summary>
+    public static Refusal Read(Exception ex) => ex is RpcException rpc ? Read(rpc) : new Refusal(null, ex.Message, null, []);
 }

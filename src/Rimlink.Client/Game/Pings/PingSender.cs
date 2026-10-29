@@ -86,8 +86,8 @@ public static class PingSender
             try { await connection.Chat.PingAsync(request); }
             catch (Exception ex)
             {
-                string reason = RefusalText.Of(ex);
-                MainThread.Post(() => Messages.Message("Rimlink.Ping.Failed".Translate(reason), MessageTypeDefOf.RejectInput, historical: false));
+                var refusal = Rimlink.Client.Net.RpcErrorDetail.Read(ex);
+                MainThread.Post(() => Messages.Message("Rimlink.Ping.Failed".Translate(RefusalText.Of(refusal)), MessageTypeDefOf.RejectInput, historical: false));
             }
         });
     }
