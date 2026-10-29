@@ -29,6 +29,8 @@ public static class Overlay
         string status = RimlinkSession.LastState switch
         {
             ConnectionState.Connected => "Rimlink.Overlay.Online".Translate(RimlinkSession.State.Players.Online.Count),
+            ConnectionState.Reconnecting when RimlinkSession.Connection?.ReconnectingSince is { } since =>
+                "Rimlink.Overlay.Reconnecting".Translate((DateTime.UtcNow - since).ToString(@"m\:ss")),
             ConnectionState.Reconnecting => "Rimlink.Net.Reconnecting".Translate(),
             var other => other.ToString(),
         };

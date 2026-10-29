@@ -6,7 +6,9 @@
   <Rimlink.Net.Reconnecting>Connection to the server lost, reconnecting...</Rimlink.Net.Reconnecting>
   <Rimlink.Net.Reconnected>Reconnected to the server.</Rimlink.Net.Reconnected>
   <Rimlink.Net.Replaced>This account logged in from another place; the colony continues there. This copy is disconnected and will not be uploaded.</Rimlink.Net.Replaced>
-  <Rimlink.Net.Failed>Could not reconnect to the server within two minutes. Your save stays on this computer and is uploaded at the next login.</Rimlink.Net.Failed>
+  <Rimlink.Net.Failed>The server refused to reconnect: {0}. Your save stays on this computer and is uploaded at the next login.</Rimlink.Net.Failed>
+  <Rimlink.Net.LongOutage>No connection to the server for two minutes. Rimlink keeps trying in the background, and this window closes by itself once the server is back. You can also leave to the main menu: the colony is saved on this computer and uploaded at the next login.</Rimlink.Net.LongOutage>
+  <Rimlink.Net.KeepWaiting>Keep waiting</Rimlink.Net.KeepWaiting>
   <Rimlink.Net.ToMenu>Back to main menu</Rimlink.Net.ToMenu>
   <Rimlink.Net.Shutdown>Server shutdown in {0} s: {1}</Rimlink.Net.Shutdown>
   <Rimlink.Save.RolledBack>An admin restored your save to version {0}. Return to the menu and log in again to load it.</Rimlink.Save.RolledBack>
@@ -55,6 +57,7 @@
   <Rimlink.Chat.External>[Discord] {0}</Rimlink.Chat.External>
   <Rimlink.Players.Title>Players online: {0}</Rimlink.Players.Title>
   <Rimlink.Players.Message>Message</Rimlink.Players.Message>
+  <Rimlink.Overlay.Reconnecting>Rimlink: reconnecting {0}</Rimlink.Overlay.Reconnecting>
   <Rimlink.Overlay.Online>Rimlink: {0} online</Rimlink.Overlay.Online>
   <Rimlink.Overlay.Chat>Chat</Rimlink.Overlay.Chat>
   <Rimlink.Overlay.Players>Players</Rimlink.Overlay.Players>
@@ -254,6 +257,13 @@
   <Rimlink.Live.FellBackVisit>{0} did not take the live visit: your pawns come home by parcel.</Rimlink.Live.FellBackVisit>
   <Rimlink.Live.EndedGuest>The live session at {0} is over ({1}). Your pawns come home by parcel once the host reports.</Rimlink.Live.EndedGuest>
   <Rimlink.Live.EndedDefeated>None of your pawns at {0} can act any more (dead, captured or gone): the live session is over. Those still alive come home by parcel once the host reports.</Rimlink.Live.EndedDefeated>
+  <Rimlink.Live.Reason.EndNormal>the guest ended it</Rimlink.Live.Reason.EndNormal>
+  <Rimlink.Live.Reason.EndGuestLost>the guest lost the connection</Rimlink.Live.Reason.EndGuestLost>
+  <Rimlink.Live.Reason.EndHostLost>the host lost the connection</Rimlink.Live.Reason.EndHostLost>
+  <Rimlink.Live.Reason.EndHostAborted>the host aborted it</Rimlink.Live.Reason.EndHostAborted>
+  <Rimlink.Live.Reason.EndGuestCancelled>the guest cancelled it</Rimlink.Live.Reason.EndGuestCancelled>
+  <Rimlink.Live.Reason.EndAdmin>an admin ended it</Rimlink.Live.Reason.EndAdmin>
+  <Rimlink.Live.Reason.EndGuestDefeated>the guest has no pawn left to play</Rimlink.Live.Reason.EndGuestDefeated>
   <Rimlink.Live.OrderRefused>Order refused ({0}): {1}</Rimlink.Live.OrderRefused>
   <Rimlink.Live.HostLost>Connection to {0} lost; waiting for them.</Rimlink.Live.HostLost>
   <Rimlink.Live.HostBack>{0} is back.</Rimlink.Live.HostBack>

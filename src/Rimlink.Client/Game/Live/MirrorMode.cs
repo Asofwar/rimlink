@@ -29,6 +29,21 @@ public static class MirrorMode
 
     public static bool IsOwned(Thing t) => Active && OwnedIds.Contains(t.thingIDNumber);
 
+    private const int OwnIdsFrom = 1_000_000_000;
+
+    private static readonly AccessTools.FieldRef<UniqueIDsManager, int> NextThingId = AccessTools.FieldRefAccess<UniqueIDsManager, int>("nextThingID");
+
+    /// <summary>
+    /// Things the copy makes itself (chunks while its maps load, the visit host faction's pawns) take ids from the counter the host's
+    /// save carried, the very ids the host gives its next things: a host thing arriving under such an id was taken for one
+    /// already there and never spawned ("held by ChunkGranite101076"). As soon as the counter is read, the copy's own things
+    /// move to ids far above the host's.
+    /// </summary>
+    public static void TakeOwnIdRange(UniqueIDsManager ids)
+    {
+        if (NextThingId(ids) < OwnIdsFrom) NextThingId(ids) += OwnIdsFrom;
+    }
+
     /// <summary>After the host's copy loaded and the visit loader re-factioned it: find this player's pawns and freeze the clock.</summary>
     public static void Enter(LiveSession session, int snapshotVersion)
     {

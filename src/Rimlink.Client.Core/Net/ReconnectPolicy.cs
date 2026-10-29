@@ -1,22 +1,38 @@
+using Grpc.Core;
+using Rimlink.Protocol.V1;
+
 namespace Rimlink.Client.Net;
 
-/// <summary>Back-off after a dropped connection: 1, 2, 4, 8, 16, 32 s then the rest of a 2-minute budget.</summary>
-public static class ReconnectPolicy
+/// <summary>
+/// Back-off after a dropped connection: 1, 2, 4 … doubling up to 60 s, then every 60 s for as long as the game runs.
+/// After <see cref="OfferExitAfter"/> the game offers to leave to the menu with a local save; the attempts go on.
+/// </summary>
+public sealed class ReconnectPolicy(TimeSpan firstDelay, TimeSpan maxDelay, TimeSpan offerExitAfter)
 {
-    public static readonly TimeSpan Deadline = TimeSpan.FromSeconds(120);
-    private static readonly TimeSpan MaxDelay = TimeSpan.FromSeconds(60);
+    public static ReconnectPolicy Default { get; } = new(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(60), TimeSpan.FromMinutes(2));
 
-    public static IEnumerable<TimeSpan> Delays()
+    public TimeSpan OfferExitAfter => offerExitAfter;
+
+    public IEnumerable<TimeSpan> Delays()
     {
-        var spent = TimeSpan.Zero;
-        var next = TimeSpan.FromSeconds(1);
-        while (spent < Deadline)
+        var next = firstDelay;
+        while (true)
         {
-            var delay = next > MaxDelay ? MaxDelay : next;
-            if (spent + delay > Deadline) delay = Deadline - spent;
-            yield return delay;
-            spent += delay;
-            next += next;
+            yield return next < maxDelay ? next : maxDelay;
+            if (next < maxDelay) next += next;
         }
     }
+
+    /// <summary>
+    /// The server turned the login down for good (ban, credentials, server password, protocol, the world deleted): retrying
+    /// cannot help, and a world created anew must not take this colony in. A full server may change, like any network or
+    /// server failure, and so may a Steam ticket the server could not verify (Steam's Web API down answers the same way).
+    /// </summary>
+    public static bool IsRefusal(RpcException ex, bool steamTicket = false) => ex.StatusCode switch
+    {
+        StatusCode.Unauthenticated => !steamTicket,
+        StatusCode.PermissionDenied or StatusCode.InvalidArgument => true,
+        StatusCode.FailedPrecondition => Economy.EconomyClient.CodeOf(ex) is not ErrorCode.ServerFull,
+        _ => false,
+    };
 }

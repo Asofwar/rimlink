@@ -132,7 +132,8 @@ still ends as a mailbox parcel, as in 5a/5b.
 - Live sessions: chat `/live list [player]`, `/live end <id> [reason]`; the same via `rimlink-tools admin live list [playerId]|end <id> [reason]`
   and REST `GET /api/admin/live[?playerId=]`, `POST /api/admin/live/{id}/end` (body `{"reason": "..."}`). Ending a running session makes
   the host report the guest's pawns as they stand (a live raid is not continued by the AI); ending one that is already waiting for
-  that report returns the escrowed pawns to the guest instead.
+  that report returns the escrowed pawns to the guest instead. Kicking a player ends their open live session the same way (an
+  unanswered proposal is declined; a session already waiting for the host's report is left to it).
 - Every admin action is logged (`/actions`) with who did it: `api` (the `Admin:ApiToken`), `api:<token name>` (a named
   token, see §6b), `panel` (the web panel), or the player who typed a chat command. A REST caller may add
   `X-Rimlink-Actor: <label>` (1–64 characters, no control characters, otherwise 400) and is logged as

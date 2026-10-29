@@ -396,7 +396,7 @@ public static class LiveHost
         OrderExecutor.VirtualDrafted.Clear();
         if (RimlinkSession.Live is { } live) _ = live.Close();
         RimlinkLog.Instance.Info($"live session {session.Id} ended: {reason}");
-        Messages.Message("Rimlink.Live.Ended".Translate(session.Guest?.Name ?? "?", reason.ToString()), MessageTypeDefOf.NeutralEvent, historical: true);
+        Messages.Message("Rimlink.Live.Ended".Translate(session.Guest?.Name ?? "?", ("Rimlink.Live.Reason." + reason).Translate()), MessageTypeDefOf.NeutralEvent, historical: true);
         if (map is not null && Find.Maps.Contains(map))
         {
             settled.Add(session.Id); // a map that is gone (a reload) settles nothing: the ended event then reports from the loaded colony

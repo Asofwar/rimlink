@@ -318,7 +318,7 @@ public static class LiveGuest
     private static string EndedText(string host, LiveEndReason reason) =>
         reason == LiveEndReason.EndGuestDefeated
             ? "Rimlink.Live.EndedDefeated".Translate(host)
-            : "Rimlink.Live.EndedGuest".Translate(host, reason.ToString());
+            : "Rimlink.Live.EndedGuest".Translate(host, ("Rimlink.Live.Reason." + reason).Translate());
 
     public static void Reset()
     {

@@ -220,4 +220,43 @@ public class LiveEndTests
         using var scope = fixture.Services.CreateScope();
         Assert.Contains(await scope.ServiceProvider.GetRequiredService<RimlinkDbContext>().AdminActions.ToListAsync(), a => a.Action == "live-end" && a.Details.Contains("stuck"));
     }
+
+    [Fact]
+    public async Task KickingAPlayerEndsTheirLiveSessionForBoth()
+    {
+        const string token = "test-admin-token";
+        var p = await Started(LiveKind.LiveVisit, LiveServer().WithSetting("Admin:ApiToken", token));
+        using var fixture = p.Fixture;
+        using var novaEvents = p.Nova.Subscribe();
+        using var bobEvents = p.Bob.Subscribe();
+        var session = await p.Nova.Live.ProposeAsync(Propose(p.Bob.PlayerId, LiveKind.LiveVisit), p.Nova.Auth);
+        await Service(fixture, s => s.MarkRunning(session.Id, p.Bob.PlayerId));
+        var rest = fixture.CreateClient();
+        rest.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        (await rest.PostAsJsonAsync($"/api/admin/players/{p.Nova.PlayerId}/kick", new { reason = "be nice" })).EnsureSuccessStatusCode();
+
+        Assert.Equal(LiveEndReason.EndAdmin, (await ReadEvent(bobEvents, ServerEvent.BodyOneofCase.LiveEnded, e => e.LiveEnded)).Session.EndReason);
+        Assert.Equal(LiveEndReason.EndAdmin, (await ReadEvent(novaEvents, ServerEvent.BodyOneofCase.LiveEnded, e => e.LiveEnded)).Session.EndReason);
+        Assert.Equal(LiveStateDb.Ending, (await Row(fixture, session.Id)).State);
+    }
+
+    [Fact]
+    public async Task KickingAPlayerDeclinesTheirOpenProposal()
+    {
+        const string token = "test-admin-token";
+        using var fixture = LiveServer().WithSetting("Admin:ApiToken", token);
+        var nova = await Connected(fixture, "nova");
+        var bob = await Connected(fixture, "bob");
+        await MakeTargetRaidable(fixture, bob.PlayerId);
+        using var novaEvents = nova.Subscribe();
+        var session = await nova.Live.ProposeAsync(Propose(bob.PlayerId, LiveKind.LiveVisit), nova.Auth);
+        var rest = fixture.CreateClient();
+        rest.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        (await rest.PostAsJsonAsync($"/api/admin/players/{nova.PlayerId}/kick", new { reason = "be nice" })).EnsureSuccessStatusCode();
+
+        Assert.Equal(session.Id, (await ReadEvent(novaEvents, ServerEvent.BodyOneofCase.LiveFallback, e => e.LiveFallback)).Session.Id);
+        Assert.Equal(LiveStateDb.Fallback, (await Row(fixture, session.Id)).State);
+    }
 }
