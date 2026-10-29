@@ -19,8 +19,8 @@ export function render(root) {
       replace(list, table([
         { label: '#', key: 'id' },
         { label: t('live.kind'), render: s => tEnum('live', s.kind) },
-        { label: t('live.host'), render: s => playerLink(s.hostPlayerId) },
-        { label: t('live.guest'), render: s => playerLink(s.guestPlayerId) },
+        { label: t('live.host'), render: s => playerLink(s.hostPlayerId, s.hostName) },
+        { label: t('live.guest'), render: s => playerLink(s.guestPlayerId, s.guestName) },
         { label: t('raids.state'), render: s => tEnum('live', s.state) },
         { label: t('live.started'), render: s => fmtDate(s.startedAt ?? s.createdAt) },
         { label: t('live.ended'), render: s => s.endedAt ? `${fmtDate(s.endedAt)}${s.endReason ? ` (${tEnum('liveEnd', s.endReason)})` : ''}` : '' },

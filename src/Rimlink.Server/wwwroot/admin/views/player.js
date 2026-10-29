@@ -203,7 +203,7 @@ async function economyBlock(card, done) {
     table([
       { label: '#', key: 'id' },
       { label: t('economy.kind'), render: p => tEnum('parcel', p.kind) },
-      { label: t('economy.from'), render: p => playerLink(p.fromPlayerId) },
+      { label: t('economy.from'), render: p => playerLink(p.fromPlayerId, p.fromName) },
       { label: t('economy.silver'), render: p => fmtSilver(p.silver) },
       { label: t('player.created'), render: p => fmtDate(p.createdAt) },
       { label: t('economy.delivered'), render: p => p.deliveredAt ? fmtDate(p.deliveredAt) : t('economy.pending') },
@@ -243,8 +243,8 @@ async function raidsBlock(id) {
   return h('div', { class: 'stack' },
     table([
       { label: '#', key: 'id' },
-      { label: t('raids.attacker'), render: r => playerLink(r.attackerPlayerId) },
-      { label: t('raids.target'), render: r => playerLink(r.targetPlayerId) },
+      { label: t('raids.attacker'), render: r => playerLink(r.attackerPlayerId, r.attackerName) },
+      { label: t('raids.target'), render: r => playerLink(r.targetPlayerId, r.targetName) },
       { label: t('raids.state'), render: r => tEnum('raid', r.state) },
       { label: t('player.created'), render: r => fmtDate(r.createdAt) },
     ], raids),
@@ -252,8 +252,8 @@ async function raidsBlock(id) {
     table([
       { label: '#', key: 'id' },
       { label: t('live.kind'), render: s => tEnum('live', s.kind) },
-      { label: t('live.host'), render: s => playerLink(s.hostPlayerId) },
-      { label: t('live.guest'), render: s => playerLink(s.guestPlayerId) },
+      { label: t('live.host'), render: s => playerLink(s.hostPlayerId, s.hostName) },
+      { label: t('live.guest'), render: s => playerLink(s.guestPlayerId, s.guestName) },
       { label: t('raids.state'), render: s => tEnum('live', s.state) },
       { label: t('player.created'), render: s => fmtDate(s.createdAt) },
     ], live));
