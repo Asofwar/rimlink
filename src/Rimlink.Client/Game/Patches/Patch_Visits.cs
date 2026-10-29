@@ -13,6 +13,16 @@ public static class Patch_Game_FinalizeInit_Visit
     public static void Postfix() => VisitSession.OnGameLoaded();
 }
 
+/// <summary>A live copy's id counter was just read, before its world and maps load: its own things leave the host's ids alone.</summary>
+[HarmonyPatch(typeof(UniqueIDsManager), nameof(UniqueIDsManager.ExposeData))]
+public static class Patch_UniqueIDsManager_ExposeData_Mirror
+{
+    public static void Postfix(UniqueIDsManager __instance)
+    {
+        if (Scribe.mode == LoadSaveMode.LoadingVars && VisitSession.Pending?.Live is not null) Live.MirrorMode.TakeOwnIdRange(__instance);
+    }
+}
+
 /// <summary>Nothing of a visited colony is ever saved (not even while it is still loading): a save in visit mode does nothing.</summary>
 [HarmonyPatch(typeof(GameDataSaveLoader), nameof(GameDataSaveLoader.SaveGame))]
 public static class Patch_GameDataSaveLoader_SaveGame_Visit

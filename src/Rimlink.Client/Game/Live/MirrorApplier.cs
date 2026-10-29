@@ -85,7 +85,13 @@ public static class MirrorApplier
 
     private static void Spawn(ThingSpawned s, Map map)
     {
-        if (FindThing(s.ThingId, map) is { Spawned: true }) return; // already there (the snapshot had it)
+        if (FindThing(s.ThingId, map) is { Spawned: true } there)
+        {
+            // Already there (the snapshot had it), unless the id is held by a thing of another kind.
+            if ((there is Pawn) != (s.Pawn is not null) || (s.Item is not null && there.def.defName != s.Item.DefName))
+                RimlinkLog.Instance.Warn($"mirror: thing {s.ThingId} ({s.Item?.DefName ?? s.Pawn?.KindDef}) not spawned: the id is held by {there.ThingID}");
+            return;
+        }
         var cell = new IntVec3(s.Cell?.X ?? 0, 0, s.Cell?.Z ?? 0);
         if (!cell.InBounds(map)) return;
         try
