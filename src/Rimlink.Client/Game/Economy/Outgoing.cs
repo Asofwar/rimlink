@@ -225,11 +225,11 @@ public static class Outgoing
         {
             case TransferRequest send:
                 foreach (var i in send.Items.Items) things.Add(ThingBlobs.DeserializeItem(i));
-                foreach (var p in send.Pawns.Pawns) things.Add(RelationLedger.Rejoin(ThingBlobs.DeserializePawn(p)));
+                foreach (var p in send.Pawns.Pawns) things.Add(ThingBlobs.DeserializePawn(p));
                 break;
             case PostRequest post:
                 if (post.Items is not null) foreach (var i in post.Items.Items) things.Add(ThingBlobs.DeserializeItem(i));
-                if (post.Pawn is not null) things.Add(RelationLedger.Rejoin(ThingBlobs.DeserializePawn(post.Pawn)));
+                if (post.Pawn is not null) things.Add(ThingBlobs.DeserializePawn(post.Pawn));
                 break;
             case DepositRequest deposit:
                 things.AddRange(Incoming.SilverStacks(deposit.Silver));
@@ -238,14 +238,15 @@ public static class Outgoing
                 things.AddRange(Raids.RaidOutgoing.Contents(launch));
                 break;
             case LiveProposal proposal:
-                foreach (var p in proposal.Pawns.Pawns) things.Add(RelationLedger.Rejoin(ThingBlobs.DeserializePawn(p)));
+                foreach (var p in proposal.Pawns.Pawns) things.Add(ThingBlobs.DeserializePawn(p));
                 break;
             case RaidReport report:
                 // Only the loot is ours to return; the raiders belong to the attacker and come home through the server.
                 foreach (var i in report.Loot.Items) things.Add(ThingBlobs.DeserializeItem(i));
                 break;
         }
-        return things;
+        // Pawns of a refused request come home together, a pair that left together is a pair again.
+        return RelationLedger.RejoinAll(things);
     }
 
     private static List<Taken>? TakeFromMap(Map map, IReadOnlyList<Pick> picks, IReadOnlyList<Pawn> pawns)

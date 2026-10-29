@@ -29,7 +29,7 @@ public sealed class RelationLedger : GameComponent
         base.ExposeData();
         if (Scribe.mode == LoadSaveMode.Saving)
         {
-            var index = Index(null);
+            var index = Index([]);
             book.Prune(index.ContainsKey);
             saved = book.Entries.Select(SavedEntry.From).ToList();
         }
@@ -73,41 +73,64 @@ public sealed class RelationLedger : GameComponent
 
     /// <summary>
     /// A pawn of the colony is home, just deserialised and not yet placed anywhere: it takes back its old thing id (nothing has
-    /// hashed it yet) and its relations. Returns the pawn, for use inline at the homecoming sites.
+    /// hashed it yet) and its relations. Returns the pawn, for use inline where pawns are put back one at a time.
     /// </summary>
     public static Pawn Rejoin(Pawn pawn)
     {
-        if (Instance is not { } ledger || pawn.relations is null) return pawn;
+        Rejoin([pawn]);
+        return pawn;
+    }
+
+    /// <summary>
+    /// Pawns home together (one parcel, one refused request), none of them placed yet: each is known to the others before any
+    /// relation is given back, so a pair that left together is a pair again.
+    /// </summary>
+    public static void Rejoin(IReadOnlyList<Pawn> pawns)
+    {
+        if (Instance is not { } ledger || pawns.Count == 0) return;
         try
         {
-            var entry = ledger.book.Take(KeyOf(pawn));
-            if (entry is null) return pawn;
-            var index = Index(pawn);
-            if (pawn.thingIDNumber != entry.ThingId)
+            var back = new List<(Pawn Pawn, RelationEntry Entry)>();
+            foreach (var pawn in pawns)
             {
+                if (pawn.relations is not null && ledger.book.Take(KeyOf(pawn)) is { } entry) back.Add((pawn, entry));
+            }
+            if (back.Count == 0) return;
+            var index = Index(pawns);
+            foreach (var (pawn, entry) in back)
+            {
+                if (pawn.thingIDNumber == entry.ThingId) continue;
                 if (index.ContainsKey(entry.ThingId))
                 {
                     RimlinkLog.Instance.Warn($"relations: {pawn.LabelShort} keeps id {pawn.thingIDNumber}, its old id {entry.ThingId} is taken");
+                    continue;
                 }
-                else
-                {
-                    index.Remove(pawn.thingIDNumber);
-                    pawn.thingIDNumber = entry.ThingId;
-                    index[pawn.thingIDNumber] = pawn;
-                }
+                index.Remove(pawn.thingIDNumber);
+                pawn.thingIDNumber = entry.ThingId;
+                index[pawn.thingIDNumber] = pawn;
             }
-            foreach (var result in ledger.book.Apply(entry, pawn.thingIDNumber, new VerseWorld(index)))
+            var world = new VerseWorld(index);
+            foreach (var (pawn, entry) in back)
             {
-                string other = index.TryGetValue(result.Edge.OtherId, out var o) ? o.LabelShort : "#" + result.Edge.OtherId;
-                RimlinkLog.Instance.Info($"relations: {pawn.LabelShort} {result.Edge.Def} {other} {result.Outcome}{(result.Error is null ? "" : ": " + result.Error)}");
+                foreach (var result in ledger.book.Apply(entry, pawn.thingIDNumber, world))
+                {
+                    string other = index.TryGetValue(result.Edge.OtherId, out var o) ? o.LabelShort : "#" + result.Edge.OtherId;
+                    RimlinkLog.Instance.Info($"relations: {pawn.LabelShort} {result.Edge.Def} {other} {result.Outcome}{(result.Error is null ? "" : ": " + result.Error)}");
+                }
+                DropVirtualParent(entry.ThingId, pawn);
             }
-            DropVirtualParent(entry.ThingId, pawn);
         }
         catch (Exception ex)
         {
-            Log.Error($"[Rimlink] relations of {pawn} could not be given back: {ex}");
+            Log.Error($"[Rimlink] relations could not be given back to {string.Join(", ", pawns)}: {ex}");
         }
-        return pawn;
+    }
+
+    /// <summary>The pawns among <paramref name="things"/> rejoin together; returns the list, for use inline.</summary>
+    public static List<Thing> RejoinAll(List<Thing> things)
+    {
+        Rejoin(things.OfType<Pawn>().ToList());
+        return things;
     }
 
     private static string KeyOf(Pawn pawn) => RelationBook.KeyOf(pawn.def.defName, pawn.gender.ToString(), pawn.ageTracker.BirthAbsTicks, pawn.Name?.ToStringFull ?? "");
@@ -124,8 +147,8 @@ public sealed class RelationLedger : GameComponent
         }
     }
 
-    /// <summary>Every pawn of the game by thing id, alive or dead, the dead in corpses and graves included, and the one coming home.</summary>
-    private static Dictionary<int, Pawn> Index(Pawn? returning)
+    /// <summary>Every pawn of the game by thing id, alive or dead, the dead in corpses and graves included, and those coming home.</summary>
+    private static Dictionary<int, Pawn> Index(IReadOnlyList<Pawn> returning)
     {
         var index = new Dictionary<int, Pawn>();
         foreach (var p in PawnsFinder.AllMapsWorldAndTemporary_AliveOrDead) index.TryAdd(p.thingIDNumber, p);
@@ -138,7 +161,7 @@ public sealed class RelationLedger : GameComponent
                 if (corpse.InnerPawn is { } inner) index.TryAdd(inner.thingIDNumber, inner);
             }
         }
-        if (returning is not null) index[returning.thingIDNumber] = returning;
+        foreach (var p in returning) index[p.thingIDNumber] = p;
         return index;
     }
 

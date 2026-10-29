@@ -129,9 +129,10 @@ public static class Incoming
         var things = new List<Thing>();
         // Fresh IDs: these objects come from another game whose numbering overlaps ours.
         foreach (var item in parcel.Items.Items) things.Add(ThingBlobs.DeserializeItem(item, newIds: true));
-        foreach (var pawn in parcel.Pawns.Pawns) things.Add(RelationLedger.Rejoin(ThingBlobs.DeserializePawn(pawn, newIds: true)));
+        foreach (var pawn in parcel.Pawns.Pawns) things.Add(ThingBlobs.DeserializePawn(pawn, newIds: true));
         if (parcel.Kind == ParcelKind.ParcelWithdraw && parcel.Silver > 0) things.AddRange(SilverStacks(parcel.Silver));
-        return things;
+        // Pawns of this colony back home get their relations back, together, before they are put in the pod.
+        return RelationLedger.RejoinAll(things);
     }
 
     public static IEnumerable<Thing> SilverStacks(long amount)

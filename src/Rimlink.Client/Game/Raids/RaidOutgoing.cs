@@ -159,7 +159,7 @@ public static class RaidOutgoing
     public static List<Thing> Contents(LaunchRequest request)
     {
         var things = new List<Thing>();
-        if (request.PawnMode == PawnMode.PawnReal) foreach (var p in request.Pawns.Pawns) things.Add(RelationLedger.Rejoin(ThingBlobs.DeserializePawn(p)));
+        if (request.PawnMode == PawnMode.PawnReal) foreach (var p in request.Pawns.Pawns) things.Add(ThingBlobs.DeserializePawn(p));
         return things;
     }
 }
