@@ -27,7 +27,27 @@ public sealed class RaidRules(IOptions<RaidOptions> options, RimlinkDbContext db
     /// <summary>Peaceful, or asked to leave peaceful mode less than the delay ago.</summary>
     public static bool IsPeaceful(Player p, DateTime now) => p.Peaceful || (p.PeacefulOffAt is { } until && until > now);
 
+    private static readonly IncidentStateDb[] Refunded = [IncidentStateDb.Failed, IncidentStateDb.Expired, IncidentStateDb.Cancelled];
+
     public async Task<(ErrorCode Code, string Key, string Message, object[] Args)?> CheckLaunch(Player attacker, Player target, DateTime now)
+    {
+        var o = options.Value;
+        if (await CheckTarget(attacker, target, now) is { } refusal) return refusal;
+
+        int active = await db.Raids.CountAsync(r => r.AttackerPlayerId == attacker.Id && !Final.Contains(r.State));
+        if (active >= o.MaxActiveRaidsPerAttacker) return (ErrorCode.RaidActive, RefusalKeys.RaidsActive, "you already have a raid under way", []);
+        var pairSince = now - TimeSpan.FromHours(o.PairCooldownHours);
+        if (await db.Raids.AnyAsync(r => r.TargetPlayerId == target.Id && r.AttackerPlayerId == attacker.Id && r.State != RaidStateDb.Cancelled && r.CreatedAt >= pairSince))
+            return (ErrorCode.RaidCooldown, RefusalKeys.RaidsPairCooldown, $"you raided {target.Name} less than {o.PairCooldownHours} hours ago", [target.Name, o.PairCooldownHours]);
+        return null;
+    }
+
+    /// <summary>
+    /// What protects a target from anything harmful another player sends (a raid or a paid hostile/weather incident): peaceful
+    /// mode on either side, newbie protection, the poor-colony threshold and the target cooldown, which raids and harmful paid
+    /// incidents share (refunded orders do not count).
+    /// </summary>
+    public async Task<(ErrorCode Code, string Key, string Message, object[] Args)?> CheckTarget(Player attacker, Player target, DateTime now)
     {
         var o = options.Value;
         if (IsPeaceful(attacker, now)) return (ErrorCode.PeacefulMode, RefusalKeys.RaidsPeacefulSelf, "you are in peaceful mode", []);
@@ -40,15 +60,11 @@ public sealed class RaidRules(IOptions<RaidOptions> options, RimlinkDbContext db
         if ((decimal)target.WealthTotal + await wealth.Of(target.Id) < o.MinColonyWealth)
             return (ErrorCode.TargetProtected, RefusalKeys.RaidsTargetPoor, $"{target.Name}'s colony is too poor to be raided", [target.Name]);
 
-        int active = await db.Raids.CountAsync(r => r.AttackerPlayerId == attacker.Id && !Final.Contains(r.State));
-        if (active >= o.MaxActiveRaidsPerAttacker) return (ErrorCode.RaidActive, RefusalKeys.RaidsActive, "you already have a raid under way", []);
-
         var targetSince = now - TimeSpan.FromHours(o.TargetCooldownHours);
-        if (await db.Raids.AnyAsync(r => r.TargetPlayerId == target.Id && r.State != RaidStateDb.Cancelled && r.CreatedAt >= targetSince))
+        int gift = (int)IncidentKind.IncidentKind;
+        if (await db.Raids.AnyAsync(r => r.TargetPlayerId == target.Id && r.State != RaidStateDb.Cancelled && r.CreatedAt >= targetSince)
+            || await db.IncidentOrders.AnyAsync(i => i.TargetPlayerId == target.Id && i.Kind != gift && !Refunded.Contains(i.State) && i.CreatedAt >= targetSince))
             return (ErrorCode.RaidCooldown, RefusalKeys.RaidsTargetCooldown, $"{target.Name} was raided less than {o.TargetCooldownHours} hours ago", [target.Name, o.TargetCooldownHours]);
-        var pairSince = now - TimeSpan.FromHours(o.PairCooldownHours);
-        if (await db.Raids.AnyAsync(r => r.TargetPlayerId == target.Id && r.AttackerPlayerId == attacker.Id && r.State != RaidStateDb.Cancelled && r.CreatedAt >= pairSince))
-            return (ErrorCode.RaidCooldown, RefusalKeys.RaidsPairCooldown, $"you raided {target.Name} less than {o.PairCooldownHours} hours ago", [target.Name, o.PairCooldownHours]);
         return null;
     }
 

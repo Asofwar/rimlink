@@ -171,6 +171,35 @@ public class RaidTests
         Assert.True(raid.Id > 0);
     }
 
+    [Theory]
+    [InlineData(0, Rimlink.Server.Storage.Entities.IncidentStateDb.Queued, true)]
+    [InlineData(1, Rimlink.Server.Storage.Entities.IncidentStateDb.Fired, true)]
+    [InlineData(0, Rimlink.Server.Storage.Entities.IncidentStateDb.Cancelled, false)]
+    [InlineData(2, Rimlink.Server.Storage.Entities.IncidentStateDb.Queued, false)]
+    public async Task AHostileIncidentStartsTheTargetCooldownForRaids(int kind, Rimlink.Server.Storage.Entities.IncidentStateDb state, bool blocks)
+    {
+        // Hostile and weather orders share the target cooldown with player raids; refunded ones and gifts do not.
+        var p = await NovaAndBob();
+        using var fixture = p.Fixture;
+        using (var scope = fixture.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<RimlinkDbContext>();
+            db.IncidentOrders.Add(new Rimlink.Server.Storage.Entities.IncidentOrder
+            {
+                BuyerPlayerId = 999, TargetPlayerId = p.Bob.Player.PlayerId, EntryId = "pirates", IncidentDef = "RaidEnemy", Kind = kind, Level = 2,
+                Price = 100, State = state, CreatedAt = DateTime.UtcNow, ExpiresAt = DateTime.UtcNow.AddDays(7),
+            });
+            await db.SaveChangesAsync();
+        }
+
+        if (blocks)
+        {
+            var ex = await Assert.ThrowsAsync<RpcException>(() => p.N.Raids.LaunchAsync(Launch(p.Bob.Player.PlayerId), p.N.Auth).ResponseAsync);
+            Assert.Equal(ErrorCode.RaidCooldown, ex.ErrorDetail()!.Code);
+        }
+        else Assert.True((await p.N.Raids.LaunchAsync(Launch(p.Bob.Player.PlayerId), p.N.Auth)).Id > 0);
+    }
+
     [Fact]
     public async Task NewTargetIsTargetProtected()
     {
