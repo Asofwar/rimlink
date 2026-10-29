@@ -69,6 +69,9 @@ namespace Rimlink.Server.Storage.Migrations
                     b.Property<long>("ActorAccountId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("ActorName")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime>("At")
                         .HasColumnType("TEXT");
 

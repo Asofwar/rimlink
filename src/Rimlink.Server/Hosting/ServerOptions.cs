@@ -97,4 +97,13 @@ public sealed class AdminOptions
     public const string Section = "Admin";
 
     public string? ApiToken { get; set; }
+    /// <summary>Named, scoped tokens for integrations (Discord bot, scripts); see <c>Rest/ApiTokens</c>.</summary>
+    public List<ApiTokenOptions> Tokens { get; set; } = [];
+}
+
+public sealed class ApiTokenOptions
+{
+    public string Name { get; set; } = "";
+    public string Token { get; set; } = "";
+    public string[] Scopes { get; set; } = [];
 }

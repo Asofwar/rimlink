@@ -1,19 +1,13 @@
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json.Serialization;
-using Grpc.Core;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
 using Rimlink.Protocol.V1;
 using Rimlink.Server.Application.Admin;
 using Rimlink.Server.Application.Modpack;
 using Rimlink.Server.Application.Saves;
-using Rimlink.Server.Hosting;
-using Role = Rimlink.Server.Storage.Entities.Role;
 
 namespace Rimlink.Server.Rest;
 
-/// <summary>REST admin API under /api/admin, authorized by the Admin:ApiToken bearer token. Used by the CLI and the future web panel.</summary>
+/// <summary>REST admin API under /api/admin, authorized by an API token or the panel session (<see cref="AdminAuth"/>). Used by the CLI, the web panel and the Discord bot.</summary>
 public static class AdminEndpoints
 {
     public sealed record BanBody(long? PlayerId, long? AccountId, long? SteamId, string? Ip, string Reason, double? Days);
@@ -32,107 +26,79 @@ public static class AdminEndpoints
 
     public static void MapAdminApi(this WebApplication app)
     {
-        var group = app.MapGroup("/api/admin").AddEndpointFilter(RequireToken);
+        var group = app.MapGroup("/api/admin").RequireAdmin();
 
-        group.MapGet("/players/online", (AdminOperations ops) => ops.ListOnline(Actor.Api));
-        group.MapPost("/players/{id:long}/kick", (long id, KickBody body, AdminOperations ops) => ops.Kick(Actor.Api, id, body.Reason ?? "kicked by an admin"));
-        group.MapPost("/players/{id:long}/mute", (long id, MuteBody body, AdminOperations ops) => ops.Mute(Actor.Api, id, TimeSpan.FromMinutes(body.Minutes)));
-        group.MapDelete("/players/{id:long}/mute", (long id, AdminOperations ops) => ops.Unmute(Actor.Api, id));
-        group.MapGet("/players/{id:long}/saves", async (long id, AdminOperations ops) => (await ops.ListSaves(Actor.Api, id)).Select(SaveStore.ToInfo).Select(s => new { s.Version, s.Size, s.GameTick, s.IsCurrent, CreatedAt = s.CreatedAt.ToDateTime() }));
-        group.MapPost("/players/{id:long}/saves/{version:int}/rollback", async (long id, int version, AdminOperations ops) =>
-            await ops.RollbackSave(Actor.Api, id, version) ? Results.Ok() : Results.NotFound());
-        group.MapPost("/players/{id:long}/reset", (long id, AdminOperations ops) => ops.ResetPlayer(Actor.Api, id));
+        group.MapGet("/players/online", (HttpContext ctx, AdminOperations ops) => ops.ListOnline(ctx.Actor())).RequireScope(ApiScope.Moderate);
+        group.MapPost("/players/{id:long}/kick", (long id, KickBody body, HttpContext ctx, AdminOperations ops) => ops.Kick(ctx.Actor(), id, body.Reason ?? "kicked by an admin")).RequireScope(ApiScope.Moderate);
+        group.MapPost("/players/{id:long}/mute", (long id, MuteBody body, HttpContext ctx, AdminOperations ops) => ops.Mute(ctx.Actor(), id, TimeSpan.FromMinutes(body.Minutes))).RequireScope(ApiScope.Moderate);
+        group.MapDelete("/players/{id:long}/mute", (long id, HttpContext ctx, AdminOperations ops) => ops.Unmute(ctx.Actor(), id)).RequireScope(ApiScope.Moderate);
+        group.MapGet("/players/{id:long}/saves", async (long id, HttpContext ctx, AdminOperations ops) => (await ops.ListSaves(ctx.Actor(), id)).Select(SaveStore.ToInfo).Select(s => new { s.Version, s.Size, s.GameTick, s.IsCurrent, CreatedAt = s.CreatedAt.ToDateTime() })).RequireScope(ApiScope.Admin);
+        group.MapPost("/players/{id:long}/saves/{version:int}/rollback", async (long id, int version, HttpContext ctx, AdminOperations ops) =>
+            await ops.RollbackSave(ctx.Actor(), id, version) ? Results.Ok() : Results.NotFound()).RequireScope(ApiScope.Admin);
+        group.MapPost("/players/{id:long}/reset", (long id, HttpContext ctx, AdminOperations ops) => ops.ResetPlayer(ctx.Actor(), id)).RequireScope(ApiScope.Admin);
 
-        group.MapGet("/bans", async (AdminOperations ops) => (await ops.ListBans(Actor.Api)).Select(b => new { b.Id, b.AccountId, b.SteamId, b.Ip, b.Reason, b.ExpiresAt, b.CreatedAt }));
-        group.MapPost("/bans", async (BanBody body, AdminOperations ops) =>
+        group.MapGet("/bans", async (HttpContext ctx, AdminOperations ops) => (await ops.ListBans(ctx.Actor())).Select(b => new { b.Id, b.AccountId, b.SteamId, b.Ip, b.Reason, b.ExpiresAt, b.CreatedAt })).RequireScope(ApiScope.Moderate);
+        group.MapPost("/bans", async (BanBody body, HttpContext ctx, AdminOperations ops) =>
         {
             long? playerId = body.PlayerId;
             long? accountId = body.AccountId;
             if (playerId is null && accountId is { } acc) playerId = (await ops.FindPlayerByAccount(acc)).Id;
-            var ban = await ops.Ban(Actor.Api, playerId, body.SteamId, body.Ip, body.Reason, body.Days is { } d ? TimeSpan.FromDays(d) : null);
+            var ban = await ops.Ban(ctx.Actor(), playerId, body.SteamId, body.Ip, body.Reason, body.Days is { } d ? TimeSpan.FromDays(d) : null);
             return Results.Ok(new { ban.Id });
-        });
-        group.MapDelete("/bans/{id:long}", async (long id, AdminOperations ops) => await ops.Pardon(Actor.Api, id) ? Results.Ok() : Results.NotFound());
+        }).RequireScope(ApiScope.Admin);
+        group.MapDelete("/bans/{id:long}", async (long id, HttpContext ctx, AdminOperations ops) => await ops.Pardon(ctx.Actor(), id) ? Results.Ok() : Results.NotFound()).RequireScope(ApiScope.Admin);
 
-        group.MapPost("/broadcast", (TextBody body, AdminOperations ops) => ops.Broadcast(Actor.Api, body.Text));
-        group.MapPost("/shutdown", (ShutdownBody body, AdminOperations ops) => ops.Shutdown(Actor.Api, body.InSeconds, body.Reason ?? "server shutdown"));
-        group.MapPost("/world/recreate", (AdminOperations ops) => ops.RecreateWorld(Actor.Api));
-        group.MapGet("/actions", async (AdminOperations ops, [FromQuery] int limit = 100) => (await ops.ListActions(Actor.Api, limit)).Select(a => new { a.Id, a.At, a.ActorAccountId, a.Action, a.TargetAccountId, a.Details }));
+        group.MapPost("/broadcast", (TextBody body, HttpContext ctx, AdminOperations ops) => ops.Broadcast(ctx.Actor(), body.Text)).RequireScope(ApiScope.Moderate);
+        group.MapPost("/shutdown", (ShutdownBody body, HttpContext ctx, AdminOperations ops) => ops.Shutdown(ctx.Actor(), body.InSeconds, body.Reason ?? "server shutdown")).RequireScope(ApiScope.Admin);
+        group.MapPost("/world/recreate", (HttpContext ctx, AdminOperations ops) => ops.RecreateWorld(ctx.Actor())).RequireScope(ApiScope.Admin);
+        group.MapGet("/actions", async (HttpContext ctx, AdminOperations ops, [FromQuery] int limit = 100) => (await ops.ListActions(ctx.Actor(), limit)).Select(a => new { a.Id, a.At, a.ActorAccountId, a.ActorName, a.Action, a.TargetAccountId, a.Details })).RequireScope(ApiScope.Moderate);
 
-        group.MapGet("/modpack", async (ModpackService modpack) => new ModpackBody((await modpack.Get()).Select(e => new ModpackEntryBody(e.Position, e.PackageId, e.Version, e.WorkshopId, e.Url, e.Kind)).ToList()));
-        group.MapPut("/modpack/defs", async (DefsBody body, ModpackService modpack, ModpackDefs defs) =>
+        group.MapGet("/modpack", async (ModpackService modpack) => new ModpackBody((await modpack.Get()).Select(e => new ModpackEntryBody(e.Position, e.PackageId, e.Version, e.WorkshopId, e.Url, e.Kind)).ToList())).RequireScope(ApiScope.Read);
+        group.MapPut("/modpack/defs", async (DefsBody body, HttpContext ctx, ModpackService modpack, ModpackDefs defs) =>
         {
-            await modpack.SetDefs(body.DefNames, Role.Admin, "api", defs);
+            await modpack.SetDefs(body.DefNames, ctx.Actor().Role, ctx.Actor().Name, defs);
             return Results.Ok(new { count = defs.Count });
-        });
+        }).RequireScope(ApiScope.Admin);
 
-        group.MapPost("/economy/wallet/{id:long}", async (long id, WalletBody body, AdminOperations ops) =>
-            Results.Ok(new { balance = await ops.AdjustWallet(Actor.Api, id, body.Delta, body.Reason ?? "admin adjustment") }));
-        group.MapGet("/economy/parcels/{id:long}", async (long id, AdminOperations ops) =>
-            (await ops.ListParcels(Actor.Api, id)).Select(p => new { p.Id, Kind = p.Kind.ToString(), p.FromPlayerId, p.Silver, p.SizeBytes, p.CreatedAt, p.DeliveredAt, p.DeliveredTick }));
-        group.MapGet("/economy/lots", async (AdminOperations ops, [FromQuery] long? playerId = null) =>
-            (await ops.ListLots(Actor.Api, playerId)).Select(l => new { l.Id, l.SellerPlayerId, l.Price, l.CreatedAt, l.ExpiresAt, Status = l.Status.ToString() }));
-        group.MapPost("/economy/refund/lot/{id:long}", async (long id, AdminOperations ops) => await ops.RefundLot(Actor.Api, id) ? Results.Ok() : Results.NotFound());
-        group.MapPost("/economy/refund/parcel/{id:long}", async (long id, AdminOperations ops) => await ops.RefundParcel(Actor.Api, id) ? Results.Ok() : Results.NotFound());
-        group.MapPost("/economy/freeze", async (FreezeBody body, AdminOperations ops) => { await ops.SetEconomyFrozen(Actor.Api, body.Frozen, body.Reason); return Results.Ok(); });
-        group.MapGet("/economy/stats", async (AdminOperations ops) =>
+        group.MapPost("/economy/wallet/{id:long}", async (long id, WalletBody body, HttpContext ctx, AdminOperations ops) =>
+            Results.Ok(new { balance = await ops.AdjustWallet(ctx.Actor(), id, body.Delta, body.Reason ?? "admin adjustment") })).RequireScope(ApiScope.Admin);
+        group.MapGet("/economy/parcels/{id:long}", async (long id, HttpContext ctx, AdminOperations ops) =>
+            (await ops.ListParcels(ctx.Actor(), id)).Select(p => new { p.Id, Kind = p.Kind.ToString(), p.FromPlayerId, p.Silver, p.SizeBytes, p.CreatedAt, p.DeliveredAt, p.DeliveredTick })).RequireScope(ApiScope.Moderate);
+        group.MapGet("/economy/lots", async (HttpContext ctx, AdminOperations ops, [FromQuery] long? playerId = null) =>
+            (await ops.ListLots(ctx.Actor(), playerId)).Select(l => new { l.Id, l.SellerPlayerId, l.Price, l.CreatedAt, l.ExpiresAt, Status = l.Status.ToString() })).RequireScope(ApiScope.Read);
+        group.MapPost("/economy/refund/lot/{id:long}", async (long id, HttpContext ctx, AdminOperations ops) => await ops.RefundLot(ctx.Actor(), id) ? Results.Ok() : Results.NotFound()).RequireScope(ApiScope.Admin);
+        group.MapPost("/economy/refund/parcel/{id:long}", async (long id, HttpContext ctx, AdminOperations ops) => await ops.RefundParcel(ctx.Actor(), id) ? Results.Ok() : Results.NotFound()).RequireScope(ApiScope.Admin);
+        group.MapPost("/economy/freeze", async (FreezeBody body, HttpContext ctx, AdminOperations ops) => { await ops.SetEconomyFrozen(ctx.Actor(), body.Frozen, body.Reason); return Results.Ok(); }).RequireScope(ApiScope.Admin);
+        group.MapGet("/economy/stats", async (HttpContext ctx, AdminOperations ops) =>
         {
-            var s = await ops.EconomyStats(Actor.Api);
+            var s = await ops.EconomyStats(ctx.Actor());
             return new { silverInWallets = s.SilverInWallets, openLots = s.OpenLots, pendingParcels = s.PendingParcels, tradesToday = s.TradesToday, frozen = s.Frozen, freezeReason = s.FreezeReason };
-        });
+        }).RequireScope(ApiScope.Read);
 
-        group.MapGet("/raids", async (AdminOperations ops, [FromQuery] long? playerId = null) =>
-            (await ops.ListRaids(Actor.Api, playerId)).Select(r => new { r.Id, r.AttackerPlayerId, r.TargetPlayerId, State = r.State.ToString(), PawnMode = ((PawnMode)r.PawnMode).ToString(), Timing = ((RaidTiming)r.Timing).ToString(), r.LootCap, r.CreatedAt, r.LandAtTick, r.LandedTick, r.ResolvedAt, r.ExpiresAt }));
-        group.MapPost("/raids/{id:long}/cancel", async (long id, CancelRaidBody body, AdminOperations ops) =>
-            await ops.CancelRaid(Actor.Api, id, body.Reason ?? "cancelled by admin", body.ReturnPawns) ? Results.Ok() : Results.NotFound());
-        group.MapPost("/raids/freeze", async (FreezeBody body, AdminOperations ops) => { await ops.SetRaidsFrozen(Actor.Api, body.Frozen, body.Reason); return Results.Ok(); });
-        group.MapGet("/raids/stats", async (AdminOperations ops) =>
+        group.MapGet("/raids", async (HttpContext ctx, AdminOperations ops, [FromQuery] long? playerId = null) =>
+            (await ops.ListRaids(ctx.Actor(), playerId)).Select(r => new { r.Id, r.AttackerPlayerId, r.TargetPlayerId, State = r.State.ToString(), PawnMode = ((PawnMode)r.PawnMode).ToString(), Timing = ((RaidTiming)r.Timing).ToString(), r.LootCap, r.CreatedAt, r.LandAtTick, r.LandedTick, r.ResolvedAt, r.ExpiresAt })).RequireScope(ApiScope.Read);
+        group.MapPost("/raids/{id:long}/cancel", async (long id, CancelRaidBody body, HttpContext ctx, AdminOperations ops) =>
+            await ops.CancelRaid(ctx.Actor(), id, body.Reason ?? "cancelled by admin", body.ReturnPawns) ? Results.Ok() : Results.NotFound()).RequireScope(ApiScope.Admin);
+        group.MapPost("/raids/freeze", async (FreezeBody body, HttpContext ctx, AdminOperations ops) => { await ops.SetRaidsFrozen(ctx.Actor(), body.Frozen, body.Reason); return Results.Ok(); }).RequireScope(ApiScope.Admin);
+        group.MapGet("/raids/stats", async (HttpContext ctx, AdminOperations ops) =>
         {
-            var s = await ops.RaidStats(Actor.Api);
+            var s = await ops.RaidStats(ctx.Actor());
             return new { queued = s.Queued, announced = s.Announced, landed = s.Landed, resolvedToday = s.ResolvedToday, expired = s.Expired, cancelled = s.Cancelled, frozen = s.Frozen, freezeReason = s.FreezeReason };
-        });
-        group.MapGet("/live", async (AdminOperations ops, [FromQuery] long? playerId = null) =>
-            (await ops.ListLive(Actor.Api, playerId)).Select(s => new { id = s.Id, kind = ((LiveKind)s.Kind).ToString(), s.HostPlayerId, s.GuestPlayerId, state = s.State.ToString(), s.RaidId, s.SnapshotVersion, endReason = s.EndReason is { } er ? ((LiveEndReason)er).ToString() : null, s.CreatedAt, s.StartedAt, s.EndedAt }));
-        group.MapPost("/live/{id:long}/end", async (long id, ReasonBody body, AdminOperations ops) =>
-            await ops.EndLive(Actor.Api, id, body.Reason ?? "ended by admin") ? Results.Ok() : Results.NotFound());
-        group.MapGet("/shop/{id:long}", async (long id, AdminOperations ops) =>
-            (await ops.ListShop(Actor.Api, id)).Select(s => new { s.ThingId, s.DefName, s.StuffDef, s.Count, s.Quality, s.Price, s.SaveTick, s.Label, s.SoldAt }));
-        group.MapGet("/shop/{id:long}/removals", async (long id, AdminOperations ops) =>
-            (await ops.ListRemovals(Actor.Api, id)).Select(r => new { r.Id, r.ThingId, r.Count, r.CreatedAt }));
-        group.MapPost("/players/{id:long}/peaceful", async (long id, PeacefulBody body, AdminOperations ops) => { await ops.SetPeaceful(Actor.Api, id, body.Peaceful); return Results.Ok(); });
+        }).RequireScope(ApiScope.Read);
+        group.MapGet("/live", async (HttpContext ctx, AdminOperations ops, [FromQuery] long? playerId = null) =>
+            (await ops.ListLive(ctx.Actor(), playerId)).Select(s => new { id = s.Id, kind = ((LiveKind)s.Kind).ToString(), s.HostPlayerId, s.GuestPlayerId, state = s.State.ToString(), s.RaidId, s.SnapshotVersion, endReason = s.EndReason is { } er ? ((LiveEndReason)er).ToString() : null, s.CreatedAt, s.StartedAt, s.EndedAt })).RequireScope(ApiScope.Read);
+        group.MapPost("/live/{id:long}/end", async (long id, ReasonBody body, HttpContext ctx, AdminOperations ops) =>
+            await ops.EndLive(ctx.Actor(), id, body.Reason ?? "ended by admin") ? Results.Ok() : Results.NotFound()).RequireScope(ApiScope.Admin);
+        group.MapGet("/shop/{id:long}", async (long id, HttpContext ctx, AdminOperations ops) =>
+            (await ops.ListShop(ctx.Actor(), id)).Select(s => new { s.ThingId, s.DefName, s.StuffDef, s.Count, s.Quality, s.Price, s.SaveTick, s.Label, s.SoldAt })).RequireScope(ApiScope.Moderate);
+        group.MapGet("/shop/{id:long}/removals", async (long id, HttpContext ctx, AdminOperations ops) =>
+            (await ops.ListRemovals(ctx.Actor(), id)).Select(r => new { r.Id, r.ThingId, r.Count, r.CreatedAt })).RequireScope(ApiScope.Moderate);
+        group.MapPost("/players/{id:long}/peaceful", async (long id, PeacefulBody body, HttpContext ctx, AdminOperations ops) => { await ops.SetPeaceful(ctx.Actor(), id, body.Peaceful); return Results.Ok(); }).RequireScope(ApiScope.Admin);
 
-        group.MapPut("/modpack", async (ModpackBody body, ModpackService modpack) =>
+        group.MapPut("/modpack", async (ModpackBody body, HttpContext ctx, ModpackService modpack) =>
         {
-            await modpack.Set(body.Entries.Select(e => new ModpackEntry { Position = e.Position, PackageId = e.PackageId, Version = e.Version ?? "", WorkshopId = e.WorkshopId, Url = e.Url ?? "", Kind = e.Kind }).ToList(), Role.Admin, "api");
+            await modpack.Set(body.Entries.Select(e => new ModpackEntry { Position = e.Position, PackageId = e.PackageId, Version = e.Version ?? "", WorkshopId = e.WorkshopId, Url = e.Url ?? "", Kind = e.Kind }).ToList(), ctx.Actor().Role, ctx.Actor().Name);
             return Results.Ok();
-        });
-    }
-
-    private static async ValueTask<object?> RequireToken(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
-    {
-        string? expected = context.HttpContext.RequestServices.GetRequiredService<IOptions<AdminOptions>>().Value.ApiToken;
-        string? header = context.HttpContext.Request.Headers.Authorization.ToString();
-        if (string.IsNullOrWhiteSpace(expected) || header is null || !header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-            return Results.Unauthorized();
-
-        byte[] given = Encoding.UTF8.GetBytes(header["Bearer ".Length..].Trim());
-        byte[] want = Encoding.UTF8.GetBytes(expected);
-        if (given.Length != want.Length || !CryptographicOperations.FixedTimeEquals(given, want)) return Results.Unauthorized();
-
-        try
-        {
-            return await next(context);
-        }
-        catch (RpcException ex)
-        {
-            int status = ex.StatusCode switch
-            {
-                StatusCode.NotFound => StatusCodes.Status404NotFound,
-                StatusCode.InvalidArgument or StatusCode.FailedPrecondition => StatusCodes.Status400BadRequest,
-                StatusCode.PermissionDenied => StatusCodes.Status403Forbidden,
-                _ => StatusCodes.Status500InternalServerError,
-            };
-            return Results.Problem(ex.Status.Detail, statusCode: status);
-        }
+        }).RequireScope(ApiScope.Admin);
     }
 }

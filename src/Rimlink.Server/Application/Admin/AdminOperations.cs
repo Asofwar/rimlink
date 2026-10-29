@@ -445,7 +445,7 @@ public sealed class AdminOperations(
 
     private async Task Audit(Actor actor, string action, long? targetAccountId, string details)
     {
-        db.AdminActions.Add(new AdminAction { ActorAccountId = actor.AccountId, Action = action, TargetAccountId = targetAccountId, Details = details, At = DateTime.UtcNow });
+        db.AdminActions.Add(new AdminAction { ActorAccountId = actor.AccountId, ActorName = actor.Name, Action = action, TargetAccountId = targetAccountId, Details = details, At = DateTime.UtcNow });
         await db.SaveChangesAsync();
         log.LogInformation("Admin {Actor}: {Action} {Target} {Details}", actor.Name, action, targetAccountId, details);
     }

@@ -298,6 +298,8 @@ public sealed class AdminAction
 {
     public long Id { get; set; }
     public long ActorAccountId { get; set; }
+    /// <summary>Who acted: <c>api</c>, <c>api:&lt;token&gt;[:&lt;label&gt;]</c>, <c>panel</c> or a player's name; null on rows older than the panel.</summary>
+    public string? ActorName { get; set; }
     public string Action { get; set; } = "";
     public long? TargetAccountId { get; set; }
     public string Details { get; set; } = "";

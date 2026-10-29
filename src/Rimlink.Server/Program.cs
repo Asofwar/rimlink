@@ -93,9 +93,11 @@ builder.Services.AddSingleton<Rimlink.Server.Application.Live.LiveTimeoutService
 builder.Services.AddSingleton<Rimlink.Server.Application.Live.LiveRelay>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<Rimlink.Server.Application.Live.LiveTimeoutService>());
 builder.Services.AddSingleton<PresenceNotifier>();
+builder.Services.AddSingleton<ApiTokens>();
 builder.Services.AddHttpClient<ISteamTicketVerifier, SteamWebApiTicketVerifier>(client => client.Timeout = TimeSpan.FromSeconds(10));
 
 var app = builder.Build();
+app.Services.GetRequiredService<ApiTokens>(); // validates Admin:Tokens: a bad entry stops the start
 app.Services.MigrateRimlinkStorage();
 ModpackService.LoadDefs(app.Services);
 app.Services.GetRequiredService<PresenceNotifier>(); // subscribes to session events
