@@ -52,6 +52,10 @@ enum ErrorCode {
   MODPACK_CONFIGS_INVALID = 37;
   // Integrity: this player's economy is frozen (an admin, a dev-mode save or a wealth jump); deliveries to them go on.
   PLAYER_FROZEN = 38;
+  // Economy hardening.
+  UNDER_THREAT = 39;   // a raid or a live raid is on the player: deposits, lots and sends wait
+  IN_DEBT = 40;        // storage fees owed: buying, lots and sends wait
+  DEF_FORBIDDEN = 41;  // the admin forbade this def in sends and lots
 }
 
 // Attached to failed calls as the "rimlink-error-bin" trailer.

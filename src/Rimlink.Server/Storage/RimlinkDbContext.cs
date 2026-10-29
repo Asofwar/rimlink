@@ -22,6 +22,7 @@ public sealed class RimlinkDbContext(DbContextOptions<RimlinkDbContext> options)
     public DbSet<Transfer> Transfers => Set<Transfer>();
     public DbSet<ModpackDef> ModpackDefs => Set<ModpackDef>();
     public DbSet<ModpackConfig> ModpackConfigs => Set<ModpackConfig>();
+    public DbSet<ForbiddenDef> ForbiddenDefs => Set<ForbiddenDef>();
     public DbSet<Raid> Raids => Set<Raid>();
     public DbSet<RaidOutcome> RaidOutcomes => Set<RaidOutcome>();
     public DbSet<Visit> Visits => Set<Visit>();
@@ -84,7 +85,8 @@ public sealed class RimlinkDbContext(DbContextOptions<RimlinkDbContext> options)
 
         model.Entity<Wallet>(e =>
         {
-            e.ToTable("wallets", t => t.HasCheckConstraint("CK_wallets_balance", "\"Balance\" >= 0"));
+            // No balance check: storage fees may leave a debt (only WalletService.Charge goes below zero).
+            e.ToTable("wallets");
             e.HasKey(w => w.PlayerId);
             e.Property(w => w.PlayerId).ValueGeneratedNever();
         });
@@ -135,6 +137,11 @@ public sealed class RimlinkDbContext(DbContextOptions<RimlinkDbContext> options)
         {
             e.ToTable("modpack_configs");
             e.HasIndex(c => new { c.PackageId, c.Handle }).IsUnique();
+        });
+        model.Entity<ForbiddenDef>(e =>
+        {
+            e.ToTable("forbidden_defs");
+            e.HasKey(d => d.DefName);
         });
 
         model.Entity<Raid>(e =>

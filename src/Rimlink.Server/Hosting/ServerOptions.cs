@@ -54,6 +54,13 @@ public sealed class EconomyOptions
     public int TradeLifetimeDays { get; set; } = 7;
     /// <summary>Open trades a player may take part in at once.</summary>
     public int MaxOpenTrades { get; set; } = 5;
+    /// <summary>Share of server-held wealth (wallet, open lots, parcels in transit) counted as colony wealth; 0–1000, clamped at use.</summary>
+    public int ServerWealthPercent { get; set; } = 100;
+    /// <summary>Refuse deposits, new lots and sends while a raid or a live raid is on the player.</summary>
+    public bool BlockOutflowUnderThreat { get; set; } = true;
+    /// <summary>Daily fee on pawns and perishables held on the server, percent of their value; 0 turns it off.</summary>
+    public double StorageFeePercentPerDay { get; set; } = 0.5;
+    public double StorageFreeDays { get; set; } = 3;
 }
 
 /// <summary>Block list and the other personal social settings.</summary>

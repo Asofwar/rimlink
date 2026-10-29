@@ -24,6 +24,7 @@ message ItemBlob {
   int64 market_value_x100 = 7;
   string label = 8;
   bytes scribe_xml_zstd = 9;
+  bool perishable = 10;    // the thing rots (CompRottable): storage fees apply
 }
 
 message PawnBlob {
@@ -98,7 +99,17 @@ message LotList {
   int32 total = 2;
 }
 
-message WalletState { int64 balance = 1; }
+message WalletState {
+  int64 balance = 1;
+  int64 server_wealth = 2;   // wallet, open lots and parcels in transit, as the storyteller and the loot cap count them
+}
+
+// What the economy window needs to know before asking: forbidden defs and the storage fee.
+message EconomyRules {
+  repeated string forbidden_defs = 1;
+  double storage_fee_percent_per_day = 2;
+  double storage_free_days = 3;
+}
 
 message WalletEntryMsg {
   int64 id = 1;
@@ -153,6 +164,7 @@ message TransferRequest {
   PawnList pawns = 4;
   int64 silver = 5;
   int64 game_tick = 6;
+  bool from_caravan = 7;   // things handed over by a caravan, not taken off the home map
 }
 
 service Wallet {
@@ -160,6 +172,7 @@ service Wallet {
   rpc Deposit (DepositRequest) returns (WalletState);
   rpc Withdraw (WithdrawRequest) returns (Parcel);
   rpc History (Empty) returns (WalletHistory);
+  rpc Rules (Empty) returns (EconomyRules);
 }
 
 service Mailbox {
@@ -185,8 +198,8 @@ service Transfer {
 
 // Events carried by ServerEvent.
 message ParcelArrived { Parcel parcel = 1; }
-message LotSold { int64 lot_id = 1; PlayerRef buyer = 2; int64 price = 3; int64 proceeds = 4; }
-message LotClosed { int64 lot_id = 1; string reason = 2; }
-message WalletChanged { int64 balance = 1; int64 delta = 2; string kind = 3; }
+message LotSold { int64 lot_id = 1; PlayerRef buyer = 2; int64 price = 3; int64 proceeds = 4; int64 storage_fee = 5; }
+message LotClosed { int64 lot_id = 1; string reason = 2; int64 storage_fee = 3; }
+message WalletChanged { int64 balance = 1; int64 delta = 2; string kind = 3; int64 ref_id = 4; }
 // To the sender (a letter) and to the recipient (the parcel leaves its mailbox); expired: nobody answered in time.
 message GiftRefused { int64 parcel_id = 1; PlayerRef by = 2; string returned = 3; bool expired = 4; }

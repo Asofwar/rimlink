@@ -24,6 +24,10 @@ public class EconomyOptionsTests
         Assert.Equal(30, o.LotLifetimeDays);
         Assert.Equal(0, o.MarketFeePercent);
         Assert.Equal(5, o.SendCooldownSeconds);
+        Assert.Equal(100, o.ServerWealthPercent);
+        Assert.True(o.BlockOutflowUnderThreat);
+        Assert.Equal(0.5, o.StorageFeePercentPerDay);
+        Assert.Equal(3, o.StorageFreeDays);
     }
 
     [Fact]

@@ -271,6 +271,12 @@ public sealed class ModpackDef
     public string DefName { get; set; } = "";
 }
 
+/// <summary>A def the admin forbade in sends and lots.</summary>
+public sealed class ForbiddenDef
+{
+    public string DefName { get; set; } = "";
+}
+
 public enum RaidStateDb { Queued = 0, Announced = 1, Landed = 2, Resolved = 3, Expired = 4, Cancelled = 5 }
 
 /// <summary>A raid waiting for, landed in or finished by the target's game; <see cref="Pawns"/> is the escrowed PawnList.</summary>

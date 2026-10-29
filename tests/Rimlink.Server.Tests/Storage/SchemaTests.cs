@@ -117,16 +117,6 @@ public class SchemaTests : IDisposable
     }
 
     [Fact]
-    public void NegativeWalletBalanceIsRejected()
-    {
-        using var db = CreateContext();
-        db.Wallets.Add(new Wallet { PlayerId = 1, Balance = -1, UpdatedAt = DateTime.UtcNow });
-
-        var ex = Assert.Throws<DbUpdateException>(() => db.SaveChanges());
-        Assert.Equal(19, Assert.IsType<SqliteException>(ex.InnerException).SqliteErrorCode);
-    }
-
-    [Fact]
     public void SecondSettlementOnSameTileIsRejected()
     {
         using var db = CreateContext();
@@ -215,5 +205,31 @@ public class SchemaTests : IDisposable
         Assert.Contains("EconomyFreezeReason", Columns("players"));
         foreach (string column in new[] { "DevMode", "WealthTotal", "WealthItems" }) Assert.Contains(column, Columns("save_versions"));
         Assert.Null(db.Players.Select(p => p.EconomyFrozenAt).FirstOrDefault());
+    }
+
+    [Fact]
+    public void WalletsAcceptANegativeBalance()
+    {
+        using var db = CreateContext();
+
+        // Storage fees may leave a debt (economy hardening spec §4).
+        db.Wallets.Add(new Wallet { PlayerId = 7, Balance = -5, UpdatedAt = DateTime.UtcNow });
+        db.SaveChanges();
+
+        Assert.Equal(-5, db.Wallets.Single(w => w.PlayerId == 7).Balance);
+    }
+
+    [Fact]
+    public void ForbiddenDefsTableExists()
+    {
+        using var db = CreateContext();
+
+        db.ForbiddenDefs.Add(new ForbiddenDef { DefName = "Gun_Revolver" });
+        db.SaveChanges();
+        Assert.Equal("Gun_Revolver", db.ForbiddenDefs.AsNoTracking().Single().DefName);
+
+        using var second = CreateContext();
+        second.ForbiddenDefs.Add(new ForbiddenDef { DefName = "Gun_Revolver" });
+        Assert.Throws<DbUpdateException>(() => second.SaveChanges());
     }
 }

@@ -161,6 +161,16 @@ namespace Rimlink.Server.Storage.Migrations
                     b.ToTable("chat_messages", (string)null);
                 });
 
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.ForbiddenDef", b =>
+                {
+                    b.Property<string>("DefName")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("DefName");
+
+                    b.ToTable("forbidden_defs", (string)null);
+                });
+
             modelBuilder.Entity("Rimlink.Server.Storage.Entities.LiveSession", b =>
                 {
                     b.Property<long>("Id")
@@ -908,10 +918,7 @@ namespace Rimlink.Server.Storage.Migrations
 
                     b.HasKey("PlayerId");
 
-                    b.ToTable("wallets", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_wallets_balance", "\"Balance\" >= 0");
-                        });
+                    b.ToTable("wallets", (string)null);
                 });
 
             modelBuilder.Entity("Rimlink.Server.Storage.Entities.WalletEntry", b =>
