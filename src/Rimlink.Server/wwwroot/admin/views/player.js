@@ -80,7 +80,7 @@ function actionsBlock(card, done) {
   const id = card.id;
   const kickReason = input({ placeholder: t('player.reasonOptional') });
   const muteMinutes = numberInput({ min: 1, step: 1, value: 30, required: true });
-  const banDays = numberInput({ min: 1, step: 'any', placeholder: t('player.banForever') });
+  const banDays = numberInput({ min: 0.01, step: 'any', placeholder: t('player.banForever') });
   const banReason = input({ placeholder: t('player.reasonOptional') });
   const role = h('select', null, ['player', 'moderator', 'admin'].map(r => h('option', { value: r }, roleName(r))));
   role.value = card.role;

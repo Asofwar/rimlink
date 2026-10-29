@@ -11,7 +11,7 @@ export function render(root) {
     h('option', { value: 'steamId' }, t('bans.bySteam')),
     h('option', { value: 'ip' }, t('bans.byIp')));
   const target = input({ placeholder: t('bans.target'), required: true });
-  const days = numberInput({ min: 1, step: 'any', placeholder: t('player.banForever') });
+  const days = numberInput({ min: 0.01, step: 'any', placeholder: t('player.banForever') });
   const reason = input({ placeholder: t('player.reasonOptional') });
 
   append(root, 
@@ -22,8 +22,9 @@ export function render(root) {
       field(t('player.banDays'), days),
       field(t('player.reason'), reason),
       busyButton(t('player.ban'), async () => {
+        target.value = target.value.trim();
         if (!valid(target, days)) return;
-        const value = target.value.trim();
+        const value = target.value;
         const body = { reason: reason.value.trim() || t('player.banDefaultReason'), days: days.value === '' ? null : Number(days.value) };
         // SteamIDs travel as strings: 17 digits exceed JavaScript's safe integers.
         body[kind.value] = kind.value === 'playerId' ? Number(value.replace(/^#/, '')) : value;

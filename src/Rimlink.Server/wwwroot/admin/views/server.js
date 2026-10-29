@@ -16,8 +16,9 @@ export function render(root) {
       field(t('server.broadcastText'), text),
       h('div', { class: 'actions' },
         busyButton(t('server.send'), async () => {
+          text.value = text.value.trim();
           if (!valid(text)) return;
-          const message = text.value.trim();
+          const message = text.value;
           await api.post('broadcast', { text: message });
           text.value = '';
           banner(t('server.sent'), 'info');

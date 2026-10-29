@@ -57,7 +57,7 @@ async function showRoute() {
   clearBanners();
   const { view, params } = match(currentPath());
   for (const link of document.querySelectorAll('nav.sidebar a')) {
-    const active = link.dataset.route === (view === 'player' ? 'players' : currentPath().split('/')[0]);
+    const active = link.dataset.route === (view === 'overview' ? '' : view === 'player' ? 'players' : view);
     link.classList.toggle('active', active);
     if (active) {
       link.setAttribute('aria-current', 'page');

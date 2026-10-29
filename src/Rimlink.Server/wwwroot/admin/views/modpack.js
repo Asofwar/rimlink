@@ -8,6 +8,7 @@ export function render(root) {
   const body = h('div');
   let original = [];
   let rows = [];
+  let snapshot = '[]';
 
   append(root, 
     h('div', { class: 'toolbar' }, h('h1', { class: 'grow' }, t('nav.modpack')), refreshButton(async () => {
@@ -33,7 +34,7 @@ export function render(root) {
   }
 
   function dirty() {
-    return diff(entries()) !== t('modpack.noChanges');
+    return JSON.stringify(rows) !== snapshot;
   }
 
   function draw() {
@@ -111,6 +112,7 @@ export function render(root) {
       const pack = await api.get('modpack');
       original = pack.entries.map(e => ({ ...e, workshopId: Number(e.workshopId) }));
       rows = pack.entries.map(e => ({ ...e, workshopId: e.workshopId ? String(e.workshopId) : '' }));
+      snapshot = JSON.stringify(rows);
       draw();
     } catch (error) {
       showError(error);
