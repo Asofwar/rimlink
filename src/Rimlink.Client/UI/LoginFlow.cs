@@ -35,7 +35,8 @@ public static class LoginFlow
                 {
                     var diff = reply.ModpackDiff;
                     await connection.DisposeAsync();
-                    MainThread.Post(() => { wait.Close(); Find.WindowStack.Add(new Dialog_ModpackDiff(diff)); });
+                    string? login = credentials.LastPassword?.Login;
+                    MainThread.Post(() => { wait.Close(); Find.WindowStack.Add(new Dialog_ModpackDiff(diff, endpoint, login)); });
                     return new LoginOutcome(LoginOutcomeKind.ModpackDiff);
                 }
 

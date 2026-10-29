@@ -2,6 +2,8 @@
 <LanguageData>
   <Rimlink.Settings.Servers>Сохранённых серверов: {0}. Управление — через кнопку «Мультиплеер» в главном меню.</Rimlink.Settings.Servers>
   <Rimlink.MainMenu.Multiplayer>Мультиплеер</Rimlink.MainMenu.Multiplayer>
+  <Rimlink.MainMenu.ServerSettings>Действуют настройки модов {0}: вернуть свои</Rimlink.MainMenu.ServerSettings>
+  <Rimlink.MainMenu.ServerSettingsConfirm>Вернуть свои настройки модов вместо настроек {0}? Игра перезапустится.</Rimlink.MainMenu.ServerSettingsConfirm>
   <Rimlink.Settlement.Inspect>Колония игрока {0}</Rimlink.Settlement.Inspect>
   <Rimlink.Net.Reconnecting>Связь с сервером потеряна, переподключение...</Rimlink.Net.Reconnecting>
   <Rimlink.Net.Reconnected>Связь с сервером восстановлена.</Rimlink.Net.Reconnected>
@@ -44,13 +46,23 @@
   <Rimlink.Modpack.Missing>Не хватает ({0}):</Rimlink.Modpack.Missing>
   <Rimlink.Modpack.WrongVersion>Не та версия ({0}):</Rimlink.Modpack.WrongVersion>
   <Rimlink.Modpack.Extra>Не разрешены на этом сервере ({0}):</Rimlink.Modpack.Extra>
+  <Rimlink.Modpack.Missing.Hint>Установите их: подписка в Steam или ссылки для скачивания.</Rimlink.Modpack.Missing.Hint>
+  <Rimlink.Modpack.Version.Player>обновите свою копию</Rimlink.Modpack.Version.Player>
+  <Rimlink.Modpack.Version.Server>на сервере старая версия: напишите админу, чтобы он обновил модпак</Rimlink.Modpack.Version.Server>
+  <Rimlink.Modpack.Files>Другие файлы ({0}):</Rimlink.Modpack.Files>
+  <Rimlink.Modpack.Files.Hint>Версия та же, файлы другие: проверьте файлы мода или переподпишитесь (или админ импортировал другую копию).</Rimlink.Modpack.Files.Hint>
+  <Rimlink.Modpack.Extra.Hint>Выключите их или попросите админа разрешить.</Rimlink.Modpack.Extra.Hint>
+  <Rimlink.Modpack.Order>Порядок загрузки отличается от сервера.</Rimlink.Modpack.Order>
+  <Rimlink.Modpack.Order.Hint>«Исправить и перезапустить» расставит моды в порядке сервера.</Rimlink.Modpack.Order.Hint>
+  <Rimlink.Modpack.Settings>Настройки модов сервера ({0}):</Rimlink.Modpack.Settings>
+  <Rimlink.Modpack.Settings.Hint>Сервер делит настройки этих модов. «Исправить и перезапустить» включит их в этой игре; ваши файлы настроек останутся как есть.</Rimlink.Modpack.Settings.Hint>
+  <Rimlink.Modpack.FixRestart>Исправить и перезапустить</Rimlink.Modpack.FixRestart>
+  <Rimlink.Modpack.Downloading>Steam скачивает моды: {0}...</Rimlink.Modpack.Downloading>
+  <Rimlink.Modpack.SettingsWriteFailed>Не удалось сохранить исправление: {0}</Rimlink.Modpack.SettingsWriteFailed>
   <Rimlink.Modpack.Subscribe>Подписаться в Steam</Rimlink.Modpack.Subscribe>
   <Rimlink.Modpack.Subscribed>Подписка на {0} модов Workshop оформлена; дождитесь загрузки в Steam.</Rimlink.Modpack.Subscribed>
   <Rimlink.Modpack.OpenLinks>Открыть ссылки для скачивания</Rimlink.Modpack.OpenLinks>
   <Rimlink.Modpack.Opened>Открыто ссылок в браузере: {0}.</Rimlink.Modpack.Opened>
-  <Rimlink.Modpack.ApplyOrder>Порядок модов как на сервере</Rimlink.Modpack.ApplyOrder>
-  <Rimlink.Modpack.OrderApplied>Список модов записан (копия: ModsConfig.rimlink-backup.xml). Перезапустите игру.</Rimlink.Modpack.OrderApplied>
-  <Rimlink.Modpack.Restart>Перезапустить игру</Rimlink.Modpack.Restart>
   <Rimlink.Chat.Public>Кому: всем</Rimlink.Chat.Public>
   <Rimlink.Chat.To>Кому: {0} (нажмите, чтобы писать всем)</Rimlink.Chat.To>
   <Rimlink.Chat.Send>Отправить</Rimlink.Chat.Send>

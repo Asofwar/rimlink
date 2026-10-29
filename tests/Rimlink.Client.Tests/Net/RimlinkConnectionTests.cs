@@ -106,6 +106,49 @@ public class RimlinkConnectionTests
         }
     }
 
+    /// <summary>A new account whose login request carries mods and mod settings hashes, as the game builds it.</summary>
+    private sealed class RegisteringWithMods : ICredentialProvider
+    {
+        private RegisterRequest? pending = new() { Login = "nova", Password = "pw", PlayerName = "Nova" };
+
+        public Task<LoginRequest> BuildLogin(CancellationToken cancellationToken)
+        {
+            var request = new LoginRequest { Password = new PasswordCredential { Login = "nova", Password = "pw" } };
+            request.Mods.Add(new ModRef { PackageId = Rimlink.Protocol.ModContent.RimlinkPackageId, Position = 0, FilesHash = "h" });
+            request.Mods.Add(new ModRef { PackageId = "a.one", Position = 1, FilesHash = "h" });
+            request.ModSettings.Add(new ModSettingsHash { PackageId = "a.one", Handle = "OneMod", Hash = Rimlink.Protocol.ModContent.NoSettings });
+            return Task.FromResult(request);
+        }
+
+        public RegisterRequest? TakeRegistration()
+        {
+            var request = pending;
+            pending = null;
+            return request;
+        }
+    }
+
+    [Fact]
+    public async Task RegistrationCarriesTheModSettings()
+    {
+        using var fixture = Server();
+        var admin = await fixture.RegisterAndLogin("admin");
+        var modpack = new Protocol.V1.Modpack.ModpackClient(fixture.CreateChannel());
+        var pack = new ModpackList();
+        pack.Entries.Add(new ModpackEntry { Position = 0, PackageId = Rimlink.Protocol.ModContent.RimlinkPackageId });
+        pack.Entries.Add(new ModpackEntry { Position = 1, PackageId = "a.one" });
+        await modpack.SetAsync(pack, GrpcTestExtensions.Bearer(admin.SessionToken));
+        var configs = new ModConfigList();
+        configs.Configs.Add(new ModConfig { PackageId = "a.one", Handle = "OneMod", Content = Google.Protobuf.ByteString.CopyFromUtf8("<SettingsBlock/>") });
+        await modpack.SetConfigsAsync(configs, GrpcTestExtensions.Bearer(admin.SessionToken));
+        await using var connection = Connect(fixture, new RegisteringWithMods());
+
+        var reply = await connection.ConnectAsync(CancellationToken.None);
+
+        Assert.Empty(reply.SessionToken);
+        Assert.Single(reply.ModpackDiff.Configs);
+    }
+
     [Fact]
     public async Task ConnectRegistersWhenCredentialsAskForIt()
     {

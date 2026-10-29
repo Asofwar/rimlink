@@ -174,6 +174,7 @@ public sealed class RimlinkConnection : IAsyncDisposable
         steamLogin = request.CredentialCase == LoginRequest.CredentialOneofCase.SteamTicket;
         var registration = credentials.TakeRegistration();
         if (registration is not null && registration.Mods.Count == 0) registration.Mods.AddRange(request.Mods);
+        if (registration is not null && registration.ModSettings.Count == 0) registration.ModSettings.AddRange(request.ModSettings);
 
         for (int attempt = 0; ; attempt++)
         {

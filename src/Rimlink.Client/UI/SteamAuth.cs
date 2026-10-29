@@ -28,6 +28,9 @@ public sealed class GameCredentials : ICredentialProvider
     public bool Interactive => preset is null;
 
     public string? ServerPassword { get; set; }
+
+    /// <summary>The login name the password dialog starts with (rejoin after a restart: the password is never kept).</summary>
+    public string? PrefillLogin { get; set; }
     public bool PreferPassword { get; set; }
     public PasswordLogin? LastPassword => password;
 
@@ -37,7 +40,8 @@ public sealed class GameCredentials : ICredentialProvider
     public async Task<LoginRequest> BuildLogin(CancellationToken cancellationToken)
     {
         var request = new LoginRequest { ServerPassword = ServerPassword ?? "" };
-        request.Mods.AddRange(ModpackActions.RunningMods());
+        request.Mods.AddRange(await ModpackActions.RunningMods());
+        request.ModSettings.AddRange(ModpackActions.RunningModSettings());
 
         if (!PreferPassword && SteamManager.Initialized && TryGetTicket(out byte[] steamTicket))
         {
@@ -47,7 +51,7 @@ public sealed class GameCredentials : ICredentialProvider
 
         // Reconnects reuse the password typed before; the first login asks (a preset hands out its next attempt).
         if (preset is not null) password ??= preset.Next() is { } a ? new PasswordLogin(a.Login, a.Password, a.Register, a.PlayerName) : null;
-        else password ??= await MainThread.Ask<PasswordLogin?>(tcs => new Dialog_Login(tcs, LastError));
+        else password ??= await MainThread.Ask<PasswordLogin?>(tcs => new Dialog_Login(tcs, LastError, PrefillLogin));
         if (password is null) throw new OperationCanceledException("login cancelled");
         request.Password = new PasswordCredential { Login = password.Login, Password = password.Password };
         return request;

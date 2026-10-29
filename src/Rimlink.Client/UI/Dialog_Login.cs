@@ -17,9 +17,10 @@ public sealed class Dialog_Login : Window
     private string password = "";
     private string playerName = "";
 
-    public Dialog_Login(TaskCompletionSource<PasswordLogin?> answer, string? error = null)
+    public Dialog_Login(TaskCompletionSource<PasswordLogin?> answer, string? error = null, string? login = null)
     {
         this.answer = answer;
+        this.login = login ?? "";
         Error = error;
         forcePause = true;
         absorbInputAroundWindow = true;

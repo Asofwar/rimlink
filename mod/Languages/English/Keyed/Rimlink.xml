@@ -2,6 +2,8 @@
 <LanguageData>
   <Rimlink.Settings.Servers>Saved servers: {0}. Manage them from the Multiplayer button in the main menu.</Rimlink.Settings.Servers>
   <Rimlink.MainMenu.Multiplayer>Multiplayer</Rimlink.MainMenu.Multiplayer>
+  <Rimlink.MainMenu.ServerSettings>Mod settings of {0} in effect: use mine</Rimlink.MainMenu.ServerSettings>
+  <Rimlink.MainMenu.ServerSettingsConfirm>Use your own mod settings instead of those of {0}? The game restarts.</Rimlink.MainMenu.ServerSettingsConfirm>
   <Rimlink.Settlement.Inspect>Colony of player {0}</Rimlink.Settlement.Inspect>
   <Rimlink.Net.Reconnecting>Connection to the server lost, reconnecting...</Rimlink.Net.Reconnecting>
   <Rimlink.Net.Reconnected>Reconnected to the server.</Rimlink.Net.Reconnected>
@@ -44,13 +46,23 @@
   <Rimlink.Modpack.Missing>Missing ({0}):</Rimlink.Modpack.Missing>
   <Rimlink.Modpack.WrongVersion>Wrong version ({0}):</Rimlink.Modpack.WrongVersion>
   <Rimlink.Modpack.Extra>Not allowed on this server ({0}):</Rimlink.Modpack.Extra>
+  <Rimlink.Modpack.Missing.Hint>Install them: subscribe in Steam or open the download links.</Rimlink.Modpack.Missing.Hint>
+  <Rimlink.Modpack.Version.Player>update your copy</Rimlink.Modpack.Version.Player>
+  <Rimlink.Modpack.Version.Server>the server runs an older version: ask the admin to update the modpack</Rimlink.Modpack.Version.Server>
+  <Rimlink.Modpack.Files>Different files ({0}):</Rimlink.Modpack.Files>
+  <Rimlink.Modpack.Files.Hint>Same version, other files: verify the mod files or subscribe again (or the admin imported a different copy).</Rimlink.Modpack.Files.Hint>
+  <Rimlink.Modpack.Extra.Hint>Turn them off, or ask the admin to allow them.</Rimlink.Modpack.Extra.Hint>
+  <Rimlink.Modpack.Order>The load order differs from the server.</Rimlink.Modpack.Order>
+  <Rimlink.Modpack.Order.Hint>Fix and restart puts your mods in the server order.</Rimlink.Modpack.Order.Hint>
+  <Rimlink.Modpack.Settings>Server mod settings ({0}):</Rimlink.Modpack.Settings>
+  <Rimlink.Modpack.Settings.Hint>This server shares the settings of these mods. Fix and restart uses them in this game; your own settings files stay as they are.</Rimlink.Modpack.Settings.Hint>
+  <Rimlink.Modpack.FixRestart>Fix and restart</Rimlink.Modpack.FixRestart>
+  <Rimlink.Modpack.Downloading>Waiting for Steam to download {0} mods...</Rimlink.Modpack.Downloading>
+  <Rimlink.Modpack.SettingsWriteFailed>Could not save the fix: {0}</Rimlink.Modpack.SettingsWriteFailed>
   <Rimlink.Modpack.Subscribe>Subscribe in Steam</Rimlink.Modpack.Subscribe>
   <Rimlink.Modpack.Subscribed>Subscribed to {0} Workshop items; wait for Steam to download them.</Rimlink.Modpack.Subscribed>
   <Rimlink.Modpack.OpenLinks>Open download links</Rimlink.Modpack.OpenLinks>
   <Rimlink.Modpack.Opened>Opened {0} links in the browser.</Rimlink.Modpack.Opened>
-  <Rimlink.Modpack.ApplyOrder>Use server mod order</Rimlink.Modpack.ApplyOrder>
-  <Rimlink.Modpack.OrderApplied>Mod list written (backup: ModsConfig.rimlink-backup.xml). Restart to apply.</Rimlink.Modpack.OrderApplied>
-  <Rimlink.Modpack.Restart>Restart game</Rimlink.Modpack.Restart>
   <Rimlink.Chat.Public>To: everyone</Rimlink.Chat.Public>
   <Rimlink.Chat.To>To: {0} (click for public)</Rimlink.Chat.To>
   <Rimlink.Chat.Send>Send</Rimlink.Chat.Send>
