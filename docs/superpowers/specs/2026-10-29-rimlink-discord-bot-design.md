@@ -3,7 +3,10 @@
 Дата: 2026-10-29. Статус: утверждён в обсуждении, ждёт план.
 Основа: `2026-10-28-rimlink-core-design.md` (ядро: «после ядра отдельными подпроектами идут веб-панель
 администратора и Discord-бот; оба работают через REST-API ядра»), экономика, рейды и визиты (3a), живые
-сессии (3b). Протокол расширяется только добавлением (новое значение enum, новое поле).
+сессии (3b), веб-панель `2026-10-29-rimlink-admin-panel-design.md` (ветка `asofwar/gracious-jepsen-5f80d9`): её
+расширения REST (актор из запроса и `X-Rimlink-Actor`, `admin_actions.ActorName`, `GET /players`, `GET /players/{id}`,
+`GET /status`, `GET /chat`) этот спек берёт как данность и не переопределяет. Протокол расширяется только добавлением
+(новое значение enum, новое поле).
 
 ## 1. Цель и границы
 
@@ -77,7 +80,7 @@
 | market | `lot.posted` | `{lotId, seller, price, summary}` | `MarketService.Post` |
 | market | `lot.sold` | `{lotId, seller, buyer, price, summary}` | `MarketService.Buy` |
 | market | `shop.sold` | `{host, buyer, item, count, price}` | `ShopService` |
-| moderation | `admin.action` | `{action, actor, via, target?, details}` | `AdminOperations.Audit` |
+| moderation | `admin.action` | `{action, actor, target?, details}`; `actor` — имя актора, как его пишет `admin_actions.ActorName` панели (`api`, `api:discord:<…>`, `panel`, имя игрока) | `AdminOperations.Audit` |
 | chat | `chat.message` | `{id, kind: player\|system\|external, from?, author?, text}` | `ChatService` (только публичные строки) |
 
 `summary` лота — строка из `ItemBlob.label` и `count` («Steel ×50, Component ×3») или ярлык пешки,
@@ -88,19 +91,20 @@
 
 ## 3. Сервер: остальные REST-дополнения
 
-- **Атрибуция.** Необязательный заголовок `X-Rimlink-Actor` (до 64 символов, без управляющих символов;
-  иначе 400). REST-вызов выполняется от `Actor.Api` с именем из заголовка (`api`, если его нет).
-  `AdminOperations.Audit` дописывает к `Details` суффикс ` [via <имя>]` для REST-вызовов и пишет имя в лог.
-  `ActorAccountId` остаётся 0. Поле `via` в `admin.action`: имя из заголовка, `api` или имя игрока,
-  выполнившего `/`-команду. Миграции для атрибуции нет.
-- **Игроки.** `GET /api/admin/players?name=<префикс>&limit=<1..25>` (по умолчанию 25) — регистронезависимый
-  префиксный поиск, точное совпадение первым: `{id, accountId, name, faction, online, role, mutedUntil,
-  peaceful, colonies: [name]}`.
-- **Статус.** `GET /api/admin/status` → `{version, protocolVersion, startedAt, online, maxPlayers,
-  worldCreated, economyFrozen, economyFreezeReason, raidsFrozen, raidsFreezeReason}`.
+**Из спека панели (§3–4), без изменений.** Актор берётся из запроса; Bearer-запрос с `X-Rimlink-Actor:
+discord:<…>` пишется в журнал как `api:discord:<…>` (подпись очищается и режется до 64 символов, прав не даёт),
+колонка `admin_actions.ActorName`. `GET /players?q=&limit=&offset=` (подстрока имени или фракции, `#id`, SteamID,
+логин), `GET /players/{id}` (карточка: поселения, мирный режим, онлайн), `GET /status` (онлайн, максимум, версия,
+мир, заморозки экономики и рейдов, `certificateFingerprint`), `GET /chat?playerId=&before=&limit=` (общий канал,
+новые первыми, `{id, at, fromPlayerId, fromName, kind, text}`). Бот пользуется ими как есть.
+
+**Добавляет этот спек:**
+
 - **Чат.**
-  - `GET /api/admin/chat?after=<id>&limit=<1..200>` — публичные строки по возрастанию `id`:
-    `{id, kind, from?, author?, text, at}`. Для панели и ручной проверки; бот в обычной работе берёт чат из ленты.
+  - `GET /api/admin/chat` получает параметр `after=<id>`: при нём строки идут по возрастанию `id`, старше `after`
+    (прямой курсор; `before` и `after` вместе — 400). Ответ получает поле `author` (автор строки из Discord, иначе
+    `null`); `kind` получает значение `external`. Бот в обычной работе берёт чат из ленты; курсор — для проверки и
+    панели.
   - `POST /api/admin/chat {author, text}` — строка из Discord. `author`: 1–32 символа без управляющих;
     `text`: те же правила, что у игрового чата (`Trim`, не пусто, ≤ `Limits.ChatMaxLength`, без
     управляющих символов кроме `\n`). Сохраняется `ChatMessage { FromPlayerId = null, Kind = External,
@@ -108,7 +112,7 @@
     external_author }`, публикуется в ленту. `/`-команды из Discord-чата не исполняются: строка уходит как текст.
 - **Лоты.** Ответ `GET /api/admin/economy/lots` получает поля `sellerName` и `summary` (добавление полей
   совместимо с CLI).
-- **Сертификат.** При старте сервер пишет в лог SHA-256 своего TLS-сертификата (нужно для пина бота).
+- **CLI.** `rimlink-tools admin say <author> <text>` → `POST /chat`; `chat` из CLI панели получает `--after`.
 
 ### Протокол и хранение
 
@@ -120,8 +124,10 @@
 
 ### Конфиг сервера
 
-`Admin:FeedBufferSize` (int, 100–100000, по умолчанию 1000) в `AdminOptions`, с валидацией;
-документируется в `deploy/appsettings.example.json` и `docs/server-setup.md`.
+`Admin:FeedBufferSize` (int, 100–100000, по умолчанию 1000) и `Admin:FeedPingSeconds` (int, 1–300, по
+умолчанию 15) в `AdminOptions`, с валидацией; документируются в `deploy/appsettings.example.json` и
+`docs/server-setup.md`. `ping` уходит событием `event: ping` (`SseItem` не пишет комментарии) — один сразу после
+догона, чтобы клиент не ждал первого события, и дальше каждые `FeedPingSeconds` без событий.
 
 ## 4. Бот: компоненты
 
@@ -174,8 +180,9 @@
 ### Команды и права
 
 Guild-команды регистрируются на сервер `Discord:GuildId` при старте. Аргумент `player` — имя с
-автодополнением (`GET /players?name=`); разрешение имени: точное совпадение без учёта регистра, иначе
-единственное совпадение по префиксу, иначе ошибка со списком кандидатов.
+автодополнением (`GET /players?q=<ввод>&limit=25` панели); разрешение имени по ответу `?q=`: точное совпадение
+имени без учёта регистра, иначе единственное совпадение по префиксу имени, иначе ошибка со списком кандидатов.
+`/player` показывает карточку `GET /players/{id}`, `/status` — `GET /status`.
 
 | Уровень | Команды |
 |---|---|
@@ -191,9 +198,9 @@ Guild-команды регистрируются на сервер `Discord:Gui
 - Подтверждение: эфемерное сообщение с описанием действия и кнопками. Нажать может только автор
   команды (иначе эфемерный отказ); через 60 с кнопки гаснут; повторное нажатие не выполняет действие
   второй раз.
-- Ответы публичных запросов — в канал; модераторских и админских — эфемерно. Само действие попадает в
-  `moderation` через `admin.action` с `via = discord:<username> (<userId>)` — бот шлёт это значение в
-  `X-Rimlink-Actor`.
+- Ответы публичных запросов — в канал; модераторских и админских — эфемерно. Бот шлёт в `X-Rimlink-Actor`
+  подпись `discord:<username> (<userId>)`; само действие попадает в `moderation` через `admin.action` с
+  `actor = api:discord:<username> (<userId>)`.
 - Ошибки: 4xx → эфемерно текст `detail` сервера; 5xx, таймаут (10 с), обрыв → «сервер не ответил».
 
 ### Язык
@@ -209,7 +216,7 @@ Guild-команды регистрируются на сервер `Discord:Gui
 |---|---|
 | `Server:Url` | `https://rimlink:25560` в compose |
 | `Server:ApiToken` | `Admin:ApiToken` сервера |
-| `Server:CertificateSha256` | Пин сертификата (hex, из лога сервера); при совпадении проверка цепочки и имени не нужна |
+| `Server:CertificateSha256` | Пин сертификата (hex SHA-256, поле `certificateFingerprint` из `/api/public/status`, `GET /status` или `rimlink-tools admin status`); при совпадении проверка цепочки и имени не нужна |
 | `Server:Insecure` | Принять любой сертификат; допустимо только внутри compose-сети |
 | `Discord:Token` | Токен бота |
 | `Discord:GuildId` | Сервер Discord |
@@ -240,11 +247,10 @@ backoff (без падения).
   - `AdminFeedTests`: буфер и вытеснение; догон по `Last-Event-ID` и `?after=`; `gap` при чужом `epoch`
     и при вытесненном `seq`; отставший подписчик отключается; `ping`; токен обязателен.
   - Публикация в каждом источнике таблицы раздела 2 (вход/выход, колония, высадка и итог рейда, визит,
-    live, лот выставлен и продан, магазин, broadcast, shutdown, заморозки, `admin.action` с `via` для
-    REST-заголовка, без заголовка и для `/`-команды); ЛС и `raid.queued` в ленту не попадают.
-  - REST: `players` (префикс, точное первым, лимит), `status`, `chat` GET/POST (валидация автора и
-    текста, `EXTERNAL` доходит до тестовой сессии с автором, `/`-строка не исполняется), поля лотов,
-    `X-Rimlink-Actor` (суффикс в `Details`, 400 на плохое значение).
+    live, лот выставлен и продан, магазин, broadcast, shutdown, заморозки, `admin.action` с `actor` для
+    REST с подписью, без неё и для `/`-команды); ЛС и `raid.queued` в ленту не попадают.
+  - REST: `POST /chat` (валидация автора и текста, `EXTERNAL` доходит до тестовой сессии с автором,
+    `/`-строка не исполняется), `GET /chat?after=` (порядок, `author`, `before`+`after` → 400), поля лотов.
   - Схема: колонка `ChatMessages.ExternalAuthor`.
 - `Rimlink.Discord.Tests` (новый проект, в `Rimlink.sln`):
   - `FeedReader` против реального тестового сервера: события приходят, обрыв → продолжение без потерь и
@@ -265,9 +271,12 @@ backoff (без падения).
 
 ## 9. Порядок работ
 
-1. Сервер: `X-Rimlink-Actor`, `players`, `status`, поля лотов, лог SHA-256 сертификата.
+0. Предусловие: в ветке есть задачи 2 (актор, `ActorName`), 4 (`/players`, `/chat`) и 6 (`/status`, отпечаток)
+   плана панели — из `main` после их слияния или ребейзом на ветку панели.
+1. Сервер: сводка лотов (`sellerName`, `summary`).
 2. Сервер: `AdminFeed`, SSE-эндпоинт, публикация во всех источниках.
-3. Сервер: чат REST, `EXTERNAL`, миграция, событие ленты; мод: отрисовка `[Discord]`, версия.
+3. Сервер: `POST /chat`, `after=` и `author` в `GET /chat`, `EXTERNAL`, миграция, событие ленты, CLI `say`;
+   мод: отрисовка `[Discord]`, версия.
 4. Бот: проект, `BotOptions`, `RimlinkApi`, `FeedReader`, тестовый проект.
 5. Бот: `FeedRouter`, `Formatter`, `Strings`, `OutboundQueue`, `ChatBridge`.
 6. Бот: `Permissions`, `CommandHandlers`, модули, подтверждения, `DiscordHost`.
@@ -276,10 +285,15 @@ backoff (без падения).
 
 ## 10. Согласование с веб-панелью
 
-Лента (раздел 2), `players`, `status`, `chat` и `X-Rimlink-Actor` — общие серверные дополнения: панель
-(параллельный подпроект) пользуется ими же. Кто сливается первым, тот их вводит; второй перестраивается на
-готовое и не заводит параллельных ручек. Форма ленты — общая: новые типы событий добавляются, старые не
-меняются.
+Владение маршрутами согласовано через родительскую сессию:
+- спек панели владеет актором из запроса, `X-Rimlink-Actor`, `admin_actions.ActorName`, `GET /players`,
+  `GET /players/{id}`, `GET /status` (с `certificateFingerprint`) и `GET /chat` (`before=`); этот спек ссылается
+  на них и их не переопределяет;
+- этот спек владеет лентой событий (`GET /events`), `POST /chat` с `EXTERNAL`, прямым курсором `after=` и полем
+  `author` в `GET /chat`, полями `sellerName`/`summary` лотов.
+Панель в текущем объёме обновляется опросом; если позже возьмёт ленту, то ту же: новые типы событий
+добавляются, старые не меняются. Отдельные токены на интеграцию (вопрос владельцу, пока открыт) боту не мешают:
+он шлёт тот токен, что задан в `Server:ApiToken`.
 
 ## 11. Вне рамок
 
