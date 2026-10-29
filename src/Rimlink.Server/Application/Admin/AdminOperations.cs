@@ -442,6 +442,11 @@ public sealed class AdminOperations(
 
         string archive = Path.Combine(data.Archive, $"{playerId}-{DateTime.UtcNow:yyyyMMdd-HHmmss}");
         await saves.Archive(playerId, archive);
+        // The next colony starts from nothing: its age and wealth come from its own saves.
+        await db.Players.Where(p => p.Id == playerId).ExecuteUpdateAsync(s => s
+            .SetProperty(p => p.FirstSaveAt, (DateTime?)null)
+            .SetProperty(p => p.WealthTotal, 0L)
+            .SetProperty(p => p.WealthItems, 0L));
         await RemoveObjectsOf(playerId);
         await raids.CancelAllOf(playerId, "colony reset");
         await shop.ClearOf(playerId);

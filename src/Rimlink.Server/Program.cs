@@ -121,6 +121,7 @@ builder.Services.AddSingleton<Rimlink.Server.Application.Live.LiveTimeoutService
 builder.Services.AddSingleton<Rimlink.Server.Application.Live.LiveRelay>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<Rimlink.Server.Application.Live.LiveTimeoutService>());
 builder.Services.AddSingleton<PresenceNotifier>();
+builder.Services.AddSingleton<SessionEndRecorder>();
 builder.Services.AddSingleton<Rimlink.Server.Application.Feed.AdminFeed>();
 builder.Services.AddSingleton<ApiTokens>();
 builder.Services.AddSingleton<PanelSessions>();
@@ -132,6 +133,7 @@ app.Services.MigrateRimlinkStorage();
 ModpackService.LoadDefs(app.Services);
 ForbiddenDefsService.Load(app.Services);
 app.Services.GetRequiredService<PresenceNotifier>(); // subscribes to session events
+app.Services.GetRequiredService<SessionEndRecorder>(); // subscribes to session ends
 app.Services.GetRequiredService<Rimlink.Server.Application.Feed.AdminFeed>(); // server.started is the feed's first event
 
 app.UseSerilogRequestLogging();

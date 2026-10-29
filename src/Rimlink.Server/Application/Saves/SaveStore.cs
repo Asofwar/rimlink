@@ -85,11 +85,15 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, EventBus 
                 if (factionName is not null && factionName != player.FactionName && Names.IsValid(factionName))
                     await db.Players.Where(p => p.Id == playerId).ExecuteUpdateAsync(s => s.SetProperty(p => p.FactionName, factionName));
                 // Raid protection reads these: age of the colony on this server and its wealth as of the last save.
+                // A header without wealth (the pending-upload path, no home map) reports 0: keep what the last save said.
                 var now = DateTime.UtcNow;
-                await db.Players.Where(p => p.Id == playerId).ExecuteUpdateAsync(s => s
-                    .SetProperty(p => p.WealthTotal, header.WealthTotal)
-                    .SetProperty(p => p.WealthItems, header.WealthItems)
-                    .SetProperty(p => p.FirstSaveAt, p => p.FirstSaveAt ?? now));
+                if (header.WealthTotal > 0)
+                    await db.Players.Where(p => p.Id == playerId).ExecuteUpdateAsync(s => s
+                        .SetProperty(p => p.WealthTotal, header.WealthTotal)
+                        .SetProperty(p => p.WealthItems, header.WealthItems)
+                        .SetProperty(p => p.FirstSaveAt, p => p.FirstSaveAt ?? now));
+                else
+                    await db.Players.Where(p => p.Id == playerId).ExecuteUpdateAsync(s => s.SetProperty(p => p.FirstSaveAt, p => p.FirstSaveAt ?? now));
                 await db.SaveChangesAsync();
                 // An orphan file of this number (crash between move and commit in an older run) is overwritten.
                 File.Move(temp, final, overwrite: true);

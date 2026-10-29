@@ -113,6 +113,7 @@ public sealed class AuthService(
         var session = sessions.Start(account, player, ctx.Ip, out var replaced);
         if (replaced is not null) log.LogInformation("Session of {Player} replaced by a new login from {Ip}", player.Name, ctx.Ip);
 
+        session.AwaySince = Activity.Of(account);
         account.LastSeenAt = DateTime.UtcNow;
         player.LastIp = ctx.Ip;
         db.Sessions.Add(new SessionLog { AccountId = account.Id, Ip = ctx.Ip, StartedAt = session.StartedAt });
