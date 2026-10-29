@@ -5,7 +5,7 @@
   <Rimlink.Settlement.Inspect>Колония игрока {0}</Rimlink.Settlement.Inspect>
   <Rimlink.Net.Reconnecting>Связь с сервером потеряна, переподключение...</Rimlink.Net.Reconnecting>
   <Rimlink.Net.Reconnected>Связь с сервером восстановлена.</Rimlink.Net.Reconnected>
-  <Rimlink.Net.Replaced>В этот аккаунт вошли с другого места. Игра на паузе; сохранение остаётся на этом компьютере.</Rimlink.Net.Replaced>
+  <Rimlink.Net.Replaced>В этот аккаунт вошли с другого места; колония продолжается там. Эта копия отключена и на сервер не уйдёт.</Rimlink.Net.Replaced>
   <Rimlink.Net.Failed>Не удалось переподключиться к серверу за две минуты. Сохранение остаётся на этом компьютере и отправится при следующем входе.</Rimlink.Net.Failed>
   <Rimlink.Net.ToMenu>В главное меню</Rimlink.Net.ToMenu>
   <Rimlink.Net.Shutdown>Сервер выключится через {0} с: {1}</Rimlink.Net.Shutdown>

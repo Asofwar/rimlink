@@ -130,11 +130,13 @@ public sealed class RimlinkGameComponent : GameComponent
                 break;
             case ConnectionState.Connected:
                 Messages.Message("Rimlink.Net.Reconnected".Translate(), MessageTypeDefOf.PositiveEvent, historical: false);
+                atHomeSent = null; // the new server session starts away from home: say where we are again
                 Resync();
                 break;
             case ConnectionState.Replaced:
                 Find.TickManager.Pause();
-                Find.WindowStack.Add(new Dialog_MessageBox("Rimlink.Net.Replaced".Translate(), "Rimlink.Net.ToMenu".Translate(), LeaveToMenu));
+                LeaveReplaced();
+                Find.WindowStack.Add(new Dialog_MessageBox("Rimlink.Net.Replaced".Translate(), "Rimlink.Net.ToMenu".Translate(), GenScene.GoToMainMenu));
                 break;
             case ConnectionState.Failed:
                 Find.TickManager.Pause();
@@ -204,6 +206,16 @@ public sealed class RimlinkGameComponent : GameComponent
     }
 
     /// <summary>The colony is saved locally and flagged for upload at the next login (the connection is gone); the session ends.</summary>
+    /// <summary>
+    /// The newer login is the colony now: this copy must never reach the server, not even as a pending upload at the next
+    /// login from here (it would overwrite what was played there). The session ends at once, so leaving saves nothing.
+    /// </summary>
+    private static void LeaveReplaced()
+    {
+        SaveSync.Pending.Clear();
+        EndSession();
+    }
+
     public static void LeaveToMenu()
     {
         SaveSync.SaveLocallyForLater("leaving after a lost or replaced session");

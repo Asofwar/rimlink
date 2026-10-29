@@ -131,7 +131,7 @@ the result a moment later.
 | Certificate fingerprint changed | Ask the admin. Accept only if they confirm a new certificate. |
 | `Your mods do not match the server` | Follow the dialog (subscribe / download, apply the server order, restart). |
 | `Connection to the server lost, reconnecting...` | The game pauses and reconnects for up to 2 minutes (same session). After that (`Could not reconnect …`) it returns to the menu; your save is kept locally and uploaded at the next login. |
-| `This account logged in from another place` | Someone used your account elsewhere; the game returns to the menu. |
+| `This account logged in from another place` | Someone used your account elsewhere; the colony continues there. This copy is paused and disconnected, nothing from it is uploaded; "Back to main menu" leaves it. |
 | `An admin restored your save to version N` | Return to the menu and log in again to load that version. |
 | `This save is older than your last transfer` | You loaded a save from before something you sent. Go back to the menu and log in to get the server copy, or keep playing without uploads. The refused file is kept as `*.stale-<date>.rws`. |
 | `Transfer refused: not enough silver` / `lot was already sold` | Wallet too low, or someone bought the lot first; nothing left your colony. |

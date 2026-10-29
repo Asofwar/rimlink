@@ -5,7 +5,7 @@
   <Rimlink.Settlement.Inspect>Colony of player {0}</Rimlink.Settlement.Inspect>
   <Rimlink.Net.Reconnecting>Connection to the server lost, reconnecting...</Rimlink.Net.Reconnecting>
   <Rimlink.Net.Reconnected>Reconnected to the server.</Rimlink.Net.Reconnected>
-  <Rimlink.Net.Replaced>This account logged in from another place. The game is paused; your save stays on this computer.</Rimlink.Net.Replaced>
+  <Rimlink.Net.Replaced>This account logged in from another place; the colony continues there. This copy is disconnected and will not be uploaded.</Rimlink.Net.Replaced>
   <Rimlink.Net.Failed>Could not reconnect to the server within two minutes. Your save stays on this computer and is uploaded at the next login.</Rimlink.Net.Failed>
   <Rimlink.Net.ToMenu>Back to main menu</Rimlink.Net.ToMenu>
   <Rimlink.Net.Shutdown>Server shutdown in {0} s: {1}</Rimlink.Net.Shutdown>
