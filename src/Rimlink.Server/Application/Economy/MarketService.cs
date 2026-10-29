@@ -39,6 +39,7 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
         }
         await gate.RequireNotFrozen(sellerId);
         await guard.RequireNoThreat(sellerId);
+        await guard.RequireNoDebt(sellerId);
         int open = await db.Lots.CountAsync(l => l.SellerPlayerId == sellerId && l.Status == LotStatusDb.Open);
         if (open >= options.Value.MaxLotsPerPlayer)
             throw RpcErrors.Failed(ErrorCode.Unspecified, RefusalKeys.EconomyLotLimit, $"you already have {open} open lots (limit {options.Value.MaxLotsPerPlayer})", open, options.Value.MaxLotsPerPlayer);
@@ -118,6 +119,7 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
             if (lot.SellerPlayerId == buyerId) throw RpcErrors.Failed(ErrorCode.SelfTrade, RefusalKeys.EconomySelfBuy, "you cannot buy your own lot");
             if (lot.Status != LotStatusDb.Open) throw RpcErrors.Failed(ErrorCode.LotGone, RefusalKeys.EconomyLotGone, "this lot was already sold or withdrawn");
             await gate.RequireSellerOpen(lot.SellerPlayerId);
+            await guard.RequireNoDebt(buyerId);
 
             long fee = lot.Price * Math.Clamp(options.Value.MarketFeePercent, 0, 100) / 100;
             await wallet.Apply(buyerId, -lot.Price, "purchase", lot.Id);

@@ -32,6 +32,7 @@ public sealed class TransferService(RimlinkDbContext db, WalletService wallet, M
         // A caravan hands over what already left the map; wallet silver and things from the map stay while under threat.
         bool fromMap = (request.Items.Items.Count > 0 || request.Pawns.Pawns.Count > 0) && !request.FromCaravan;
         if (fromMap || request.Silver > 0) await guard.RequireNoThreat(fromPlayerId);
+        await guard.RequireNoDebt(fromPlayerId);
 
         var parcel = await mailbox.Create(request.ToPlayerId, fromPlayerId, ParcelKindDb.Gift, request.Items, request.Pawns, request.Silver,
             string.IsNullOrEmpty(request.ClientRequestId) ? null : request.ClientRequestId);

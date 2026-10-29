@@ -35,4 +35,11 @@ public sealed class EconomyGuard(RimlinkDbContext db, IOptions<EconomyOptions> o
         if (options.Value.BlockOutflowUnderThreat && await UnderThreat(playerId))
             throw RpcErrors.Failed(ErrorCode.UnderThreat, RefusalKeys.EconomyUnderThreat, UnderThreatMessage);
     }
+
+    /// <summary>Storage fees left a debt: buying, new lots and sends wait until a deposit or a sale pays it.</summary>
+    public async Task RequireNoDebt(long playerId)
+    {
+        long balance = (await db.Wallets.AsNoTracking().FirstOrDefaultAsync(w => w.PlayerId == playerId))?.Balance ?? 0;
+        if (balance < 0) throw RpcErrors.Failed(ErrorCode.InDebt, RefusalKeys.EconomyInDebt, $"you owe {-balance} silver in storage fees", -balance);
+    }
 }

@@ -228,6 +228,66 @@ public class StorageChargeTests
         Assert.Equal(-10, await BalanceOf(fixture, nova.Player.PlayerId));
     }
 
+    private static Task SetBalance(ServerFixture fixture, long playerId, long balance) => Age(fixture, async db =>
+    {
+        db.Wallets.Add(new Wallet { PlayerId = playerId, Balance = balance, UpdatedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync();
+    });
+
+    private static async Task AssertInDebt(Func<Task> call, long owed)
+    {
+        var ex = await Assert.ThrowsAsync<global::Grpc.Core.RpcException>(call);
+        Assert.Equal(ErrorCode.InDebt, ex.ErrorDetail()!.Code);
+        Assert.Equal($"you owe {owed} silver in storage fees", ex.Status.Detail);
+    }
+
+    [Fact]
+    public async Task DebtRefusesBuyPostAndSend()
+    {
+        using var fixture = Server();
+        var nova = await fixture.RegisterAndLogin("nova");
+        var bob = await fixture.RegisterAndLogin("bob");
+        var n = Clients(fixture, nova.SessionToken);
+        var b = Clients(fixture, bob.SessionToken);
+        var lot = await PostItems(n, Items(("Steel", 5)), 1);
+        await SetBalance(fixture, bob.Player.PlayerId, -30);
+
+        await AssertInDebt(() => b.Market.BuyAsync(new LotRef { LotId = lot.Id }, b.Auth).ResponseAsync, 30);
+        await AssertInDebt(() => PostItems(b, Items(("Steel", 5)), 10), 30);
+        await AssertInDebt(() => b.Transfer.SendAsync(Send(nova.Player.PlayerId, items: Items(("Steel", 5))), b.Auth).ResponseAsync, 30);
+    }
+
+    [Fact]
+    public async Task DepositPaysTheDebtOff()
+    {
+        using var fixture = Server();
+        var bob = await fixture.RegisterAndLogin("bob");
+        var b = Clients(fixture, bob.SessionToken);
+        await SetBalance(fixture, bob.Player.PlayerId, -30);
+
+        var state = await b.Wallet.DepositAsync(new DepositRequest { ClientRequestId = "pay", Silver = 50, GameTick = 100 }, b.Auth);
+
+        Assert.Equal(20, state.Balance);
+        await PostItems(b, Items(("Steel", 5)), 10);
+    }
+
+    [Fact]
+    public async Task DebtDoesNotBlockInbound()
+    {
+        using var fixture = Server();
+        var nova = await fixture.RegisterAndLogin("nova");
+        var bob = await fixture.RegisterAndLogin("bob");
+        await SocialFixtures.AcceptGifts(fixture, bob.Player.PlayerId); // a gift waits for a decision otherwise
+        var n = Clients(fixture, nova.SessionToken);
+        var b = Clients(fixture, bob.SessionToken);
+        var bobsLot = await PostItems(b, Items(("Steel", 5)), 10);
+        var gift = await n.Transfer.SendAsync(Send(bob.Player.PlayerId, items: Items(("Steel", 5))), n.Auth);
+        await SetBalance(fixture, bob.Player.PlayerId, -30);
+
+        await b.Mailbox.DeliverAsync(new DeliverRequest { ParcelId = gift.Id, GameTick = 300 }, b.Auth);
+        await b.Market.WithdrawAsync(new LotRef { LotId = bobsLot.Id }, b.Auth);
+    }
+
     [Fact]
     public async Task StatsReportStorageFees()
     {
