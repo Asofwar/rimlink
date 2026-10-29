@@ -117,6 +117,8 @@ th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--bor
 td { overflow-wrap: break-word; max-width: 480px; font-variant-numeric: tabular-nums; }
 td button, td .badge, td .row > * { white-space: nowrap; }
 td .chat-line, td .mono { overflow-wrap: anywhere; }
+.player-ref { white-space: nowrap; }
+.player-ref .pid { margin-left: 0.35em; color: var(--muted); font-size: 0.85em; }
 tr.system td { color: var(--muted); }
 th { font-weight: 600; color: var(--muted); white-space: nowrap; }
 td.empty { color: var(--muted); text-align: center; }

@@ -31,8 +31,8 @@ export function render(root) {
   function draw() {
     replace(list, table([
       { label: '#', key: 'id' },
-      { label: t('raids.attacker'), render: r => playerLink(r.attackerPlayerId) },
-      { label: t('raids.target'), render: r => playerLink(r.targetPlayerId) },
+      { label: t('raids.attacker'), render: r => playerLink(r.attackerPlayerId, r.attackerName) },
+      { label: t('raids.target'), render: r => playerLink(r.targetPlayerId, r.targetName) },
       { label: t('raids.state'), render: r => tEnum('raid', r.state) },
       { label: t('raids.mode'), render: r => `${tEnum('pawnMode', r.pawnMode)} · ${tEnum('timing', r.timing)}` },
       { label: t('player.created'), render: r => fmtDate(r.createdAt) },

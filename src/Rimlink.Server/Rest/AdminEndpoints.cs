@@ -75,8 +75,12 @@ public static class AdminEndpoints
 
         group.MapPost("/economy/wallet/{id:long}", async (long id, WalletBody body, HttpContext ctx, AdminOperations ops) =>
             Results.Ok(new { balance = await ops.AdjustWallet(ctx.Actor(), id, body.Delta, body.Reason ?? "admin adjustment") })).RequireScope(ApiScope.Admin);
-        group.MapGet("/economy/parcels/{id:long}", async (long id, HttpContext ctx, AdminOperations ops) =>
-            (await ops.ListParcels(ctx.Actor(), id)).Select(p => new { p.Id, Kind = p.Kind.ToString(), p.FromPlayerId, p.Silver, p.SizeBytes, p.CreatedAt, p.DeliveredAt, p.DeliveredTick })).RequireScope(ApiScope.Moderate);
+        group.MapGet("/economy/parcels/{id:long}", async (long id, HttpContext ctx, AdminOperations ops, AdminDirectory directory) =>
+        {
+            var parcels = await ops.ListParcels(ctx.Actor(), id);
+            var names = await directory.NamesByPlayer(parcels.Select(p => p.ToPlayerId).Concat(parcels.Where(p => p.FromPlayerId is not null).Select(p => p.FromPlayerId!.Value)));
+            return parcels.Select(p => new { p.Id, Kind = p.Kind.ToString(), p.FromPlayerId, fromName = NameOf(names, p.FromPlayerId), p.ToPlayerId, toName = NameOf(names, p.ToPlayerId), p.Silver, p.SizeBytes, p.CreatedAt, p.DeliveredAt, p.DeliveredTick });
+        }).RequireScope(ApiScope.Moderate);
         group.MapGet("/economy/lots", async (HttpContext ctx, AdminOperations ops, [FromQuery] long? playerId = null) =>
             await ops.ListLotViews(ctx.Actor(), playerId)).RequireScope(ApiScope.Read);
         group.MapPost("/economy/refund/lot/{id:long}", async (long id, HttpContext ctx, AdminOperations ops) => await ops.RefundLot(ctx.Actor(), id) ? Results.Ok() : Results.NotFound()).RequireScope(ApiScope.Admin);
@@ -88,8 +92,12 @@ public static class AdminEndpoints
             return new { silverInWallets = s.SilverInWallets, openLots = s.OpenLots, pendingParcels = s.PendingParcels, tradesToday = s.TradesToday, frozen = s.Frozen, freezeReason = s.FreezeReason };
         }).RequireScope(ApiScope.Read);
 
-        group.MapGet("/raids", async (HttpContext ctx, AdminOperations ops, [FromQuery] long? playerId = null) =>
-            (await ops.ListRaids(ctx.Actor(), playerId)).Select(r => new { r.Id, r.AttackerPlayerId, r.TargetPlayerId, State = r.State.ToString(), PawnMode = ((PawnMode)r.PawnMode).ToString(), Timing = ((RaidTiming)r.Timing).ToString(), r.LootCap, r.CreatedAt, r.LandAtTick, r.LandedTick, r.ResolvedAt, r.ExpiresAt })).RequireScope(ApiScope.Read);
+        group.MapGet("/raids", async (HttpContext ctx, AdminOperations ops, AdminDirectory directory, [FromQuery] long? playerId = null) =>
+        {
+            var raids = await ops.ListRaids(ctx.Actor(), playerId);
+            var names = await directory.NamesByPlayer(raids.SelectMany(r => new[] { r.AttackerPlayerId, r.TargetPlayerId }));
+            return raids.Select(r => new { r.Id, r.AttackerPlayerId, attackerName = NameOf(names, r.AttackerPlayerId), r.TargetPlayerId, targetName = NameOf(names, r.TargetPlayerId), State = r.State.ToString(), PawnMode = ((PawnMode)r.PawnMode).ToString(), Timing = ((RaidTiming)r.Timing).ToString(), r.LootCap, r.CreatedAt, r.LandAtTick, r.LandedTick, r.ResolvedAt, r.ExpiresAt });
+        }).RequireScope(ApiScope.Read);
         group.MapPost("/raids/{id:long}/cancel", async (long id, CancelRaidBody body, HttpContext ctx, AdminOperations ops) =>
             await ops.CancelRaid(ctx.Actor(), id, body.Reason ?? "cancelled by admin", body.ReturnPawns) ? Results.Ok() : Results.NotFound()).RequireScope(ApiScope.Admin);
         group.MapPost("/raids/freeze", async (FreezeBody body, HttpContext ctx, AdminOperations ops) => { await ops.SetRaidsFrozen(ctx.Actor(), body.Frozen, body.Reason); return Results.Ok(); }).RequireScope(ApiScope.Admin);
@@ -98,8 +106,12 @@ public static class AdminEndpoints
             var s = await ops.RaidStats(ctx.Actor());
             return new { queued = s.Queued, announced = s.Announced, landed = s.Landed, resolvedToday = s.ResolvedToday, expired = s.Expired, cancelled = s.Cancelled, frozen = s.Frozen, freezeReason = s.FreezeReason };
         }).RequireScope(ApiScope.Read);
-        group.MapGet("/live", async (HttpContext ctx, AdminOperations ops, [FromQuery] long? playerId = null) =>
-            (await ops.ListLive(ctx.Actor(), playerId)).Select(s => new { id = s.Id, kind = ((LiveKind)s.Kind).ToString(), s.HostPlayerId, s.GuestPlayerId, state = s.State.ToString(), s.RaidId, s.SnapshotVersion, endReason = s.EndReason is { } er ? ((LiveEndReason)er).ToString() : null, s.CreatedAt, s.StartedAt, s.EndedAt })).RequireScope(ApiScope.Read);
+        group.MapGet("/live", async (HttpContext ctx, AdminOperations ops, AdminDirectory directory, [FromQuery] long? playerId = null) =>
+        {
+            var sessions = await ops.ListLive(ctx.Actor(), playerId);
+            var names = await directory.NamesByPlayer(sessions.SelectMany(s => new[] { s.HostPlayerId, s.GuestPlayerId }));
+            return sessions.Select(s => new { id = s.Id, kind = ((LiveKind)s.Kind).ToString(), s.HostPlayerId, hostName = NameOf(names, s.HostPlayerId), s.GuestPlayerId, guestName = NameOf(names, s.GuestPlayerId), state = s.State.ToString(), s.RaidId, s.SnapshotVersion, endReason = s.EndReason is { } er ? ((LiveEndReason)er).ToString() : null, s.CreatedAt, s.StartedAt, s.EndedAt });
+        }).RequireScope(ApiScope.Read);
         group.MapPost("/live/{id:long}/end", async (long id, ReasonBody body, HttpContext ctx, AdminOperations ops) =>
             await ops.EndLive(ctx.Actor(), id, body.Reason ?? "ended by admin") ? Results.Ok() : Results.NotFound()).RequireScope(ApiScope.Admin);
         group.MapGet("/shop/{id:long}", async (long id, HttpContext ctx, AdminOperations ops) =>
@@ -114,4 +126,7 @@ public static class AdminEndpoints
             return Results.Ok();
         }).RequireScope(ApiScope.Admin);
     }
+
+    private static string? NameOf(Dictionary<long, string> names, long? playerId) =>
+        playerId is { } id && names.TryGetValue(id, out var name) ? name : null;
 }

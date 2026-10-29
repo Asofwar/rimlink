@@ -109,6 +109,13 @@ public sealed class AdminDirectory(RimlinkDbContext db, SessionRegistry sessions
         return messages.Select(m => new ChatLine(m.Id, m.SentAt, m.FromPlayerId, m.FromPlayerId is { } f && names.TryGetValue(f, out var n) ? n : null, m.Kind.ToString().ToLowerInvariant(), m.Text, m.ExternalAuthor)).ToList();
     }
 
+    /// <summary>Player names by player id, for the raid, live, lot and parcel lists; an id with no player has no entry.</summary>
+    public async Task<Dictionary<long, string>> NamesByPlayer(IEnumerable<long> playerIds)
+    {
+        var ids = playerIds.Distinct().ToList();
+        return await db.Players.AsNoTracking().Where(p => ids.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Name);
+    }
+
     /// <summary>Player names by account id, for the audit log and the ban list.</summary>
     public async Task<Dictionary<long, string>> NamesByAccount(IEnumerable<long> accountIds)
     {

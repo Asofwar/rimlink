@@ -297,6 +297,15 @@ Bearer-запросы этих проверок не проходят: у них
 - `GET /actions` добавляет поля `actorName` и `targetName` и параметр `?before=`.
 - `GET /bans` добавляет поле `playerName` (`null`, если бан не на аккаунт).
 
+**Имена в списках** (дополнение 2026-10-29). Строки списков несут имя игрока рядом с id, id остаются; имя `null`,
+если игрока с таким id уже нет:
+- `GET /raids` — `attackerName`, `targetName`;
+- `GET /live` — `hostName`, `guestName`;
+- `GET /economy/lots` уже несёт `sellerName` и `summary` (спека бота; там продавец без записи — `""`). Список держит
+  только открытые лоты, покупателя у них нет, поэтому полей покупателя нет;
+- `GET /economy/parcels/{id}` — `fromName`, а также `toPlayerId` и `toName`.
+Панель показывает игрока ссылкой с именем и серым `#id` рядом; без имени — ссылкой `#id`.
+
 **Бэкапы.**
 - `GET /backups` → `[{name, size, createdAt}]` из `<DataDir>/backups`, новые первыми.
 - `POST /backups` → `{name, size}`.

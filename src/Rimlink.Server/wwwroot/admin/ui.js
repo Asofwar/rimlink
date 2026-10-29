@@ -9,8 +9,11 @@ export function roleName(role) {
   return tEnum('role', typeof role === 'number' ? ROLES[role] ?? String(role) : role);
 }
 
+/** A link to the player's card: the name with the id beside it as quiet secondary text, or the bare id when the player is gone. */
 export function playerLink(id, name) {
-  return id ? h('a', { href: `#/players/${id}` }, name || `#${id}`) : '—';
+  if (!id) return '—';
+  if (!name) return h('a', { href: `#/players/${id}` }, `#${id}`);
+  return h('span', { class: 'player-ref' }, h('a', { href: `#/players/${id}` }, name), h('span', { class: 'pid' }, `#${id}`));
 }
 
 export function badge(text, kind = '') {

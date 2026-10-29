@@ -145,6 +145,9 @@ still ends as a mailbox parcel, as in 5a/5b.
   - server: `POST /saveall`, `GET /status`, `GET /config` (secrets shown as `set`), `GET /chat?playerId=&before=|after=&limit=`
     (public channel only), `GET /actions?before=`;
   - backups: `GET /backups`, `POST /backups` (make one now; 409 while one runs), `GET /backups/{name}` (download).
+  - names next to ids (`null` when no player has that id any more): `GET /raids` `attackerName`, `targetName`;
+    `GET /live` `hostName`, `guestName`; `GET /economy/parcels/{id}` `fromName`, `toPlayerId`, `toName`
+    (`GET /economy/lots` carries `sellerName` and `summary`, below).
   - CLI: `rimlink-tools admin players [query]|player <id>|role <id> <role>|rename <id> <name> [faction]|saveall|chat [playerId]|status|config|backups|backup|backup-get <name> <file>`.
 - Event feed for integrations: `GET /api/admin/events` (Server-Sent Events, scope `read`). Each event has an id
   `<epoch>:<seq>`; a client resumes with `Last-Event-ID` and gets a `gap` event when the server restarted or more than
