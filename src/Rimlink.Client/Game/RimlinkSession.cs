@@ -30,6 +30,8 @@ public static class RimlinkSession
     public static long MyPlayerId => Login?.Player.PlayerId ?? 0;
     public static bool IsAdmin => Login?.Role == Role.Admin;
     public static bool IsModerator => Login?.Role is Role.Admin or Role.Moderator;
+    /// <summary>The server lets this player use dev mode (Admin role, or Integrity:DevMode = Everyone).</summary>
+    public static bool DevModeAllowed => Login?.DevModeAllowed ?? true;
 
     /// <summary>Per-server data under the game's config folder: pins, saves, pending flag.</summary>
     public static string DataDir => Path.Combine(GenFilePaths.SaveDataFolderPath, "Rimlink");
@@ -65,5 +67,6 @@ public static class RimlinkSession
         State.Reset();
         Inbox.Clear();
         LastState = ConnectionState.Disconnected;
+        DevModeGuard.OnSessionEnded();
     }
 }

@@ -41,6 +41,7 @@ public static class LoginFlow
                 }
 
                 RimlinkSession.Begin(endpoint, connection, reply);
+                MainThread.Post(DevModeGuard.OnSessionBegan);
                 MainThread.Post(() => wait.Text = "Rimlink.Flow.LoadingWorld".Translate());
                 var world = await connection.World.GetAsync(new Empty(), cancellationToken: cts.Token);
                 var objects = await connection.World.ListObjectsAsync(new Empty(), cancellationToken: cts.Token);
@@ -165,7 +166,7 @@ public static class LoginFlow
     {
         try
         {
-            var meta = ReadMeta(savePath);
+            var meta = SaveMetaReader.Read(savePath);
             await new SaveTransfer(connection).UploadAsync(savePath, meta, ct);
             pending.Clear();
             RimlinkLog.Instance.Info("pending local save uploaded");
@@ -229,29 +230,5 @@ public static class LoginFlow
     {
         var refusal = RpcErrorDetail.Read(ex);
         return MainThread.Get(() => RefusalText.Of(refusal));
-    }
-
-    /// <summary>Seed, faction name and tick straight from the .rws header, without loading the game.</summary>
-    private static SaveMeta ReadMeta(string rwsPath)
-    {
-        string seed = "", faction = "";
-        long tick = 0;
-        using var reader = System.Xml.XmlReader.Create(rwsPath, new System.Xml.XmlReaderSettings { DtdProcessing = System.Xml.DtdProcessing.Prohibit });
-        string? pendingDef = null;
-        bool advance = true;
-        while (!advance || reader.Read())
-        {
-            advance = true;
-            if (reader.NodeType != System.Xml.XmlNodeType.Element) continue;
-            switch (reader.Name)
-            {
-                case "seedString" when seed.Length == 0: seed = reader.ReadElementContentAsString(); advance = false; break;
-                case "ticksGame" when tick == 0: tick = long.Parse(reader.ReadElementContentAsString()); advance = false; break;
-                case "def" when faction.Length == 0: pendingDef = reader.ReadElementContentAsString(); advance = false; break;
-                case "name" when faction.Length == 0 && pendingDef is "PlayerColony" or "PlayerTribe": faction = reader.ReadElementContentAsString(); advance = false; break;
-            }
-            if (seed.Length > 0 && faction.Length > 0 && tick > 0) break;
-        }
-        return new SaveMeta(seed, faction, tick);
     }
 }

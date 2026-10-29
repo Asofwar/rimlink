@@ -183,6 +183,7 @@
   <Rimlink.Economy.CaravanTransfer>Transfer to {0}...</Rimlink.Economy.CaravanTransfer>
   <Rimlink.Save.Stale>This save is older than your last transfer; the server will not take it (what you sent is already with another player). Go back to the menu and log in again to get the server copy, or keep playing without uploads.</Rimlink.Save.Stale>
   <Rimlink.Save.KeepPlaying>Keep playing (no uploads)</Rimlink.Save.KeepPlaying>
+  <Rimlink.DevMode.Refused>Dev mode is reserved for admins on this server.</Rimlink.DevMode.Refused>
   <Rimlink.Save.EndedByLoad>You loaded another save, so the Rimlink session ended. Your multiplayer colony was saved on this computer and goes to the server at your next login.</Rimlink.Save.EndedByLoad>
   <Rimlink.Save.EndedByLoadUnsaved>You loaded another save, so the Rimlink session ended. The server keeps your multiplayer colony as it was last uploaded.</Rimlink.Save.EndedByLoadUnsaved>
   <Rimlink.Economy.CaravanTransferGizmo>Hand over</Rimlink.Economy.CaravanTransferGizmo>

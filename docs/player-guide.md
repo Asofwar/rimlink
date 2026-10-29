@@ -74,6 +74,12 @@ links (subscribe before the first connection), the login modes, the address to a
 - **Places in chat**: **Place** next to the input adds the selected world object (or the tile of the map you look at) to the
   line. Everyone sees it as a button with the settlement and its owner, or the tile and its biome; a click opens the world
   map there and selects it.
+- **Dev mode** is for admins on most servers: while you are connected it is off and cannot be turned on ("Dev mode is reserved
+  for admins on this server"); your setting comes back when you leave the session. A save in which dev mode was on (also one
+  played offline) is flagged when it reaches the server, and the server freezes your trading until an admin looks at it.
+- **Frozen trading**: an admin, a flagged save or a sudden jump in colony wealth can freeze your trading. You get a message
+  with the reason; sending, the wallet, the market, shops and raids are refused ("Your trading is frozen: …", nothing leaves
+  your colony), parcels for you still arrive and you can take your own lots back. Only an admin opens it again.
 - Settling, abandoning or losing a settlement is reported to the server; other players see it on their map.
 - If the server shuts down, you get a warning; the game saves and uploads before the server stops.
 

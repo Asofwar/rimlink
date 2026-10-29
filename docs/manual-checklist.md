@@ -726,3 +726,21 @@ failed» и возвращает вещи на карту без запроса 
   сети, при его входе дал письмо «Gift from Guest4»; сделка «что дашь за…» открылась без подтверждения инициатора, «Подтвердить»
   Host4 с пустой стороной обмена не дал (сделка открыта); изменение стороны Host4 из клиента (с ревизией окна) подтвердило
   его сторону, подтверждение Guest4 завершило обмен.
+
+## Целостность (ветка `asofwar/integrity`, спека `2026-10-30-rimlink-integrity-design.md`)
+
+Стенд s3 (`D:\Build\rimlink-s3`, сервер :25600, s3-admin/Admin-s3 — админ, s3-guest/Nova-s3 — игрок), прогон 2026-10-30.
+
+- [x] Dev mode у не-админа: у гостя в Prefs `devMode=True`; после входа он выключен (`dev mode switched off for this session`),
+  `rimlink/set_dev_mode {on:true}` (тот же сеттер, что у галочки Options) — отказ «Dev mode is reserved for admins on this server.»,
+  dev mode остаётся выключен; после выхода в меню снова `True` (Prefs.xml на диске не менялся).
+- [x] `Integrity:DevMode=Everyone`: гость с dev mode, выход в меню → версия v14 с `DevMode=1`, гость не заморожен.
+- [x] Повторная загрузка флаговой версии не флагует снова: dev mode выключен до входа, загружена v14 (в файле флаг `True`) →
+  `devModeSinceUpload=false`.
+- [x] Флаг доходит через отложенную выгрузку: гость с dev mode (`Everyone`) загрузил одиночный сейв → колония сохранена с
+  `rimlinkDevModeSinceUpload=True` и богатством, pending; сервер в `AdminsOnly`; вход → `UploadLocalThenLoad`, v15 `DevMode=1`,
+  `WealthTotal` 14650 (раньше отложенная выгрузка приходила с 0), гость заморожен «dev mode was on in save v15», аудит
+  `integrity-devmode system`. `rimlink/send` → «Transfer refused: Your trading is frozen: Dev mode was on in save v15.
+  Everything was put back.» REST `players/2/economy {frozen:false}` → сообщение «Your trading is open again», отправка прошла.
+- [ ] Галочка Options и кнопка отладки на страницах новой колонии (сессия есть, игры нет) — отказ тем же сеттером.
+- [ ] У админа (Admin-s3) dev mode остаётся включён в сессии.

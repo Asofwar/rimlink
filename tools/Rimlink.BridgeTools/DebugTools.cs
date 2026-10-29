@@ -11,6 +11,15 @@ namespace Rimlink.BridgeTools;
 /// </summary>
 public sealed class DebugTools
 {
+    [Tool("rimlink/set_dev_mode", Description = "Turn dev mode on or off through the Prefs setter, as the Options checkbox does (Rimlink refuses on while connected to a server that does not allow it)",
+        ResultDescription = "success plus devMode as it is afterwards")]
+    public Task<object> SetDevMode(IRimBridgeContext ctx,
+        [ToolParameter(Description = "true to turn it on", Required = true)] bool on) => Bridge.OnMain<object>(ctx, () =>
+    {
+        Prefs.DevMode = on;
+        return new { success = true, devMode = Prefs.DevMode };
+    });
+
     [Tool("rimlink/map_pawns", Description = "Every spawned pawn on the current map with its faction, kind and ideo (current and previous)",
         ResultDescription = "success plus one entry per pawn")]
     public Task<object> MapPawns(IRimBridgeContext ctx,

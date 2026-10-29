@@ -15,6 +15,9 @@ public sealed class RimlinkGameComponent : GameComponent
     /// <summary>Raids landed on this colony and not yet reported; saved with the game so a reload still resolves them.</summary>
     public List<Raids.ActiveRaid> ActiveRaids = [];
 
+    /// <summary>Dev mode was on in this game since the last upload (any session, or none): sent with the next upload, cleared after it.</summary>
+    public bool DevModeSinceUpload;
+
     public RimlinkGameComponent(Verse.Game game) { }
 
     public override void ExposeData()
@@ -22,11 +25,24 @@ public sealed class RimlinkGameComponent : GameComponent
         base.ExposeData();
         Scribe_Collections.Look(ref ActiveRaids, "rimlinkActiveRaids", LookMode.Deep);
         ActiveRaids ??= [];
+        Scribe_Values.Look(ref DevModeSinceUpload, SaveMetaReader.DevModeNode);
+        // Written for a save uploaded later from disk (the pending upload at login), whose header is read back by SaveMetaReader.
+        long wealthTotal = 0, wealthItems = 0;
+        if (Scribe.mode == LoadSaveMode.Saving && Find.AnyPlayerHomeMap is { } home)
+        {
+            wealthTotal = (long)home.wealthWatcher.WealthTotal;
+            wealthItems = (long)home.wealthWatcher.WealthItems;
+        }
+        Scribe_Values.Look(ref wealthTotal, SaveMetaReader.WealthTotalNode);
+        Scribe_Values.Look(ref wealthItems, SaveMetaReader.WealthItemsNode);
     }
 
     public override void FinalizeInit()
     {
         if (!RimlinkSession.Active) return;
+        // A colony loaded in a session is the server's current version (downloaded, or uploaded just before): whatever its file
+        // says about dev mode was reported with it. Without this a re-download would flag (and freeze) the player again.
+        if (!Visits.VisitSession.InVisit) DevModeSinceUpload = false;
         ForeignSettlements.Subscribe();
         ForeignSettlements.RebuildFromState();
         SubscribeLive();
@@ -136,6 +152,8 @@ public sealed class RimlinkGameComponent : GameComponent
     public override void GameComponentUpdate()
     {
         ShowNoticeAfterLoad();
+        DevModeGuard.Tick();
+        if (Prefs.DevMode) DevModeSinceUpload = true;
         if (!RimlinkSession.Active) return;
 
         RimlinkSession.Inbox.DrainTo(RimlinkSession.State.Apply);

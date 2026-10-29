@@ -20,6 +20,9 @@ public sealed class StatusTools
         // A second Rimlink.Client loaded from the BridgeTools folder would show up here with an empty session.
         clientAssembly = typeof(RimlinkSession).Assembly.Location,
         clientVersion = ClientInfo.Version,
+        devMode = Prefs.DevMode,
+        devModeSinceUpload = Current.Game?.GetComponent<RimlinkGameComponent>()?.DevModeSinceUpload,
+        storyteller = Current.Game?.storyteller is { } st ? new { def = st.def?.defName, difficulty = st.difficultyDef?.defName, threatScale = st.difficulty?.threatScale } : null,
         session = RimlinkSession.Active ? Session() : null,
     });
 
@@ -35,7 +38,7 @@ public sealed class StatusTools
             reconnectingForSec = RimlinkSession.Connection?.ReconnectingSince is { } since ? (int?)(DateTime.UtcNow - since).TotalSeconds : null,
             outageIsLong = RimlinkSession.Connection?.OutageIsLong ?? false,
             failureReason = RimlinkSession.Connection?.FailureReason,
-            player = new { id = me, name = RimlinkSession.Login!.Player.Name, role = RimlinkSession.Login.Role.ToString() },
+            player = new { id = me, name = RimlinkSession.Login!.Player.Name, role = RimlinkSession.Login.Role.ToString(), devModeAllowed = RimlinkSession.DevModeAllowed },
             world = new { exists = RimlinkSession.World?.Exists ?? false, seed = RimlinkSession.World?.Params?.Seed },
             players = state.Players.Online.Select(p => new { id = p.PlayerId, name = p.Name }).ToList(),
             settlements = state.Objects.All.Where(o => o.Owner is not null)

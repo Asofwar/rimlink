@@ -44,6 +44,7 @@ public static class ThingBlobs
             Humanlike = p.RaceProps.Humanlike,
             AgeYears = p.ageTracker.AgeBiologicalYears,
             Label = p.LabelCap,
+            MarketValueX100 = (long)(p.MarketValue * 100f),
             ScribeXmlZstd = ByteString.CopyFrom(Save(p)),
         };
         if (p.RaceProps.Humanlike && p.skills is not null)

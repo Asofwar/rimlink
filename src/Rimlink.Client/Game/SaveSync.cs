@@ -75,8 +75,10 @@ public static class SaveSync
     {
         if (!IsOurs(fileName) || Find.World == null || Visits.VisitSession.Active) return;
         var home = Find.AnyPlayerHomeMap;
+        var game = Current.Game;
+        var component = game.GetComponent<RimlinkGameComponent>();
         var meta = new SaveMeta(Find.World.info.seedString, Faction.OfPlayer.Name, Find.TickManager.TicksGame,
-            (long)(home?.wealthWatcher.WealthTotal ?? 0f), (long)(home?.wealthWatcher.WealthItems ?? 0f));
+            (long)(home?.wealthWatcher.WealthTotal ?? 0f), (long)(home?.wealthWatcher.WealthItems ?? 0f), component?.DevModeSinceUpload ?? false);
         var shopList = Shop.ShopSync.Build(meta.GameTick);
         var connection = RimlinkSession.Connection!;
         // Captured now: the session (and with it Endpoint/MyPlayerId) may be over by the time the upload finishes.
@@ -94,7 +96,9 @@ public static class SaveSync
                 lastRefusal = null;
                 lastFailure = null;
                 LastVersion = info.Version;
-                RimlinkLog.Instance.Info($"save uploaded as v{info.Version}");
+                RimlinkLog.Instance.Info($"save uploaded as v{info.Version}{(meta.DevMode ? " (dev mode flagged)" : "")}");
+                // The server has the flag; the next upload reports only what happens from now on.
+                if (meta.DevMode) UI.MainThread.Post(() => { if (Current.Game == game && component is not null) component.DevModeSinceUpload = false; });
                 if (shopList is not null) await Shop.ShopSync.Publish(shopList, connection);
             }
             catch (Grpc.Core.RpcException ex) when (Rimlink.Client.Economy.EconomyClient.CodeOf(ex) == Rimlink.Protocol.V1.ErrorCode.SaveStale)
