@@ -34,10 +34,11 @@
   `AcceptGifts`; иначе — в `accepted`.
 - Клиент не сбрасывает посылку в `awaiting`. `Mailbox.Deliver` такой посылки сервер отклоняет (`FAILED_PRECONDITION`).
 - `Mailbox.Answer {parcel_id, accept}` (только получатель, только в `awaiting`):
-  - `accept` → `accepted`, дальше обычная доставка капсулой;
+  - `accept` → `accepted`, получателю снова `ParcelArrived` со снятой отметкой, дальше обычная доставка капсулой;
   - отказ → `refused`, посылка закрыта (`DeliveredAt` = сейчас, `DeliveredTick` = 0, как у админского возврата, чтобы она
     никогда не выпала снова); вещи и пешки уходят отправителю новой посылкой `GiftReturn` (без лимита почтового ящика),
-    серебро — в его кошелёк записью `refund`; отправителю событие `GiftRefused`. Всё в одной транзакции.
+    серебро — в его кошелёк записью `refund`; событие `GiftRefused` отправителю (письмо) и получателю (посылка уходит
+    из его почты). Всё в одной транзакции.
   - Повторный ответ на уже решённую посылку — без изменений, тот же результат (идемпотентно).
 - Через `Economy:GiftDecisionDays` (по умолчанию 7) без ответа подарок отклоняется тем же путём (фоновая работа,
   раз в час и сразу после старта сервера).
@@ -55,6 +56,8 @@
   - предложение сделки от B к A (`Trades.Open`): `BLOCKED`;
   - строки B в общем чате A не доставляются (фильтр на сервере при рассылке) и не попадают в историю A (`Chat.History`);
   - системные строки (вход/выход, объявления) и строки из Discord идут как раньше.
+- ЛС, подарок и предложение сделки проверяются в обе стороны: A тоже не может написать, подарить или предложить сделку
+  тому, кого заблокировал («вы заблокировали этого игрока»), пока не разблокирует.
 - Блок отменяет открытые сделки между A и B (раздел 4, «Отмена»). Подарки B, уже ждущие решения A, остаются: A может их
   отклонить.
 - Блок не затрагивает рынок, рейды, визиты и магазин.
@@ -79,11 +82,14 @@
   размера стороны (лимиты посылки), кошелька. Сторона инициатора уходит в эскроу: вещи и пешки уже убраны из игры
   клиентом, тик сейва ставится как при отправке (`StampOutgoing`), серебро списывается записью `trade`. Сторона
   инициатора `confirmed`, партнёра — нет; ревизия 1. Пустая сторона с заметкой допустима («что дашь за…»).
-- **Сменить свою сторону** (`Trades.SetSide {client_request_id, trade_id, items, pawns, silver, note, game_tick}`):
-  прежнее содержимое стороны возвращается владельцу посылкой `TradeReturn` (если не пустое), новое уходит в эскроу;
-  своя сторона `confirmed`, другая — нет; ревизия +1. Смена одной заметки работает так же (без посылки).
+- **Сменить свою сторону** (`Trades.SetSide {client_request_id, trade_id, items, pawns, silver, note, game_tick,
+  return_goods}`): `silver` и `note` — новые итоги стороны (разница серебра списывается или возвращается в кошелёк). С
+  `return_goods` прежние вещи и пешки стороны возвращаются владельцу посылкой `TradeReturn` (если есть), присланные их
+  заменяют; без него присланные добавляются к уже выложенным. Своя сторона `confirmed`, другая — нет; ревизия +1. Смена
+  одной заметки — запрос без вещей и без `return_goods`: ничего не двигается.
 - **Подтвердить** (`Trades.Confirm {trade_id, revision}`): только если `revision` совпадает с текущей
-  (иначе `TRADE_CHANGED` и текущая сделка в ответе); своя сторона `confirmed`. Когда подтверждены обе — обмен.
+  (иначе `TRADE_CHANGED`; текущую сделку клиент уже получил событием `TradeUpdated` или берёт из `List`); своя
+  сторона `confirmed`. Когда подтверждены обе — обмен. Повторное подтверждение ничего не меняет.
 - **Обмен**: каждая сторона получает содержимое другой посылкой `Trade` (серебро зачисляется при доставке, как у
   посылок); статус `completed`. Всё в одной транзакции; посылки приходят без лимита ящика.
 - **Отмена** (`Trades.Cancel {trade_id}`, любая сторона), **истечение срока**, **блок**, **сброс колонии** одной стороны,
@@ -95,7 +101,8 @@
 ### Согласованность
 
 - Вызовы, после которых вещи уже убраны из игры (`Open`, `SetSide`), идут через outbox клиента и идемпотентны по
-  `client_request_id`: повтор возвращает первый результат.
+  `client_request_id`: повтор уже применённого вызова возвращает сделку в её текущем состоянии (даже закрытую) и ничего
+  не двигает. Проверка повтора идёт раньше проверки статуса: иначе отказ `TRADE_GONE` вернул бы вещи на карту ещё раз.
 - Сервер сериализует изменения одной сделки (транзакция `Serializable`, как у рынка); ревизия защищает подтверждение от
   гонки «изменил — подтвердил».
 - Ничего не теряется и не удваивается: в любой момент содержимое стороны лежит ровно в одном месте — в игре владельца,
@@ -109,12 +116,12 @@
   `Parcel.awaiting_decision = 11`; `Mailbox.Answer (ParcelAnswer {parcel_id, accept}) returns (Empty)`.
 - `raids.proto` `PlayerFlags`: `accept_gifts = 5`, `trades_closed = 6`.
 - Новый `trades.proto`, сервис `Trades`: `Open`, `SetSide`, `Confirm`, `Cancel`, `List`; сообщения `Trade`, `TradeSide`
-  (`items`, `pawns`, `silver`, `note`, `confirmed`), `TradeList`.
-- Новый `social.proto`, сервис `Social`: `Block`, `Unblock` (`PlayerRef`), `ListBlocks` (→ список `PlayerRef`),
-  `SetAcceptGifts`, `SetTradesClosed` (→ `PlayerFlags`).
+  (`items`, `pawns`, `silver`, `note`, `confirmed`), `TradeList`; в запросе `SetSide` поле `return_goods`.
+- Новый `social.proto`, сервис `Social`: `Block`, `Unblock` (`PlayerRef`, → список `PlayerRef`), `ListBlocks` (→ список
+  `PlayerRef`), `SetAcceptGifts`, `SetTradesClosed` (→ `PlayerFlags`).
 - `common.proto` `ErrorCode`: `BLOCKED = 32`, `TRADES_CLOSED = 33`, `TRADE_GONE = 34`, `TRADE_CHANGED = 35`,
   `TRADE_LIMIT = 36`.
-- `events.proto`: `GiftRefused gift_refused = 76` (`parcel_id`, `by`, описание вернувшегося), `TradeUpdated
+- `events.proto`: `GiftRefused gift_refused = 76` (`parcel_id`, `by`, описание вернувшегося, `expired`), `TradeUpdated
   trade_updated = 77` (`Trade`). `events.proto` импортирует `trades.proto`.
 - `ProtocolVersion.Current` не меняется.
 
@@ -149,7 +156,8 @@
   `Social:MaxBlocks` (200) — в `deploy/appsettings.example.json` и `docs/server-setup.md`.
 - Лента событий и Discord: подарки, отказы, блоки и сделки — личное, в ленту не попадают; админская отмена сделки идёт
   через аудит (`admin.action`), как остальные админские действия.
-- Метрики: `rimlink_trades_total{outcome}` (`opened|completed|cancelled|expired`), `rimlink_gifts_refused_total`.
+- Метрики: `rimlink_player_trades_total{outcome}` (`opened|completed|cancelled|expired`; имя `rimlink_trades_total`
+  уже занято счётчиком экономики с меткой `kind`), `rimlink_gifts_refused_total`.
 - Хранение: миграция `SafeTrades` (таблицы `trades`, `player_blocks`; `parcels.Decision`; `players.AcceptGifts`,
   `players.TradesClosed`) и тест схемы.
 
