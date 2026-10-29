@@ -10,20 +10,25 @@ namespace Rimlink.Client.UI;
 /// <summary>Main menu → server → login → modpack check → load the server save or start a new colony in the shared world.</summary>
 public static class LoginFlow
 {
-    public static void Run(ServerEndpoint endpoint)
+    /// <summary>
+    /// Main thread. The UI ignores the result; dev tooling passes preset credentials and pin answers and awaits where the
+    /// flow ended. A preset login that ran out of attempts is <see cref="LoginOutcomeKind.Failed"/> with the server's reason.
+    /// </summary>
+    public static Task<LoginOutcome> Run(ServerEndpoint endpoint, GameCredentials? credentials = null, IPinPrompt? pins = null)
     {
         RimlinkConnection.Pins = new CertificatePinStore(Path.Combine(RimlinkSession.DataDir, "pins.json"));
         var cts = new CancellationTokenSource();
         var wait = new Dialog_Wait("Rimlink.Flow.Connecting".Translate(endpoint.Display), cts);
         Find.WindowStack.Add(wait);
-        var credentials = new GameCredentials();
+        credentials ??= new GameCredentials();
+        pins ??= new GamePinPrompt();
 
-        _ = Task.Run(async () =>
+        return Task.Run<LoginOutcome>(async () =>
         {
             RimlinkConnection? connection = null;
             try
             {
-                connection = new RimlinkConnection(endpoint, credentials, new GamePinPrompt(), RimlinkLog.Instance);
+                connection = new RimlinkConnection(endpoint, credentials, pins, RimlinkLog.Instance);
                 var reply = await Login(connection, credentials, endpoint, cts.Token);
 
                 if (reply.SessionToken.Length == 0)
@@ -31,7 +36,7 @@ public static class LoginFlow
                     var diff = reply.ModpackDiff;
                     await connection.DisposeAsync();
                     MainThread.Post(() => { wait.Close(); Find.WindowStack.Add(new Dialog_ModpackDiff(diff)); });
-                    return;
+                    return new LoginOutcome(LoginOutcomeKind.ModpackDiff);
                 }
 
                 RimlinkSession.Begin(endpoint, connection, reply);
@@ -56,7 +61,7 @@ public static class LoginFlow
                         if (await UploadLocal(connection, savePath, pending, cts.Token))
                         {
                             MainThread.Post(() => { wait.Close(); GameDataSaveLoader.LoadGame(SaveSync.SaveFileName); });
-                            return;
+                            return new LoginOutcome(LoginOutcomeKind.Loading);
                         }
                         // Refused: the file was set aside; carry on with whatever the server has.
                         if (reply.HasSave) goto case LoginAction.DownloadThenLoad;
@@ -68,7 +73,7 @@ public static class LoginFlow
                         await new SaveTransfer(connection).DownloadAsync(savePath, cts.Token);
                         pending.Clear();
                         MainThread.Post(() => { wait.Close(); GameDataSaveLoader.LoadGame(SaveSync.SaveFileName); });
-                        return;
+                        return new LoginOutcome(LoginOutcomeKind.Loading);
 
                     case LoginAction.AbandonThenNewColony:
                         // A settlement without a save anywhere (the first save never happened): the colony is gone, free its tile.
@@ -83,27 +88,39 @@ public static class LoginFlow
                     case LoginAction.NewColony:
                         // The vanilla new-colony pages, with the world page locked to the server's planet.
                         MainThread.Post(() => { wait.Close(); Find.WindowStack.Add(new Page_SelectScenario()); });
-                        return;
+                        return new LoginOutcome(LoginOutcomeKind.NewColony);
                 }
+                throw new InvalidOperationException($"unknown login action {action}");
             }
             catch (OperationCanceledException)
             {
                 await Fail(connection, wait, null);
+                return Cancelled(credentials);
             }
             catch (RpcException ex) when (ex.StatusCode == StatusCode.Cancelled && cts.IsCancellationRequested)
             {
                 await Fail(connection, wait, null);
+                return Cancelled(credentials);
             }
             catch (RpcException ex)
             {
-                await Fail(connection, wait, ErrorMessage(ex));
+                string error = ErrorMessage(ex);
+                await Fail(connection, wait, error);
+                return new LoginOutcome(LoginOutcomeKind.Failed, error);
             }
             catch (Exception ex)
             {
                 await Fail(connection, wait, ex.Message);
+                return new LoginOutcome(LoginOutcomeKind.Failed, ex.Message);
             }
         });
     }
+
+    /// <summary>A preset login stops by "cancelling" once its attempts run out: that is a failure with the last refusal.</summary>
+    private static LoginOutcome Cancelled(GameCredentials credentials) =>
+        credentials.Interactive || credentials.LastError is null
+            ? new LoginOutcome(LoginOutcomeKind.Cancelled)
+            : new LoginOutcome(LoginOutcomeKind.Failed, credentials.LastError);
 
     /// <summary>Connects, re-asking for credentials where a retry can help; everything else propagates.</summary>
     private static async Task<LoginReply> Login(RimlinkConnection connection, GameCredentials credentials, ServerEndpoint endpoint, CancellationToken ct)
@@ -128,7 +145,7 @@ public static class LoginFlow
                 credentials.LastError = ex.Status.Detail;
                 credentials.ForgetPassword();
             }
-            catch (RpcException ex) when (ErrorCodeOf(ex) == ErrorCode.WrongPassword && !serverPasswordAsked)
+            catch (RpcException ex) when (ErrorCodeOf(ex) == ErrorCode.WrongPassword && !serverPasswordAsked && credentials.Interactive)
             {
                 // The server has a join password: ask once; a second refusal is reported like any other error.
                 serverPasswordAsked = true;

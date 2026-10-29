@@ -10,8 +10,22 @@ namespace Rimlink.Client.UI;
 /// <summary>Builds login requests: a Steam session ticket when Steam runs, otherwise a login/password asked from the player.</summary>
 public sealed class GameCredentials : ICredentialProvider
 {
+    private readonly PresetLogin? preset;
     private PasswordLogin? password;
     private HAuthTicket ticket = HAuthTicket.Invalid;
+
+    public GameCredentials() { }
+
+    /// <summary>Unattended (dev tooling): no Steam, no dialogs; the attempts come from <paramref name="preset"/>.</summary>
+    public GameCredentials(PresetLogin preset)
+    {
+        this.preset = preset;
+        PreferPassword = true;
+        ServerPassword = preset.ServerPassword;
+    }
+
+    /// <summary>False for a preset login: nothing may open a dialog to ask the player.</summary>
+    public bool Interactive => preset is null;
 
     public string? ServerPassword { get; set; }
     public bool PreferPassword { get; set; }
@@ -31,8 +45,9 @@ public sealed class GameCredentials : ICredentialProvider
             return request;
         }
 
-        // Reconnects reuse the password typed before; the first login asks.
-        password ??= await MainThread.Ask<PasswordLogin?>(tcs => new Dialog_Login(tcs, LastError));
+        // Reconnects reuse the password typed before; the first login asks (a preset hands out its next attempt).
+        if (preset is not null) password ??= preset.Next() is { } a ? new PasswordLogin(a.Login, a.Password, a.Register, a.PlayerName) : null;
+        else password ??= await MainThread.Ask<PasswordLogin?>(tcs => new Dialog_Login(tcs, LastError));
         if (password is null) throw new OperationCanceledException("login cancelled");
         request.Password = new PasswordCredential { Login = password.Login, Password = password.Password };
         return request;

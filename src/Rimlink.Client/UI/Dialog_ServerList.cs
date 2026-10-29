@@ -40,7 +40,7 @@ public sealed class Dialog_ServerList : Window
             if (Widgets.ButtonText(new Rect(row.xMax - 196f, row.y, 100f, 28f), "Rimlink.Servers.Connect".Translate()))
             {
                 Close();
-                LoginFlow.Run(server);
+                _ = LoginFlow.Run(server);
             }
             if (Widgets.ButtonText(new Rect(row.xMax - 90f, row.y, 90f, 28f), "Rimlink.Servers.Remove".Translate()))
             {

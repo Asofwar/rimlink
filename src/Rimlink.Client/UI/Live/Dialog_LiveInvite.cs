@@ -40,7 +40,8 @@ public sealed class Dialog_LiveInvite : Window
         if (RimlinkSession.State.Live.PendingInvite?.Session.Id != s.Id && !answered) Close(); // started, ended or fell back meanwhile
     }
 
-    private void Answer(bool accept)
+    /// <summary>The Accept/Decline buttons; also called by dev tooling.</summary>
+    public void Answer(bool accept)
     {
         answered = true;
         RimlinkSession.State.Live.ClearInvite();
