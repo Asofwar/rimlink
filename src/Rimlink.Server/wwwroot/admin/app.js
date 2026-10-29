@@ -9,6 +9,7 @@ const ROUTES = [
   ['', 'overview'],
   ['players', 'players'],
   ['players/:id', 'player'],
+  ['archive', 'archive'],
   ['bans', 'bans'],
   ['economy', 'economy'],
   ['raids', 'raids'],
@@ -19,7 +20,7 @@ const ROUTES = [
   ['server', 'server'],
   ['actions', 'actions'],
 ];
-const NAV = ['', 'players', 'bans', 'economy', 'raids', 'live', 'chat', 'modpack', 'backups', 'server', 'actions'];
+const NAV = ['', 'players', 'archive', 'bans', 'economy', 'raids', 'live', 'chat', 'modpack', 'backups', 'server', 'actions'];
 const HEADER_POLL_MS = 10000;
 
 const app = document.getElementById('app');

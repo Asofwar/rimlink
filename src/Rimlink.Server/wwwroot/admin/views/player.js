@@ -3,6 +3,7 @@ import { h, table, busyButton, section, field, banner, confirmDialog, showError,
 import { t, tEnum } from '../../shared/i18n.js';
 import { fmtDate, fmtBytes, fmtSilver } from '../../shared/format.js';
 import { playerLink, badge, fill, input, numberInput, roleName, valid } from '../ui.js';
+import { withRefusals } from './archive.js';
 
 /** The player card: facts, moderation and admin actions, saves, economy, shop, raids and live sessions, chat lines. */
 export function render(root, params) {
@@ -32,7 +33,10 @@ export function render(root, params) {
   async function load() {
     let card;
     try {
-      card = await api.get(`players/${id}`);
+      // The archive list needs the moderate scope like the card; a colony of this player waiting there shows in the facts.
+      const [loaded, archived] = await Promise.all([api.get(`players/${id}`), api.get('archive').catch(() => [])]);
+      card = loaded;
+      card.archived = archived.find(a => a.playerId === id) ?? null;
     } catch (error) {
       showError(error);
       return;
@@ -70,6 +74,7 @@ function factsList(card) {
     [t('player.lastSeen'), fmtDate(card.lastSeenAt)],
     [t('player.created'), fmtDate(card.createdAt)],
     [t('player.settlements'), card.settlements.length ? card.settlements.map(s => `${s.name} (${s.tile})`).join(', ') : '—'],
+    ...(card.archived ? [[t('player.archived'), badge(t('player.archivedValue', { colony: card.archived.colony, tile: card.archived.tile, at: fmtDate(card.archived.archivedAt) }), 'warn')]] : []),
     [t('player.wealth'), fmtSilver(card.wealthTotal)],
     [t('player.currentSave'), card.currentSave ? t('player.saveValue', { version: card.currentSave.version, size: fmtBytes(card.currentSave.size), at: fmtDate(card.currentSave.createdAt) }) : '—'],
     [t('player.activeBans'), card.activeBans.length ? card.activeBans.map(b => `#${b.id} ${b.reason} (${b.expiresAt ? fmtDate(b.expiresAt) : t('bans.permanent')})`).join('; ') : '—'],
@@ -143,6 +148,7 @@ function actionsBlock(card, done) {
             await api.post(`players/${id}/peaceful`, { peaceful: !card.peaceful });
             await done(t('player.peacefulSet'));
           })))),
+    archiveGroup(card, done),
     h('div', { class: 'group danger-zone' },
       h('h3', null, t('player.groupDanger')),
       h('p', { class: 'muted' }, t('player.resetText')),
@@ -152,6 +158,32 @@ function actionsBlock(card, done) {
           await api.post(`players/${id}/reset`, {});
           await done(t('player.resetDone', { name: card.name }));
         }, { class: 'danger' }))));
+}
+
+/** Archive is reversible, so it sits apart from the colony reset: send the colony to the archive, or bring an archived one back. */
+function archiveGroup(card, done) {
+  if (card.archived) {
+    const a = card.archived;
+    return h('div', { class: 'group' },
+      h('h3', null, t('player.groupArchive')),
+      h('p', { class: 'muted' }, t('player.restoreText', { colony: a.colony, tile: a.tile })),
+      h('div', { class: 'row' },
+        busyButton(t('archive.restore'), () => withRefusals(async () => {
+          if (!await confirmDialog({ title: t('archive.restoreTitle', { colony: a.colony, name: card.name }), text: t('archive.restoreText', { tile: a.tile }), danger: false, confirmLabel: t('archive.restore') })) return;
+          await api.post(`archive/${a.id}/restore`, {});
+          await done(t('archive.restored', { colony: a.colony }));
+        }))));
+  }
+  if (!card.settlements.length) return null;
+  return h('div', { class: 'group' },
+    h('h3', null, t('player.groupArchive')),
+    h('p', { class: 'muted' }, t('player.archiveText')),
+    h('div', { class: 'row' },
+      busyButton(t('player.archive'), () => withRefusals(async () => {
+        if (!await confirmDialog({ title: t('player.archiveTitle', { name: card.name }), text: t('player.archiveText'), typeToConfirm: card.name, danger: false, confirmLabel: t('player.archive') })) return;
+        await api.post(`players/${card.id}/archive`, {});
+        await done(t('player.archiveDone', { name: card.name }));
+      }))));
 }
 
 async function savesBlock(card, done) {
