@@ -195,6 +195,12 @@ from PowerShell):
   `RelationLedger.Rejoin` (pawns that arrive together in one call). `Thing` has no `operator ==`: relation code compares references.
   Static UI caches mix the two: `SocialCardUtility` adds rows by reference and drops them by id, so a pawn back under an old id needs
   `SocialCardUtility.ClearCaches()` (done in `Rejoin`) or the discarded original's row stays as "Missing".
+- 1.7 runs on the Waylith engine (CoreCLR, GLFW), not Unity; `UnityEngine` is a stub layer (`UnityStubs.dll`). The menu's Quit to OS
+  ends in `Application.Quit()`, which asks `Application.wantsToQuit`; the window's close button and Alt+F4 only set the GLFW
+  window's close flag and the main loop exits without asking anything (`QuitGuard` hooks `GlfwWindow.OnClose` by reflection).
+  Engine code: `ilspycmd -p` on `Waylith.dll` / `UnityStubs.dll` / `Brutal.Glfw.dll` in the game folder.
+- `WealthWatcher` recounts at most every 5000 ticks: a value read right after things arrive is stale unless `ForceRecount()` runs
+  first (done before a save writes its wealth).
 
 ## Commits
 
