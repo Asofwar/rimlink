@@ -73,6 +73,28 @@ public class MailboxTests
     }
 
     [Fact]
+    public async Task RedeliveryAtAnEarlierTickStopsTheOffersOnceItsSaveArrives()
+    {
+        using var fixture = EconomyServer();
+        var nova = await fixture.RegisterAndLogin("nova");
+        var bob = await fixture.RegisterAndLogin("bob", playerName: "Bob");
+        await SocialFixtures.AcceptGifts(fixture, bob.Player.PlayerId);
+        var parcel = await Clients(fixture, nova.SessionToken).Transfer.SendAsync(Send(bob.Player.PlayerId, Items(("Steel", 3))), Bearer(nova.SessionToken));
+        var b = Clients(fixture, bob.SessionToken);
+        var saves = new Protocol.V1.Saves.SavesClient(fixture.CreateChannel());
+        // Delivered at 5000, but the game went back to its save at 1000 (a crash, a rollback): the parcel is dropped again at 1300.
+        await b.Mailbox.DeliverAsync(new DeliverRequest { ParcelId = parcel.Id, GameTick = 5000 }, b.Auth);
+        byte[] older = MakeSave(ServerFixture.WorldSeed, "Bob", tick: 1000);
+        await Upload(saves, bob.SessionToken, older, HeaderFor(older, ServerFixture.WorldSeed, "Bob", tick: 1000));
+        await b.Mailbox.DeliverAsync(new DeliverRequest { ParcelId = parcel.Id, GameTick = 1300 }, b.Auth);
+        byte[] after = MakeSave(ServerFixture.WorldSeed, "Bob", tick: 1300);
+        await Upload(saves, bob.SessionToken, after, HeaderFor(after, ServerFixture.WorldSeed, "Bob", tick: 1300));
+
+        // The save at 1300 holds the redelivered things: offering the parcel again would drop it a third time.
+        Assert.Empty((await b.Mailbox.ListAsync(new Empty(), b.Auth)).Parcels);
+    }
+
+    [Fact]
     public async Task DeliveringSomeoneElsesParcelIsNotFound()
     {
         using var fixture = EconomyServer();

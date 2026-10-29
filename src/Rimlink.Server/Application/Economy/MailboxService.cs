@@ -95,8 +95,10 @@ public sealed class MailboxService(RimlinkDbContext db, EventBus events, WalletS
         }
         else
         {
-            // Redelivered (the client saved before the first delivery): remember the newer tick so List stops offering it.
-            parcel.DeliveredTick = Math.Max(parcel.DeliveredTick ?? 0, gameTick);
+            // Redelivered (the game went back to a save from before the last delivery): the tick of this, the latest delivery,
+            // so List stops offering it once a save after it arrives, and the wealth check finds it between the right saves.
+            // Not the larger tick: that belongs to a timeline the game left, and would keep the parcel on offer (another drop).
+            parcel.DeliveredTick = gameTick;
             await db.SaveChangesAsync();
         }
         await tx.CommitAsync();

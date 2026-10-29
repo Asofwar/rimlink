@@ -167,6 +167,27 @@ public class IntegrityServiceTests
     }
 
     [Fact]
+    public async Task RedeliveryAfterAReloadCountsAsImported()
+    {
+        using var fixture = Server();
+        using var probe = fixture.Probe();
+        var nova = await fixture.RegisterAndLogin("nova", playerName: "Nova");
+        var kai = await fixture.RegisterAndLogin("kai", playerName: "Kai");
+        await SocialFixtures.AcceptGifts(fixture, nova.Player.PlayerId);
+        await Upload(fixture, nova, tick: 1000, wealth: 50000);
+        var parcel = await Clients(fixture, kai.SessionToken).Transfer.SendAsync(
+            Send(nova.Player.PlayerId, new ItemList { Items = { Item("Gold", 1, marketValueX100: 3_000_000) } }), Clients(fixture, kai.SessionToken).Auth);
+        var n = Clients(fixture, nova.SessionToken);
+        // Dropped at 5000, the game crashed before saving and loaded the save at 1000 again: dropped once more at 1300.
+        await n.Mailbox.DeliverAsync(new DeliverRequest { ParcelId = parcel.Id, GameTick = 5000 }, n.Auth);
+        await n.Mailbox.DeliverAsync(new DeliverRequest { ParcelId = parcel.Id, GameTick = 1300 }, n.Auth);
+
+        await Upload(fixture, nova, tick: 1300, wealth: 80000);
+
+        Assert.DoesNotContain(await probe.Drain(TimeSpan.FromMilliseconds(500)), e => e.Type == FeedTypes.IntegrityAlert);
+    }
+
+    [Fact]
     public async Task SilverCreditedToTheWalletIsNotImported()
     {
         using var fixture = Server();
