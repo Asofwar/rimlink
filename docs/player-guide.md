@@ -67,6 +67,13 @@ links (subscribe before the first connection), the login modes, the address to a
   who is online. Moderators and admins type `/help` in chat for commands. When the server has a Discord bot, the
   public chat is shared with a Discord channel: lines from Discord show as `[Discord] Name: text`, and your public lines
   appear in that channel (direct messages never leave the game).
+- **Pings**: press **G** (Options → Keyboard → Rimlink) to mark the place under the mouse for another player. On a map you
+  share (a live session, a visit) it goes straight to the other player; on your own map and on the world map a menu lists
+  the players online (the last visitor first). The receiver hears a bell and gets a message that jumps to the place; a yellow
+  ring marks it for 8 seconds. Typing in a text field never pings. Pings are not stored and are limited to 12 a minute.
+- **Places in chat**: **Place** next to the input adds the selected world object (or the tile of the map you look at) to the
+  line. Everyone sees it as a button with the settlement and its owner, or the tile and its biome; a click opens the world
+  map there and selects it.
 - Settling, abandoning or losing a settlement is reported to the server; other players see it on their map.
 - If the server shuts down, you get a warning; the game saves and uploads before the server stops.
 
@@ -183,6 +190,12 @@ the result a moment later.
   the schedule; everything else on the map is view only. You may pause a limited number of times (the server's limit, 10
   pauses of a minute by default); the host pauses freely. If your view falls behind, it asks the host for a fresh snapshot
   and reloads it.
+- **Speed**: each side wishes a speed and the session runs at the slower one. The time buttons show both wishes: **H** in
+  the top-left corner of the host's choice, **G** in the bottom-right corner of the guest's (tooltip: both wishes).
+- **Pause on letters** (mod settings: Never / Major threats / Any threat): when a threat letter comes on the shared map, the
+  session pauses if either player's setting asks for it (the stricter one applies). Both see the letter; the pause does not
+  use the guest's budget, and either side lifts it by choosing a speed (the host also with Space). Vanilla's own automatic
+  pause on letters is off during a session: this setting replaces it.
 - **Ending**: **End session** (guest) or **Abort session** (host). The session also ends by itself once none of the guest's
   pawns is left to play (all dead, captured or gone; one still alive anywhere, even downed or carried, keeps it going). Your pawns come home by parcel
   as they are, with their wounds and inventory; a raid's loot follows the normal raid rules. If a connection drops, the other side waits a few

@@ -152,7 +152,9 @@ a lost host leaves the session in `Ending` until the host's next login, which re
 host or guest never opened its stream (a crash before the snapshot, a server restart) ends the same way after the wait; an admin
 can end any session (`live end`), and ending one that already waits for the host's report sends the escrowed pawns home as they
 left. A guest may ask the host for a fresh snapshot twice in a burst and then once per ten seconds. Every pawn or thing movement
-still ends as a mailbox parcel, as in 5a/5b.
+still ends as a mailbox parcel, as in 5a/5b. The tempo (both players' speed wishes, their letter-pause settings, the letters
+forwarded to the guest) travels inside the relayed frames: the server neither reads nor stores it, and nothing in it needs a
+setting.
 
 ## 6. Administration
 
@@ -264,6 +266,11 @@ and `logs/server-<date>.log`.
 
 Player limit `Server:MaxPlayers`, one settlement per player (`Server:MaxSettlementsPerPlayer`), 5 chat messages per
 5 s, 3 save uploads per 30 s, saves up to 64 MB compressed, 5 unauthenticated connections per IP, 30 s to log in.
+Pings (`Chat/Ping`): 12 a minute per player, only to an online player other than the sender, refused while the sender is
+muted; they are relayed as an event and never stored (not in the chat history, the audit log or the REST API).
+
+Every refusal of the game API carries a key and its arguments in the error detail besides the English message: the mod shows
+it in the player's language (`Rimlink.Refusal.<key>`), a client that does not know the key shows the message.
 
 ## 10. Discord bot
 

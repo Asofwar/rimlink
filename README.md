@@ -17,7 +17,9 @@ pinning, login, locked world creation, settlements, save sync, chat, players, re
 server mailbox, escrow market board, silver wallets, direct transfers of items/pawns/silver, caravan hand-overs at
 other players' settlements, anti-duplication by save tick. Raids and visits (sub-project 3a): asynchronous raids with escrowed pawns, loot caps, cooldowns and peaceful mode; visits to a copy of another player's colony with a shop. Live raids and visits (sub-project 3b): when both players are online the
 guest's pawns act on the host's live map, the guest sees it through a mirrored copy and gives orders to their own pawns, the server
-relays frames and falls back to the asynchronous raid when the host declines. Web admin panel: the server serves
+relays frames and falls back to the asynchronous raid when the host declines; pings (map and world), place cards in chat, a
+shared pause on threat letters by each player's threshold, both speed wishes on the time buttons, server refusals in the
+player's language. Web admin panel: the server serves
 `/admin/` (every admin operation, player directory, chat history, backups, modpack editor; English and Russian) and a
 public status page at `/`; integrations use named API tokens with scopes. Discord bot: server events in Discord
 channels, the public chat bridged both ways, public queries and role-gated admin commands, through the admin event feed
