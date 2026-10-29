@@ -1,6 +1,7 @@
 using RimBridgeServer.Sdk;
 using Rimlink.Client;
 using Rimlink.Client.Game;
+using Rimlink.Client.Game.Live;
 using Rimlink.Client.Game.Visits;
 using Verse;
 
@@ -45,6 +46,9 @@ public sealed class StatusTools
                 kind = live?.Kind.ToString(),
                 state = live?.State.ToString(),
                 role = live is null ? null : live.Host?.PlayerId == me ? "host" : "guest",
+                // 0 none, 1 host (or waiting for the guest), 2 guest; as each side's HUD shows it.
+                pausedBy = LiveHost.Active ? LiveTempo.PausedBy : LiveGuest.Session is not null ? MirrorMode.PausedBy : (int?)null,
+                guestPausesUsed = LiveHost.Active ? LiveTempo.GuestPausesUsed : LiveGuest.Session is not null ? LiveGuest.PausesUsed : (int?)null,
             },
             visit = VisitSession.InVisit,
             outbox = RimlinkSession.Outbox?.Entries.Count ?? 0,

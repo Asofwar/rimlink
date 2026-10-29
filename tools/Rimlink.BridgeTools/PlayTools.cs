@@ -86,6 +86,19 @@ public sealed class PlayTools
         return Targets.Started(accept ? "invitation accepted" : "invitation declined");
     });
 
+    [Tool("rimlink/live_speed", Description = "Set the speed during a live session as the speed buttons do: 0 pauses (the guest's pause comes out of its budget), 1..3 is this side's wish; the host runs at the slower wish",
+        ResultDescription = "success/started; rimlink/status live.pausedBy and guestPausesUsed show the effect")]
+    public Task<object> LiveSpeed(IRimBridgeContext ctx,
+        [ToolParameter(Description = "0 pause, 1 normal, 2 fast, 3 superfast", Required = true)] int speed) => Bridge.OnMain(ctx, () =>
+    {
+        if (!RimlinkSession.Active) return Bridge.Fail("no Rimlink session");
+        if (speed is < 0 or > 3) return Bridge.Fail("speed must be 0..3");
+        if (!LiveHost.Active && LiveGuest.Session is null) return Bridge.Fail("no live session");
+        // The setter, not TogglePaused: the live patches turn it into the host's wish or the guest's order.
+        Find.TickManager.CurTimeSpeed = (TimeSpeed)speed;
+        return Targets.Started(speed == 0 ? "pause requested" : $"speed {speed} requested");
+    });
+
     [Tool("rimlink/live_end", Description = "End the live session: the guest ends it, the host aborts it (no confirmation dialog)",
         ResultDescription = "success/started")]
     public Task<object> LiveEnd(IRimBridgeContext ctx) => Bridge.OnMain(ctx, () =>

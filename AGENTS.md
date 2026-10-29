@@ -83,7 +83,7 @@ Every result is `{success, error?, ...}`; the action tools return as soon as the
 | `rimlink/menu_options`, `rimlink/click_menu_option {label}` | the main-menu options (Rimlink's "Multiplayer" included), which `rimworld/get_ui_layout` cannot see |
 | `rimlink/page_state`, `rimlink/page_action {next\|back\|random_site}` | the top `Page` and its buttons, including the starting-site page's bottom buttons the layout snapshot misses |
 | `rimlink/raid {player, pawns, mode=snapshot\|real, timing=instant\|warned}`, `rimlink/visit {player, pawns}`, `rimlink/visit_end` | raid or visit from the current map, no caravan; leave the visited copy (the overlay button) |
-| `rimlink/live_propose {player, pawns, kind=raid\|visit}`, `rimlink/live_answer {accept}`, `rimlink/live_end` | live sessions: propose (guest), answer the open invite (host), end (guest) or abort (host) without the confirmation dialog |
+| `rimlink/live_propose {player, pawns, kind=raid\|visit}`, `rimlink/live_answer {accept}`, `rimlink/live_speed {0..3}`, `rimlink/live_end` | live sessions: propose (guest), answer the open invite (host), speed or pause through the live tempo (0 = pause, the guest's comes out of its budget; `status.live.pausedBy`/`guestPausesUsed`), end (guest) or abort (host) without the confirmation dialog |
 | `rimlink/send {player, items, pawns, silver, anywhere}`, `rimlink/post_lot {price, items \| pawn}`, `rimlink/deposit {silver, anywhere}`, `rimlink/market {seller}`, `rimlink/buy {lotId}` | the economy window; items come from under the beacons unless `anywhere` (deposit `anywhere` needs dev mode) |
 | `rimlink/chat {count}`, `rimlink/chat_send {text, to}` | chat history as received, send public or to one player |
 
