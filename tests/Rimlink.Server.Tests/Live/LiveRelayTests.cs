@@ -323,14 +323,19 @@ public class LiveRelayTests
         using var fixture = p.Fixture;
 
         using var wrongRole = p.Nova.Live.Stream(p.Nova.Auth);
-        await wrongRole.RequestStream.WriteAsync(new LiveClientMsg { SessionId = p.Session.Id, Hello = new Hello { Role = LiveRelay.HostRole } });
-        var denied = await Assert.ThrowsAsync<RpcException>(() => wrongRole.ResponseStream.MoveNext(CancellationToken.None));
+        var denied = await Assert.ThrowsAsync<RpcException>(() => HelloAndRead(wrongRole, p.Session.Id, LiveRelay.HostRole));
         Assert.Equal(StatusCode.PermissionDenied, denied.StatusCode);
 
         await p.Bob.Live.CancelAsync(new LiveRef { SessionId = p.Session.Id }, p.Bob.Auth); // Ending: no more streams
         using var late = p.Bob.Live.Stream(p.Bob.Auth);
-        await late.RequestStream.WriteAsync(new LiveClientMsg { SessionId = p.Session.Id, Hello = new Hello { Role = LiveRelay.HostRole } });
-        var gone = await Assert.ThrowsAsync<RpcException>(() => late.ResponseStream.MoveNext(CancellationToken.None));
+        var gone = await Assert.ThrowsAsync<RpcException>(() => HelloAndRead(late, p.Session.Id, LiveRelay.HostRole));
         Assert.Equal(ErrorCode.LiveGone, gone.ErrorDetail()!.Code);
+    }
+
+    /// <summary>A refused Hello can end the call before its own write completes, so the refusal surfaces on the write or on the read.</summary>
+    private static async Task HelloAndRead(AsyncDuplexStreamingCall<LiveClientMsg, LiveServerMsg> call, long sessionId, int role)
+    {
+        await call.RequestStream.WriteAsync(new LiveClientMsg { SessionId = sessionId, Hello = new Hello { Role = role } });
+        await call.ResponseStream.MoveNext(CancellationToken.None);
     }
 }
