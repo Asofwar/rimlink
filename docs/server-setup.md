@@ -34,7 +34,8 @@ The server refuses to start without an HTTPS endpoint. Two options:
 
 ## 3. Logins
 
-- **Steam** (default): set `Auth:SteamWebApiKey` to a key from https://steamcommunity.com/dev/apikey. Accounts are
+- **Steam** (default): set `Auth:SteamWebApiKey` to a key from https://steamcommunity.com/dev/apikey (an ordinary
+  Steam account's key is enough, no publisher key is needed). Accounts are
   created on first login; the player name starts as `Player<last 4 digits of SteamID>` and can be changed in game
   (`/rename`). Family-shared copies are tied to the owner's SteamID for bans.
 - **Login + password** (fallback): `Auth:AllowPassword=true` enables `Register` and password logins. Passwords are
