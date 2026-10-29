@@ -1,0 +1,61 @@
+using RimWorld;
+using RimWorld.Planet;
+using Rimlink.Protocol.V1;
+using Verse;
+
+namespace Rimlink.Client.Game.Live;
+
+/// <summary>"Live raid"/"Live visit": on arrival at another player's settlement the whole caravan is proposed for a live session.</summary>
+public sealed class CaravanArrivalAction_RimlinkLive : CaravanArrivalAction
+{
+    private PlayerSettlement? settlement;
+    private LiveKind kind;
+
+    public CaravanArrivalAction_RimlinkLive() { }
+
+    public CaravanArrivalAction_RimlinkLive(PlayerSettlement settlement, LiveKind kind)
+    {
+        this.settlement = settlement;
+        this.kind = kind;
+    }
+
+    public override string Label => (kind == LiveKind.LiveRaid ? "Rimlink.Live.CaravanRaid" : "Rimlink.Live.CaravanVisit").Translate(settlement?.OwnerName ?? "?");
+
+    public override string ReportString => Label;
+
+    public override FloatMenuAcceptanceReport StillValid(Caravan caravan, PlanetTile destinationTile)
+    {
+        var report = base.StillValid(caravan, destinationTile);
+        if (!report) return report;
+        if (settlement is null || !settlement.Spawned || settlement.Tile != destinationTile) return false;
+        return CanPropose(settlement, kind);
+    }
+
+    public override void Arrived(Caravan caravan)
+    {
+        if (settlement is not null) Open(caravan, settlement, kind);
+    }
+
+    public override void ExposeData()
+    {
+        base.ExposeData();
+        Scribe_References.Look(ref settlement, "settlement");
+        Scribe_Values.Look(ref kind, "kind");
+    }
+
+    public static FloatMenuAcceptanceReport CanPropose(PlayerSettlement settlement, LiveKind kind)
+    {
+        if (!RimlinkSession.Active || RimlinkSession.Live is null) return false;
+        if (settlement.ObjectId == 0 || RimlinkSession.State.Objects.TryGet(settlement.ObjectId)?.Owner is not { } owner) return false;
+        if (!RimlinkSession.State.Players.Online.Any(p => p.PlayerId == owner.PlayerId)) return FloatMenuAcceptanceReport.WithFailMessage("Rimlink.Live.HostOffline".Translate(owner.Name));
+        if (kind == LiveKind.LiveRaid && RimlinkSession.State.Raids.Flags.Peaceful) return FloatMenuAcceptanceReport.WithFailMessage("Rimlink.Raid.YouArePeaceful".Translate());
+        return true;
+    }
+
+    public static void Open(Caravan caravan, PlayerSettlement settlement, LiveKind kind)
+    {
+        PlayerRef? owner = RimlinkSession.State.Objects.TryGet(settlement.ObjectId)?.Owner;
+        if (owner is null || !RimlinkSession.Active) return;
+        LiveGuest.ProposeFromCaravan(caravan, owner, kind, caravan.PawnsListForReading.ToList(), RaidTiming.TimingInstant);
+    }
+}

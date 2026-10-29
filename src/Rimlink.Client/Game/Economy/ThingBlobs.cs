@@ -59,6 +59,12 @@ public static class ThingBlobs
         return thing;
     }
 
+    /// <summary>A pawn exactly as serialised (same ids, faction untouched): for the live mirror, where the host's ids and factions are the truth.</summary>
+    public static Pawn DeserializePawnRaw(PawnBlob b) => Load<Pawn>(b.ScribeXmlZstd.ToByteArray());
+
+    /// <summary>A thing serialised while spawned remembers its map; it must forget it before it is spawned on the mirror.</summary>
+    public static void ResetMapIndex(Thing t) => HarmonyLib.Traverse.Create(t).Field("mapIndexOrState").SetValue((sbyte)-1);
+
     public static Pawn DeserializePawn(PawnBlob b, bool newIds = false)
     {
         var pawn = Load<Pawn>(b.ScribeXmlZstd.ToByteArray());

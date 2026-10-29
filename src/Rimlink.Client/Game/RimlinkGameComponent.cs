@@ -48,17 +48,23 @@ public sealed class RimlinkGameComponent : GameComponent
         liveSubscribed = true;
         var live = RimlinkSession.State.Live;
         live.Invited += invite => { if (Current.ProgramState == ProgramState.Playing && !Visits.VisitSession.InVisit) Find.WindowStack.Add(new UI.Live.Dialog_LiveInvite(invite)); };
-        live.Started += session => { if (session.Host?.PlayerId == RimlinkSession.MyPlayerId) Live.LiveHost.Begin(session); };
+        live.Started += session =>
+        {
+            if (session.Host?.PlayerId == RimlinkSession.MyPlayerId) Live.LiveHost.Begin(session);
+            else if (session.Guest?.PlayerId == RimlinkSession.MyPlayerId) Live.LiveGuest.OnStarted(session);
+        };
         live.Ended += session =>
         {
             if (session.Host?.PlayerId == RimlinkSession.MyPlayerId && Live.LiveHost.Session?.Id == session.Id && session.State == LiveState.LiveEnding) Live.LiveHost.End(session.EndReason);
+            else if (session.Guest?.PlayerId == RimlinkSession.MyPlayerId && session.State == LiveState.LiveEnding) Live.LiveGuest.OnEnded(session);
         };
+        live.FellBack += session => { if (session.Guest?.PlayerId == RimlinkSession.MyPlayerId) Live.LiveGuest.OnFallback(session); };
     }
 
     /// <summary>Presence for live sessions: the server only invites a host who is at their colony.</summary>
     private static void ReportPresence()
     {
-        bool home = Current.ProgramState == ProgramState.Playing && !Visits.VisitSession.InVisit && Find.AnyPlayerHomeMap is not null;
+        bool home = Current.ProgramState == ProgramState.Playing && !Visits.VisitSession.InVisit && !Live.MirrorMode.Active && Find.AnyPlayerHomeMap is not null;
         if (atHomeSent == home || RimlinkSession.Connection is not { } connection) return;
         atHomeSent = home;
         _ = Task.Run(async () =>
@@ -82,6 +88,7 @@ public sealed class RimlinkGameComponent : GameComponent
         Raids.RaidIncoming.Tick();
         Raids.RaidResolver.Tick();
         Live.LiveHost.Tick();
+        Live.LiveGuest.Tick();
         HandleStaleSave();
     }
 
@@ -192,6 +199,7 @@ public sealed class RimlinkGameComponent : GameComponent
         var connection = RimlinkSession.Connection;
         Visits.VisitSession.Reset(); // first: it still needs the connection to close an open ticket
         Live.LiveHost.Reset();
+        Live.LiveGuest.Reset();
         atHomeSent = null;
         RimlinkSession.End();
         ForeignSettlements.Clear();

@@ -184,7 +184,14 @@ public static class LiveHost
                     Messages.Message("Rimlink.Live.GuestHere".Translate(session.Guest.Name), MessageTypeDefOf.PositiveEvent, historical: false);
                     break;
                 case LiveServerMsg.MOneofCase.ResyncRequest:
-                    if (!resyncing) { resyncing = true; Snapshot(live, first: false); }
+                    if (!resyncing)
+                    {
+                        resyncing = true;
+                        GuestHere = false; // paused until the guest's new Hello
+                        LiveTempo.HostWish = TimeSpeed.Paused;
+                        LiveTempo.Apply();
+                        Snapshot(live, first: false);
+                    }
                     break;
                 case LiveServerMsg.MOneofCase.PeerLost:
                     GuestHere = false;

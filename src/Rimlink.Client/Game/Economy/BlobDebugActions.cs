@@ -50,6 +50,23 @@ public static class BlobDebugActions
         if (options.Count > 0) Find.WindowStack.Add(new FloatMenu(options));
     }
 
+    /// <summary>Dev shortcut: a live raid or visit at an online player with the colonists selected on the map (real pawns leave).</summary>
+    [DebugAction("Rimlink", "Live raid a player with selected pawns", allowedGameStates = AllowedGameStates.PlayingOnMap)]
+    public static void LiveRaidPlayer() => LivePlayer(Rimlink.Protocol.V1.LiveKind.LiveRaid);
+
+    [DebugAction("Rimlink", "Live visit a player with selected pawns", allowedGameStates = AllowedGameStates.PlayingOnMap)]
+    public static void LiveVisitPlayer() => LivePlayer(Rimlink.Protocol.V1.LiveKind.LiveVisit);
+
+    private static void LivePlayer(Rimlink.Protocol.V1.LiveKind kind)
+    {
+        if (!RimlinkSession.Active) { Log.Message("[Rimlink] no session"); return; }
+        var pawns = Find.Selector.SelectedObjects.OfType<Pawn>().Where(p => p.IsColonist).ToList();
+        if (pawns.Count == 0) { Log.Message("[Rimlink] select colonists first"); return; }
+        var options = new List<FloatMenuOption>();
+        foreach (var owner in Players()) options.Add(new FloatMenuOption(owner.Name, () => Live.LiveGuest.ProposeFromMap(Find.CurrentMap, owner, kind, pawns, Rimlink.Protocol.V1.RaidTiming.TimingInstant)));
+        if (options.Count > 0) Find.WindowStack.Add(new FloatMenu(options));
+    }
+
     private static IEnumerable<Rimlink.Protocol.V1.PlayerRef> Players()
     {
         long me = RimlinkSession.MyPlayerId;

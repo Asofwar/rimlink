@@ -44,10 +44,13 @@ public sealed class VisitService(RimlinkDbContext db, SaveStore saves, EventBus 
         await db.Visits.Where(v => v.Id == visitId && v.VisitorPlayerId == visitorId && v.EndedAt == null).ExecuteUpdateAsync(s => s.SetProperty(v => v.EndedAt, DateTime.UtcNow));
     }
 
-    public Task<bool> IsVisiting(long visitorId, long hostId)
+    /// <summary>An open visit ticket, or an open live session (3b) where the player is the guest: both let them download the host's save and buy from the shop.</summary>
+    public async Task<bool> IsVisiting(long visitorId, long hostId)
     {
         var since = OpenedAfter;
-        return db.Visits.AnyAsync(v => v.VisitorPlayerId == visitorId && v.HostPlayerId == hostId && v.EndedAt == null && v.StartedAt > since);
+        if (await db.Visits.AnyAsync(v => v.VisitorPlayerId == visitorId && v.HostPlayerId == hostId && v.EndedAt == null && v.StartedAt > since)) return true;
+        return await db.LiveSessions.AnyAsync(s => s.GuestPlayerId == visitorId && s.HostPlayerId == hostId
+            && (s.State == LiveStateDb.Starting || s.State == LiveStateDb.Running || s.State == LiveStateDb.Waiting));
     }
 
     /// <summary>The player's colony is gone: nobody can keep visiting it, and their own visit is over.</summary>

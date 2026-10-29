@@ -246,6 +246,27 @@ public class LiveSessionTests
     }
 
     [Fact]
+    public async Task ALiveGuestMayDownloadTheHostsSaveAndBuy()
+    {
+        var p = await NovaAndBob();
+        using var fixture = p.Fixture;
+        var b = RaidClientsOf(fixture, p.Bob.Login.SessionToken);
+        byte[] save = Support.SaveFixtures.MakeSave(ServerFixture.WorldSeed, "Bob", tick: 10);
+        await Support.SaveFixtures.Upload(b.Saves, p.Bob.Login.SessionToken, save, Support.SaveFixtures.HeaderFor(save, ServerFixture.WorldSeed, "Bob", tick: 10));
+        var n = RaidClientsOf(fixture, p.Nova.Login.SessionToken);
+        var before = await Assert.ThrowsAsync<RpcException>(() => Visits.VisitTests.DownloadOf(n, p.Bob.PlayerId));
+        Assert.Equal(StatusCode.PermissionDenied, before.StatusCode);
+        await p.Bob.Live.SetAutoAcceptAsync(new AutoAcceptRequest { Enabled = true }, p.Bob.Auth);
+
+        var session = await p.Nova.Live.ProposeAsync(Propose(p.Bob.PlayerId, LiveKind.LiveVisit), p.Nova.Auth);
+
+        Assert.NotEmpty(await Visits.VisitTests.DownloadOf(n, p.Bob.PlayerId)); // the live session is the ticket
+        await p.Bob.Live.CancelAsync(new LiveRef { SessionId = session.Id }, p.Bob.Auth);
+        var after = await Assert.ThrowsAsync<RpcException>(() => Visits.VisitTests.DownloadOf(n, p.Bob.PlayerId));
+        Assert.Equal(StatusCode.PermissionDenied, after.StatusCode);
+    }
+
+    [Fact]
     public async Task DisabledLiveRefusesProposals()
     {
         var p = await NovaAndBob(LiveServer().WithSetting("Live:Enabled", "false"));

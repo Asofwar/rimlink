@@ -9,7 +9,7 @@ using Verse;
 namespace Rimlink.Client.Game.Visits;
 
 /// <summary>What a visit needs between the two game loads: the ticket, the host, and the guests as blobs.</summary>
-public sealed record VisitPending(long VisitId, long HostId, string HostName, List<PawnBlob> Guests, ShopList Shop);
+public sealed record VisitPending(long VisitId, long HostId, string HostName, List<PawnBlob> Guests, ShopList Shop, LiveSession? Live = null);
 
 /// <summary>
 /// A visit is a temporary game: the visitor's own colony is saved and uploaded, the host's save is downloaded and loaded
@@ -72,14 +72,44 @@ public static class VisitSession
         });
     }
 
-    /// <summary>The visitor's own colony goes to disk and to the server first; then the host's save comes down and is loaded.</summary>
-    private static void SaveAndLoad(VisitPending pending, Dialog_Wait wait, Rimlink.Client.Visits.VisitClient visits)
+    /// <summary>A live session (3b): the host's snapshot is loaded as a visit copy in mirror mode; the session is the ticket. Also used for a resync from inside the copy.</summary>
+    public static void BeginLive(LiveSession session, Action onFailure)
     {
+        if (!RimlinkSession.Active || RimlinkSession.Visits is not { } visits || RimlinkSession.Shop is not { } shop || Pending is not null || session.Host is null) { onFailure(); return; }
+        var host = session.Host;
+        var wait = new Dialog_Wait("Rimlink.Visit.Preparing".Translate(host.Name), new CancellationTokenSource());
+        Find.WindowStack.Add(wait);
+        _ = Task.Run(async () =>
+        {
+            ShopList list;
+            try { list = await shop.Of(host.PlayerId, CancellationToken.None); }
+            catch (Exception ex) { RimlinkLog.Instance.Warn("live: the host's shop list was not fetched: " + ex.Message); list = new ShopList(); }
+            MainThread.Post(() => SaveAndLoad(new VisitPending(0, host.PlayerId, host.Name, [], list, session), wait, visits, onFailure));
+        });
+    }
+
+    private static void Fail(VisitPending pending, Rimlink.Client.Visits.VisitClient visits, string reason, Action? onFailure)
+    {
+        if (pending.VisitId != 0) _ = visits.End(pending.VisitId, CancellationToken.None);
+        Messages.Message("Rimlink.Visit.Failed".Translate(reason), MessageTypeDefOf.RejectInput, historical: false);
+        onFailure?.Invoke();
+        if (pending.Live is not null) Live.LiveGuest.Abort(reason);
+    }
+
+    /// <summary>The visitor's own colony goes to disk and to the server first; then the host's save comes down and is loaded.</summary>
+    private static void SaveAndLoad(VisitPending pending, Dialog_Wait wait, Rimlink.Client.Visits.VisitClient visits, Action? onFailure = null)
+    {
+        if (pending.Live is not null && Active)
+        {
+            // A resync from inside the host's copy: nothing of ours to save, straight to the new snapshot.
+            Active = false;
+            Download(pending, wait, visits, onFailure);
+            return;
+        }
         if (!SaveSync.TriggerSave("visit"))
         {
             wait.Close();
-            Messages.Message("Rimlink.Economy.SaveBusy".Translate(), MessageTypeDefOf.RejectInput, historical: false);
-            _ = visits.End(pending.VisitId, CancellationToken.None);
+            Fail(pending, visits, "Rimlink.Economy.SaveBusy".Translate(), onFailure);
             return;
         }
         bool uploaded = false;
@@ -88,32 +118,35 @@ public static class VisitSession
             if (!uploaded || SaveSync.LastError is not null)
             {
                 wait.Close();
-                Messages.Message("Rimlink.Economy.UploadFailed".Translate(SaveSync.LastError ?? "timeout"), MessageTypeDefOf.RejectInput, historical: false);
-                _ = visits.End(pending.VisitId, CancellationToken.None);
+                Fail(pending, visits, "Rimlink.Economy.UploadFailed".Translate(SaveSync.LastError ?? "timeout"), onFailure);
                 return;
             }
-            wait.Text = "Rimlink.Visit.Downloading".Translate(pending.HostName);
-            string path = GenFilePaths.FilePathForSavedGame(SaveName(pending.HostId));
-            _ = Task.Run(async () =>
+            Download(pending, wait, visits, onFailure);
+        });
+    }
+
+    private static void Download(VisitPending pending, Dialog_Wait wait, Rimlink.Client.Visits.VisitClient visits, Action? onFailure)
+    {
+        wait.Text = "Rimlink.Visit.Downloading".Translate(pending.HostName);
+        string path = GenFilePaths.FilePathForSavedGame(SaveName(pending.HostId));
+        _ = Task.Run(async () =>
+        {
+            try
             {
-                try
-                {
-                    if (await visits.DownloadOf(pending.HostId, path, CancellationToken.None) is null) throw new InvalidOperationException("the host has no save");
-                }
-                catch (Exception ex)
-                {
-                    string reason = ex is Grpc.Core.RpcException rpc ? EconomyClient.MessageOf(rpc) : ex.Message;
-                    _ = visits.End(pending.VisitId, CancellationToken.None);
-                    MainThread.Post(() => { wait.Close(); Messages.Message("Rimlink.Visit.Failed".Translate(reason), MessageTypeDefOf.RejectInput, historical: false); });
-                    return;
-                }
-                MainThread.Post(() =>
-                {
-                    wait.Close();
-                    Pending = pending;
-                    RimlinkLog.Instance.Info($"visit {pending.VisitId}: loading {pending.HostName}'s colony");
-                    GameDataSaveLoader.LoadGame(SaveName(pending.HostId));
-                });
+                if (await visits.DownloadOf(pending.HostId, path, CancellationToken.None) is null) throw new InvalidOperationException("the host has no save");
+            }
+            catch (Exception ex)
+            {
+                string reason = ex is Grpc.Core.RpcException rpc ? EconomyClient.MessageOf(rpc) : ex.Message;
+                MainThread.Post(() => { wait.Close(); Fail(pending, visits, reason, onFailure); });
+                return;
+            }
+            MainThread.Post(() =>
+            {
+                wait.Close();
+                Pending = pending;
+                RimlinkLog.Instance.Info($"visit {pending.VisitId}: loading {pending.HostName}'s colony{(pending.Live is { } live ? $" (live session {live.Id}, snapshot v{live.SnapshotVersion})" : "")}");
+                GameDataSaveLoader.LoadGame(SaveName(pending.HostId));
             });
         });
     }
@@ -133,12 +166,14 @@ public static class VisitSession
             HostName = pending.HostName;
             HostShop.Clear();
             foreach (var item in pending.Shop.Items) HostShop[item.ThingId] = item;
+            if (pending.Live is { } live) { Live.LiveGuest.OnMirrorLoaded(live); return; }
             Messages.Message("Rimlink.Visit.Arrived".Translate(pending.HostName), MessageTypeDefOf.PositiveEvent, historical: false);
             RimlinkLog.Instance.Info($"visit {pending.VisitId} at {pending.HostName}: {pending.Guests.Count} guests, {HostShop.Count} things for sale");
         }
         catch (Exception ex)
         {
             Log.Error("[Rimlink] the visit could not start on the loaded colony: " + ex);
+            if (pending.Live is not null) { Active = true; Live.LiveGuest.Abort(ex.Message); return; }
             Abort(pending.VisitId, pending.HostId, ex.Message);
         }
     }
@@ -161,7 +196,7 @@ public static class VisitSession
     {
         Active = false;
         HostShop.Clear();
-        if (RimlinkSession.Visits is { } visits) _ = visits.End(visitId, CancellationToken.None);
+        if (visitId != 0 && RimlinkSession.Visits is { } visits) _ = visits.End(visitId, CancellationToken.None);
         DeleteVisitFile(hostId);
         if (!RimlinkSession.Active) { GenScene.GoToMainMenu(); return; }
         RimlinkLog.Instance.Info("visit over, loading the own colony");
@@ -193,10 +228,10 @@ public static class VisitSession
         Active = false;
         Pending = null;
         HostShop.Clear();
+        if (hostId != 0) DeleteVisitFile(hostId);
         if (visitId == 0) return;
         RimlinkLog.Instance.Info($"visit {visitId} ends with the session");
         if (RimlinkSession.Visits is { } visits) _ = visits.End(visitId, CancellationToken.None);
-        DeleteVisitFile(hostId);
     }
 }
 

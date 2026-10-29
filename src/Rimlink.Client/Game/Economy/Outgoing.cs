@@ -237,6 +237,9 @@ public static class Outgoing
             case LaunchRequest launch:
                 things.AddRange(Raids.RaidOutgoing.Contents(launch));
                 break;
+            case LiveProposal proposal:
+                foreach (var p in proposal.Pawns.Pawns) things.Add(ThingBlobs.DeserializePawn(p));
+                break;
             case RaidReport report:
                 // Only the loot is ours to return; the raiders belong to the attacker and come home through the server.
                 foreach (var i in report.Loot.Items) things.Add(ThingBlobs.DeserializeItem(i));

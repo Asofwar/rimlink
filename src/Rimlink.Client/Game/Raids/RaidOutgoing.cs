@@ -71,6 +71,9 @@ public static class RaidOutgoing
     /// <summary>The holding caravan of a pod raid that will not happen after all: everyone flies back home.</summary>
     public static void ReturnPodPawnsHome(Caravan caravan) => ReturnPodPawnsHome(Disband(caravan));
 
+    /// <summary>A whole caravan goes to a live session: its pawns are taken out for the transfer pipeline.</summary>
+    public static List<Pawn> DisbandForLive(Caravan caravan) => Disband(caravan);
+
     /// <summary>Takes every pawn out of the caravan (unspawned, with their inventory) and removes the empty caravan from the world.</summary>
     private static List<Pawn> Disband(Caravan caravan)
     {

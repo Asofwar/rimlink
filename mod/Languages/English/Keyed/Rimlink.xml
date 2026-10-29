@@ -228,4 +228,27 @@
   <Rimlink.Live.StateRunning>running</Rimlink.Live.StateRunning>
   <Rimlink.Live.Abort>Abort session</Rimlink.Live.Abort>
   <Rimlink.Live.AbortConfirm>End the live session with {0} now? Their pawns are reported as they stand; a raid is not continued by the AI.</Rimlink.Live.AbortConfirm>
+  <Rimlink.Live.CaravanRaid>Live raid on {0}'s colony (you control your pawns)...</Rimlink.Live.CaravanRaid>
+  <Rimlink.Live.CaravanVisit>Live visit to {0}'s colony (you control your pawns)...</Rimlink.Live.CaravanVisit>
+  <Rimlink.Live.CaravanRaidGizmo>Live raid</Rimlink.Live.CaravanRaidGizmo>
+  <Rimlink.Live.CaravanVisitGizmo>Live visit</Rimlink.Live.CaravanVisitGizmo>
+  <Rimlink.Live.Proposed>Live session proposed to {0}; waiting for their answer.</Rimlink.Live.Proposed>
+  <Rimlink.Live.Busy>You are already in a live session or a visit.</Rimlink.Live.Busy>
+  <Rimlink.Live.Waiting>Waiting for {0} to answer the {1} ({2} s). If they decline or do not answer, a raid goes on as a normal raid and a visit's pawns come home.</Rimlink.Live.Waiting>
+  <Rimlink.Live.CancelProposal>Cancel, take the pawns back</Rimlink.Live.CancelProposal>
+  <Rimlink.Live.Accepted>{0} accepted. Waiting for their snapshot...</Rimlink.Live.Accepted>
+  <Rimlink.Live.MirrorReady>You are on {0}'s live map. Select your pawns and give orders; the host's game decides everything.</Rimlink.Live.MirrorReady>
+  <Rimlink.Live.FellBackRaid>{0} did not take the live raid: it goes on as a normal raid.</Rimlink.Live.FellBackRaid>
+  <Rimlink.Live.FellBackVisit>{0} did not take the live visit: your pawns come home by parcel.</Rimlink.Live.FellBackVisit>
+  <Rimlink.Live.EndedGuest>The live session at {0} is over ({1}). Your pawns come home by parcel once the host reports.</Rimlink.Live.EndedGuest>
+  <Rimlink.Live.OrderRefused>Order refused ({0}): {1}</Rimlink.Live.OrderRefused>
+  <Rimlink.Live.HostLost>Connection to {0} lost; waiting for them.</Rimlink.Live.HostLost>
+  <Rimlink.Live.HostBack>{0} is back.</Rimlink.Live.HostBack>
+  <Rimlink.Live.GuestHud>{0} at {1}</Rimlink.Live.GuestHud>
+  <Rimlink.Live.StateHostLost>host lost, waiting</Rimlink.Live.StateHostLost>
+  <Rimlink.Live.StateHostPaused>paused by the host</Rimlink.Live.StateHostPaused>
+  <Rimlink.Live.StateTick>tick {0}, pauses {1}/{2}</Rimlink.Live.StateTick>
+  <Rimlink.Live.EndSession>End session</Rimlink.Live.EndSession>
+  <Rimlink.Live.EndSessionConfirm>End the live session? Your pawns come home by parcel as they are now.</Rimlink.Live.EndSessionConfirm>
+  <Rimlink.Live.HostOffline>{0} is not online at their colony.</Rimlink.Live.HostOffline>
 </LanguageData>

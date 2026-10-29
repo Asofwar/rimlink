@@ -55,6 +55,22 @@ public sealed class PlayerSettlement : WorldObject
         {
             yield return option;
         }
+        foreach (var option in CaravanArrivalActionUtility.GetFloatMenuOptions(
+                     () => Live.CaravanArrivalAction_RimlinkLive.CanPropose(this, Rimlink.Protocol.V1.LiveKind.LiveRaid),
+                     () => new Live.CaravanArrivalAction_RimlinkLive(this, Rimlink.Protocol.V1.LiveKind.LiveRaid),
+                     "Rimlink.Live.CaravanRaid".Translate(OwnerName),
+                     caravan, Tile, this))
+        {
+            yield return option;
+        }
+        foreach (var option in CaravanArrivalActionUtility.GetFloatMenuOptions(
+                     () => Live.CaravanArrivalAction_RimlinkLive.CanPropose(this, Rimlink.Protocol.V1.LiveKind.LiveVisit),
+                     () => new Live.CaravanArrivalAction_RimlinkLive(this, Rimlink.Protocol.V1.LiveKind.LiveVisit),
+                     "Rimlink.Live.CaravanVisit".Translate(OwnerName),
+                     caravan, Tile, this))
+        {
+            yield return option;
+        }
     }
 
     /// <summary>Transport pods aimed here: the pawns inside raid the settlement on arrival.</summary>
@@ -101,6 +117,18 @@ public sealed class PlayerSettlement : WorldObject
                 defaultDesc = "Rimlink.Visit.CaravanVisit".Translate(OwnerName),
                 icon = ContentFinder<Texture2D>.Get("UI/Commands/Install", reportFailure: false),
                 action = () => VisitSession.Begin(RimlinkSession.State.Objects.TryGet(ObjectId)!.Owner, caravan.PawnsListForReading.ToList()),
+            };
+        }
+        foreach (var kind in new[] { Rimlink.Protocol.V1.LiveKind.LiveRaid, Rimlink.Protocol.V1.LiveKind.LiveVisit })
+        {
+            if (caravan.Tile != Tile || !Live.CaravanArrivalAction_RimlinkLive.CanPropose(this, kind)) continue;
+            var k = kind;
+            yield return new Command_Action
+            {
+                defaultLabel = (k == Rimlink.Protocol.V1.LiveKind.LiveRaid ? "Rimlink.Live.CaravanRaidGizmo" : "Rimlink.Live.CaravanVisitGizmo").Translate(),
+                defaultDesc = (k == Rimlink.Protocol.V1.LiveKind.LiveRaid ? "Rimlink.Live.CaravanRaid" : "Rimlink.Live.CaravanVisit").Translate(OwnerName),
+                icon = ContentFinder<Texture2D>.Get(k == Rimlink.Protocol.V1.LiveKind.LiveRaid ? "UI/Commands/Attack" : "UI/Commands/Install", reportFailure: false),
+                action = () => Live.CaravanArrivalAction_RimlinkLive.Open(caravan, this, k),
             };
         }
         if (caravan.Tile != Tile || !CaravanArrivalAction_RimlinkTransfer.CanTransfer(caravan, this)) yield break;

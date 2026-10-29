@@ -228,4 +228,27 @@
   <Rimlink.Live.StateRunning>идёт</Rimlink.Live.StateRunning>
   <Rimlink.Live.Abort>Прервать сессию</Rimlink.Live.Abort>
   <Rimlink.Live.AbortConfirm>Закончить живую сессию с {0} сейчас? Его пешки отправятся как есть; рейд ИИ не продолжит.</Rimlink.Live.AbortConfirm>
+  <Rimlink.Live.CaravanRaid>Живой рейд на колонию {0} (вы управляете своими пешками)...</Rimlink.Live.CaravanRaid>
+  <Rimlink.Live.CaravanVisit>Живой визит в колонию {0} (вы управляете своими пешками)...</Rimlink.Live.CaravanVisit>
+  <Rimlink.Live.CaravanRaidGizmo>Живой рейд</Rimlink.Live.CaravanRaidGizmo>
+  <Rimlink.Live.CaravanVisitGizmo>Живой визит</Rimlink.Live.CaravanVisitGizmo>
+  <Rimlink.Live.Proposed>Живая сессия предложена игроку {0}; ждём ответа.</Rimlink.Live.Proposed>
+  <Rimlink.Live.Busy>Вы уже в живой сессии или в гостях.</Rimlink.Live.Busy>
+  <Rimlink.Live.Waiting>Ждём ответа {0} на {1} ({2} с). При отказе или молчании рейд пойдёт как обычный, а пешки визита вернутся домой.</Rimlink.Live.Waiting>
+  <Rimlink.Live.CancelProposal>Отменить, вернуть пешек</Rimlink.Live.CancelProposal>
+  <Rimlink.Live.Accepted>{0} согласился. Ждём снимок...</Rimlink.Live.Accepted>
+  <Rimlink.Live.MirrorReady>Вы на живой карте {0}. Выделяйте своих пешек и отдавайте приказы; всё считает игра хозяина.</Rimlink.Live.MirrorReady>
+  <Rimlink.Live.FellBackRaid>{0} не принял живой рейд: он идёт как обычный рейд.</Rimlink.Live.FellBackRaid>
+  <Rimlink.Live.FellBackVisit>{0} не принял живой визит: пешки вернутся посылкой.</Rimlink.Live.FellBackVisit>
+  <Rimlink.Live.EndedGuest>Живая сессия у {0} окончена ({1}). Пешки вернутся посылкой после отчёта хозяина.</Rimlink.Live.EndedGuest>
+  <Rimlink.Live.OrderRefused>Приказ отклонён ({0}): {1}</Rimlink.Live.OrderRefused>
+  <Rimlink.Live.HostLost>Связь с {0} потеряна; ждём.</Rimlink.Live.HostLost>
+  <Rimlink.Live.HostBack>{0} вернулся.</Rimlink.Live.HostBack>
+  <Rimlink.Live.GuestHud>{0} у {1}</Rimlink.Live.GuestHud>
+  <Rimlink.Live.StateHostLost>хозяин потерян, ждём</Rimlink.Live.StateHostLost>
+  <Rimlink.Live.StateHostPaused>пауза хозяина</Rimlink.Live.StateHostPaused>
+  <Rimlink.Live.StateTick>тик {0}, паузы {1}/{2}</Rimlink.Live.StateTick>
+  <Rimlink.Live.EndSession>Закончить сессию</Rimlink.Live.EndSession>
+  <Rimlink.Live.EndSessionConfirm>Закончить живую сессию? Пешки вернутся посылкой как есть.</Rimlink.Live.EndSessionConfirm>
+  <Rimlink.Live.HostOffline>{0} не в сети у своей колонии.</Rimlink.Live.HostOffline>
 </LanguageData>
