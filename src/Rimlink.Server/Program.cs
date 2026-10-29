@@ -37,6 +37,12 @@ builder.Services.Configure<BackupOptions>(builder.Configuration.GetSection(Backu
 builder.Services.Configure<EconomyOptions>(builder.Configuration.GetSection(EconomyOptions.Section));
 builder.Services.Configure<RaidOptions>(builder.Configuration.GetSection(RaidOptions.Section));
 builder.Services.Configure<LiveOptions>(builder.Configuration.GetSection(LiveOptions.Section));
+builder.Services.Configure<PanelOptions>(builder.Configuration.GetSection(PanelOptions.Section));
+builder.Services.AddSingleton(TimeProvider.System);
+// Built from the bound options (test settings are not visible to the values read above before Build()).
+builder.Services.AddSingleton(sp => new ServerCertificate(
+    sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<ServerOptions>>().Value,
+    sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<TlsOptions>>().Value));
 
 builder.WebHost.ConfigureKestrel(kestrel => KestrelSetup.Configure(kestrel, serverOptions, tlsOptions));
 

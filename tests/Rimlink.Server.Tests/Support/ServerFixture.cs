@@ -18,6 +18,7 @@ namespace Rimlink.Server.Tests.Support;
 public class ServerFixture : WebApplicationFactory<Program>
 {
     private readonly Dictionary<string, string?> settings = new() { ["RateLimit:Disabled"] = "true", ["Backup:IntervalHours"] = "0" };
+    private readonly List<Action<IServiceCollection>> serviceOverrides = [];
     private bool seedWorld = true;
 
     public const string WorldSeed = "Rimlink";
@@ -31,6 +32,13 @@ public class ServerFixture : WebApplicationFactory<Program>
     }
 
     public ServerFixture WithRateLimits() => WithSetting("RateLimit:Disabled", "false");
+
+    /// <summary>Replace or add services after the fixture's own test replacements (e.g. a manual <see cref="TimeProvider"/>).</summary>
+    public ServerFixture WithServices(Action<IServiceCollection> configure)
+    {
+        serviceOverrides.Add(configure);
+        return this;
+    }
 
     /// <summary>Start without a world: only admins can log in until World.Create is called.</summary>
     public ServerFixture WithoutWorld()
@@ -49,6 +57,7 @@ public class ServerFixture : WebApplicationFactory<Program>
         {
             services.AddSingleton<ISteamTicketVerifier, FakeSteamVerifier>();
             services.AddTransient<IStartupFilter, LoopbackIpStartupFilter>();
+            foreach (var configure in serviceOverrides) configure(services);
         });
     }
 

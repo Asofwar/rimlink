@@ -8,5 +8,7 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <Authors>Asofwar</Authors>
     <Product>Rimlink</Product>
+    <!-- Equal to mod/About/About.xml modVersion and ClientInfo.Version. -->
+    <Version>0.4.0</Version>
   </PropertyGroup>
 </Project>
