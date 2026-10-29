@@ -67,7 +67,7 @@ public static class VisitSession
             }
             catch (Exception ex)
             {
-                string reason = ex is Grpc.Core.RpcException rpc ? EconomyClient.MessageOf(rpc) : ex.Message;
+                string reason = ex is Grpc.Core.RpcException rpc ? Rimlink.Client.UI.RefusalText.Of(rpc) : ex.Message;
                 MainThread.Post(() => { Starting = false; wait.Close(); Messages.Message("Rimlink.Visit.Failed".Translate(reason), MessageTypeDefOf.RejectInput, historical: false); });
                 return;
             }
@@ -139,7 +139,7 @@ public static class VisitSession
             }
             catch (Exception ex)
             {
-                string reason = ex is Grpc.Core.RpcException rpc ? EconomyClient.MessageOf(rpc) : ex.Message;
+                string reason = ex is Grpc.Core.RpcException rpc ? Rimlink.Client.UI.RefusalText.Of(rpc) : ex.Message;
                 MainThread.Post(() => { wait.Close(); Fail(pending, visits, reason, onFailure); });
                 return;
             }

@@ -96,7 +96,7 @@ public static class SaveSync
             catch (Grpc.Core.RpcException ex) when (Rimlink.Client.Economy.EconomyClient.CodeOf(ex) == Rimlink.Protocol.V1.ErrorCode.SaveStale)
             {
                 // Not a retry case: this file would bring back what was given away. The player decides in game.
-                LastError = Rimlink.Client.Economy.EconomyClient.MessageOf(ex);
+                LastError = Rimlink.Client.UI.RefusalText.Of(ex);
                 StaleSaveDetected = true;
                 RimlinkLog.Instance.Warn($"save refused as stale: {LastError}");
             }

@@ -115,13 +115,13 @@ public sealed class Dialog_Buy : Window
             }
             catch (RpcException ex) when (TransferOutbox.IsDefinitive(ex))
             {
-                string reason = EconomyClient.MessageOf(ex);
+                string reason = Rimlink.Client.UI.RefusalText.Of(ex);
                 if (entry is not null) outbox!.Remove(entry.Id);
                 MainThread.Post(() => Messages.Message("Rimlink.Shop.Refused".Translate(reason), MessageTypeDefOf.RejectInput, historical: false));
             }
             catch (Exception ex)
             {
-                string reason = ex is RpcException rpc ? EconomyClient.MessageOf(rpc) : ex.Message;
+                string reason = ex is RpcException rpc ? Rimlink.Client.UI.RefusalText.Of(rpc) : ex.Message;
                 MainThread.Post(() => Messages.Message("Rimlink.Economy.Unanswered".Translate(reason), MessageTypeDefOf.NegativeEvent, historical: false));
             }
         });

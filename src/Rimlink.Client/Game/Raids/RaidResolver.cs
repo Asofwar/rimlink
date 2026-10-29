@@ -273,9 +273,10 @@ public static class RaidResolver
         }
         catch (RpcException ex) when (TransferOutbox.IsDefinitive(ex))
         {
-            string reason = EconomyClient.MessageOf(ex);
+            var refusal = Rimlink.Client.Net.RpcErrorDetail.Read(ex);
+            string reason = refusal.Message;
             RimlinkLog.Instance.Warn(report.Loot.Items.Count > 0 ? $"raid report refused ({reason}); the loot goes back to the colony" : $"raid report refused ({reason})");
-            if (entry is not null) outbox!.Refuse(entry.Id, reason);
+            if (entry is not null) outbox!.Refuse(entry.Id, refusal);
             if (EconomyClient.CodeOf(ex) == ErrorCode.RaidGone || report.Loot.Items.Count == 0) return;
         }
         catch (Exception ex)

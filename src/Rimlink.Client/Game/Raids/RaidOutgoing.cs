@@ -131,13 +131,13 @@ public static class RaidOutgoing
             }
             catch (RpcException ex) when (TransferOutbox.IsDefinitive(ex))
             {
-                string reason = EconomyClient.MessageOf(ex);
+                string reason = Rimlink.Client.UI.RefusalText.Of(ex);
                 if (entry is not null) outbox!.Remove(entry.Id);
                 MainThread.Post(() => Messages.Message("Rimlink.Raid.Refused".Translate(reason), MessageTypeDefOf.RejectInput, historical: false));
             }
             catch (Exception ex)
             {
-                string reason = ex is RpcException rpc ? EconomyClient.MessageOf(rpc) : ex.Message;
+                string reason = ex is RpcException rpc ? Rimlink.Client.UI.RefusalText.Of(rpc) : ex.Message;
                 RimlinkLog.Instance.Warn($"raid launch unanswered, kept in the outbox: {reason}");
                 MainThread.Post(() => Messages.Message("Rimlink.Economy.Unanswered".Translate(reason), MessageTypeDefOf.NegativeEvent, historical: false));
             }

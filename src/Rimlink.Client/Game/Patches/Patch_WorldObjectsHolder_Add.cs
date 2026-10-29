@@ -37,7 +37,7 @@ public static class Patch_WorldObjectsHolder_Add
             }
             catch (RpcException ex)
             {
-                string reason = ex.Status.Detail;
+                string reason = Rimlink.Client.UI.RefusalText.Of(ex);
                 RimlinkLog.Instance.Warn($"settlement on tile {tileId} refused: {reason}");
                 MainThread.Post(() =>
                 {

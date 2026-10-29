@@ -137,13 +137,13 @@ public static class LoginFlow
             {
                 // The Steam ticket was refused (server without a Steam key, or Steam offline): offer the account login.
                 credentials.PreferPassword = true;
-                credentials.LastError = ex.Status.Detail;
+                credentials.LastError = RefusalText.Of(ex);
             }
             catch (RpcException ex) when (ex.StatusCode is StatusCode.Unauthenticated or StatusCode.AlreadyExists or StatusCode.InvalidArgument
                                           && credentials.LastPassword is not null)
             {
                 // Wrong password or a refused registration (name taken, bad name): ask again instead of failing the whole flow.
-                credentials.LastError = ex.Status.Detail;
+                credentials.LastError = RefusalText.Of(ex);
                 credentials.ForgetPassword();
             }
             catch (RpcException ex) when (ErrorCodeOf(ex) == ErrorCode.WrongPassword && !serverPasswordAsked && credentials.Interactive)
@@ -224,7 +224,7 @@ public static class LoginFlow
 
     private static ErrorCode? ErrorCodeOf(RpcException ex) => Rimlink.Client.Economy.EconomyClient.CodeOf(ex);
 
-    private static string ErrorMessage(RpcException ex) => Rimlink.Client.Economy.EconomyClient.MessageOf(ex);
+    private static string ErrorMessage(RpcException ex) => RefusalText.Of(ex);
 
     /// <summary>Seed, faction name and tick straight from the .rws header, without loading the game.</summary>
     private static SaveMeta ReadMeta(string rwsPath)

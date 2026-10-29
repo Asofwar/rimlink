@@ -268,7 +268,7 @@ public static class Outgoing
             var center = Incoming.DropCenter(map);
             DropPodUtility.DropThingsNear(center, map, things, openDelay: 110, canInstaDropDuringInit: false, leaveSlag: false, canRoofPunch: true, forbid: false);
             outbox.Remove(entry.Id);
-            Messages.Message("Rimlink.Economy.Returned".Translate(entry.Refusal), new LookTargets(center, map), MessageTypeDefOf.NegativeEvent, historical: false);
+            Messages.Message("Rimlink.Economy.Returned".Translate(Rimlink.Client.UI.RefusalText.Of(entry)), new LookTargets(center, map), MessageTypeDefOf.NegativeEvent, historical: false);
             RimlinkLog.Instance.Info($"refused {entry.Kind} {entry.Id} returned by drop pod: {things.Count} things");
             SaveSync.TriggerSave("transfer-restore");
         }
@@ -402,7 +402,7 @@ public static class Outgoing
                 }
                 catch (RpcException ex) when (TransferOutbox.IsDefinitive(ex))
                 {
-                    string reason = EconomyClient.MessageOf(ex);
+                    string reason = Rimlink.Client.UI.RefusalText.Of(ex);
                     RimlinkLog.Instance.Warn($"transfer refused: {reason}");
                     if (entry is not null) outbox!.Remove(entry.Id);
                     MainThread.Post(() =>
@@ -415,7 +415,7 @@ public static class Outgoing
                 catch (Exception ex)
                 {
                     // Unknown outcome: the entry stays in the outbox and is replayed with the same key; nothing is restored and nothing is lost.
-                    string reason = ex is RpcException rpc ? EconomyClient.MessageOf(rpc) : ex.Message;
+                    string reason = ex is RpcException rpc ? Rimlink.Client.UI.RefusalText.Of(rpc) : ex.Message;
                     RimlinkLog.Instance.Warn($"transfer unanswered, kept in the outbox: {reason}");
                     MainThread.Post(() => Messages.Message("Rimlink.Economy.Unanswered".Translate(reason), MessageTypeDefOf.NegativeEvent, historical: false));
                 }

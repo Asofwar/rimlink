@@ -80,7 +80,7 @@ public sealed class Dialog_Chat : Window
             try { await connection.Chat.SendAsync(new SendRequest { Text = line, ToPlayerId = to }); }
             catch (RpcException ex)
             {
-                MainThread.Post(() => Messages.Message(ex.Status.Detail, MessageTypeDefOf.RejectInput, historical: false));
+                MainThread.Post(() => Messages.Message(RefusalText.Of(ex), MessageTypeDefOf.RejectInput, historical: false));
             }
         });
     }

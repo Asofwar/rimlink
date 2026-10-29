@@ -38,7 +38,7 @@ public static class Patch_WorldGenerator_GenerateWorld
             catch (RpcException ex)
             {
                 RimlinkLog.Instance.Error($"could not register the world: {ex.Status.Detail}");
-                UI.MainThread.Post(() => Find.WindowStack.Add(new Dialog_MessageBox("Rimlink.Flow.Error".Translate(ex.Status.Detail))));
+                UI.MainThread.Post(() => Find.WindowStack.Add(new Dialog_MessageBox("Rimlink.Flow.Error".Translate(Rimlink.Client.UI.RefusalText.Of(ex)))));
             }
         });
     }
