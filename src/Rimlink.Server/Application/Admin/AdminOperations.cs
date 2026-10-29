@@ -295,6 +295,17 @@ public sealed class AdminOperations(
         if (session is null) return $"{player.Name} is not online";
         if (session.Role > actor.Role) throw RpcErrors.PermissionDenied("cannot kick someone with a higher role");
 
+        // A live session needs both players online, and the kicked client logs in again at once: it ends as an admin's end
+        // would, while the kicked player's event stream still carries the end. A session already ending waits for the host's report.
+        var open = await db.LiveSessions.AsNoTracking()
+            .Where(s => (s.HostPlayerId == playerId || s.GuestPlayerId == playerId)
+                && (s.State == LiveStateDb.Proposed || s.State == LiveStateDb.Starting || s.State == LiveStateDb.Running || s.State == LiveStateDb.Waiting))
+            .ToListAsync();
+        foreach (var row in open)
+        {
+            if (row.State == LiveStateDb.Proposed) await live.Respond(row.HostPlayerId, row.Id, accept: false);
+            else await live.MarkEnding(row.Id, LiveEndReason.EndAdmin);
+        }
         events.SendTo(playerId, new ServerEvent { Notice = new Notice { Text = $"You were kicked: {reason}" } });
         sessions.End(session.Token);
         await Audit(actor, "kick", player.AccountId, reason);
