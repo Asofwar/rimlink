@@ -103,15 +103,35 @@ public static class ThingBlobs
         foreach (var t in held.Prepend(root).Distinct())
         {
             if (t.def.HasThingIDNumber) t.thingIDNumber = Find.UniqueIDsManager.GetNextThingID();
+            // Verb load ids embed their owner's id ("Thing_Human12_0_Smash"): built afresh for the new ids, or the next load
+            // replaces them ("Replaced verb") and two copies of one pawn collide in the loaded object directory.
+            if (t is ThingWithComps withComps)
+                foreach (var comp in withComps.AllComps) if (comp is IVerbOwner owner) RebuildVerbs(owner);
             if (t is not Pawn p) continue;
+            RebuildOwnVerbs(p);
             if (p.health?.hediffSet?.hediffs is { } hediffs)
-                foreach (var h in hediffs) h.loadID = Find.UniqueIDsManager.GetNextHediffID();
+                foreach (var h in hediffs)
+                {
+                    h.loadID = Find.UniqueIDsManager.GetNextHediffID();
+                    if (h is HediffWithComps withHediffComps)
+                        foreach (var comp in withHediffComps.comps) if (comp is IVerbOwner owner) RebuildVerbs(owner);
+                }
             if (p.genes?.GenesListForReading is { } genes)
                 foreach (var g in genes) g.loadID = Find.UniqueIDsManager.GetNextGeneID();
             if (p.abilities?.abilities is { } abilities)
-                foreach (var a in abilities) a.Id = Find.UniqueIDsManager.GetNextAbilityID();
+                foreach (var a in abilities) { a.Id = Find.UniqueIDsManager.GetNextAbilityID(); RebuildVerbs(a); }
         }
     }
+
+    /// <summary>The pawn's own verbs built afresh after its thing id changed (their load ids embed it).</summary>
+    public static void RebuildOwnVerbs(Pawn pawn)
+    {
+        RebuildVerbs(pawn);
+        if (pawn.natives is IVerbOwner natives) RebuildVerbs(natives);
+        pawn.meleeVerbs?.Notify_PawnDespawned(); // the current melee verb was one of the old ones
+    }
+
+    private static void RebuildVerbs(IVerbOwner owner) => owner.VerbTracker?.InitVerbsFromZero();
 
     public static int SizeOf(ItemList? items, PawnList? pawns) =>
         (items?.Items.Sum(i => i.ScribeXmlZstd.Length) ?? 0) + (pawns?.Pawns.Sum(p => p.ScribeXmlZstd.Length) ?? 0);
