@@ -22,7 +22,7 @@ namespace Rimlink.Server.Application.Raids;
 /// became of them; the server only validates and moves parcels.
 /// </summary>
 public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, RaidReportValidator reports, MailboxService mailbox, RaidGate gate, RaidRules rules,
-    Economy.PlayerFreeze freezes, EventBus events, AdminFeed feed, IOptions<RaidOptions> options, ILogger<RaidService> log)
+    Economy.PlayerFreeze freezes, EventBus events, AdminFeed feed, IOptions<RaidOptions> options, ILogger<RaidService> log, ServerWealth wealth)
 {
     private static readonly RaidStateDb[] FinalStates = [RaidStateDb.Resolved, RaidStateDb.Expired, RaidStateDb.Cancelled];
     private static readonly RaidStateDb[] PendingStates = [RaidStateDb.Queued, RaidStateDb.Announced];
@@ -60,7 +60,7 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
             Controller = (int)controller,
             State = RaidStateDb.Queued,
             Pawns = r.Pawns.ToByteArray(),
-            LootCap = rules.LootCap(target, r.PawnMode, r.Timing),
+            LootCap = rules.LootCap(target, await wealth.Of(target.Id), r.PawnMode, r.Timing),
             CreatedAt = now,
             ExpiresAt = now + TimeSpan.FromDays(o.ExpireRealDays),
             ClientRequestId = string.IsNullOrEmpty(r.ClientRequestId) ? null : r.ClientRequestId,

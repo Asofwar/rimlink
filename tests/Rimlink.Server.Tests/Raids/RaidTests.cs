@@ -143,6 +143,35 @@ public class RaidTests
     }
 
     [Fact]
+    public async Task LootCapIncludesTheTargetsWallet()
+    {
+        using var fixture = RaidServer();
+        var p = await NovaAndBob(fixture);
+        await MakeTargetRaidable(fixture, p.Bob.Player.PlayerId, wealthItems: 10000);
+        await Fund(fixture, p.Bob.Player.PlayerId, 20000);
+
+        var raid = await p.N.Raids.LaunchAsync(Launch(p.Bob.Player.PlayerId), p.N.Auth);
+
+        Assert.Equal(3000, raid.LootCap); // min((10000 + 20000) * 10 %, 5000)
+    }
+
+    [Fact]
+    public async Task PoorColonyWithARichWalletIsRaidable()
+    {
+        using var fixture = RaidServer().WithSetting("Raids:MinColonyWealth", "20000");
+        var p = await NovaAndBob(fixture);
+        await MakeTargetRaidable(fixture, p.Bob.Player.PlayerId, wealthItems: 5000, wealthTotal: 5000);
+        await Fund(fixture, p.Bob.Player.PlayerId, 14000);
+
+        var poor = await Assert.ThrowsAsync<RpcException>(() => p.N.Raids.LaunchAsync(Launch(p.Bob.Player.PlayerId), p.N.Auth).ResponseAsync);
+        Assert.Equal(ErrorCode.TargetProtected, poor.ErrorDetail()!.Code);
+
+        await Fund(fixture, p.Bob.Player.PlayerId, 2000);
+        var raid = await p.N.Raids.LaunchAsync(Launch(p.Bob.Player.PlayerId), p.N.Auth);
+        Assert.True(raid.Id > 0);
+    }
+
+    [Fact]
     public async Task NewTargetIsTargetProtected()
     {
         using var fixture = EconomyServer(); // spec defaults: 3 days, 20000 wealth

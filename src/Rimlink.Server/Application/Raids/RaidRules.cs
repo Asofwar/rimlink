@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Rimlink.Protocol.V1;
+using Rimlink.Server.Application.Economy;
 using Rimlink.Server.Grpc;
 using Rimlink.Server.Hosting;
 using Rimlink.Server.Storage;
@@ -19,7 +20,7 @@ public sealed class RaidGate(IOptions<RaidOptions> options, RaidFreezeState free
 }
 
 /// <summary>Who may raid whom right now (spec §3): peaceful mode, newbie and wealth protection, cooldowns, active-raid limit; and the loot cap.</summary>
-public sealed class RaidRules(IOptions<RaidOptions> options, RimlinkDbContext db)
+public sealed class RaidRules(IOptions<RaidOptions> options, RimlinkDbContext db, ServerWealth wealth)
 {
     private static readonly RaidStateDb[] Final = [RaidStateDb.Resolved, RaidStateDb.Expired, RaidStateDb.Cancelled];
 
@@ -35,7 +36,8 @@ public sealed class RaidRules(IOptions<RaidOptions> options, RimlinkDbContext db
         var firstSave = target.FirstSaveAt ?? await db.SaveVersions.Where(v => v.PlayerId == target.Id).MinAsync(v => (DateTime?)v.CreatedAt);
         if (firstSave is null || now - firstSave.Value < TimeSpan.FromDays(o.NewbieProtectionDays))
             return (ErrorCode.TargetProtected, RefusalKeys.RaidsTargetNew, $"{target.Name}'s colony is too new to be raided", [target.Name]);
-        if (target.WealthTotal < o.MinColonyWealth)
+        // Silver in the wallet, lots and parcels in transit count: a colony cannot hide its wealth on the server.
+        if ((decimal)target.WealthTotal + await wealth.Of(target.Id) < o.MinColonyWealth)
             return (ErrorCode.TargetProtected, RefusalKeys.RaidsTargetPoor, $"{target.Name}'s colony is too poor to be raided", [target.Name]);
 
         int active = await db.Raids.CountAsync(r => r.AttackerPlayerId == attacker.Id && !Final.Contains(r.State));
@@ -50,11 +52,14 @@ public sealed class RaidRules(IOptions<RaidOptions> options, RimlinkDbContext db
         return null;
     }
 
-    /// <summary>Silver worth of loot the defender may lose: min(items wealth × percent, absolute cap), halved for Snapshot and again for Instant.</summary>
-    public long LootCap(Player target, PawnMode mode, RaidTiming timing)
+    /// <summary>
+    /// Silver worth of loot the defender may lose: min((items wealth + server-held wealth) × percent, absolute cap), halved for
+    /// Snapshot and again for Instant.
+    /// </summary>
+    public long LootCap(Player target, long serverWealth, PawnMode mode, RaidTiming timing)
     {
         var o = options.Value;
-        double cap = Math.Min(target.WealthItems * o.LootCapPercent / 100.0, o.LootCapSilver);
+        double cap = Math.Min(((double)target.WealthItems + serverWealth) * o.LootCapPercent / 100.0, o.LootCapSilver);
         if (mode == PawnMode.PawnSnapshot) cap *= 0.5;
         if (timing == RaidTiming.TimingInstant) cap *= 0.5;
         return (long)cap;
