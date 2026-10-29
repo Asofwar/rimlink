@@ -20,6 +20,7 @@ public sealed class ColonyTools
         [ToolParameter(Description = "Difficulty defName or label; default Rough")] string? difficulty = null,
         [ToolParameter(Description = "World seed, only for an admin creating the server's first planet")] string? seed = null,
         [ToolParameter(Description = "Starting tile id; default a random free one")] int tile = -1,
+        [ToolParameter(Description = "Threat scale of the difficulty values (e.g. 0.5 with difficulty Custom); 0 keeps the difficulty's own")] float threatScale = 0f,
         [ToolParameter(Description = "Seconds to wait for the whole flow (world generation included)")] int timeoutSec = 300)
     {
         if (timeoutSec < 1) return Bridge.Fail("timeoutSec must be at least 1");
@@ -40,7 +41,7 @@ public sealed class ColonyTools
             });
             if (refused is not null) return refused;
 
-            var driver = new NewColonyDriver(new NewColonyDriver.Options(scenario, storyteller, difficulty, seed, tile));
+            var driver = new NewColonyDriver(new NewColonyDriver.Options(scenario, storyteller, difficulty, seed, tile, threatScale));
             var (ok, error) = await driver.RunAsync(ctx, deadline);
             if (!ok) return Bridge.Fail(error!, new { steps = driver.Steps, topWindow = await Bridge.OnMain(ctx, Bridge.TopWindowType) });
 

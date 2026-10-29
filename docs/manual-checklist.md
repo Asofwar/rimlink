@@ -742,5 +742,12 @@ failed» и возвращает вещи на карту без запроса 
   `WealthTotal` 14650 (раньше отложенная выгрузка приходила с 0), гость заморожен «dev mode was on in save v15», аудит
   `integrity-devmode system`. `rimlink/send` → «Transfer refused: Your trading is frozen: Dev mode was on in save v15.
   Everything was put back.» REST `players/2/economy {frozen:false}` → сообщение «Your trading is open again», отправка прошла.
-- [ ] Галочка Options и кнопка отладки на страницах новой колонии (сессия есть, игры нет) — отказ тем же сеттером.
-- [ ] У админа (Admin-s3) dev mode остаётся включён в сессии.
+- [x] Страницы новой колонии (сессия есть, игры нет, `Page_SelectScenario`): `rimlink/set_dev_mode {on:true}` — отказ, сообщение видно на
+  странице рассказчика.
+- [x] У админа (Admin-s3) dev mode остаётся включён в сессии (`allowed=true`).
+- [x] Рассказчик (свежий сервер `server-st`): админ создал мир с Phoebe / Custom, threat scale 50% (`rimlink/start_colony {threatScale:0.5}`),
+  `WorldParams` несёт значения (Params 813 байт). Страница рассказчика гостя показывает Phoebe / Custom и подпись «Storyteller and
+  difficulty are set by 127.0.0.1.»; `start_colony {storyteller:Randy, difficulty:Rough}` → колония на Phoebe / Custom 0.5.
+- [x] Смена в игре: `rimlink/set_storyteller Randy/Rough` (сессия, Locked), открыть страницу рассказчика → Phoebe / Custom 0.5 с подписью.
+- [x] Загрузка: сервер `StorytellerPolicy=Free`, гость на Randy/Rough, выгрузка; сервер Locked, вход → «The server's storyteller and
+  difficulty were applied: Phoebe Chillax, Custom.», Phoebe / Custom 0.5, лог `storyteller Randy/Rough replaced by the server's Phoebe/Custom`.

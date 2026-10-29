@@ -155,6 +155,7 @@ public sealed class RimlinkGameComponent : GameComponent
         DevModeGuard.Tick();
         if (Prefs.DevMode) DevModeSinceUpload = true;
         if (!RimlinkSession.Active) return;
+        HoldStoryteller();
 
         RimlinkSession.Inbox.DrainTo(RimlinkSession.State.Apply);
         HandleConnectionState();
@@ -302,6 +303,24 @@ public sealed class RimlinkGameComponent : GameComponent
     {
         EndSession();
         GenScene.GoToMainMenu();
+    }
+
+    private bool storytellerHeld;
+
+    /// <summary>
+    /// First frame of an own colony in a session: a colony that plays with another storyteller or difficulty than the server
+    /// locks (chosen before the lock, or changed offline) gets the server's. Not during loading (FinalizeInit runs before the
+    /// first frame), not in a visit or the live mirror: those games are someone else's colony.
+    /// </summary>
+    private void HoldStoryteller()
+    {
+        if (storytellerHeld || Current.ProgramState != ProgramState.Playing || Visits.VisitSession.InVisit || Live.MirrorMode.Active) return;
+        storytellerHeld = true;
+        if (ServerStoryteller.Current() is not { } s || Find.Storyteller is not { } storyteller) return;
+        string before = $"{storyteller.def?.defName}/{storyteller.difficultyDef?.defName}";
+        if (!ServerStoryteller.Apply(storyteller, s)) return;
+        RimlinkLog.Instance.Info($"storyteller {before} replaced by the server's {s.Def.defName}/{s.Difficulty.defName}");
+        Messages.Message("Rimlink.Storyteller.Applied".Translate(s.Def.LabelCap, s.Difficulty.LabelCap), MessageTypeDefOf.NeutralEvent, historical: false);
     }
 
     public static void EndSession()

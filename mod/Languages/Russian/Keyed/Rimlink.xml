@@ -184,6 +184,8 @@
   <Rimlink.Save.Stale>Этот сейв старше вашей последней передачи; сервер его не примет (отправленное уже у другого игрока). Выйдите в меню и войдите снова, чтобы получить копию с сервера, или играйте дальше без выгрузки.</Rimlink.Save.Stale>
   <Rimlink.Save.KeepPlaying>Играть дальше (без выгрузки)</Rimlink.Save.KeepPlaying>
   <Rimlink.DevMode.Refused>На этом сервере режим разработчика доступен только админам.</Rimlink.DevMode.Refused>
+  <Rimlink.Storyteller.Locked>Рассказчик и сложность заданы сервером {0}.</Rimlink.Storyteller.Locked>
+  <Rimlink.Storyteller.Applied>Применены рассказчик и сложность сервера: {0}, {1}.</Rimlink.Storyteller.Applied>
   <Rimlink.Save.EndedByLoad>Вы загрузили другой сейв, поэтому сессия Rimlink завершена. Мультиплеерная колония сохранена на этом компьютере и уйдёт на сервер при следующем входе.</Rimlink.Save.EndedByLoad>
   <Rimlink.Save.EndedByLoadUnsaved>Вы загрузили другой сейв, поэтому сессия Rimlink завершена. На сервере остаётся колония в том виде, в каком она была выгружена последний раз.</Rimlink.Save.EndedByLoadUnsaved>
   <Rimlink.Raid.CaravanRaid>Напасть на колонию {0}...</Rimlink.Raid.CaravanRaid>

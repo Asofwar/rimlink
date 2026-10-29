@@ -13,7 +13,7 @@ namespace Rimlink.BridgeTools;
 /// </summary>
 public sealed class NewColonyDriver(NewColonyDriver.Options options)
 {
-    public sealed record Options(string? Scenario, string? Storyteller, string? Difficulty, string? Seed, int Tile);
+    public sealed record Options(string? Scenario, string? Storyteller, string? Difficulty, string? Seed, int Tile, float ThreatScale = 0f);
 
     private enum Kind { Wait, Acted, Done, Failed }
 
@@ -83,7 +83,9 @@ public sealed class NewColonyDriver(NewColonyDriver.Options options)
                 var t = Traverse.Create(page);
                 t.Field("storyteller").SetValue(teller);
                 t.Field("difficulty").SetValue(difficulty);
-                t.Field("difficultyValues").SetValue(new Difficulty(difficulty));
+                var values = new Difficulty(difficulty);
+                if (options.ThreatScale > 0f) values.threatScale = options.ThreatScale; // a Custom difficulty to tell apart from the defaults
+                t.Field("difficultyValues").SetValue(values);
                 Find.GameInitData.permadeathChosen = true;
                 Find.GameInitData.permadeath = false;
                 return Next(page, $"storyteller {teller.defName}, {difficulty.defName}");

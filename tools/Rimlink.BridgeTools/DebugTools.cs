@@ -20,6 +20,22 @@ public sealed class DebugTools
         return new { success = true, devMode = Prefs.DevMode };
     });
 
+    [Tool("rimlink/set_storyteller", Description = "Change the current game's storyteller and difficulty as the in-game storyteller page does, without the page (a check of the server's storyteller lock on load)",
+        ResultDescription = "success plus the storyteller, difficulty and threat scale afterwards")]
+    public Task<object> SetStoryteller(IRimBridgeContext ctx,
+        [ToolParameter(Description = "Storyteller defName, e.g. Randy", Required = true)] string storyteller,
+        [ToolParameter(Description = "Difficulty defName, e.g. Rough", Required = true)] string difficulty) => Bridge.OnMain<object>(ctx, () =>
+    {
+        if (Find.Storyteller is not { } st) return Bridge.Fail("no game");
+        if (DefDatabase<StorytellerDef>.GetNamedSilentFail(storyteller) is not { } def) return Bridge.Fail($"unknown storyteller '{storyteller}'");
+        if (DefDatabase<DifficultyDef>.GetNamedSilentFail(difficulty) is not { } diff) return Bridge.Fail($"unknown difficulty '{difficulty}'");
+        st.def = def;
+        st.difficultyDef = diff;
+        st.difficulty = new Difficulty(diff);
+        st.Notify_DefChanged();
+        return new { success = true, storyteller = st.def.defName, difficulty = st.difficultyDef.defName, threatScale = st.difficulty.threatScale };
+    });
+
     [Tool("rimlink/map_pawns", Description = "Every spawned pawn on the current map with its faction, kind and ideo (current and previous)",
         ResultDescription = "success plus one entry per pawn")]
     public Task<object> MapPawns(IRimBridgeContext ctx,

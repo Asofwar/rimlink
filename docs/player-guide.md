@@ -53,7 +53,10 @@ links (subscribe before the first connection), the login modes, the address to a
 ## 3. Play
 
 - **First login**: the usual new-colony pages. The world page is locked to the server's planet (same seed and
-  settings for everyone). Other players' settlements are already on the map; pick a free tile.
+  settings for everyone). Other players' settlements are already on the map; pick a free tile. On most servers the
+  storyteller and difficulty are the world's too ("Storyteller and difficulty are set by …"): the storyteller page shows
+  them and they cannot be changed, neither there nor later in game; a colony that plays with others gets the server's when
+  it loads ("The server's storyteller and difficulty were applied").
 - **Later logins**: your save is downloaded from the server and loaded.
 - **Leaving**: use the vanilla **Quit to main menu**. The game saves, uploads the save and only then returns to
   the menu. Autosaves are uploaded too. Saves live in `Saves/Rimlink_<host>_<port>_<player>.rws`; manual saves

@@ -27,6 +27,8 @@ public static class WorldSetup
             DifficultyDef = Find.Storyteller?.difficultyDef?.defName ?? "",
         };
         if (info.factions != null) parameters.FactionDefs.AddRange(info.factions.Select(f => f.defName));
+        // A Custom difficulty exists only as these values; every colony plays with them while the server locks the storyteller.
+        if (Find.Storyteller?.difficulty is { } difficulty) parameters.DifficultyValues = Google.Protobuf.ByteString.CopyFrom(ServerStoryteller.Serialize(difficulty));
 
         var npcTiles = world.worldObjects.Settlements
             .Where(s => s.Faction != null && !s.Faction.IsPlayer)
