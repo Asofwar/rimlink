@@ -81,15 +81,17 @@ public static class ModpackComparer
         return false;
     }
 
+    /// <summary>
+    /// When any shared settings file differs, the client gets every one of its mods' shared files: "Fix and restart" replaces
+    /// the whole active set, so a partial set would drop the files that happened to match this time.
+    /// </summary>
     private static void AddConfigs(ModpackDiff diff, IReadOnlyList<ModConfig> configs, IReadOnlyList<ModSettingsHash> settings)
     {
         var clientHashes = new Dictionary<(string, string), string>();
         foreach (var s in settings) clientHashes[(Normalize(s.PackageId), s.Handle)] = s.Hash;
-        foreach (var config in configs)
-        {
-            if (!clientHashes.TryGetValue((Normalize(config.PackageId), config.Handle), out var hash)) continue;
-            if (!string.Equals(hash, config.Hash, StringComparison.OrdinalIgnoreCase)) diff.Configs.Add(config);
-        }
+        var theirs = configs.Where(c => clientHashes.ContainsKey((Normalize(c.PackageId), c.Handle))).ToList();
+        if (theirs.Any(c => !string.Equals(clientHashes[(Normalize(c.PackageId), c.Handle)], c.Hash, StringComparison.OrdinalIgnoreCase)))
+            diff.Configs.AddRange(theirs);
     }
 
     /// <summary>True when both versions are dot-separated numbers and the client's is the higher one.</summary>

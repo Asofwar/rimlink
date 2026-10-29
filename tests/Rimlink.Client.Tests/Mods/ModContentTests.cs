@@ -111,6 +111,25 @@ public class ModContentTests : IDisposable
     }
 
     [Fact]
+    public void SettingsHashIgnoresHowTheGameWroteTheFile()
+    {
+        byte[] crlf = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<SettingsBlock>\r\n  <ModSettings Class=\"A.B\">\r\n    <points>5</points>\r\n  </ModSettings>\r\n</SettingsBlock>"u8.ToArray();
+        byte[] lfWithBom = [0xEF, 0xBB, 0xBF, .. "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<SettingsBlock>\n\t<ModSettings Class=\"A.B\">\n\t\t<points>5</points>\n\t</ModSettings>\n</SettingsBlock>\n"u8.ToArray()];
+        byte[] other = "<SettingsBlock><ModSettings Class=\"A.B\"><points>6</points></ModSettings></SettingsBlock>"u8.ToArray();
+
+        Assert.Equal(ModContent.SettingsHash(crlf), ModContent.SettingsHash(lfWithBom));
+        Assert.NotEqual(ModContent.SettingsHash(crlf), ModContent.SettingsHash(other));
+    }
+
+    [Fact]
+    public void SettingsHashOfAFileThatIsNotXmlIsTheRawHash()
+    {
+        byte[] content = "not xml at all"u8.ToArray();
+
+        Assert.Equal(ModContent.Hash(content), ModContent.SettingsHash(content));
+    }
+
+    [Fact]
     public void AMissingFolderThrows()
     {
         Assert.Throws<DirectoryNotFoundException>(() => ModContent.Scan(Mod("nope")));

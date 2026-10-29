@@ -57,7 +57,7 @@ public static class ModpackActions
             {
                 PackageId = Normalize(mod.Content.PackageId),
                 Handle = handle,
-                Hash = File.Exists(path) ? ModContent.Hash(File.ReadAllBytes(path)) : ModContent.NoSettings,
+                Hash = File.Exists(path) ? ModContent.SettingsHash(File.ReadAllBytes(path)) : ModContent.NoSettings,
             };
         }).ToList();
 
@@ -105,6 +105,8 @@ public static class ModpackActions
         string path = GenFilePaths.ModsConfigFilePath;
         if (File.Exists(path)) File.Copy(path, Path.Combine(Path.GetDirectoryName(path)!, "ModsConfig.rimlink-backup.xml"), overwrite: true);
 
+        // Mods Steam installed since the game started are not in the list yet, and SetActiveToList drops unknown ids.
+        ModLister.RebuildModList();
         var installed = ModLister.AllInstalledMods
             .GroupBy(m => Normalize(m.PackageIdNonUnique), StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);

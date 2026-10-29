@@ -25,13 +25,22 @@ public sealed class ServerSettingsStore(string root)
         return $"{key}_{port}";
     }
 
+    /// <summary>A key usable in a file name: letters, digits, '.', '_' and '-' in the packageId, a class name as the handle.</summary>
+    public static bool IsSafe(SettingsKey key) =>
+        key.PackageId.Length > 0 && key.PackageId.All(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '_' or '-')
+        && key.Handle.Length > 0 && key.Handle.All(c => char.IsAsciiLetterOrDigit(c) || c == '_');
+
     public string PathFor(string server, SettingsKey key) => Path.Combine(root, server, $"Mod_{key.PackageId}_{key.Handle}.xml");
 
     /// <summary>Writes the server's files and makes this server's set the active one.</summary>
     public void Activate(string server, string display, IEnumerable<ModConfig> configs)
     {
+        var list = configs.ToList();
+        // The names come from the server and become file names: nothing but a packageId and a class name, checked before any write.
+        if (list.FirstOrDefault(c => !IsSafe(new SettingsKey(c.PackageId, c.Handle))) is { } unsafeConfig)
+            throw new IOException($"the server sent an unusable settings file name: {unsafeConfig.PackageId} {unsafeConfig.Handle}");
         var keys = new List<SettingsKey>();
-        foreach (var config in configs)
+        foreach (var config in list)
         {
             var key = new SettingsKey(config.PackageId, config.Handle);
             string path = PathFor(server, key);
@@ -50,7 +59,7 @@ public sealed class ServerSettingsStore(string root)
         {
             if (!File.Exists(ActivePath)) return null;
             var set = JsonSerializer.Deserialize<ServerSettingsSet>(File.ReadAllText(ActivePath));
-            return set is { Server.Length: > 0, Mods: not null } ? set : null;
+            return set is { Server.Length: > 0, Mods: not null } && set.Mods.All(IsSafe) ? set : null;
         }
         catch (Exception ex) when (ex is JsonException or IOException or NotSupportedException or UnauthorizedAccessException)
         {

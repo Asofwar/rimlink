@@ -18,7 +18,7 @@ public class ModpackCategoriesTests
         new() { PackageId = id, Position = position, Version = version, FilesHash = filesHash, HasDefs = defs, HasPatches = patches, HasAssemblies = assemblies };
 
     private static ModConfig Config(string id, string handle, string content) =>
-        new() { PackageId = id, Handle = handle, Content = ByteString.CopyFromUtf8(content), Hash = Rimlink.Protocol.ModContent.Hash(System.Text.Encoding.UTF8.GetBytes(content)) };
+        new() { PackageId = id, Handle = handle, Content = ByteString.CopyFromUtf8(content), Hash = Rimlink.Protocol.ModContent.SettingsHash(System.Text.Encoding.UTF8.GetBytes(content)) };
 
     private static ModSettingsHash Settings(string id, string handle, string hash) => new() { PackageId = id, Handle = handle, Hash = hash };
 
@@ -138,6 +138,18 @@ public class ModpackCategoriesTests
         var sent = Assert.Single(diff!.Configs);
         Assert.Equal(config.Content, sent.Content);
         Assert.Equal(config.Hash, sent.Hash);
+    }
+
+    [Fact]
+    public void OneDifferentSettingsFileBringsTheWholeSetSoTheClientCanReplaceIt()
+    {
+        var a = Config("a.one", "OneMod", "<a/>");
+        var b = Config("b.two", "TwoMod", "<b/>");
+
+        var diff = ModpackComparer.Compare([Required("a.one", 0), Required("b.two", 1)], [Mod("a.one", 0), Mod("b.two", 1)], [a, b],
+            [Settings("a.one", "OneMod", "changed"), Settings("b.two", "TwoMod", b.Hash)]);
+
+        Assert.Equal(["a.one", "b.two"], diff!.Configs.Select(c => c.PackageId));
     }
 
     [Fact]

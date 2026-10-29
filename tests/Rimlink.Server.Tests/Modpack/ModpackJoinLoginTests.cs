@@ -42,7 +42,7 @@ public class ModpackJoinLoginTests
         for (int i = 0; i < order.Length; i++)
             request.Mods.Add(new ModRef { PackageId = order[i], Position = i, FilesHash = order[i] == "a.one" ? filesHash : "h" });
         request.ModSettings.Add(new ModSettingsHash { PackageId = ModContent.RimlinkPackageId, Handle = "RimlinkMod", Hash = ModContent.NoSettings });
-        request.ModSettings.Add(new ModSettingsHash { PackageId = "a.one", Handle = "OneMod", Hash = settingsHash.Length > 0 ? settingsHash : ModContent.Hash(ServerSettings) });
+        request.ModSettings.Add(new ModSettingsHash { PackageId = "a.one", Handle = "OneMod", Hash = settingsHash.Length > 0 ? settingsHash : ModContent.SettingsHash(ServerSettings) });
         return request;
     }
 
@@ -110,7 +110,7 @@ public class ModpackJoinLoginTests
         var config = Assert.Single(reply.ModpackDiff.Configs);
         Assert.Equal(("a.one", "OneMod"), (config.PackageId, config.Handle));
         Assert.Equal(ServerSettings, config.Content.ToByteArray());
-        Assert.Equal(ModContent.Hash(ServerSettings), config.Hash);
+        Assert.Equal(ModContent.SettingsHash(ServerSettings), config.Hash);
     }
 
     [Fact]

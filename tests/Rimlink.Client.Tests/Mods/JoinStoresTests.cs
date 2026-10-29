@@ -77,6 +77,21 @@ public class JoinStoresTests : IDisposable
         Assert.Equal(ModContent.Hash(withBom), ModContent.Hash(written));
     }
 
+    [Theory]
+    [InlineData("a.one", @"x\..\..\..\Config\ModsConfig")]
+    [InlineData("a.one", "x/../../evil")]
+    [InlineData(@"..\..\evil", "OneMod")]
+    public void UnsafeNamesFromTheServerAreRefusedAndNothingIsWritten(string packageId, string handle)
+    {
+        string root = Path.Combine(dir, "server-settings");
+        var store = new ServerSettingsStore(root);
+
+        Assert.Throws<IOException>(() => store.Activate("s_1", "s", [Config(packageId, handle, "<a/>"u8.ToArray())]));
+
+        Assert.Empty(Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories));
+        Assert.Null(store.ReadActive());
+    }
+
     [Fact]
     public void ABrokenActiveFileIsNoSetAndClearForgetsIt()
     {

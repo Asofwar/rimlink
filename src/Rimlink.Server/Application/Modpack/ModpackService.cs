@@ -36,8 +36,12 @@ public sealed class ModpackService(RimlinkDbContext db, ILogger<ModpackService> 
         await db.ModpackEntries.ExecuteDeleteAsync();
         db.ModpackEntries.AddRange(rows);
         await db.SaveChangesAsync();
+        // Shared settings only work for mods below Rimlink (SetConfigs): drop those the new list moved above it or left out.
+        int rimlink = rows.FirstOrDefault(r => r.PackageId == ModContent.RimlinkPackageId)?.Position ?? int.MaxValue;
+        var below = rows.Where(r => r.Position > rimlink).Select(r => r.PackageId).ToList();
+        int dropped = await db.ModpackConfigs.Where(c => !below.Contains(c.PackageId)).ExecuteDeleteAsync();
         await tx.CommitAsync();
-        log.LogInformation("Modpack set by {Actor}: {Count} entries", actorName, rows.Count);
+        log.LogInformation("Modpack set by {Actor}: {Count} entries{Dropped}", actorName, rows.Count, dropped > 0 ? $", {dropped} shared settings files dropped" : "");
     }
 
     public async Task<List<Protocol.V1.ModConfig>> GetConfigs() =>
@@ -58,7 +62,9 @@ public sealed class ModpackService(RimlinkDbContext db, ILogger<ModpackService> 
         {
             if (config.Content.Length > Limits.MaxModConfigBytes)
                 throw Invalid($"{config.PackageId} {config.Handle}: {config.Content.Length} bytes, at most {Limits.MaxModConfigBytes}");
-            if (string.IsNullOrWhiteSpace(config.Handle)) throw Invalid($"{config.PackageId}: no Mod class name");
+            // Both end up in a file name on every player's disk: a Mod class name and a plain packageId only.
+            if (!HandlePattern.IsMatch(config.Handle)) throw Invalid($"{config.PackageId}: '{config.Handle}' is not a Mod class name");
+            if (!PackagePattern.IsMatch(ModpackComparer.Normalize(config.PackageId))) throw Invalid($"'{config.PackageId}' is not a packageId");
         }
         long total = configs.Sum(c => (long)c.Content.Length);
         if (total > Limits.MaxModConfigsTotalBytes) throw Invalid($"{total} bytes in all, at most {Limits.MaxModConfigsTotalBytes}");
@@ -74,7 +80,7 @@ public sealed class ModpackService(RimlinkDbContext db, ILogger<ModpackService> 
             if (!positions.TryGetValue(id, out int position)) throw Invalid($"{id} is not in the modpack");
             if (position <= rimlink) throw Invalid($"{id} loads before Rimlink: move it below {ModContent.RimlinkPackageId} in the modpack");
             byte[] content = config.Content.ToByteArray();
-            rows.Add(new Storage.Entities.ModpackConfig { PackageId = id, Handle = config.Handle.Trim(), Content = content, Hash = ModContent.Hash(content) });
+            rows.Add(new Storage.Entities.ModpackConfig { PackageId = id, Handle = config.Handle.Trim(), Content = content, Hash = ModContent.SettingsHash(content) });
         }
         if (rows.DistinctBy(r => (r.PackageId, r.Handle)).Count() != rows.Count) throw Invalid("a mod class is listed twice");
 
@@ -85,6 +91,9 @@ public sealed class ModpackService(RimlinkDbContext db, ILogger<ModpackService> 
         await tx.CommitAsync();
         log.LogInformation("Modpack configs set by {Actor}: {Count} files ({Bytes} bytes)", actorName, rows.Count, total);
     }
+
+    private static readonly System.Text.RegularExpressions.Regex HandlePattern = new(@"^[A-Za-z_][A-Za-z0-9_]*$");
+    private static readonly System.Text.RegularExpressions.Regex PackagePattern = new(@"^[a-z0-9._-]+$");
 
     private static RpcException Invalid(string reason) =>
         RpcErrors.With(StatusCode.InvalidArgument, Protocol.V1.ErrorCode.ModpackConfigsInvalid, reason);

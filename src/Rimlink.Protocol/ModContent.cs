@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Xml.Linq;
 
 namespace Rimlink.Protocol;
 
@@ -56,4 +57,21 @@ public static class ModContent
 
     /// <summary>Lower-case hex SHA-256.</summary>
     public static string Hash(byte[] content) => Convert.ToHexStringLower(SHA256.HashData(content));
+
+    /// <summary>
+    /// The hash of a mod settings file by its content, not its layout: the game rewrites the file (closing a mod's settings
+    /// window, another OS's line endings), so the XML is hashed without declaration, BOM and formatting whitespace. A file that
+    /// is not XML is hashed as it is.
+    /// </summary>
+    public static string SettingsHash(byte[] content)
+    {
+        try
+        {
+            using var stream = new MemoryStream(content);
+            var root = XDocument.Load(stream, LoadOptions.None).Root;
+            if (root is not null) return Hash(Encoding.UTF8.GetBytes(root.ToString(SaveOptions.DisableFormatting)));
+        }
+        catch (System.Xml.XmlException) { }
+        return Hash(content);
+    }
 }

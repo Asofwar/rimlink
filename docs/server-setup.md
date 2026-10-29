@@ -89,7 +89,10 @@ each file. The server refuses a mod that is not in the modpack or loads **before
 settings file from its own constructor, which runs before the constructors of the mods loaded after it), more than 64
 files, a file over 256 KB or 768 KB in all (`MODPACK_CONFIGS_INVALID`). A player whose settings file differs gets the
 server's file in the login refusal; **Fix and restart** stores it under `Rimlink/server-settings/` in their save data
-folder and uses it from the next start on, without touching their own file. REST: `GET`/`PUT /api/admin/modpack/configs`.
+folder and uses it from the next start on, without touching their own file. Files are compared by their XML content, so
+the game rewriting a file (closing a mod's settings window, other line endings) does not count as a difference. Setting a
+new modpack drops the shared settings of mods it leaves out or moves above Rimlink. Mod class names and packageIds of the
+uploaded files must be plain identifiers (they become file names on every player's disk). REST: `GET`/`PUT /api/admin/modpack/configs`.
 
 ### Modpack defs (economy)
 

@@ -60,7 +60,22 @@ public class ModpackConfigsTests
         var stored = await modpack.GetConfigsAsync(new Empty(), auth[0]);
 
         Assert.Equal(["author.raidpoints:RaidPointsMod", "author.trader:TraderMod"], stored.Configs.Select(c => $"{c.PackageId}:{c.Handle}").Order());
-        Assert.All(stored.Configs, c => Assert.Equal(ModContent.Hash(c.Content.ToByteArray()), c.Hash));
+        Assert.All(stored.Configs, c => Assert.Equal(ModContent.SettingsHash(c.Content.ToByteArray()), c.Hash));
+    }
+
+    [Fact]
+    public async Task StoredHashIgnoresTheFileLayout()
+    {
+        using var fixture = Server();
+        var auth = new Metadata[1];
+        var modpack = await AdminWithPack(fixture, auth);
+        byte[] crlf = "<SettingsBlock>\r\n  <points>5</points>\r\n</SettingsBlock>"u8.ToArray();
+
+        await modpack.SetConfigsAsync(ListOf(new ModConfig { PackageId = "author.trader", Handle = "TraderMod", Content = ByteString.CopyFrom(crlf) }), auth[0]);
+        var stored = (await modpack.GetConfigsAsync(new Empty(), auth[0])).Configs.Single();
+
+        Assert.Equal(ModContent.SettingsHash("<SettingsBlock><points>5</points></SettingsBlock>"u8.ToArray()), stored.Hash);
+        Assert.Equal(crlf, stored.Content.ToByteArray());
     }
 
     [Fact]
@@ -85,6 +100,8 @@ public class ModpackConfigsTests
         { "file too large", [Config("author.trader", "X", Limits.MaxModConfigBytes + 1)] },
         { "total too large", Enumerable.Range(0, 4).Select(i => Config("author.trader", "H" + i, 200 * 1024)).ToArray() },
         { "too many", Enumerable.Range(0, Limits.MaxModConfigs + 1).Select(i => Config("author.trader", "H" + i)).ToArray() },
+        { "handle with a path", [Config("author.trader", @"x\..\..\Config\ModsConfig")] },
+        { "handle with a dot", [Config("author.trader", "Trader.Mod")] },
     };
 
     [Theory]
@@ -148,10 +165,26 @@ public class ModpackConfigsTests
         Assert.Equal(HttpStatusCode.OK, put.StatusCode);
         Assert.Equal("author.trader", listed.GetProperty("packageId").GetString());
         Assert.Equal("TraderMod", listed.GetProperty("handle").GetString());
-        Assert.Equal(ModContent.Hash(content), listed.GetProperty("hash").GetString());
+        Assert.Equal(ModContent.SettingsHash(content), listed.GetProperty("hash").GetString());
         Assert.Equal(content.Length, listed.GetProperty("size").GetInt32());
         Assert.False(listed.TryGetProperty("content", out _));
         Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+    }
+
+    [Fact]
+    public async Task ANewModpackDropsTheSettingsOfModsAboveRimlinkOrGone()
+    {
+        using var fixture = Server();
+        var auth = new Metadata[1];
+        var modpack = await AdminWithPack(fixture, auth);
+        await modpack.SetConfigsAsync(ListOf(Config("author.raidpoints", "RaidMod"), Config("author.trader", "TraderMod")), auth[0]);
+        var pack = new ModpackList();
+        string[] ids = ["author.raidpoints", ModContent.RimlinkPackageId, "ludeon.rimworld"];
+        for (int i = 0; i < ids.Length; i++) pack.Entries.Add(new ModpackEntry { Position = i, PackageId = ids[i] });
+
+        await modpack.SetAsync(pack, auth[0]);
+
+        Assert.Empty((await modpack.GetConfigsAsync(new Empty(), auth[0])).Configs);
     }
 
     [Fact]
