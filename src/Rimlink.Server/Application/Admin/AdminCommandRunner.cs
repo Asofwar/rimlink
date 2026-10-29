@@ -20,7 +20,8 @@ public sealed class AdminCommandRunner(AdminOperations ops, ModpackService modpa
         live list [player] | live end <id> [reason] | peaceful <player> on|off | shop <player> | removals <player> |
         trades [player] | trade cancel <id> [reason] |
         freeze <player> [reason] | unfreeze <player> |
-        forbid list | forbid add <def...> | forbid remove <def...>
+        forbid list | forbid add <def...> | forbid remove <def...> |
+        archive list | archive <player> | archive restore <id>
         """;
 
     public async Task<string> Execute(Actor actor, AdminCommand command)
@@ -166,6 +167,34 @@ public sealed class AdminCommandRunner(AdminOperations ops, ModpackService modpa
                         var rs = await ops.RaidStats(actor);
                         return $"queued {rs.Queued}, announced {rs.Announced}, landed {rs.Landed}, resolved today {rs.ResolvedToday}, expired {rs.Expired}, cancelled {rs.Cancelled}{(rs.Frozen ? $", FROZEN: {rs.FreezeReason}" : "")}";
                     default: throw new RpcException(new Status(StatusCode.InvalidArgument, "raids list [player] | cancel <id> [reason] | freeze [reason] | unfreeze | stats"));
+                }
+            case "archive":
+                switch (Arg(0))
+                {
+                    case "list":
+                    {
+                        var rows = await ops.ListArchived(actor, "archived");
+                        return rows.Count == 0 ? "no archived colonies" : string.Join('\n', rows.Select(r =>
+                            $"#{r.Id} {r.PlayerName}: '{r.Colony}' tile {r.Tile}, archived {r.ArchivedAt:u} ({r.Reason} by {r.ArchivedBy})"));
+                    }
+                    case "restore":
+                        return await ops.RestoreColony(actor, long.Parse(Arg(1), CultureInfo.InvariantCulture)) switch
+                        {
+                            Rimlink.Server.Application.World.RestoreOutcome.Restored r => $"'{r.Settlement.Name}' restored on tile {r.Settlement.Tile}",
+                            Rimlink.Server.Application.World.RestoreOutcome.NotFound => "no such archive",
+                            Rimlink.Server.Application.World.RestoreOutcome.AlreadyRestored => "already restored",
+                            Rimlink.Server.Application.World.RestoreOutcome.PlayerHasColony => "the player has a colony now",
+                            Rimlink.Server.Application.World.RestoreOutcome.TileTaken => "the tile is taken",
+                            _ => "the archive is damaged",
+                        };
+                    default:
+                    {
+                        string name = Rest(0);
+                        var outcome = await ops.ArchiveColony(actor, await PlayerId(name));
+                        if (outcome is not Rimlink.Server.Application.World.ArchiveOutcome.Archived archived) return $"{name} has no colony";
+                        var row = (await ops.ListArchived(actor, "archived")).First(r => r.Id == archived.ArchiveId);
+                        return $"'{row.Colony}' of {row.PlayerName} archived as #{row.Id}";
+                    }
                 }
             case "live":
                 switch (Arg(0))

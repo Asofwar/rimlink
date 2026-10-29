@@ -59,6 +59,26 @@ public static class AdminEndpoints
         }).RequireScope(ApiScope.Admin);
         group.MapDelete("/bans/{id:long}", async (long id, HttpContext ctx, AdminOperations ops) => await ops.Pardon(ctx.Actor(), id) ? Results.Ok() : Results.NotFound()).RequireScope(ApiScope.Admin);
 
+        group.MapGet("/archive", async (HttpContext ctx, AdminOperations ops, [FromQuery] string? state = null) =>
+            await ops.ListArchived(ctx.Actor(), state ?? "archived")).RequireScope(ApiScope.Moderate);
+        group.MapPost("/players/{id:long}/archive", async (long id, HttpContext ctx, AdminOperations ops) =>
+            await ops.ArchiveColony(ctx.Actor(), id) switch
+            {
+                Application.World.ArchiveOutcome.Archived a => Results.Ok(new { id = a.ArchiveId }),
+                Application.World.ArchiveOutcome.NoColony => Results.Problem("no colony", statusCode: StatusCodes.Status409Conflict),
+                _ => Results.Problem("player is online", statusCode: StatusCodes.Status409Conflict),
+            }).RequireScope(ApiScope.Admin);
+        group.MapPost("/archive/{id:long}/restore", async (long id, HttpContext ctx, AdminOperations ops) =>
+            await ops.RestoreColony(ctx.Actor(), id) switch
+            {
+                Application.World.RestoreOutcome.Restored => Results.Ok(),
+                Application.World.RestoreOutcome.NotFound => Results.Problem("unknown archive", statusCode: StatusCodes.Status404NotFound),
+                Application.World.RestoreOutcome.AlreadyRestored => Results.Problem("already restored", statusCode: StatusCodes.Status409Conflict),
+                Application.World.RestoreOutcome.PlayerHasColony => Results.Problem("player has a colony", statusCode: StatusCodes.Status409Conflict),
+                Application.World.RestoreOutcome.TileTaken => Results.Problem("tile taken", statusCode: StatusCodes.Status409Conflict),
+                _ => Results.Problem("archive damaged", statusCode: StatusCodes.Status409Conflict),
+            }).RequireScope(ApiScope.Admin);
+
         group.MapPost("/chat", async (ChatBody body, ChatService chat) => Results.Ok(new { id = await chat.External(body.Author ?? "", body.Text ?? "") })).RequireScope(ApiScope.Chat);
         group.MapPost("/broadcast", (TextBody body, HttpContext ctx, AdminOperations ops) => ops.Broadcast(ctx.Actor(), body.Text)).RequireScope(ApiScope.Moderate);
         group.MapPost("/shutdown", (ShutdownBody body, HttpContext ctx, AdminOperations ops) => ops.Shutdown(ctx.Actor(), body.InSeconds, body.Reason ?? "server shutdown")).RequireScope(ApiScope.Admin);

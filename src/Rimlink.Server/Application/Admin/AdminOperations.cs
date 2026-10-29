@@ -32,6 +32,9 @@ public sealed record TradeView(long Id, long InitiatorId, string InitiatorName, 
 public sealed record OnlinePlayer(long PlayerId, long AccountId, string Name, string FactionName, Role Role, string Ip, DateTime Since);
 
 /// <summary>Every administrative operation, with the role check and the audit log in one place. gRPC, REST and chat commands all call this.</summary>
+public sealed record ArchivedRow(long Id, long PlayerId, string? PlayerName, string Colony, int Tile, DateTime SettledAt, DateTime ArchivedAt,
+    string Reason, string ArchivedBy, long WealthTotal, int? ColonyGameDays, DateTime? LastActiveAt, string State, DateTime? RestoredAt, string? RestoredBy);
+
 public sealed class AdminOperations(
     RimlinkDbContext db,
     SessionRegistry sessions,
@@ -55,10 +58,49 @@ public sealed class AdminOperations(
     AdminFeed feed,
     PlayerFreeze playerFreeze,
     AdminAudit audit,
+    World.ColonyArchive archive,
     ILogger<AdminOperations> log,
     ForbiddenDefsService forbiddenStore,
     ForbiddenDefs forbidden)
 {
+    /// <summary>Archived colonies, newest first (at most 500); <paramref name="state"/> is archived, restored or all.</summary>
+    public async Task<List<ArchivedRow>> ListArchived(Actor actor, string state)
+    {
+        actor.Require(Role.Moderator);
+        var query = db.ArchivedColonies.AsNoTracking();
+        query = state switch
+        {
+            "archived" => query.Where(c => c.State == ArchiveState.Archived),
+            "restored" => query.Where(c => c.State == ArchiveState.Restored),
+            "all" => query,
+            _ => throw new RpcException(new Status(StatusCode.InvalidArgument, "state must be archived, restored or all")),
+        };
+        return await query.OrderByDescending(c => c.ArchivedAt).ThenByDescending(c => c.Id).Take(500)
+            .Select(c => new ArchivedRow(c.Id, c.PlayerId, c.Player.Name, c.Name, c.Tile, c.SettledAt, c.ArchivedAt, c.Reason, c.ArchivedBy,
+                c.WealthTotal, c.ColonyGameDays, c.LastActiveAt, c.State == ArchiveState.Archived ? "archived" : "restored", c.RestoredAt, c.RestoredBy))
+            .ToListAsync();
+    }
+
+    /// <summary>Sends the player's colony to the archive now (the archive writes its own audit entry).</summary>
+    public async Task<World.ArchiveOutcome> ArchiveColony(Actor actor, long playerId)
+    {
+        actor.Require(Role.Admin);
+        await FindPlayer(playerId);
+        return await archive.Archive(playerId, "admin", actor);
+    }
+
+    public async Task<World.RestoreOutcome> RestoreColony(Actor actor, long archiveId)
+    {
+        actor.Require(Role.Admin);
+        var outcome = await archive.Restore(archiveId, actor.Name);
+        if (outcome is World.RestoreOutcome.Restored restored)
+        {
+            var row = await db.ArchivedColonies.AsNoTracking().Where(c => c.Id == archiveId).Select(c => new { c.Player.AccountId, c.Name, c.Tile }).FirstAsync();
+            await Audit(actor, "restore", row.AccountId, $"{row.Name} on tile {row.Tile}");
+        }
+        return outcome;
+    }
+
     public async Task<Backup.BackupFile> CreateBackup(Actor actor)
     {
         actor.Require(Role.Admin);

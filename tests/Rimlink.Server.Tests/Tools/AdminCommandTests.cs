@@ -109,4 +109,19 @@ public class AdminCommandTests
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => AdminCommand.Run(cli, "nope", []));
     }
+
+    [Fact]
+    public async Task ArchiveCommandsCallTheArchiveRoutes()
+    {
+        using var fixture = Server();
+        var nova = await HygieneFixtures.Settled(fixture, "nova", tile: 100);
+        var sessions = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Rimlink.Server.Application.Sessions.SessionRegistry>(fixture.Services);
+        sessions.End(sessions.ByPlayer(nova.PlayerId)!.Token);
+        using var cli = Cli(fixture);
+
+        long id = JsonDocument.Parse(await AdminCommand.Run(cli, "archive", [nova.PlayerId.ToString()])).RootElement.GetProperty("id").GetInt64();
+        Assert.Contains("Nova Home", await AdminCommand.Run(cli, "archived", []));
+        await AdminCommand.Run(cli, "restore-colony", [id.ToString()]);
+        Assert.Contains("\"restored\"", await AdminCommand.Run(cli, "archived", ["all"]));
+    }
 }
