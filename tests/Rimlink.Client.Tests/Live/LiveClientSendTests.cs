@@ -35,6 +35,22 @@ public class LiveClientSendTests
     }
 
     [Fact]
+    public void QueuedDeltaFramesAreNumberedInOrderAndRefusedOnesTakeNoNumber()
+    {
+        var client = Client();
+        var first = Frames(3);
+        var refused = Frames(25);
+        var second = Frames(2);
+
+        Assert.True(client.SendDelta(first));
+        Assert.False(client.SendDelta(refused));
+        Assert.True(client.SendDelta(second));
+
+        Assert.Equal([1L, 2, 3, 4, 5], first.Concat(second).Select(f => f.DeltaSeq));
+        Assert.All(refused, f => Assert.Equal(0, f.DeltaSeq));
+    }
+
+    [Fact]
     public void AResyncIsAskedAtMostOncePerInterval()
     {
         var client = Client();

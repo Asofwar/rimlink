@@ -244,4 +244,47 @@ public class LiveClientTests : IDisposable
         Assert.Null(state.Live.PendingInvite);
         Assert.Equal(Protocol.V1.LiveState.LiveStarting, state.Live.Current!.State);
     }
+
+    /// <summary>A guest stream on a started session, with the host's raw stream past the guest's Hello.</summary>
+    private static async Task<(Setup S, AsyncDuplexStreamingCall<LiveClientMsg, LiveServerMsg> Host, LiveClient Guest)> GuestStreaming(ServerFixture? fixture = null)
+    {
+        var s = await Started(fixture);
+        var host = await OpenHost(s.Bob, s.Session.Id);
+        var guest = new LiveClient(s.Nova, new ConsoleLog());
+        await guest.Open(s.Session.Id, LiveRelay.GuestRole, 1, CancellationToken.None);
+        await Read(host, LiveServerMsg.MOneofCase.PeerHello);
+        return (s, host, guest);
+    }
+
+    [Fact]
+    public async Task AGapInTheDeltaNumbersAsksTheHostForAResync()
+    {
+        var (s, host, _) = await GuestStreaming();
+        using var fixture = s.Fixture;
+        await using var nova = s.Nova;
+        using var _host = host;
+
+        foreach (long seq in new long[] { 1, 2, 4 })
+            await host.RequestStream.WriteAsync(new LiveClientMsg { SessionId = s.Session.Id, Delta = new Delta { Tick = seq, DeltaSeq = seq } });
+
+        await Read(host, LiveServerMsg.MOneofCase.ResyncRequest);
+    }
+
+    [Fact]
+    public async Task DeltasTheServerDropsAreNoticedByTheGuest()
+    {
+        // The server passes Live:DeltasPerSecond deltas per stream (20) and drops the rest silently: a burst of 40 loses some.
+        var (s, host, guest) = await GuestStreaming();
+        using var fixture = s.Fixture;
+        await using var nova = s.Nova;
+        using var _host = host;
+
+        for (long seq = 1; seq <= 40; seq++)
+            await host.RequestStream.WriteAsync(new LiveClientMsg { SessionId = s.Session.Id, Delta = new Delta { Tick = seq, DeltaSeq = seq } });
+        await Task.Delay(1200); // the bucket refills; the next delta passes and shows the guest what it missed
+        await host.RequestStream.WriteAsync(new LiveClientMsg { SessionId = s.Session.Id, Delta = new Delta { Tick = 41, DeltaSeq = 41 } });
+
+        await Read(host, LiveServerMsg.MOneofCase.ResyncRequest);
+        Assert.True(guest.IsOpen);
+    }
 }

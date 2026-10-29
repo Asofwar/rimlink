@@ -52,7 +52,12 @@ public sealed class LiveClient(RimlinkConnection connection, ILog log)
         role = asRole;
         snapshotSeq = snapshot;
         Incoming.Clear();
-        lock (gate) outgoing.Clear();
+        lock (gate)
+        {
+            outgoing.Clear();
+            sentDeltaSeq = 0; // a host opens once per session; a guest opens again on every snapshot it loads
+            receivedDeltaSeq = 0;
+        }
         var cts = new CancellationTokenSource();
         loop = cts;
         var opened = new TaskCompletionSource();
@@ -96,7 +101,11 @@ public sealed class LiveClient(RimlinkConnection connection, ILog log)
         lock (gate)
         {
             if (outgoing.Count + frames.Count > OutgoingCapacity || !deltaRate.Take(DateTime.UtcNow, frames.Count)) return false;
-            foreach (var frame in frames) outgoing.Enqueue(new LiveClientMsg { SessionId = sessionId, Delta = frame });
+            foreach (var frame in frames)
+            {
+                frame.DeltaSeq = ++sentDeltaSeq;
+                outgoing.Enqueue(new LiveClientMsg { SessionId = sessionId, Delta = frame });
+            }
         }
         outgoingSignal.Release(frames.Count);
         return true;
@@ -104,6 +113,21 @@ public sealed class LiveClient(RimlinkConnection connection, ILog log)
 
     public static readonly TimeSpan ResyncInterval = TimeSpan.FromSeconds(10);
     private DateTime lastResync = DateTime.MinValue;
+    /// <summary>The host numbers the delta frames it queues; the guest remembers the last number it got (0: none yet since Open).</summary>
+    private long sentDeltaSeq, receivedDeltaSeq;
+
+    /// <summary>
+    /// A delta from the host: a number that does not follow the last one means frames were lost on the way (the server's limit or
+    /// queue, a reconnect), and the diffs that follow assume changes this mirror never saw.
+    /// </summary>
+    private void CheckDeltaSeq(Delta delta)
+    {
+        long seq = delta.DeltaSeq;
+        if (seq == 0) return; // an older host
+        long last = receivedDeltaSeq;
+        receivedDeltaSeq = seq;
+        if (last != 0 && seq != last + 1) RequestResync($"delta gap: {last} then {seq}");
+    }
 
     /// <summary>
     /// Asks the host for a fresh snapshot, at most once per <see cref="ResyncInterval"/> (the server passes one per ten seconds,
@@ -208,6 +232,7 @@ public sealed class LiveClient(RimlinkConnection connection, ILog log)
                     Incoming.Enqueue(msg);
                     switch (msg.MCase)
                     {
+                        case LiveServerMsg.MOneofCase.Delta: CheckDeltaSeq(msg.Delta); break;
                         case LiveServerMsg.MOneofCase.PeerLost: PeerLost?.Invoke(); break;
                         case LiveServerMsg.MOneofCase.PeerBack: PeerBack?.Invoke(); break;
                         case LiveServerMsg.MOneofCase.End: ended = msg.End.Reason.ToString(); break;

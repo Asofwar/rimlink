@@ -91,6 +91,9 @@ message Delta {
   repeated GuestMessage messages = 12;
   // Every 10 s: full blobs of the guest's pawns, so their health is reset as a whole.
   repeated PawnBlob guest_pawn_blobs = 13;
+  // 1, 2, 3… per frame the host queued in this stream (0 from older hosts). Deltas are diffs: a gap means the guest missed changes
+  // (dropped by a limit or a queue on the way) and asks for a snapshot.
+  int64 delta_seq = 14;
 }
 
 message TakeJob { string job_def = 1; Target a = 2; Target b = 3; Target c = 4; int32 count = 5; bool force = 6; }
