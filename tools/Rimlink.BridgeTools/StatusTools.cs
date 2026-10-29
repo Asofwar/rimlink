@@ -32,6 +32,9 @@ public sealed class StatusTools
         {
             endpoint = $"{RimlinkSession.Endpoint!.Display} ({RimlinkSession.Endpoint.Host}:{RimlinkSession.Endpoint.Port})",
             connection = RimlinkSession.LastState.ToString(),
+            reconnectingForSec = RimlinkSession.Connection?.ReconnectingSince is { } since ? (int?)(DateTime.UtcNow - since).TotalSeconds : null,
+            outageIsLong = RimlinkSession.Connection?.OutageIsLong ?? false,
+            failureReason = RimlinkSession.Connection?.FailureReason,
             player = new { id = me, name = RimlinkSession.Login!.Player.Name, role = RimlinkSession.Login.Role.ToString() },
             world = new { exists = RimlinkSession.World?.Exists ?? false, seed = RimlinkSession.World?.Params?.Seed },
             players = state.Players.Online.Select(p => new { id = p.PlayerId, name = p.Name }).ToList(),

@@ -6,7 +6,9 @@
   <Rimlink.Net.Reconnecting>Связь с сервером потеряна, переподключение...</Rimlink.Net.Reconnecting>
   <Rimlink.Net.Reconnected>Связь с сервером восстановлена.</Rimlink.Net.Reconnected>
   <Rimlink.Net.Replaced>В этот аккаунт вошли с другого места; колония продолжается там. Эта копия отключена и на сервер не уйдёт.</Rimlink.Net.Replaced>
-  <Rimlink.Net.Failed>Не удалось переподключиться к серверу за две минуты. Сохранение остаётся на этом компьютере и отправится при следующем входе.</Rimlink.Net.Failed>
+  <Rimlink.Net.Failed>Сервер отказал в переподключении: {0}. Сохранение остаётся на этом компьютере и отправится при следующем входе.</Rimlink.Net.Failed>
+  <Rimlink.Net.LongOutage>Связи с сервером нет уже две минуты. Rimlink продолжает попытки в фоне, и это окно закроется само, когда сервер вернётся. Можно и выйти в главное меню: колония сохранится на этом компьютере и отправится при следующем входе.</Rimlink.Net.LongOutage>
+  <Rimlink.Net.KeepWaiting>Ждать дальше</Rimlink.Net.KeepWaiting>
   <Rimlink.Net.ToMenu>В главное меню</Rimlink.Net.ToMenu>
   <Rimlink.Net.Shutdown>Сервер выключится через {0} с: {1}</Rimlink.Net.Shutdown>
   <Rimlink.Save.RolledBack>Администратор вернул ваше сохранение к версии {0}. Выйдите в меню и войдите снова, чтобы загрузить его.</Rimlink.Save.RolledBack>
@@ -55,6 +57,7 @@
   <Rimlink.Chat.External>[Discord] {0}</Rimlink.Chat.External>
   <Rimlink.Players.Title>Игроков онлайн: {0}</Rimlink.Players.Title>
   <Rimlink.Players.Message>Написать</Rimlink.Players.Message>
+  <Rimlink.Overlay.Reconnecting>Rimlink: переподключение {0}</Rimlink.Overlay.Reconnecting>
   <Rimlink.Overlay.Online>Rimlink: онлайн {0}</Rimlink.Overlay.Online>
   <Rimlink.Overlay.Chat>Чат</Rimlink.Overlay.Chat>
   <Rimlink.Overlay.Players>Игроки</Rimlink.Overlay.Players>

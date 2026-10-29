@@ -9,6 +9,7 @@ namespace Rimlink.Client.Game;
 public sealed class RimlinkGameComponent : GameComponent
 {
     private ConnectionState shownState = ConnectionState.Connected;
+    private static Dialog_MessageBox? outageOffer;
 
     /// <summary>Raids landed on this colony and not yet reported; saved with the game so a reload still resolves them.</summary>
     public List<Raids.ActiveRaid> ActiveRaids = [];
@@ -143,9 +144,11 @@ public sealed class RimlinkGameComponent : GameComponent
 
     private void HandleConnectionState()
     {
+        OfferExitOnLongOutage();
         var state = RimlinkSession.LastState;
         if (state == shownState) return;
         shownState = state;
+        if (state != ConnectionState.Reconnecting) CloseOutageOffer();
 
         switch (state)
         {
@@ -165,9 +168,27 @@ public sealed class RimlinkGameComponent : GameComponent
                 break;
             case ConnectionState.Failed:
                 Find.TickManager.Pause();
-                Find.WindowStack.Add(new Dialog_MessageBox("Rimlink.Net.Failed".Translate(), "Rimlink.Net.ToMenu".Translate(), LeaveToMenu));
+                Find.WindowStack.Add(new Dialog_MessageBox("Rimlink.Net.Failed".Translate(RimlinkSession.Connection?.FailureReason ?? "?"), "Rimlink.Net.ToMenu".Translate(), LeaveToMenu));
                 break;
         }
+    }
+
+    /// <summary>
+    /// Two minutes without the server (core spec §9): offer leaving to the menu with a local save, once per outage. The
+    /// attempts go on behind the offer, which closes itself when the connection is back. A live guest's mirror waits for the
+    /// live session instead (its own budget ends the session and loads the own colony back), so no offer while it is up.
+    /// </summary>
+    private static void OfferExitOnLongOutage()
+    {
+        if (outageOffer is not null || Live.MirrorMode.Active || RimlinkSession.Connection is not { OutageIsLong: true }) return;
+        outageOffer = new Dialog_MessageBox("Rimlink.Net.LongOutage".Translate(), "Rimlink.Net.KeepWaiting".Translate(), null, "Rimlink.Net.ToMenu".Translate(), LeaveToMenu);
+        Find.WindowStack.Add(outageOffer);
+    }
+
+    private static void CloseOutageOffer()
+    {
+        if (outageOffer is { } offer && Find.WindowStack.IsOpen(offer)) offer.Close(doCloseSound: false);
+        outageOffer = null;
     }
 
     /// <summary>A reconnect starts a fresh server session with an empty event queue: fetch what was missed meanwhile.</summary>

@@ -30,9 +30,12 @@ public class RimlinkConnectionTests
         public Task<bool> Confirm(ServerEndpoint endpoint, string fingerprint, string? previous) => Task.FromResult(true);
     }
 
-    private static RimlinkConnection Connect(ServerFixture fixture, ICredentialProvider credentials) =>
+    private static RimlinkConnection Connect(ServerFixture fixture, ICredentialProvider credentials, ReconnectPolicy? reconnect = null) =>
         new(new ServerEndpoint("test", 1), credentials, new NoPrompt(), new ConsoleLog(),
-            new ConnectionTransport(fixture.Server.BaseAddress, fixture.Server.CreateHandler()));
+            new ConnectionTransport(fixture.Server.BaseAddress, fixture.Server.CreateHandler()), reconnect);
+
+    /// <summary>The real back-off scaled down: the 2-minute mark becomes half a second.</summary>
+    private static ReconnectPolicy Fast() => new(TimeSpan.FromMilliseconds(50), TimeSpan.FromMilliseconds(200), TimeSpan.FromMilliseconds(500));
 
     private static async Task<ServerEvent> WaitFor(RimlinkConnection connection, ServerEvent.BodyOneofCase body, TimeSpan? timeout = null)
     {
@@ -41,6 +44,20 @@ public class RimlinkConnectionTests
         connection.EventReceived += Handler;
         try { return await tcs.Task.WaitAsync(timeout ?? TimeSpan.FromSeconds(10)); }
         finally { connection.EventReceived -= Handler; }
+    }
+
+    private static async Task<ConnectionState> WaitForAny(RimlinkConnection connection, TimeSpan timeout, params ConnectionState[] states)
+    {
+        var tcs = new TaskCompletionSource<ConnectionState>();
+        void Handler(ConnectionState s) { if (states.Contains(s)) tcs.TrySetResult(s); }
+        connection.StateChanged += Handler;
+        try
+        {
+            if (states.Contains(connection.State)) return connection.State;
+            return await tcs.Task.WaitAsync(timeout);
+        }
+        catch (TimeoutException) { return connection.State; }
+        finally { connection.StateChanged -= Handler; }
     }
 
     private static async Task WaitForState(RimlinkConnection connection, ConnectionState state, TimeSpan? timeout = null)
@@ -199,6 +216,68 @@ public class RimlinkConnectionTests
 
         Assert.Equal("back", (await notice).Notice.Text);
         Assert.True(credentials.Calls >= 2);
+    }
+
+    [Fact]
+    public async Task OutageLongerThanTheOfferKeepsReconnectingUntilTheNetworkIsBack()
+    {
+        using var fixture = Server();
+        await fixture.RegisterAndLogin("nova", playerName: "Nova");
+        await using var connection = Connect(fixture, new PasswordCredentials("nova", "pw"), Fast());
+        await connection.ConnectAsync(CancellationToken.None);
+        var states = new List<ConnectionState>();
+        connection.StateChanged += states.Add;
+
+        // Six times the scaled 2-minute mark: the old budget gave up long before the network came back.
+        connection.DropNetwork(TimeSpan.FromSeconds(3));
+        await WaitForState(connection, ConnectionState.Reconnecting);
+        var settled = await WaitForAny(connection, TimeSpan.FromSeconds(20), ConnectionState.Connected, ConnectionState.Failed);
+
+        Assert.Equal(ConnectionState.Connected, settled);
+        Assert.DoesNotContain(ConnectionState.Failed, states);
+    }
+
+    [Fact]
+    public async Task LongOutageIsFlaggedWhileStillReconnectingAndClearedOnReturn()
+    {
+        using var fixture = Server();
+        await fixture.RegisterAndLogin("nova", playerName: "Nova");
+        await using var connection = Connect(fixture, new PasswordCredentials("nova", "pw"), Fast());
+        await connection.ConnectAsync(CancellationToken.None);
+        Assert.Null(connection.ReconnectingSince);
+
+        connection.DropNetwork(TimeSpan.FromSeconds(2));
+        await WaitForState(connection, ConnectionState.Reconnecting);
+        Assert.NotNull(connection.ReconnectingSince);
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+        while (!connection.OutageIsLong && DateTime.UtcNow < deadline) await Task.Delay(20);
+
+        Assert.True(connection.OutageIsLong);
+        Assert.Equal(ConnectionState.Reconnecting, connection.State);
+        await WaitForState(connection, ConnectionState.Connected, TimeSpan.FromSeconds(20));
+        Assert.False(connection.OutageIsLong);
+        Assert.Null(connection.ReconnectingSince);
+    }
+
+    [Fact]
+    public async Task RefusedReconnectFailsAtOnceWithTheServersReason()
+    {
+        using var fixture = Server();
+        var nova = await fixture.RegisterAndLogin("nova", playerName: "Nova");
+        await using var connection = Connect(fixture, new PasswordCredentials("nova", "pw"), Fast());
+        await connection.ConnectAsync(CancellationToken.None);
+
+        using (var scope = fixture.Services.CreateScope())
+        {
+            var admin = scope.ServiceProvider.GetRequiredService<AdminOperations>();
+            await admin.Ban(Actor.Api, nova.Player.PlayerId, null, null, "griefing", null);
+            await admin.Kick(Actor.Api, nova.Player.PlayerId, "banned");
+        }
+        var settled = await WaitForAny(connection, TimeSpan.FromSeconds(5), ConnectionState.Failed, ConnectionState.Connected);
+
+        Assert.Equal(ConnectionState.Failed, settled);
+        Assert.Contains("griefing", connection.FailureReason);
+        Assert.Null(connection.ReconnectingSince);
     }
 
     [Fact]

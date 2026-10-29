@@ -34,13 +34,17 @@ public sealed class RimlinkConnection : IAsyncDisposable
     private readonly ConnectionTransport transport;
     private readonly GrpcChannel channel;
     private readonly NetworkDropHandler drop;
+    private readonly ReconnectPolicy reconnect;
     private readonly CancellationTokenSource lifetime = new();
     private volatile string? token;
     private Task? eventLoop;
     private ConnectionState state = ConnectionState.Disconnected;
+    private long reconnectingSinceTicks;
+    private volatile bool pinRefused;
 
-    public RimlinkConnection(ServerEndpoint endpoint, ICredentialProvider credentials, IPinPrompt pinPrompt, ILog log, ConnectionTransport? transport = null)
+    public RimlinkConnection(ServerEndpoint endpoint, ICredentialProvider credentials, IPinPrompt pinPrompt, ILog log, ConnectionTransport? transport = null, ReconnectPolicy? reconnect = null)
     {
+        this.reconnect = reconnect ?? ReconnectPolicy.Default;
         this.endpoint = endpoint;
         this.credentials = credentials;
         this.pinPrompt = pinPrompt;
@@ -93,6 +97,15 @@ public sealed class RimlinkConnection : IAsyncDisposable
 
     public ServerEndpoint Endpoint => endpoint;
     public ConnectionState State => state;
+
+    /// <summary>When the current outage began (UTC) while the connection is reconnecting; null otherwise.</summary>
+    public DateTime? ReconnectingSince => Interlocked.Read(ref reconnectingSinceTicks) is var t and not 0 ? new DateTime(t, DateTimeKind.Utc) : null;
+
+    /// <summary>Reconnecting for longer than the policy's offer mark: time to offer leaving to the menu. The attempts go on.</summary>
+    public bool OutageIsLong => ReconnectingSince is { } since && DateTime.UtcNow - since >= reconnect.OfferExitAfter;
+
+    /// <summary>Why the server refused the reconnect (state <see cref="ConnectionState.Failed"/>); null otherwise.</summary>
+    public string? FailureReason { get; private set; }
     public LoginReply? Login { get; private set; }
     public event Action<ConnectionState>? StateChanged;
     public event Action<ServerEvent>? EventReceived;
@@ -171,7 +184,11 @@ public sealed class RimlinkConnection : IAsyncDisposable
             {
                 // TLS handshake refused because the certificate is new or changed: ask, pin, retry once.
                 pendingPin = null;
-                if (!await pinPrompt.Confirm(endpoint, pin.Fingerprint, pin.Previous)) throw;
+                if (!await pinPrompt.Confirm(endpoint, pin.Fingerprint, pin.Previous))
+                {
+                    pinRefused = true;
+                    throw;
+                }
                 Pins.Save(endpoint, pin.Fingerprint);
             }
         }
@@ -225,7 +242,7 @@ public sealed class RimlinkConnection : IAsyncDisposable
     {
         token = null;
         SetState(ConnectionState.Reconnecting);
-        foreach (var delay in ReconnectPolicy.Delays())
+        foreach (var delay in reconnect.Delays())
         {
             try { await Task.Delay(delay, cancellationToken); }
             catch (OperationCanceledException) { return false; }
@@ -235,7 +252,8 @@ public sealed class RimlinkConnection : IAsyncDisposable
                 var reply = await LoginOnce(cancellationToken);
                 if (reply.SessionToken.Length == 0)
                 {
-                    log.Error("reconnect refused: mods no longer match the server");
+                    FailureReason = "mods no longer match the server";
+                    log.Error("reconnect refused: " + FailureReason);
                     SetState(ConnectionState.Failed);
                     return false;
                 }
@@ -247,19 +265,26 @@ public sealed class RimlinkConnection : IAsyncDisposable
             {
                 return false;
             }
+            catch (RpcException ex) when (pinRefused || ReconnectPolicy.IsRefusal(ex))
+            {
+                // Retrying cannot help (and a refused certificate would ask the player again every minute).
+                FailureReason = pinRefused ? "the server's new certificate was not trusted" : Economy.EconomyClient.MessageOf(ex);
+                log.Error("reconnect refused: " + FailureReason);
+                SetState(ConnectionState.Failed);
+                return false;
+            }
             catch (Exception ex)
             {
                 log.Warn($"reconnect attempt failed: {ex.Message}");
             }
         }
-        log.Error("could not reconnect within the time limit");
-        SetState(ConnectionState.Failed);
-        return false;
+        return false; // Delays() has no end: only success, a refusal or the connection's end leave the loop
     }
 
     private void SetState(ConnectionState next)
     {
         if (state == next) return;
+        Interlocked.Exchange(ref reconnectingSinceTicks, next == ConnectionState.Reconnecting ? DateTime.UtcNow.Ticks : 0);
         state = next;
         StateChanged?.Invoke(next);
     }
