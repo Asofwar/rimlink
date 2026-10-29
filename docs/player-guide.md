@@ -69,9 +69,10 @@ Sending a colonist asks for confirmation: they leave your colony for good, with 
 story. A thing that is not in the server's modpack cannot be sent.
 
 A pawn of yours that comes home (a transfer the server refused, an unsold lot, raiders back from a raid, guests back
-from a live session, a colonist someone sends back to you) gets its family, partners and bonded animals back, on its
-side and on theirs. While it is away your colonists do not show it in their Social tab. Relations it started in
-another colony, and what your colonists remembered about it, do not come home.
+from a live session, a colonist someone sends back to you) gets its family, partners and bonded animals among your
+pawns back, on its side and on theirs, also when several of them left together or one after another. While it is away
+your colonists do not show it in their Social tab. Relatives living outside your colony may be forgotten while it is
+away; relations it started in another colony, and what your colonists remembered about it, do not come home.
 
 Every transfer first saves your game and uploads the save (a short "Sending your last save…" pause). If the upload
 fails, nothing is sent and the goods are put back. After a transfer the server refuses any **older** save from you:

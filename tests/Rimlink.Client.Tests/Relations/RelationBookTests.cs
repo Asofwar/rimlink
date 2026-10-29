@@ -12,6 +12,7 @@ public class RelationBookTests
         public HashSet<(int Holder, string Def, int Other)> Relations = [];
         public HashSet<string> LoveDefs = [];
         public HashSet<(int Pawn, int Except)> NewPartners = [];
+        public HashSet<string> Reflexive = [];
         public List<(int Holder, string Def, int Other, int Start)> Added = [];
 
         public bool PawnExists(int id) => Pawns.Contains(id);
@@ -24,6 +25,8 @@ public class RelationBookTests
         {
             if (def == "Boom") throw new InvalidOperationException("boom");
             Added.Add((holderId, def, otherId, startTicks));
+            Relations.Add((holderId, def, otherId));
+            if (Reflexive.Contains(def)) Relations.Add((otherId, def, holderId));
         }
     }
 
@@ -156,6 +159,52 @@ public class RelationBookTests
 
         Assert.Contains((10, "Spouse", 20, 50), world.Added);
         Assert.Equal([EdgeOutcome.OtherGone, EdgeOutcome.Restored], results.Select(r => r.Outcome));
+    }
+
+    /// <summary>The first to leave was discarded, which cleared the second's half: the second's entry takes it from the first's.</summary>
+    [Fact]
+    public void RecordTakesBackEdgesThatAnEarlierLeaverHoldsTowardsIt()
+    {
+        var book = new RelationBook();
+        book.Record(Entry("A", 10, new RelationEdge("Spouse", 20, 50, false), new RelationEdge("Parent", 30, 7, true)));
+        book.Record(Entry("B", 20));
+        book.Record(Entry("C", 30));
+
+        Assert.Equal([new RelationEdge("Spouse", 10, 50, true)], book.Entries.Single(e => e.Key == "B").Edges);
+        Assert.Equal([new RelationEdge("Parent", 10, 7, false)], book.Entries.Single(e => e.Key == "C").Edges);
+    }
+
+    [Theory]
+    [InlineData("A first")]
+    [InlineData("B first")]
+    [InlineData("together")]
+    public void APairThatLeftOneAfterTheOtherIsAPairAgainInAnyOrder(string order)
+    {
+        var book = new RelationBook();
+        book.Record(Entry("A", 10, new RelationEdge("Spouse", 20, 50, false)));
+        book.Record(Entry("B", 20)); // its half went with A's discard
+        var world = new FakeWorld { Reflexive = ["Spouse"] };
+        var outcomes = new List<EdgeOutcome>();
+
+        if (order == "together")
+        {
+            var a = book.Take("A")!;
+            var b = book.Take("B")!;
+            world.Pawns = [10, 20];
+            outcomes.AddRange(book.Apply(a, 10, world).Select(r => r.Outcome));
+            outcomes.AddRange(book.Apply(b, 20, world).Select(r => r.Outcome));
+        }
+        else
+        {
+            var (firstKey, firstId, secondKey, secondId) = order == "A first" ? ("A", 10, "B", 20) : ("B", 20, "A", 10);
+            outcomes.AddRange(book.Apply(book.Take(firstKey)!, firstId, world).Select(r => r.Outcome));
+            world.Pawns = [firstId];
+            outcomes.AddRange(book.Apply(book.Take(secondKey)!, secondId, world).Select(r => r.Outcome));
+        }
+
+        Assert.Equal([(10, "Spouse", 20, 50)], world.Added);
+        Assert.DoesNotContain(EdgeOutcome.OtherGone, outcomes);
+        Assert.Empty(book.Entries);
     }
 
     [Fact]

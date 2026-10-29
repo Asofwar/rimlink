@@ -42,10 +42,23 @@ public sealed class RelationBook
 
     public static string KeyOf(string raceDef, string gender, long birthAbsTicks, string fullName) => $"{raceDef}|{gender}|{birthAbsTicks}|{fullName}";
 
-    /// <summary>An entry with nothing to give back is not kept; a pawn that left again replaces its old entry.</summary>
+    /// <summary>
+    /// A pawn that left again replaces its old entry. Pawns that left before it (with it, or days earlier) took their relations
+    /// with it along, and their discard cleared its half: the entry takes those edges back from theirs. An entry with nothing
+    /// to give back is not kept.
+    /// </summary>
     public void Record(RelationEntry entry)
     {
         Entries.RemoveAll(e => e.Key == entry.Key);
+        foreach (var earlier in Entries)
+        {
+            foreach (var edge in earlier.Edges)
+            {
+                if (edge.OtherId != entry.ThingId) continue;
+                var mine = edge with { OtherId = earlier.ThingId, HeldByOther = !edge.HeldByOther };
+                if (!entry.Edges.Contains(mine)) entry.Edges.Add(mine);
+            }
+        }
         if (entry.Edges.Count > 0) Entries.Add(entry);
     }
 
