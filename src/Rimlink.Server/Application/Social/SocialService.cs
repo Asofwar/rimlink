@@ -16,17 +16,17 @@ public sealed class SocialService(RimlinkDbContext db, EventBus events, Trades.T
 {
     public async Task<List<PlayerRef>> Block(long blockerId, long blockedId)
     {
-        if (blockerId == blockedId) throw new RpcException(new Status(StatusCode.InvalidArgument, "you cannot block yourself"));
+        if (blockerId == blockedId) throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.SocialSelf, "you cannot block yourself");
         var target = await db.Players.AsNoTracking().Include(p => p.Account).FirstOrDefaultAsync(p => p.Id == blockedId)
-            ?? throw new RpcException(new Status(StatusCode.NotFound, "no such player"));
+            ?? throw RpcErrors.With(StatusCode.NotFound, ErrorCode.Unspecified, RefusalKeys.NoSuchPlayer, "no such player");
         // Moderators and admins must be able to reach everyone.
-        if (target.Account.Role != Storage.Entities.Role.Player) throw new RpcException(new Status(StatusCode.InvalidArgument, "moderators and admins cannot be blocked"));
+        if (target.Account.Role != Storage.Entities.Role.Player) throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.SocialStaff, "moderators and admins cannot be blocked");
 
         if (!await db.PlayerBlocks.AnyAsync(b => b.BlockerPlayerId == blockerId && b.BlockedPlayerId == blockedId))
         {
             int max = options.Value.MaxBlocks;
             if (await db.PlayerBlocks.CountAsync(b => b.BlockerPlayerId == blockerId) >= max)
-                throw new RpcException(new Status(StatusCode.InvalidArgument, $"block list is full ({max})"));
+                throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.SocialListFull, $"block list is full ({max})", max);
             db.PlayerBlocks.Add(new PlayerBlock { BlockerPlayerId = blockerId, BlockedPlayerId = blockedId, CreatedAt = DateTime.UtcNow });
             await db.SaveChangesAsync();
         }

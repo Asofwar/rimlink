@@ -3,9 +3,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Rimlink.Protocol.V1;
 using Rimlink.Server.Application.Sessions;
+using Rimlink.Server.Grpc;
 using Rimlink.Server.Hosting;
-using Rimlink.Server.Storage;
 using Rimlink.Server.Storage.Entities;
+using Rimlink.Server.Storage;
 
 namespace Rimlink.Server.Application.Auth;
 
@@ -20,17 +21,17 @@ public sealed class AuthService(
     public async Task<LoginResult> Register(string login, string password, string playerName, LoginContext ctx)
     {
         if (!authOptions.Value.AllowPassword)
-            return LoginResult.Failed(StatusCode.PermissionDenied, ErrorCode.Unspecified, "password accounts are disabled on this server");
+            return LoginResult.Failed(StatusCode.PermissionDenied, ErrorCode.Unspecified, RefusalKeys.AuthPasswordDisabled, "password accounts are disabled on this server");
         if (!Names.IsValid(login))
-            return LoginResult.Failed(StatusCode.InvalidArgument, ErrorCode.NameInvalid, "login is not a valid name");
+            return LoginResult.Failed(StatusCode.InvalidArgument, ErrorCode.NameInvalid, RefusalKeys.AuthLoginInvalid, "login is not a valid name");
         if (!Names.IsValid(playerName))
-            return LoginResult.Failed(StatusCode.InvalidArgument, ErrorCode.NameInvalid, "player name is not a valid name");
+            return LoginResult.Failed(StatusCode.InvalidArgument, ErrorCode.NameInvalid, RefusalKeys.AuthPlayerNameInvalid, "player name is not a valid name");
         if (string.IsNullOrEmpty(password))
-            return LoginResult.Failed(StatusCode.InvalidArgument, ErrorCode.Unspecified, "password is empty");
+            return LoginResult.Failed(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.AuthPasswordEmpty, "password is empty");
         if (await db.Accounts.AnyAsync(a => a.Login == login))
-            return LoginResult.Failed(StatusCode.AlreadyExists, ErrorCode.Unspecified, "login already taken");
+            return LoginResult.Failed(StatusCode.AlreadyExists, ErrorCode.Unspecified, RefusalKeys.AuthLoginTaken, "login already taken");
         if (await db.Players.AnyAsync(p => p.Name == playerName))
-            return LoginResult.Failed(StatusCode.AlreadyExists, ErrorCode.Unspecified, "player name already taken");
+            return LoginResult.Failed(StatusCode.AlreadyExists, ErrorCode.Unspecified, RefusalKeys.AuthPlayerNameTaken, "player name already taken");
 
         var account = new Account
         {
@@ -50,11 +51,11 @@ public sealed class AuthService(
     public async Task<LoginResult> LoginWithPassword(string login, string password, LoginContext ctx)
     {
         if (!authOptions.Value.AllowPassword)
-            return LoginResult.Failed(StatusCode.PermissionDenied, ErrorCode.Unspecified, "password accounts are disabled on this server");
+            return LoginResult.Failed(StatusCode.PermissionDenied, ErrorCode.Unspecified, RefusalKeys.AuthPasswordDisabled, "password accounts are disabled on this server");
 
         var account = await db.Accounts.Include(a => a.Player).FirstOrDefaultAsync(a => a.Login == login);
         if (account?.PasswordHash is null || !PasswordHasher.Verify(password, account.PasswordHash))
-            return LoginResult.Failed(StatusCode.Unauthenticated, ErrorCode.Unspecified, "login details are invalid");
+            return LoginResult.Failed(StatusCode.Unauthenticated, ErrorCode.Unspecified, RefusalKeys.AuthInvalidCredentials, "login details are invalid");
 
         return await Complete(account, ctx);
     }
@@ -63,7 +64,7 @@ public sealed class AuthService(
     {
         var identity = await steam.Verify(ticket, CancellationToken.None);
         if (identity is null)
-            return LoginResult.Failed(StatusCode.Unauthenticated, ErrorCode.Unspecified, "Steam ticket is not valid");
+            return LoginResult.Failed(StatusCode.Unauthenticated, ErrorCode.Unspecified, RefusalKeys.AuthSteamTicketInvalid, "Steam ticket is not valid");
 
         var account = await db.Accounts.Include(a => a.Player).FirstOrDefaultAsync(a => a.SteamId == identity.SteamId);
         if (account is null)
@@ -104,7 +105,7 @@ public sealed class AuthService(
     {
         if (ctx.ProtocolVersion != Protocol.ProtocolVersion.Current)
             return LoginResult.Failed(StatusCode.FailedPrecondition, ErrorCode.ProtocolVersion,
-                $"server speaks protocol {Protocol.ProtocolVersion.Current}, client sent {ctx.ProtocolVersion}");
+                RefusalKeys.AuthProtocolVersion, $"server speaks protocol {Protocol.ProtocolVersion.Current}, client sent {ctx.ProtocolVersion}", Protocol.ProtocolVersion.Current, ctx.ProtocolVersion);
 
         if (await gate.Check(account, steamIdentity, ctx) is { } refused) return refused;
 

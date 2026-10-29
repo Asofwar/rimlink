@@ -17,7 +17,7 @@ public sealed class EconomyGate(IOptions<EconomyOptions> options, FreezeState fr
 {
     public void RequireOpen()
     {
-        if (!options.Value.Enabled) throw RpcErrors.Failed(ErrorCode.EconomyFrozen, "the economy is disabled on this server");
-        if (freeze.Frozen) throw RpcErrors.Failed(ErrorCode.EconomyFrozen, "trading is paused: " + (freeze.Reason ?? "maintenance"));
+        if (!options.Value.Enabled) throw RpcErrors.Failed(ErrorCode.EconomyFrozen, RefusalKeys.EconomyDisabled, "the economy is disabled on this server");
+        if (freeze.Frozen) throw RpcErrors.Failed(ErrorCode.EconomyFrozen, RefusalKeys.EconomyPaused, "trading is paused: " + (freeze.Reason ?? "maintenance"), freeze.Reason ?? "maintenance");
     }
 }

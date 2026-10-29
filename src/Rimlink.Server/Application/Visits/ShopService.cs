@@ -77,7 +77,7 @@ public sealed class ShopService(RimlinkDbContext db, WalletService wallet, Mailb
         if (r.HostPlayerId == buyerId) throw RpcErrors.Failed(ErrorCode.SelfTrade, RefusalKeys.ShopSelf, "you cannot buy from yourself");
         if (r.Count < 1) throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.ShopCountTooLow, "count must be at least 1");
         if (r.Blob is null || r.Blob.ScribeXmlZstd.Length == 0) throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.ShopNoItemData, "the purchase carries no item data");
-        if (!await visits.IsVisiting(buyerId, r.HostPlayerId)) throw new RpcException(new Status(StatusCode.FailedPrecondition, "you are not visiting this player"));
+        if (!await visits.IsVisiting(buyerId, r.HostPlayerId)) throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.Unspecified, RefusalKeys.ShopNotVisiting, "you are not visiting this player");
 
         Parcel parcel;
         ItemSold sold;

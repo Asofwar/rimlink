@@ -14,11 +14,11 @@ public sealed class TransferService(RimlinkDbContext db, WalletService wallet, M
     public async Task<Parcel> Send(long fromPlayerId, TransferRequest request)
     {
         gate.RequireOpen();
-        if (request.ToPlayerId == fromPlayerId) throw RpcErrors.Failed(ErrorCode.SelfTrade, "you cannot send to yourself");
-        if (request.Silver < 0) throw RpcErrors.Failed(ErrorCode.Unspecified, "silver must not be negative");
-        if (validator.Validate(request.Items, request.Pawns) is { } reason) throw RpcErrors.Failed(ParcelValidator.CodeFor(reason), reason);
+        if (request.ToPlayerId == fromPlayerId) throw RpcErrors.Failed(ErrorCode.SelfTrade, RefusalKeys.EconomySelfSend, "you cannot send to yourself");
+        if (request.Silver < 0) throw RpcErrors.Failed(ErrorCode.Unspecified, RefusalKeys.EconomyNegativeSilver, "silver must not be negative");
+        if (validator.Validate(request.Items, request.Pawns) is { } reason) throw RpcErrors.Failed(reason.Code, reason.Key, reason.Message, reason.Args);
         if (request.Items.Items.Count == 0 && request.Pawns.Pawns.Count == 0 && request.Silver == 0)
-            throw RpcErrors.Failed(ErrorCode.Unspecified, "nothing to send");
+            throw RpcErrors.Failed(ErrorCode.Unspecified, RefusalKeys.EconomyNothingToSend, "nothing to send");
 
         await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
         if (!string.IsNullOrEmpty(request.ClientRequestId))

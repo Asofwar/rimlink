@@ -20,7 +20,7 @@ public sealed class AuthGrpcService(AuthService auth, WorldService worlds, SaveS
         {
             LoginRequest.CredentialOneofCase.Password => await auth.LoginWithPassword(request.Password.Login, request.Password.Password, ctx),
             LoginRequest.CredentialOneofCase.SteamTicket => await auth.LoginWithSteam(request.SteamTicket.ToByteArray(), ctx),
-            _ => LoginResult.Failed(StatusCode.InvalidArgument, ErrorCode.Unspecified, "no supported credential in request"),
+            _ => LoginResult.Failed(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.AuthNoCredential, "no supported credential in request"),
         };
         return await ToReply(result, context);
     }
@@ -48,7 +48,7 @@ public sealed class AuthGrpcService(AuthService auth, WorldService worlds, SaveS
         switch (result)
         {
             case LoginResult.Failure f:
-                throw RpcErrors.With(f.Status, f.Code, f.Message);
+                throw RpcErrors.With(f.Status, f.Code, f.Key, f.Message, f.Args);
             case LoginResult.ModpackMismatch m:
                 return new LoginReply { ModpackDiff = m.Diff };
             case LoginResult.Success s:

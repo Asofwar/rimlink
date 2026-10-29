@@ -1,5 +1,6 @@
-using System.Xml;
 using Rimlink.Protocol;
+using Rimlink.Server.Grpc;
+using System.Xml;
 using ZstdSharp;
 
 namespace Rimlink.Server.Application.Saves;
@@ -13,7 +14,7 @@ namespace Rimlink.Server.Application.Saves;
 /// </summary>
 public static class SaveValidator
 {
-    public static string? Validate(string zstPath, string worldSeed, out string? factionName)
+    public static SaveRejected? Validate(string zstPath, string worldSeed, out string? factionName)
     {
         factionName = null;
         try
@@ -30,7 +31,7 @@ public static class SaveValidator
                 IgnoreProcessingInstructions = true,
             });
 
-            if (!reader.ReadToFollowing("savegame")) return "not a RimWorld save (no <savegame> root)";
+            if (!reader.ReadToFollowing("savegame")) return new SaveRejected(RefusalKeys.SavesNoRoot, "not a RimWorld save (no <savegame> root)");
 
             string? seed = null;
             string? scenarioDef = null;
@@ -59,7 +60,7 @@ public static class SaveValidator
                     case "seedString" when seed is null:
                         seed = reader.ReadElementContentAsString();
                         advance = false;
-                        if (seed != worldSeed) return $"save belongs to another world (seed '{seed}')";
+                        if (seed != worldSeed) return new SaveRejected(RefusalKeys.SavesWrongWorld, $"save belongs to another world (seed '{seed}')", seed);
                         break;
                     case "scenario":
                         inScenario = true;
@@ -85,12 +86,12 @@ public static class SaveValidator
                 }
             }
 
-            if (seed is null) return "save has no world seed";
-            return playerFactionFound ? null : "save has no player faction";
+            if (seed is null) return new SaveRejected(RefusalKeys.SavesNoSeed, "save has no world seed");
+            return playerFactionFound ? null : new SaveRejected(RefusalKeys.SavesNoPlayerFaction, "save has no player faction");
         }
         catch (Exception ex) when (ex is XmlException or ZstdException or IOException or InvalidDataException or ArgumentException)
         {
-            return "save could not be read: " + ex.Message;
+            return new SaveRejected(RefusalKeys.SavesUnreadable, "save could not be read: " + ex.Message, ex.Message);
         }
     }
 

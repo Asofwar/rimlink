@@ -17,7 +17,7 @@ public static class BlockRules
         var blockers = await db.PlayerBlocks.AsNoTracking()
             .Where(b => (b.BlockerPlayerId == actorId && b.BlockedPlayerId == otherId) || (b.BlockerPlayerId == otherId && b.BlockedPlayerId == actorId))
             .Select(b => b.BlockerPlayerId).ToListAsync();
-        if (blockers.Contains(actorId)) throw RpcErrors.Failed(ErrorCode.Blocked, "you blocked this player");
-        if (blockers.Count > 0) throw RpcErrors.Failed(ErrorCode.Blocked, "the player does not accept this from you");
+        if (blockers.Contains(actorId)) throw RpcErrors.Failed(ErrorCode.Blocked, RefusalKeys.SocialYouBlocked, "you blocked this player");
+        if (blockers.Count > 0) throw RpcErrors.Failed(ErrorCode.Blocked, RefusalKeys.SocialBlockedYou, "the player does not accept this from you");
     }
 }

@@ -67,7 +67,7 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
         var visitsSince = DateTime.UtcNow - TimeSpan.FromHours(raidOptions.Value.VisitHours);
         if (await db.Visits.AnyAsync(v => v.VisitorPlayerId == guestId && v.EndedAt == null && v.StartedAt > visitsSince))
             throw RpcErrors.Failed(ErrorCode.LiveActive, RefusalKeys.LiveOnVisit, "you are on a visit");
-        if (validator.Validate(null, p.Pawns) is { } reason) throw RpcErrors.Failed(ParcelValidator.CodeFor(reason), reason);
+        if (validator.Validate(null, p.Pawns) is { } reason) throw RpcErrors.Failed(reason.Code, reason.Key, reason.Message, reason.Args);
 
         var session = new LiveSessionRow { Kind = (int)p.Kind, HostPlayerId = host.Id, GuestPlayerId = guestId, State = LiveStateDb.Proposed, CreatedAt = DateTime.UtcNow,
             ClientRequestId = string.IsNullOrEmpty(p.ClientRequestId) ? null : p.ClientRequestId };
@@ -176,7 +176,7 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
         var session = await db.LiveSessions.AsNoTracking().FirstOrDefaultAsync(s => s.Id == sessionId);
         if (session is null || session.State is not (LiveStateDb.Starting or LiveStateDb.Running or LiveStateDb.Waiting)) throw RpcErrors.Failed(ErrorCode.LiveGone, RefusalKeys.LiveNotOpen, "that live session is not open");
         bool host = session.HostPlayerId == playerId, guest = session.GuestPlayerId == playerId;
-        if (!(host && role == 1) && !(guest && role == 2)) throw new RpcException(new Status(StatusCode.PermissionDenied, "not your role in this live session"));
+        if (!(host && role == 1) && !(guest && role == 2)) throw RpcErrors.With(StatusCode.PermissionDenied, ErrorCode.Unspecified, RefusalKeys.LiveWrongRole, "not your role in this live session");
         return session;
     }
 
@@ -277,7 +277,7 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
                 survivors.Pawns.Add(o.Blob);
             }
         }
-        if (survivors.Pawns.Count > 0 && validator.Validate(null, survivors) is { } reason) throw RpcErrors.Failed(ParcelValidator.CodeFor(reason), reason);
+        if (survivors.Pawns.Count > 0 && validator.Validate(null, survivors) is { } reason) throw RpcErrors.Failed(reason.Code, reason.Key, reason.Message, reason.Args);
         // Visitors the report does not mention (the host's save predates their arrival) come home as they left.
         var escrow = PawnList.Parser.ParseFrom(session.Pawns ?? []);
         for (int i = 0; i < count; i++) if (!seen.Contains(i)) survivors.Pawns.Add(escrow.Pawns[i]);
@@ -375,7 +375,7 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
     public async Task<PawnList> PawnsFor(long hostId, long sessionId)
     {
         var session = await db.LiveSessions.AsNoTracking().FirstOrDefaultAsync(s => s.Id == sessionId) ?? throw RpcErrors.Failed(ErrorCode.LiveGone, RefusalKeys.LiveNoSuchSession, "no such live session");
-        if (session.HostPlayerId != hostId) throw new RpcException(new Status(StatusCode.PermissionDenied, "only the host spawns the guest's pawns"));
+        if (session.HostPlayerId != hostId) throw RpcErrors.With(StatusCode.PermissionDenied, ErrorCode.Unspecified, RefusalKeys.LiveOnlyHostSpawns, "only the host spawns the guest's pawns");
         if (session.RaidId is { } raidId)
         {
             var raid = await db.Raids.AsNoTracking().FirstAsync(r => r.Id == raidId);

@@ -37,7 +37,7 @@ public sealed class TradeService(
         if (requestId is not null && await db.Trades.AsNoTracking().FirstOrDefaultAsync(t => t.ClientRequestId == requestId) is { } done)
             return await ToProto(done);
         gate.RequireOpen();
-        if (r.PartnerId == playerId) throw RpcErrors.Failed(ErrorCode.SelfTrade, "you cannot trade with yourself");
+        if (r.PartnerId == playerId) throw RpcErrors.Failed(ErrorCode.SelfTrade, RefusalKeys.TradesSelf, "you cannot trade with yourself");
         string note = CleanNote(r.Note);
         CheckGoods(r.Items, r.Pawns, r.Silver);
 
@@ -47,12 +47,12 @@ public sealed class TradeService(
             if (requestId is not null && await db.Trades.AsNoTracking().FirstOrDefaultAsync(t => t.ClientRequestId == requestId) is { } raced)
                 return await ToProto(raced);
             var partner = await db.Players.AsNoTracking().FirstOrDefaultAsync(p => p.Id == r.PartnerId)
-                ?? throw RpcErrors.With(StatusCode.NotFound, ErrorCode.RecipientUnknown, $"no player with id {r.PartnerId}");
+                ?? throw RpcErrors.With(StatusCode.NotFound, ErrorCode.RecipientUnknown, RefusalKeys.EconomyRecipientUnknown, $"no player with id {r.PartnerId}", r.PartnerId);
             await BlockRules.RequireNotBlocked(db, playerId, partner.Id);
-            if (partner.TradesClosed) throw RpcErrors.Failed(ErrorCode.TradesClosed, $"{partner.Name} does not accept trade offers");
+            if (partner.TradesClosed) throw RpcErrors.Failed(ErrorCode.TradesClosed, RefusalKeys.TradesClosed, $"{partner.Name} does not accept trade offers", partner.Name);
             int max = options.Value.MaxOpenTrades;
-            if (await OpenCount(playerId) >= max) throw RpcErrors.Failed(ErrorCode.TradeLimit, $"you already have {max} open trades");
-            if (await OpenCount(partner.Id) >= max) throw RpcErrors.Failed(ErrorCode.TradeLimit, $"{partner.Name} already has {max} open trades");
+            if (await OpenCount(playerId) >= max) throw RpcErrors.Failed(ErrorCode.TradeLimit, RefusalKeys.TradesLimitOwn, $"you already have {max} open trades", max);
+            if (await OpenCount(partner.Id) >= max) throw RpcErrors.Failed(ErrorCode.TradeLimit, RefusalKeys.TradesLimitPartner, $"{partner.Name} already has {max} open trades", partner.Name, max);
 
             var now = DateTime.UtcNow;
             trade = new Trade
@@ -123,7 +123,7 @@ public sealed class TradeService(
                 oldPawns.Pawns.AddRange(pawns.Pawns);
                 items = oldItems;
                 pawns = oldPawns;
-                if (validator.Validate(items, pawns) is { } reason) throw RpcErrors.Failed(ParcelValidator.CodeFor(reason), reason);
+                if (validator.Validate(items, pawns) is { } reason) throw RpcErrors.Failed(reason.Code, reason.Key, reason.Message, reason.Args);
             }
 
             long delta = r.Silver - side.Silver;
@@ -166,7 +166,7 @@ public sealed class TradeService(
             if (trade.Status == TradeStatusDb.Completed) return await ToProto(trade); // a second press after the exchange
             if (trade.Status != TradeStatusDb.Open) throw Gone();
             gate.RequireOpen();
-            if (revision != trade.Revision) throw RpcErrors.Failed(ErrorCode.TradeChanged, "the trade changed; look at it again");
+            if (revision != trade.Revision) throw RpcErrors.Failed(ErrorCode.TradeChanged, RefusalKeys.TradesChanged, "the trade changed; look at it again");
             var side = new Side(trade, trade.InitiatorPlayerId == playerId);
             var other = new Side(trade, trade.InitiatorPlayerId != playerId);
             if (side.Confirmed) return await ToProto(trade);
@@ -293,12 +293,12 @@ public sealed class TradeService(
             ?? throw Gone();
     }
 
-    private static RpcException Gone() => RpcErrors.Failed(ErrorCode.TradeGone, "no such open trade");
+    private static RpcException Gone() => RpcErrors.Failed(ErrorCode.TradeGone, RefusalKeys.TradesGone, "no such open trade");
 
     private void CheckGoods(ItemList? items, PawnList? pawns, long silver)
     {
-        if (silver < 0) throw new RpcException(new Status(StatusCode.InvalidArgument, "silver must not be negative"));
-        if (validator.Validate(items, pawns) is { } reason) throw RpcErrors.Failed(ParcelValidator.CodeFor(reason), reason);
+        if (silver < 0) throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.TradesNegativeSilver, "silver must not be negative");
+        if (validator.Validate(items, pawns) is { } reason) throw RpcErrors.Failed(reason.Code, reason.Key, reason.Message, reason.Args);
     }
 
     private static bool HasGoods(ItemList? items, PawnList? pawns) => (items?.Items.Count ?? 0) > 0 || (pawns?.Pawns.Count ?? 0) > 0;
@@ -306,8 +306,8 @@ public sealed class TradeService(
     private static string CleanNote(string? note)
     {
         note = (note ?? "").Trim();
-        if (note.Length > MaxNoteLength) throw new RpcException(new Status(StatusCode.InvalidArgument, $"note longer than {MaxNoteLength} characters"));
-        if (note.Any(c => char.IsControl(c) && c != '\n')) throw new RpcException(new Status(StatusCode.InvalidArgument, "note contains control characters"));
+        if (note.Length > MaxNoteLength) throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.TradesNoteTooLong, $"note longer than {MaxNoteLength} characters", MaxNoteLength);
+        if (note.Any(c => char.IsControl(c) && c != '\n')) throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.TradesNoteControlChars, "note contains control characters");
         return note;
     }
 

@@ -410,4 +410,113 @@
   <Rimlink.Refusal.Shop.Sold>that item is no longer for sale</Rimlink.Refusal.Shop.Sold>
   <Rimlink.Refusal.Shop.OnlyLeft>only {0} left</Rimlink.Refusal.Shop.OnlyLeft>
   <Rimlink.Refusal.Shop.Mismatch>the item does not match what is for sale</Rimlink.Refusal.Shop.Mismatch>
+  <Rimlink.Refusal.Economy.Disabled>the economy is disabled on this server</Rimlink.Refusal.Economy.Disabled>
+  <Rimlink.Refusal.Economy.RecipientUnknown>no player with id {0}</Rimlink.Refusal.Economy.RecipientUnknown>
+  <Rimlink.Refusal.Economy.MailboxFull>recipient's mailbox is full</Rimlink.Refusal.Economy.MailboxFull>
+  <Rimlink.Refusal.Economy.ParcelUnknown>no such parcel in your mailbox</Rimlink.Refusal.Economy.ParcelUnknown>
+  <Rimlink.Refusal.Economy.LotContents>a lot holds either items or one pawn</Rimlink.Refusal.Economy.LotContents>
+  <Rimlink.Refusal.Economy.PriceTooLow>price must be at least 1 silver</Rimlink.Refusal.Economy.PriceTooLow>
+  <Rimlink.Refusal.Economy.LotLimit>you already have {0} open lots (limit {1})</Rimlink.Refusal.Economy.LotLimit>
+  <Rimlink.Refusal.Economy.LotClosed>this lot is no longer open</Rimlink.Refusal.Economy.LotClosed>
+  <Rimlink.Refusal.Economy.LotUnknown>no such lot</Rimlink.Refusal.Economy.LotUnknown>
+  <Rimlink.Refusal.Economy.SelfBuy>you cannot buy your own lot</Rimlink.Refusal.Economy.SelfBuy>
+  <Rimlink.Refusal.Economy.LotGone>this lot was already sold or withdrawn</Rimlink.Refusal.Economy.LotGone>
+  <Rimlink.Refusal.Economy.SelfSend>you cannot send to yourself</Rimlink.Refusal.Economy.SelfSend>
+  <Rimlink.Refusal.Economy.NegativeSilver>silver must not be negative</Rimlink.Refusal.Economy.NegativeSilver>
+  <Rimlink.Refusal.Economy.NothingToSend>nothing to send</Rimlink.Refusal.Economy.NothingToSend>
+  <Rimlink.Refusal.Economy.WalletInsufficient>not enough silver: balance {0}, needed {1}</Rimlink.Refusal.Economy.WalletInsufficient>
+  <Rimlink.Refusal.Economy.SilverTooLow>silver must be at least 1</Rimlink.Refusal.Economy.SilverTooLow>
+  <Rimlink.Refusal.Economy.Paused>trading is paused: {0}</Rimlink.Refusal.Economy.Paused>
+  <Rimlink.Refusal.Raids.Paused>raids are paused: {0}</Rimlink.Refusal.Raids.Paused>
+  <Rimlink.Refusal.Live.WrongRole>not your role in this live session</Rimlink.Refusal.Live.WrongRole>
+  <Rimlink.Refusal.Live.OnlyHostSpawns>only the host spawns the guest's pawns</Rimlink.Refusal.Live.OnlyHostSpawns>
+  <Rimlink.Refusal.Live.HelloRequired>the first frame must be a Hello</Rimlink.Refusal.Live.HelloRequired>
+  <Rimlink.Refusal.Raids.OutcomeIndex>outcome index {0} is out of range or repeated</Rimlink.Refusal.Raids.OutcomeIndex>
+  <Rimlink.Refusal.Raids.SurvivorNoBlob>surviving raider {0} has no blob</Rimlink.Refusal.Raids.SurvivorNoBlob>
+  <Rimlink.Refusal.Raids.MissingOutcomes>{0} raiders have no outcome</Rimlink.Refusal.Raids.MissingOutcomes>
+  <Rimlink.Refusal.Raids.ReportBeforeLanding>the report's save tick is before the landing</Rimlink.Refusal.Raids.ReportBeforeLanding>
+  <Rimlink.Refusal.Raids.KidnapDisabled>kidnapping is disabled on this server</Rimlink.Refusal.Raids.KidnapDisabled>
+  <Rimlink.Refusal.Raids.CaptiveLimit>at most one captive per raid</Rimlink.Refusal.Raids.CaptiveLimit>
+  <Rimlink.Refusal.Raids.LootOverCap>loot worth {0} silver exceeds this raid's cap of {1}</Rimlink.Refusal.Raids.LootOverCap>
+  <Rimlink.Refusal.Raids.Disabled>raids are disabled on this server</Rimlink.Refusal.Raids.Disabled>
+  <Rimlink.Refusal.Raids.Self>you cannot raid yourself</Rimlink.Refusal.Raids.Self>
+  <Rimlink.Refusal.Raids.NoPawns>a raid needs at least one pawn</Rimlink.Refusal.Raids.NoPawns>
+  <Rimlink.Refusal.Raids.TooManyPawns>too many raiders ({0} &gt; {1})</Rimlink.Refusal.Raids.TooManyPawns>
+  <Rimlink.Refusal.Raids.NoSuchRaid>no such raid</Rimlink.Refusal.Raids.NoSuchRaid>
+  <Rimlink.Refusal.Raids.Gone>that raid is over</Rimlink.Refusal.Raids.Gone>
+  <Rimlink.Refusal.Raids.LiveNotAnnounced>a live raid is not announced</Rimlink.Refusal.Raids.LiveNotAnnounced>
+  <Rimlink.Refusal.Raids.LiveDoesNotLand>a live raid does not land</Rimlink.Refusal.Raids.LiveDoesNotLand>
+  <Rimlink.Refusal.Raids.NotAnnounced>the raid has not been announced</Rimlink.Refusal.Raids.NotAnnounced>
+  <Rimlink.Refusal.Raids.NotLanded>the raid has not landed</Rimlink.Refusal.Raids.NotLanded>
+  <Rimlink.Refusal.World.NotCreated>the world has not been created yet</Rimlink.Refusal.World.NotCreated>
+  <Rimlink.Refusal.Saves.Stale>save tick {0} is older than your last transfer at tick {1}</Rimlink.Refusal.Saves.Stale>
+  <Rimlink.Refusal.Shop.NotVisiting>you are not visiting this player</Rimlink.Refusal.Shop.NotVisiting>
+  <Rimlink.Refusal.World.AlreadyExists>the world already exists; recreate it through the admin tools</Rimlink.Refusal.World.AlreadyExists>
+  <Rimlink.Refusal.World.EmptySeed>seed is empty</Rimlink.Refusal.World.EmptySeed>
+  <Rimlink.Refusal.World.SettlementNameInvalid>settlement name is not a valid name</Rimlink.Refusal.World.SettlementNameInvalid>
+  <Rimlink.Refusal.World.NpcTile>an NPC settlement occupies this tile</Rimlink.Refusal.World.NpcTile>
+  <Rimlink.Refusal.World.SettlementLimit>you already have {0} settlement(s); the limit is {1}</Rimlink.Refusal.World.SettlementLimit>
+  <Rimlink.Refusal.World.TileTaken>another player settled this tile first</Rimlink.Refusal.World.TileTaken>
+  <Rimlink.Refusal.World.ObjectUnknown>no such world object</Rimlink.Refusal.World.ObjectUnknown>
+  <Rimlink.Refusal.Saves.HeaderRequired>first message must be the save header</Rimlink.Refusal.Saves.HeaderRequired>
+  <Rimlink.Refusal.Saves.None>no save stored for this player</Rimlink.Refusal.Saves.None>
+  <Rimlink.Refusal.Auth.PasswordDisabled>password accounts are disabled on this server</Rimlink.Refusal.Auth.PasswordDisabled>
+  <Rimlink.Refusal.Auth.LoginInvalid>login is not a valid name</Rimlink.Refusal.Auth.LoginInvalid>
+  <Rimlink.Refusal.Auth.PlayerNameInvalid>player name is not a valid name</Rimlink.Refusal.Auth.PlayerNameInvalid>
+  <Rimlink.Refusal.Auth.PasswordEmpty>password is empty</Rimlink.Refusal.Auth.PasswordEmpty>
+  <Rimlink.Refusal.Auth.LoginTaken>login already taken</Rimlink.Refusal.Auth.LoginTaken>
+  <Rimlink.Refusal.Auth.PlayerNameTaken>player name already taken</Rimlink.Refusal.Auth.PlayerNameTaken>
+  <Rimlink.Refusal.Auth.InvalidCredentials>login details are invalid</Rimlink.Refusal.Auth.InvalidCredentials>
+  <Rimlink.Refusal.Auth.SteamTicketInvalid>Steam ticket is not valid</Rimlink.Refusal.Auth.SteamTicketInvalid>
+  <Rimlink.Refusal.Auth.ProtocolVersion>server speaks protocol {0}, client sent {1}</Rimlink.Refusal.Auth.ProtocolVersion>
+  <Rimlink.Refusal.Auth.WorldNotCreated>the world has not been created yet; wait for an admin</Rimlink.Refusal.Auth.WorldNotCreated>
+  <Rimlink.Refusal.Auth.ServerFull>server is full ({0} players)</Rimlink.Refusal.Auth.ServerFull>
+  <Rimlink.Refusal.Auth.WrongPassword>wrong server password</Rimlink.Refusal.Auth.WrongPassword>
+  <Rimlink.Refusal.Auth.NoCredential>no supported credential in request</Rimlink.Refusal.Auth.NoCredential>
+  <Rimlink.Refusal.Auth.BannedUntil>banned until {0}: {1}</Rimlink.Refusal.Auth.BannedUntil>
+  <Rimlink.Refusal.Auth.BannedPermanently>banned permanently: {0}</Rimlink.Refusal.Auth.BannedPermanently>
+  <Rimlink.Refusal.Parcel.TooManyItems>too many item stacks ({0} &gt; {1})</Rimlink.Refusal.Parcel.TooManyItems>
+  <Rimlink.Refusal.Parcel.TooManyPawns>too many pawns ({0} &gt; {1})</Rimlink.Refusal.Parcel.TooManyPawns>
+  <Rimlink.Refusal.Parcel.TooBig>parcel exceeds {0} bytes</Rimlink.Refusal.Parcel.TooBig>
+  <Rimlink.Refusal.Parcel.ItemCount>item '{0}' has count {1}</Rimlink.Refusal.Parcel.ItemCount>
+  <Rimlink.Refusal.Parcel.ItemNoData>item without def or data</Rimlink.Refusal.Parcel.ItemNoData>
+  <Rimlink.Refusal.Parcel.DefNotInModpack>def '{0}' is not in the server modpack</Rimlink.Refusal.Parcel.DefNotInModpack>
+  <Rimlink.Refusal.Parcel.PawnNoData>pawn without kind or data</Rimlink.Refusal.Parcel.PawnNoData>
+  <Rimlink.Refusal.Raids.PeacefulSelf>you are in peaceful mode</Rimlink.Refusal.Raids.PeacefulSelf>
+  <Rimlink.Refusal.Raids.PeacefulTarget>{0} is in peaceful mode</Rimlink.Refusal.Raids.PeacefulTarget>
+  <Rimlink.Refusal.Raids.TargetNew>{0}'s colony is too new to be raided</Rimlink.Refusal.Raids.TargetNew>
+  <Rimlink.Refusal.Raids.TargetPoor>{0}'s colony is too poor to be raided</Rimlink.Refusal.Raids.TargetPoor>
+  <Rimlink.Refusal.Raids.Active>you already have a raid under way</Rimlink.Refusal.Raids.Active>
+  <Rimlink.Refusal.Raids.TargetCooldown>{0} was raided less than {1} hours ago</Rimlink.Refusal.Raids.TargetCooldown>
+  <Rimlink.Refusal.Raids.PairCooldown>you raided {0} less than {1} hours ago</Rimlink.Refusal.Raids.PairCooldown>
+  <Rimlink.Refusal.Saves.Size>save size {0} is outside 1..{1} bytes</Rimlink.Refusal.Saves.Size>
+  <Rimlink.Refusal.Saves.NoHash>header has no SHA-256</Rimlink.Refusal.Saves.NoHash>
+  <Rimlink.Refusal.Saves.ExtraData>more data than the header announced</Rimlink.Refusal.Saves.ExtraData>
+  <Rimlink.Refusal.Saves.WrongSize>expected {0} bytes, got {1}</Rimlink.Refusal.Saves.WrongSize>
+  <Rimlink.Refusal.Saves.HashMismatch>SHA-256 does not match</Rimlink.Refusal.Saves.HashMismatch>
+  <Rimlink.Refusal.Saves.UnexpectedMessage>unexpected message in save stream</Rimlink.Refusal.Saves.UnexpectedMessage>
+  <Rimlink.Refusal.Saves.ChunkTooBig>chunk larger than 1 MB</Rimlink.Refusal.Saves.ChunkTooBig>
+  <Rimlink.Refusal.Saves.NoRoot>not a RimWorld save (no &lt;savegame&gt; root)</Rimlink.Refusal.Saves.NoRoot>
+  <Rimlink.Refusal.Saves.WrongWorld>save belongs to another world (seed '{0}')</Rimlink.Refusal.Saves.WrongWorld>
+  <Rimlink.Refusal.Saves.NoSeed>save has no world seed</Rimlink.Refusal.Saves.NoSeed>
+  <Rimlink.Refusal.Saves.NoPlayerFaction>save has no player faction</Rimlink.Refusal.Saves.NoPlayerFaction>
+  <Rimlink.Refusal.Saves.Unreadable>save could not be read: {0}</Rimlink.Refusal.Saves.Unreadable>
+  <Rimlink.Refusal.World.OnlyAdminCreates>only an admin can create the world</Rimlink.Refusal.World.OnlyAdminCreates>
+  <Rimlink.Refusal.World.NotOwned>not your world object</Rimlink.Refusal.World.NotOwned>
+  <Rimlink.Refusal.Gifts.NoDecision>this parcel needs no decision</Rimlink.Refusal.Gifts.NoDecision>
+  <Rimlink.Refusal.Gifts.Awaiting>the gift awaits a decision</Rimlink.Refusal.Gifts.Awaiting>
+  <Rimlink.Refusal.Social.YouBlocked>you blocked this player</Rimlink.Refusal.Social.YouBlocked>
+  <Rimlink.Refusal.Social.BlockedYou>the player does not accept this from you</Rimlink.Refusal.Social.BlockedYou>
+  <Rimlink.Refusal.Social.Self>you cannot block yourself</Rimlink.Refusal.Social.Self>
+  <Rimlink.Refusal.Social.Staff>moderators and admins cannot be blocked</Rimlink.Refusal.Social.Staff>
+  <Rimlink.Refusal.Social.ListFull>block list is full ({0})</Rimlink.Refusal.Social.ListFull>
+  <Rimlink.Refusal.Trades.Self>you cannot trade with yourself</Rimlink.Refusal.Trades.Self>
+  <Rimlink.Refusal.Trades.Closed>{0} does not accept trade offers</Rimlink.Refusal.Trades.Closed>
+  <Rimlink.Refusal.Trades.LimitOwn>you already have {0} open trades</Rimlink.Refusal.Trades.LimitOwn>
+  <Rimlink.Refusal.Trades.LimitPartner>{0} already has {1} open trades</Rimlink.Refusal.Trades.LimitPartner>
+  <Rimlink.Refusal.Trades.Changed>the trade changed; look at it again</Rimlink.Refusal.Trades.Changed>
+  <Rimlink.Refusal.Trades.Gone>no such open trade</Rimlink.Refusal.Trades.Gone>
+  <Rimlink.Refusal.Trades.NegativeSilver>silver must not be negative</Rimlink.Refusal.Trades.NegativeSilver>
+  <Rimlink.Refusal.Trades.NoteTooLong>note longer than {0} characters</Rimlink.Refusal.Trades.NoteTooLong>
+  <Rimlink.Refusal.Trades.NoteControlChars>note contains control characters</Rimlink.Refusal.Trades.NoteControlChars>
 </LanguageData>

@@ -11,7 +11,11 @@ using Rimlink.Server.Storage.Entities;
 
 namespace Rimlink.Server.Application.Saves;
 
-public sealed class SaveRejected(string reason) : Exception(reason);
+public sealed class SaveRejected(string key, string reason, params object[] args) : Exception(reason)
+{
+    public string Key { get; } = key;
+    public object[] Args { get; } = args;
+}
 
 /// <summary>Versioned save storage: blobs under &lt;data&gt;/saves/&lt;playerId&gt;/&lt;n&gt;.rws.zst, metadata in save_versions.</summary>
 public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, EventBus events, ILogger<SaveStore> log)
@@ -21,10 +25,10 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, EventBus 
     public async Task<SaveVersion> Store(long playerId, SaveHeader header, IAsyncEnumerable<ReadOnlyMemory<byte>> chunks, CancellationToken cancellationToken)
     {
         if (header.TotalSize <= 0 || header.TotalSize > Limits.MaxSaveBytes)
-            throw new SaveRejected($"save size {header.TotalSize} is outside 1..{Limits.MaxSaveBytes} bytes");
-        if (header.Sha256.Length != 32) throw new SaveRejected("header has no SHA-256");
+            throw new SaveRejected(RefusalKeys.SavesSize, $"save size {header.TotalSize} is outside 1..{Limits.MaxSaveBytes} bytes", header.TotalSize, Limits.MaxSaveBytes);
+        if (header.Sha256.Length != 32) throw new SaveRejected(RefusalKeys.SavesNoHash, "header has no SHA-256");
 
-        var world = await db.World.AsNoTracking().FirstOrDefaultAsync(cancellationToken) ?? throw RpcErrors.Failed(ErrorCode.WorldNotCreated, "the world has not been created yet");
+        var world = await db.World.AsNoTracking().FirstOrDefaultAsync(cancellationToken) ?? throw RpcErrors.Failed(ErrorCode.WorldNotCreated, RefusalKeys.WorldNotCreated, "the world has not been created yet");
         var player = await db.Players.AsNoTracking().FirstAsync(p => p.Id == playerId, cancellationToken);
 
         string dir = data.Saves(playerId);
@@ -38,18 +42,18 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, EventBus 
                 await foreach (var chunk in chunks.WithCancellation(cancellationToken))
                 {
                     written += chunk.Length;
-                    if (written > header.TotalSize) throw new SaveRejected("more data than the header announced");
+                    if (written > header.TotalSize) throw new SaveRejected(RefusalKeys.SavesExtraData, "more data than the header announced");
                     await file.WriteAsync(chunk, cancellationToken);
                     sha.AppendData(chunk.Span);
                 }
-                if (written != header.TotalSize) throw new SaveRejected($"expected {header.TotalSize} bytes, got {written}");
-                if (!sha.GetHashAndReset().AsSpan().SequenceEqual(header.Sha256.Span)) throw new SaveRejected("SHA-256 does not match");
+                if (written != header.TotalSize) throw new SaveRejected(RefusalKeys.SavesWrongSize, $"expected {header.TotalSize} bytes, got {written}", header.TotalSize, written);
+                if (!sha.GetHashAndReset().AsSpan().SequenceEqual(header.Sha256.Span)) throw new SaveRejected(RefusalKeys.SavesHashMismatch, "SHA-256 does not match");
             }
 
-            if (SaveValidator.Validate(temp, world.Seed, out string? factionName) is { } reason) throw new SaveRejected(reason);
+            if (SaveValidator.Validate(temp, world.Seed, out string? factionName) is { } reason) throw reason;
             // Items given away after this save's tick are already in another player's mailbox: this file would bring them back.
             if (header.GameTick < player.LastOutgoingTick)
-                throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.SaveStale, $"save tick {header.GameTick} is older than your last transfer at tick {player.LastOutgoingTick}");
+                throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.SaveStale, RefusalKeys.SavesStale, $"save tick {header.GameTick} is older than your last transfer at tick {player.LastOutgoingTick}", header.GameTick, player.LastOutgoingTick);
 
             // From here on the upload is complete: finish without the call token, so a client that drops right
             // after its last chunk does not leave a file without a row (or a row without a file).

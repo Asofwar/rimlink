@@ -4,6 +4,7 @@ using Rimlink.Protocol.V1;
 using Rimlink.Server.Application.Modpack;
 using Rimlink.Server.Application.Sessions;
 using Rimlink.Server.Application.World;
+using Rimlink.Server.Grpc;
 using Rimlink.Server.Hosting;
 using Rimlink.Server.Storage.Entities;
 
@@ -17,8 +18,9 @@ public sealed class LoginGate(BanService bans, SessionRegistry sessions, WorldSe
         var ban = await bans.FindActive(account.Id, steam?.SteamId ?? account.SteamId, steam?.OwnerSteamId ?? account.OwnerSteamId, ctx.Ip);
         if (ban is not null)
         {
-            string until = ban.ExpiresAt is null ? "permanently" : $"until {ban.ExpiresAt:u}";
-            return new LoginResult.Failure(StatusCode.FailedPrecondition, ErrorCode.Banned, $"banned {until}: {ban.Reason}");
+            if (ban.ExpiresAt is { } until)
+                return new LoginResult.Failure(StatusCode.FailedPrecondition, ErrorCode.Banned, RefusalKeys.AuthBannedUntil, $"banned until {until:u}: {ban.Reason}", until, ban.Reason);
+            return new LoginResult.Failure(StatusCode.FailedPrecondition, ErrorCode.Banned, RefusalKeys.AuthBannedPermanently, $"banned permanently: {ban.Reason}", ban.Reason);
         }
 
         if (account.Role != Storage.Entities.Role.Admin && ModpackComparer.Compare(await modpack.Get(), ctx.Mods, await modpack.GetConfigs(), ctx.ModSettings) is { } diff)
@@ -26,16 +28,16 @@ public sealed class LoginGate(BanService bans, SessionRegistry sessions, WorldSe
 
         // Until an admin has created the world only admins may enter (they create it).
         if (account.Role != Storage.Entities.Role.Admin && !await worlds.Exists())
-            return new LoginResult.Failure(StatusCode.FailedPrecondition, ErrorCode.WorldNotCreated, "the world has not been created yet; wait for an admin");
+            return new LoginResult.Failure(StatusCode.FailedPrecondition, ErrorCode.WorldNotCreated, RefusalKeys.AuthWorldNotCreated, "the world has not been created yet; wait for an admin");
 
         // The account's own old session does not count: it is replaced, not added.
         int online = sessions.All.Count(s => s.AccountId != account.Id);
         if (online >= server.Value.MaxPlayers)
-            return new LoginResult.Failure(StatusCode.FailedPrecondition, ErrorCode.ServerFull, $"server is full ({server.Value.MaxPlayers} players)");
+            return new LoginResult.Failure(StatusCode.FailedPrecondition, ErrorCode.ServerFull, RefusalKeys.AuthServerFull, $"server is full ({server.Value.MaxPlayers} players)", server.Value.MaxPlayers);
 
         string? required = server.Value.ServerPassword;
         if (!string.IsNullOrEmpty(required) && ctx.ServerPassword != required)
-            return new LoginResult.Failure(StatusCode.FailedPrecondition, ErrorCode.WrongPassword, "wrong server password");
+            return new LoginResult.Failure(StatusCode.FailedPrecondition, ErrorCode.WrongPassword, RefusalKeys.AuthWrongPassword, "wrong server password");
 
         return null;
     }

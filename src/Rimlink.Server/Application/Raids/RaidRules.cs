@@ -13,8 +13,8 @@ public sealed class RaidGate(IOptions<RaidOptions> options, RaidFreezeState free
 {
     public void RequireOpen()
     {
-        if (!options.Value.Enabled) throw RpcErrors.Failed(ErrorCode.EconomyFrozen, "raids are disabled on this server");
-        if (freeze.Frozen) throw RpcErrors.Failed(ErrorCode.EconomyFrozen, "raids are paused: " + (freeze.Reason ?? "maintenance"));
+        if (!options.Value.Enabled) throw RpcErrors.Failed(ErrorCode.EconomyFrozen, RefusalKeys.RaidsDisabled, "raids are disabled on this server");
+        if (freeze.Frozen) throw RpcErrors.Failed(ErrorCode.EconomyFrozen, RefusalKeys.RaidsPaused, "raids are paused: " + (freeze.Reason ?? "maintenance"), freeze.Reason ?? "maintenance");
     }
 }
 
@@ -26,27 +26,27 @@ public sealed class RaidRules(IOptions<RaidOptions> options, RimlinkDbContext db
     /// <summary>Peaceful, or asked to leave peaceful mode less than the delay ago.</summary>
     public static bool IsPeaceful(Player p, DateTime now) => p.Peaceful || (p.PeacefulOffAt is { } until && until > now);
 
-    public async Task<(ErrorCode Code, string Message)?> CheckLaunch(Player attacker, Player target, DateTime now)
+    public async Task<(ErrorCode Code, string Key, string Message, object[] Args)?> CheckLaunch(Player attacker, Player target, DateTime now)
     {
         var o = options.Value;
-        if (IsPeaceful(attacker, now)) return (ErrorCode.PeacefulMode, "you are in peaceful mode");
-        if (IsPeaceful(target, now)) return (ErrorCode.PeacefulMode, $"{target.Name} is in peaceful mode");
+        if (IsPeaceful(attacker, now)) return (ErrorCode.PeacefulMode, RefusalKeys.RaidsPeacefulSelf, "you are in peaceful mode", []);
+        if (IsPeaceful(target, now)) return (ErrorCode.PeacefulMode, RefusalKeys.RaidsPeacefulTarget, $"{target.Name} is in peaceful mode", [target.Name]);
         // Players from before this column existed have saves but no stamp: their oldest save is the first one.
         var firstSave = target.FirstSaveAt ?? await db.SaveVersions.Where(v => v.PlayerId == target.Id).MinAsync(v => (DateTime?)v.CreatedAt);
         if (firstSave is null || now - firstSave.Value < TimeSpan.FromDays(o.NewbieProtectionDays))
-            return (ErrorCode.TargetProtected, $"{target.Name}'s colony is too new to be raided");
+            return (ErrorCode.TargetProtected, RefusalKeys.RaidsTargetNew, $"{target.Name}'s colony is too new to be raided", [target.Name]);
         if (target.WealthTotal < o.MinColonyWealth)
-            return (ErrorCode.TargetProtected, $"{target.Name}'s colony is too poor to be raided");
+            return (ErrorCode.TargetProtected, RefusalKeys.RaidsTargetPoor, $"{target.Name}'s colony is too poor to be raided", [target.Name]);
 
         int active = await db.Raids.CountAsync(r => r.AttackerPlayerId == attacker.Id && !Final.Contains(r.State));
-        if (active >= o.MaxActiveRaidsPerAttacker) return (ErrorCode.RaidActive, "you already have a raid under way");
+        if (active >= o.MaxActiveRaidsPerAttacker) return (ErrorCode.RaidActive, RefusalKeys.RaidsActive, "you already have a raid under way", []);
 
         var targetSince = now - TimeSpan.FromHours(o.TargetCooldownHours);
         if (await db.Raids.AnyAsync(r => r.TargetPlayerId == target.Id && r.State != RaidStateDb.Cancelled && r.CreatedAt >= targetSince))
-            return (ErrorCode.RaidCooldown, $"{target.Name} was raided less than {o.TargetCooldownHours} hours ago");
+            return (ErrorCode.RaidCooldown, RefusalKeys.RaidsTargetCooldown, $"{target.Name} was raided less than {o.TargetCooldownHours} hours ago", [target.Name, o.TargetCooldownHours]);
         var pairSince = now - TimeSpan.FromHours(o.PairCooldownHours);
         if (await db.Raids.AnyAsync(r => r.TargetPlayerId == target.Id && r.AttackerPlayerId == attacker.Id && r.State != RaidStateDb.Cancelled && r.CreatedAt >= pairSince))
-            return (ErrorCode.RaidCooldown, $"you raided {target.Name} less than {o.PairCooldownHours} hours ago");
+            return (ErrorCode.RaidCooldown, RefusalKeys.RaidsPairCooldown, $"you raided {target.Name} less than {o.PairCooldownHours} hours ago", [target.Name, o.PairCooldownHours]);
         return null;
     }
 

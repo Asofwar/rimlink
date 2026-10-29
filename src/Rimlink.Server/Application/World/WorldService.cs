@@ -25,9 +25,9 @@ public sealed class WorldService(RimlinkDbContext db, EventBus events, AdminFeed
 
     public async Task<WorldEntity> Create(WorldParams parameters, IReadOnlyList<int> npcTiles, Session actor)
     {
-        if (actor.Role != Storage.Entities.Role.Admin) throw RpcErrors.PermissionDenied("only an admin can create the world");
-        if (await db.World.AnyAsync()) throw RpcErrors.Failed(ErrorCode.Unspecified, "the world already exists; recreate it through the admin tools");
-        if (string.IsNullOrWhiteSpace(parameters.Seed)) throw new RpcException(new Status(StatusCode.InvalidArgument, "seed is empty"));
+        if (actor.Role != Storage.Entities.Role.Admin) throw RpcErrors.With(StatusCode.PermissionDenied, ErrorCode.Unspecified, RefusalKeys.WorldOnlyAdminCreates, "only an admin can create the world");
+        if (await db.World.AnyAsync()) throw RpcErrors.Failed(ErrorCode.Unspecified, RefusalKeys.WorldAlreadyExists, "the world already exists; recreate it through the admin tools");
+        if (string.IsNullOrWhiteSpace(parameters.Seed)) throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.WorldEmptySeed, "seed is empty");
 
         var world = new WorldEntity
         {
@@ -55,13 +55,13 @@ public sealed class WorldService(RimlinkDbContext db, EventBus events, AdminFeed
 
     public async Task<Protocol.V1.WorldObject> Settle(Session actor, int tile, string name)
     {
-        var world = await db.World.AsNoTracking().FirstOrDefaultAsync() ?? throw RpcErrors.Failed(ErrorCode.WorldNotCreated, "the world has not been created yet");
-        if (!Names.IsValid(name)) throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.NameInvalid, "settlement name is not a valid name");
-        if (ParseTiles(world.NpcTiles).Contains(tile)) throw RpcErrors.Failed(ErrorCode.TileTaken, "an NPC settlement occupies this tile");
+        var world = await db.World.AsNoTracking().FirstOrDefaultAsync() ?? throw RpcErrors.Failed(ErrorCode.WorldNotCreated, RefusalKeys.WorldNotCreated, "the world has not been created yet");
+        if (!Names.IsValid(name)) throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.NameInvalid, RefusalKeys.WorldSettlementNameInvalid, "settlement name is not a valid name");
+        if (ParseTiles(world.NpcTiles).Contains(tile)) throw RpcErrors.Failed(ErrorCode.TileTaken, RefusalKeys.WorldNpcTile, "an NPC settlement occupies this tile");
 
         int owned = await db.WorldObjects.CountAsync(o => o.OwnerPlayerId == actor.PlayerId && o.Type == WorldObjectTypes.Settlement);
         if (owned >= server.Value.MaxSettlementsPerPlayer)
-            throw RpcErrors.Failed(ErrorCode.SettlementLimit, $"you already have {owned} settlement(s); the limit is {server.Value.MaxSettlementsPerPlayer}");
+            throw RpcErrors.Failed(ErrorCode.SettlementLimit, RefusalKeys.WorldSettlementLimit, $"you already have {owned} settlement(s); the limit is {server.Value.MaxSettlementsPerPlayer}", owned, server.Value.MaxSettlementsPerPlayer);
 
         var entity = new Storage.Entities.WorldObject
         {
@@ -79,7 +79,7 @@ public sealed class WorldService(RimlinkDbContext db, EventBus events, AdminFeed
         catch (DbUpdateException ex) when (ex.InnerException is SqliteException { SqliteErrorCode: SqliteConstraint })
         {
             db.Entry(entity).State = EntityState.Detached;
-            throw RpcErrors.Failed(ErrorCode.TileTaken, "another player settled this tile first");
+            throw RpcErrors.Failed(ErrorCode.TileTaken, RefusalKeys.WorldTileTaken, "another player settled this tile first");
         }
 
         await db.Entry(entity).Reference(o => o.Owner).LoadAsync();
@@ -92,8 +92,8 @@ public sealed class WorldService(RimlinkDbContext db, EventBus events, AdminFeed
 
     public async Task Abandon(Session actor, long objectId)
     {
-        var entity = await db.WorldObjects.FindAsync(objectId) ?? throw new RpcException(new Status(StatusCode.NotFound, "no such world object"));
-        if (entity.OwnerPlayerId != actor.PlayerId && actor.Role != Storage.Entities.Role.Admin) throw RpcErrors.PermissionDenied("not your world object");
+        var entity = await db.WorldObjects.FindAsync(objectId) ?? throw RpcErrors.With(StatusCode.NotFound, ErrorCode.Unspecified, RefusalKeys.WorldObjectUnknown, "no such world object");
+        if (entity.OwnerPlayerId != actor.PlayerId && actor.Role != Storage.Entities.Role.Admin) throw RpcErrors.With(StatusCode.PermissionDenied, ErrorCode.Unspecified, RefusalKeys.WorldNotOwned, "not your world object");
 
         db.WorldObjects.Remove(entity);
         await db.SaveChangesAsync();

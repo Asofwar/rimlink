@@ -410,4 +410,113 @@
   <Rimlink.Refusal.Shop.Sold>эта вещь уже не продаётся</Rimlink.Refusal.Shop.Sold>
   <Rimlink.Refusal.Shop.OnlyLeft>осталось только {0}</Rimlink.Refusal.Shop.OnlyLeft>
   <Rimlink.Refusal.Shop.Mismatch>вещь не совпадает с выставленной на продажу</Rimlink.Refusal.Shop.Mismatch>
+  <Rimlink.Refusal.Economy.Disabled>Экономика на этом сервере отключена</Rimlink.Refusal.Economy.Disabled>
+  <Rimlink.Refusal.Economy.RecipientUnknown>Игрок с идентификатором {0} не найден</Rimlink.Refusal.Economy.RecipientUnknown>
+  <Rimlink.Refusal.Economy.MailboxFull>Почтовый ящик получателя заполнен</Rimlink.Refusal.Economy.MailboxFull>
+  <Rimlink.Refusal.Economy.ParcelUnknown>В вашем почтовом ящике нет такой посылки</Rimlink.Refusal.Economy.ParcelUnknown>
+  <Rimlink.Refusal.Economy.LotContents>Лот может содержать либо предметы, либо одного персонажа</Rimlink.Refusal.Economy.LotContents>
+  <Rimlink.Refusal.Economy.PriceTooLow>Цена должна быть не меньше 1 серебра</Rimlink.Refusal.Economy.PriceTooLow>
+  <Rimlink.Refusal.Economy.LotLimit>У вас уже {0} открытых лотов (лимит: {1})</Rimlink.Refusal.Economy.LotLimit>
+  <Rimlink.Refusal.Economy.LotClosed>Этот лот уже закрыт</Rimlink.Refusal.Economy.LotClosed>
+  <Rimlink.Refusal.Economy.LotUnknown>Такого лота нет</Rimlink.Refusal.Economy.LotUnknown>
+  <Rimlink.Refusal.Economy.SelfBuy>Нельзя купить собственный лот</Rimlink.Refusal.Economy.SelfBuy>
+  <Rimlink.Refusal.Economy.LotGone>Этот лот уже продан или снят с продажи</Rimlink.Refusal.Economy.LotGone>
+  <Rimlink.Refusal.Economy.SelfSend>Нельзя отправить посылку самому себе</Rimlink.Refusal.Economy.SelfSend>
+  <Rimlink.Refusal.Economy.NegativeSilver>Количество серебра не может быть отрицательным</Rimlink.Refusal.Economy.NegativeSilver>
+  <Rimlink.Refusal.Economy.NothingToSend>Нечего отправлять</Rimlink.Refusal.Economy.NothingToSend>
+  <Rimlink.Refusal.Economy.WalletInsufficient>Недостаточно серебра: на счету {0}, требуется {1}</Rimlink.Refusal.Economy.WalletInsufficient>
+  <Rimlink.Refusal.Economy.SilverTooLow>Количество серебра должно быть не меньше 1</Rimlink.Refusal.Economy.SilverTooLow>
+  <Rimlink.Refusal.Economy.Paused>Торговля приостановлена: {0}</Rimlink.Refusal.Economy.Paused>
+  <Rimlink.Refusal.Raids.Paused>Рейды приостановлены: {0}</Rimlink.Refusal.Raids.Paused>
+  <Rimlink.Refusal.Live.WrongRole>Эта роль в живой сессии вам не принадлежит</Rimlink.Refusal.Live.WrongRole>
+  <Rimlink.Refusal.Live.OnlyHostSpawns>Только хозяин может разместить персонажей гостя</Rimlink.Refusal.Live.OnlyHostSpawns>
+  <Rimlink.Refusal.Live.HelloRequired>Первым сообщением должно быть Hello</Rimlink.Refusal.Live.HelloRequired>
+  <Rimlink.Refusal.Raids.OutcomeIndex>Индекс результата {0} вне допустимого диапазона или повторяется</Rimlink.Refusal.Raids.OutcomeIndex>
+  <Rimlink.Refusal.Raids.SurvivorNoBlob>Нет данных выжившего участника рейда {0}</Rimlink.Refusal.Raids.SurvivorNoBlob>
+  <Rimlink.Refusal.Raids.MissingOutcomes>Нет результатов для участников рейда: {0}</Rimlink.Refusal.Raids.MissingOutcomes>
+  <Rimlink.Refusal.Raids.ReportBeforeLanding>Тик сохранения в отчёте предшествует высадке</Rimlink.Refusal.Raids.ReportBeforeLanding>
+  <Rimlink.Refusal.Raids.KidnapDisabled>Похищения на этом сервере отключены</Rimlink.Refusal.Raids.KidnapDisabled>
+  <Rimlink.Refusal.Raids.CaptiveLimit>За один рейд можно взять не более одного пленника</Rimlink.Refusal.Raids.CaptiveLimit>
+  <Rimlink.Refusal.Raids.LootOverCap>Стоимость добычи ({0} серебра) превышает лимит этого рейда ({1})</Rimlink.Refusal.Raids.LootOverCap>
+  <Rimlink.Refusal.Raids.Disabled>Рейды на этом сервере отключены</Rimlink.Refusal.Raids.Disabled>
+  <Rimlink.Refusal.Raids.Self>Нельзя совершить рейд на самого себя</Rimlink.Refusal.Raids.Self>
+  <Rimlink.Refusal.Raids.NoPawns>Для рейда нужен хотя бы один персонаж</Rimlink.Refusal.Raids.NoPawns>
+  <Rimlink.Refusal.Raids.TooManyPawns>Слишком много участников рейда ({0} &gt; {1})</Rimlink.Refusal.Raids.TooManyPawns>
+  <Rimlink.Refusal.Raids.NoSuchRaid>Такого рейда нет</Rimlink.Refusal.Raids.NoSuchRaid>
+  <Rimlink.Refusal.Raids.Gone>Этот рейд завершён</Rimlink.Refusal.Raids.Gone>
+  <Rimlink.Refusal.Raids.LiveNotAnnounced>Живой рейд не объявляется</Rimlink.Refusal.Raids.LiveNotAnnounced>
+  <Rimlink.Refusal.Raids.LiveDoesNotLand>Для живого рейда нет отдельной высадки</Rimlink.Refusal.Raids.LiveDoesNotLand>
+  <Rimlink.Refusal.Raids.NotAnnounced>Рейд ещё не объявлен</Rimlink.Refusal.Raids.NotAnnounced>
+  <Rimlink.Refusal.Raids.NotLanded>Участники рейда ещё не высадились</Rimlink.Refusal.Raids.NotLanded>
+  <Rimlink.Refusal.World.NotCreated>Мир ещё не создан</Rimlink.Refusal.World.NotCreated>
+  <Rimlink.Refusal.Saves.Stale>Тик сохранения {0} предшествует последней передаче на тике {1}</Rimlink.Refusal.Saves.Stale>
+  <Rimlink.Refusal.Shop.NotVisiting>Вы не в гостях у этого игрока</Rimlink.Refusal.Shop.NotVisiting>
+  <Rimlink.Refusal.World.AlreadyExists>Мир уже существует; пересоздайте его через инструменты администратора</Rimlink.Refusal.World.AlreadyExists>
+  <Rimlink.Refusal.World.EmptySeed>Зерно мира не задано</Rimlink.Refusal.World.EmptySeed>
+  <Rimlink.Refusal.World.SettlementNameInvalid>Недопустимое название поселения</Rimlink.Refusal.World.SettlementNameInvalid>
+  <Rimlink.Refusal.World.NpcTile>На этой клетке находится поселение NPC</Rimlink.Refusal.World.NpcTile>
+  <Rimlink.Refusal.World.SettlementLimit>У вас уже {0} поселений; лимит: {1}</Rimlink.Refusal.World.SettlementLimit>
+  <Rimlink.Refusal.World.TileTaken>Другой игрок уже основал поселение на этой клетке</Rimlink.Refusal.World.TileTaken>
+  <Rimlink.Refusal.World.ObjectUnknown>Такого объекта мира нет</Rimlink.Refusal.World.ObjectUnknown>
+  <Rimlink.Refusal.Saves.HeaderRequired>Первым сообщением должен быть заголовок сохранения</Rimlink.Refusal.Saves.HeaderRequired>
+  <Rimlink.Refusal.Saves.None>Для этого игрока нет сохранения на сервере</Rimlink.Refusal.Saves.None>
+  <Rimlink.Refusal.Auth.PasswordDisabled>Учётные записи с паролем на этом сервере отключены</Rimlink.Refusal.Auth.PasswordDisabled>
+  <Rimlink.Refusal.Auth.LoginInvalid>Недопустимый логин</Rimlink.Refusal.Auth.LoginInvalid>
+  <Rimlink.Refusal.Auth.PlayerNameInvalid>Недопустимое имя игрока</Rimlink.Refusal.Auth.PlayerNameInvalid>
+  <Rimlink.Refusal.Auth.PasswordEmpty>Пароль не задан</Rimlink.Refusal.Auth.PasswordEmpty>
+  <Rimlink.Refusal.Auth.LoginTaken>Этот логин уже занят</Rimlink.Refusal.Auth.LoginTaken>
+  <Rimlink.Refusal.Auth.PlayerNameTaken>Это имя игрока уже занято</Rimlink.Refusal.Auth.PlayerNameTaken>
+  <Rimlink.Refusal.Auth.InvalidCredentials>Неверный логин или пароль</Rimlink.Refusal.Auth.InvalidCredentials>
+  <Rimlink.Refusal.Auth.SteamTicketInvalid>Недействительный билет Steam</Rimlink.Refusal.Auth.SteamTicketInvalid>
+  <Rimlink.Refusal.Auth.ProtocolVersion>Версия протокола сервера: {0}, клиента: {1}</Rimlink.Refusal.Auth.ProtocolVersion>
+  <Rimlink.Refusal.Auth.WorldNotCreated>Мир ещё не создан; дождитесь администратора</Rimlink.Refusal.Auth.WorldNotCreated>
+  <Rimlink.Refusal.Auth.ServerFull>Сервер заполнен (лимит: {0} игроков)</Rimlink.Refusal.Auth.ServerFull>
+  <Rimlink.Refusal.Auth.WrongPassword>Неверный пароль сервера</Rimlink.Refusal.Auth.WrongPassword>
+  <Rimlink.Refusal.Auth.NoCredential>В запросе нет поддерживаемых данных для входа</Rimlink.Refusal.Auth.NoCredential>
+  <Rimlink.Refusal.Auth.BannedUntil>Вы заблокированы до {0}: {1}</Rimlink.Refusal.Auth.BannedUntil>
+  <Rimlink.Refusal.Auth.BannedPermanently>Вы заблокированы навсегда: {0}</Rimlink.Refusal.Auth.BannedPermanently>
+  <Rimlink.Refusal.Parcel.TooManyItems>Слишком много стопок предметов ({0} &gt; {1})</Rimlink.Refusal.Parcel.TooManyItems>
+  <Rimlink.Refusal.Parcel.TooManyPawns>Слишком много персонажей ({0} &gt; {1})</Rimlink.Refusal.Parcel.TooManyPawns>
+  <Rimlink.Refusal.Parcel.TooBig>Размер посылки превышает {0} байт</Rimlink.Refusal.Parcel.TooBig>
+  <Rimlink.Refusal.Parcel.ItemCount>У предмета «{0}» недопустимое количество: {1}</Rimlink.Refusal.Parcel.ItemCount>
+  <Rimlink.Refusal.Parcel.ItemNoData>У предмета отсутствует определение или данные</Rimlink.Refusal.Parcel.ItemNoData>
+  <Rimlink.Refusal.Parcel.DefNotInModpack>Определение «{0}» отсутствует в сборке модов сервера</Rimlink.Refusal.Parcel.DefNotInModpack>
+  <Rimlink.Refusal.Parcel.PawnNoData>У персонажа отсутствует тип или данные</Rimlink.Refusal.Parcel.PawnNoData>
+  <Rimlink.Refusal.Raids.PeacefulSelf>У вас включён мирный режим</Rimlink.Refusal.Raids.PeacefulSelf>
+  <Rimlink.Refusal.Raids.PeacefulTarget>У игрока {0} включён мирный режим</Rimlink.Refusal.Raids.PeacefulTarget>
+  <Rimlink.Refusal.Raids.TargetNew>Колония игрока {0} ещё слишком новая для рейда</Rimlink.Refusal.Raids.TargetNew>
+  <Rimlink.Refusal.Raids.TargetPoor>Колония игрока {0} ещё слишком бедна для рейда</Rimlink.Refusal.Raids.TargetPoor>
+  <Rimlink.Refusal.Raids.Active>У вас уже идёт рейд</Rimlink.Refusal.Raids.Active>
+  <Rimlink.Refusal.Raids.TargetCooldown>На игрока {0} уже совершали рейд менее {1} ч. назад</Rimlink.Refusal.Raids.TargetCooldown>
+  <Rimlink.Refusal.Raids.PairCooldown>Вы уже совершали рейд на игрока {0} менее {1} ч. назад</Rimlink.Refusal.Raids.PairCooldown>
+  <Rimlink.Refusal.Saves.Size>Размер сохранения {0} вне диапазона 1..{1} байт</Rimlink.Refusal.Saves.Size>
+  <Rimlink.Refusal.Saves.NoHash>В заголовке отсутствует SHA-256</Rimlink.Refusal.Saves.NoHash>
+  <Rimlink.Refusal.Saves.ExtraData>Получено больше данных, чем заявлено в заголовке</Rimlink.Refusal.Saves.ExtraData>
+  <Rimlink.Refusal.Saves.WrongSize>Ожидалось {0} байт, получено {1}</Rimlink.Refusal.Saves.WrongSize>
+  <Rimlink.Refusal.Saves.HashMismatch>Контрольная сумма SHA-256 не совпадает</Rimlink.Refusal.Saves.HashMismatch>
+  <Rimlink.Refusal.Saves.UnexpectedMessage>Неожиданное сообщение в потоке сохранения</Rimlink.Refusal.Saves.UnexpectedMessage>
+  <Rimlink.Refusal.Saves.ChunkTooBig>Блок данных превышает 1 МБ</Rimlink.Refusal.Saves.ChunkTooBig>
+  <Rimlink.Refusal.Saves.NoRoot>Это не сохранение RimWorld (нет корневого элемента &lt;savegame&gt;)</Rimlink.Refusal.Saves.NoRoot>
+  <Rimlink.Refusal.Saves.WrongWorld>Сохранение принадлежит другому миру (зерно «{0}»)</Rimlink.Refusal.Saves.WrongWorld>
+  <Rimlink.Refusal.Saves.NoSeed>В сохранении нет зерна мира</Rimlink.Refusal.Saves.NoSeed>
+  <Rimlink.Refusal.Saves.NoPlayerFaction>В сохранении нет фракции игрока</Rimlink.Refusal.Saves.NoPlayerFaction>
+  <Rimlink.Refusal.Saves.Unreadable>Не удалось прочитать сохранение: {0}</Rimlink.Refusal.Saves.Unreadable>
+  <Rimlink.Refusal.World.OnlyAdminCreates>Только администратор может создать мир</Rimlink.Refusal.World.OnlyAdminCreates>
+  <Rimlink.Refusal.World.NotOwned>Этот объект мира вам не принадлежит</Rimlink.Refusal.World.NotOwned>
+  <Rimlink.Refusal.Gifts.NoDecision>Эта посылка не требует решения</Rimlink.Refusal.Gifts.NoDecision>
+  <Rimlink.Refusal.Gifts.Awaiting>Подарок ждёт вашего решения</Rimlink.Refusal.Gifts.Awaiting>
+  <Rimlink.Refusal.Social.YouBlocked>Вы заблокировали этого игрока</Rimlink.Refusal.Social.YouBlocked>
+  <Rimlink.Refusal.Social.BlockedYou>Игрок не принимает это от вас</Rimlink.Refusal.Social.BlockedYou>
+  <Rimlink.Refusal.Social.Self>Нельзя заблокировать самого себя</Rimlink.Refusal.Social.Self>
+  <Rimlink.Refusal.Social.Staff>Модераторов и администраторов нельзя заблокировать</Rimlink.Refusal.Social.Staff>
+  <Rimlink.Refusal.Social.ListFull>Список блокировки полон ({0})</Rimlink.Refusal.Social.ListFull>
+  <Rimlink.Refusal.Trades.Self>Нельзя торговать с самим собой</Rimlink.Refusal.Trades.Self>
+  <Rimlink.Refusal.Trades.Closed>{0} не принимает предложения обмена</Rimlink.Refusal.Trades.Closed>
+  <Rimlink.Refusal.Trades.LimitOwn>У вас уже {0} открытых обменов</Rimlink.Refusal.Trades.LimitOwn>
+  <Rimlink.Refusal.Trades.LimitPartner>У игрока {0} уже {1} открытых обменов</Rimlink.Refusal.Trades.LimitPartner>
+  <Rimlink.Refusal.Trades.Changed>Обмен изменился: посмотрите на него ещё раз</Rimlink.Refusal.Trades.Changed>
+  <Rimlink.Refusal.Trades.Gone>Такого открытого обмена нет</Rimlink.Refusal.Trades.Gone>
+  <Rimlink.Refusal.Trades.NegativeSilver>Серебро не может быть отрицательным</Rimlink.Refusal.Trades.NegativeSilver>
+  <Rimlink.Refusal.Trades.NoteTooLong>Записка длиннее {0} символов</Rimlink.Refusal.Trades.NoteTooLong>
+  <Rimlink.Refusal.Trades.NoteControlChars>В записке есть управляющие символы</Rimlink.Refusal.Trades.NoteControlChars>
 </LanguageData>

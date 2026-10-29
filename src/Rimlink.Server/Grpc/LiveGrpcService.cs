@@ -31,7 +31,7 @@ public sealed class LiveGrpcService(LiveSessionService live, LiveRelay relay, IL
     {
         var session = context.GetSession();
         if (!await requestStream.MoveNext(context.CancellationToken) || requestStream.Current.MCase != LiveClientMsg.MOneofCase.Hello)
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "the first frame must be a Hello"));
+            throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.LiveHelloRequired, "the first frame must be a Hello");
         var hello = requestStream.Current;
         await live.ForStream(hello.SessionId, session.PlayerId, hello.Hello.Role);
         var channel = relay.Attach(hello.SessionId, session.PlayerId, hello.Hello.Role);

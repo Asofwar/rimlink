@@ -32,10 +32,10 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
     {
         gate.RequireOpen();
         var o = options.Value;
-        if (r.TargetPlayerId == attackerId) throw RpcErrors.Failed(ErrorCode.SelfTrade, "you cannot raid yourself");
-        if (r.Pawns is null || r.Pawns.Pawns.Count == 0) throw RpcErrors.Failed(ErrorCode.Unspecified, "a raid needs at least one pawn");
-        if (r.Pawns.Pawns.Count > o.MaxRaiders) throw RpcErrors.Failed(ErrorCode.ParcelTooBig, $"too many raiders ({r.Pawns.Pawns.Count} > {o.MaxRaiders})");
-        if (validator.Validate(null, r.Pawns) is { } reason) throw RpcErrors.Failed(ParcelValidator.CodeFor(reason), reason);
+        if (r.TargetPlayerId == attackerId) throw RpcErrors.Failed(ErrorCode.SelfTrade, RefusalKeys.RaidsSelf, "you cannot raid yourself");
+        if (r.Pawns is null || r.Pawns.Pawns.Count == 0) throw RpcErrors.Failed(ErrorCode.Unspecified, RefusalKeys.RaidsNoPawns, "a raid needs at least one pawn");
+        if (r.Pawns.Pawns.Count > o.MaxRaiders) throw RpcErrors.Failed(ErrorCode.ParcelTooBig, RefusalKeys.RaidsTooManyPawns, $"too many raiders ({r.Pawns.Pawns.Count} > {o.MaxRaiders})", r.Pawns.Pawns.Count, o.MaxRaiders);
+        if (validator.Validate(null, r.Pawns) is { } reason) throw RpcErrors.Failed(reason.Code, reason.Key, reason.Message, reason.Args);
 
         await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
         if (!string.IsNullOrEmpty(r.ClientRequestId))
@@ -45,9 +45,9 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
         }
         var attacker = await db.Players.FirstAsync(p => p.Id == attackerId);
         var target = await db.Players.FirstOrDefaultAsync(p => p.Id == r.TargetPlayerId)
-            ?? throw RpcErrors.Failed(ErrorCode.RecipientUnknown, "no such player");
+            ?? throw RpcErrors.Failed(ErrorCode.RecipientUnknown, RefusalKeys.NoSuchPlayer, "no such player");
         var now = DateTime.UtcNow;
-        if (await rules.CheckLaunch(attacker, target, now) is { } refusal) throw RpcErrors.Failed(refusal.Code, refusal.Message);
+        if (await rules.CheckLaunch(attacker, target, now) is { } refusal) throw RpcErrors.Failed(refusal.Code, refusal.Key, refusal.Message, refusal.Args);
 
         var raid = new Raid
         {
@@ -98,8 +98,8 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
     public async Task<Raid> Get(long playerId, long raidId)
     {
         var raid = await db.Raids.AsNoTracking().FirstOrDefaultAsync(r => r.Id == raidId && (r.AttackerPlayerId == playerId || r.TargetPlayerId == playerId))
-            ?? throw new RpcException(new Status(StatusCode.NotFound, "no such raid"));
-        if (raid.AttackerPlayerId != playerId && FinalStates.Contains(raid.State)) throw RpcErrors.Failed(ErrorCode.RaidGone, "that raid is over");
+            ?? throw RpcErrors.With(StatusCode.NotFound, ErrorCode.Unspecified, RefusalKeys.RaidsNoSuchRaid, "no such raid");
+        if (raid.AttackerPlayerId != playerId && FinalStates.Contains(raid.State)) throw RpcErrors.Failed(ErrorCode.RaidGone, RefusalKeys.RaidsGone, "that raid is over");
         return raid;
     }
 
@@ -108,7 +108,7 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
     {
         await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
         var raid = await TargetRaid(targetId, raidId);
-        if (raid.Controller == (int)RaidController.ControllerLive) throw new RpcException(new Status(StatusCode.FailedPrecondition, "a live raid is not announced"));
+        if (raid.Controller == (int)RaidController.ControllerLive) throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.Unspecified, RefusalKeys.RaidsLiveNotAnnounced, "a live raid is not announced");
         if (raid.State == RaidStateDb.Queued)
         {
             gate.RequireOpen();
@@ -128,8 +128,8 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
         await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
         var raid = await TargetRaid(targetId, raidId);
         if (raid.State == RaidStateDb.Landed) return;
-        if (raid.Controller == (int)RaidController.ControllerLive) throw new RpcException(new Status(StatusCode.FailedPrecondition, "a live raid does not land"));
-        if (raid.State != RaidStateDb.Announced) throw new RpcException(new Status(StatusCode.FailedPrecondition, "the raid has not been announced"));
+        if (raid.Controller == (int)RaidController.ControllerLive) throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.Unspecified, RefusalKeys.RaidsLiveDoesNotLand, "a live raid does not land");
+        if (raid.State != RaidStateDb.Announced) throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.Unspecified, RefusalKeys.RaidsNotAnnounced, "the raid has not been announced");
         raid.State = RaidStateDb.Landed;
         raid.LandedTick = gameTick;
         // The defender now has the full window to report; a landed raid nobody reports expires like a queued one.
@@ -149,10 +149,10 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
     /// <summary>A raid of the target in a state the client may still act on; someone else's raid is NOT_FOUND, an over one is RAID_GONE.</summary>
     private async Task<Raid> TargetRaid(long targetId, long raidId, bool allowResolved = false)
     {
-        var raid = await db.Raids.FirstOrDefaultAsync(r => r.Id == raidId) ?? throw RpcErrors.Failed(ErrorCode.RaidGone, "that raid is over");
-        if (raid.TargetPlayerId != targetId) throw new RpcException(new Status(StatusCode.NotFound, "no such raid"));
+        var raid = await db.Raids.FirstOrDefaultAsync(r => r.Id == raidId) ?? throw RpcErrors.Failed(ErrorCode.RaidGone, RefusalKeys.RaidsGone, "that raid is over");
+        if (raid.TargetPlayerId != targetId) throw RpcErrors.With(StatusCode.NotFound, ErrorCode.Unspecified, RefusalKeys.RaidsNoSuchRaid, "no such raid");
         if (raid.State is RaidStateDb.Cancelled or RaidStateDb.Expired || (raid.State == RaidStateDb.Resolved && !allowResolved))
-            throw RpcErrors.Failed(ErrorCode.RaidGone, "that raid is over");
+            throw RpcErrors.Failed(ErrorCode.RaidGone, RefusalKeys.RaidsGone, "that raid is over");
         return raid;
     }
 
@@ -169,7 +169,7 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
             if (raid.State == RaidStateDb.Resolved) return null;
             // A live raid never lands through the 3a pipeline: its guests were spawned by the host's game straight from Queued.
             bool live = raid.Controller == (int)RaidController.ControllerLive && raid.State == RaidStateDb.Queued;
-            if (raid.State != RaidStateDb.Landed && !live) throw new RpcException(new Status(StatusCode.FailedPrecondition, "the raid has not landed"));
+            if (raid.State != RaidStateDb.Landed && !live) throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.Unspecified, RefusalKeys.RaidsNotLanded, "the raid has not landed");
             if (live)
             {
                 // Guests the host's save does not know (it predates their arrival) come home as they left, from the escrow.

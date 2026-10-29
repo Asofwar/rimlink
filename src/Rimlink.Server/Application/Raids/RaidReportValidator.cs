@@ -20,27 +20,27 @@ public sealed class RaidReportValidator(IOptions<RaidOptions> options, ParcelVal
         foreach (var o in report.Outcomes)
         {
             if (o.Index < 0 || o.Index >= count || !seen.Add(o.Index))
-                throw new RpcException(new Status(StatusCode.InvalidArgument, $"outcome index {o.Index} is out of range or repeated"));
+                throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.RaidsOutcomeIndex, $"outcome index {o.Index} is out of range or repeated", o.Index);
             if (o.Outcome is PawnOutcome.OutcomeFled or PawnOutcome.OutcomeAlive && raid.PawnMode == (int)PawnMode.PawnReal)
             {
                 if (o.Blob is null || o.Blob.ScribeXmlZstd.Length == 0)
-                    throw new RpcException(new Status(StatusCode.InvalidArgument, $"surviving raider {o.Index} has no blob"));
+                    throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.RaidsSurvivorNoBlob, $"surviving raider {o.Index} has no blob", o.Index);
                 survivors.Pawns.Add(o.Blob);
             }
         }
-        if (seen.Count != count) throw new RpcException(new Status(StatusCode.InvalidArgument, $"{count - seen.Count} raiders have no outcome"));
+        if (seen.Count != count) throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.RaidsMissingOutcomes, $"{count - seen.Count} raiders have no outcome", count - seen.Count);
         if (report.GameTick < (raid.LandedTick ?? 0))
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "the report's save tick is before the landing"));
+            throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.RaidsReportBeforeLanding, "the report's save tick is before the landing");
         int captives = report.Captives?.Pawns.Count ?? 0;
-        if (captives > 0 && !options.Value.AllowKidnap) throw new RpcException(new Status(StatusCode.InvalidArgument, "kidnapping is disabled on this server"));
-        if (captives > 1) throw new RpcException(new Status(StatusCode.InvalidArgument, "at most one captive per raid"));
+        if (captives > 0 && !options.Value.AllowKidnap) throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.RaidsKidnapDisabled, "kidnapping is disabled on this server");
+        if (captives > 1) throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.RaidsCaptiveLimit, "at most one captive per raid");
 
-        if (parcels.Validate(report.Loot, report.Captives) is { } reason) throw RpcErrors.Failed(ParcelValidator.CodeFor(reason), reason);
-        if (survivors.Pawns.Count > 0 && parcels.Validate(null, survivors) is { } survivorReason) throw RpcErrors.Failed(ParcelValidator.CodeFor(survivorReason), survivorReason);
+        if (parcels.Validate(report.Loot, report.Captives) is { } reason) throw RpcErrors.Failed(reason.Code, reason.Key, reason.Message, reason.Args);
+        if (survivors.Pawns.Count > 0 && parcels.Validate(null, survivors) is { } survivorReason) throw RpcErrors.Failed(survivorReason.Code, survivorReason.Key, survivorReason.Message, survivorReason.Args);
 
         // Hundredths of silver on both sides, the same integer formula the client trims with: no stack slips under the cap by rounding.
         long lootX100 = report.Loot?.Items.Sum(i => i.MarketValueX100 * i.Count) ?? 0;
-        if (lootX100 > raid.LootCap * 100) throw RpcErrors.Failed(ErrorCode.LootOverCap, $"loot worth {lootX100 / 100.0:0.##} silver exceeds this raid's cap of {raid.LootCap}");
+        if (lootX100 > raid.LootCap * 100) throw RpcErrors.Failed(ErrorCode.LootOverCap, RefusalKeys.RaidsLootOverCap, $"loot worth {lootX100 / 100.0:0.##} silver exceeds this raid's cap of {raid.LootCap}", (lootX100 / 100.0).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture), raid.LootCap);
         return lootX100 / 100;
     }
 }

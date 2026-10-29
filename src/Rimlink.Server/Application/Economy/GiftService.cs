@@ -22,8 +22,8 @@ public sealed class GiftService(RimlinkDbContext db, MailboxService mailbox, Wal
     public async Task Answer(long playerId, long parcelId, bool accept)
     {
         var parcel = await db.Parcels.AsNoTracking().FirstOrDefaultAsync(p => p.Id == parcelId && p.ToPlayerId == playerId)
-            ?? throw new RpcException(new Status(StatusCode.NotFound, "no such parcel in your mailbox"));
-        if (parcel.Decision == ParcelDecisionDb.None) throw new RpcException(new Status(StatusCode.FailedPrecondition, "this parcel needs no decision"));
+            ?? throw RpcErrors.With(StatusCode.NotFound, ErrorCode.Unspecified, RefusalKeys.EconomyParcelUnknown, "no such parcel in your mailbox");
+        if (parcel.Decision == ParcelDecisionDb.None) throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.Unspecified, RefusalKeys.GiftsNoDecision, "this parcel needs no decision");
         if (parcel.Decision != ParcelDecisionDb.Awaiting || parcel.DeliveredAt is not null) return; // decided already: the same answer again changes nothing
 
         if (accept)

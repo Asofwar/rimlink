@@ -12,7 +12,7 @@ public sealed class SavesGrpcService(SaveStore store, Rimlink.Server.Application
     {
         var session = context.GetSession();
         if (!await requestStream.MoveNext(context.CancellationToken) || requestStream.Current.PartCase != SaveChunk.PartOneofCase.Header)
-            throw new RpcException(new Status(StatusCode.InvalidArgument, "first message must be the save header"));
+            throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.SavesHeaderRequired, "first message must be the save header");
         var header = requestStream.Current.Header;
 
         try
@@ -22,7 +22,7 @@ public sealed class SavesGrpcService(SaveStore store, Rimlink.Server.Application
         }
         catch (SaveRejected ex)
         {
-            throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.SaveInvalid, ex.Message);
+            throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.SaveInvalid, ex.Key, ex.Message, ex.Args);
         }
     }
 
@@ -33,13 +33,13 @@ public sealed class SavesGrpcService(SaveStore store, Rimlink.Server.Application
     public override async Task DownloadOf(PlayerRef request, IServerStreamWriter<SaveChunk> responseStream, ServerCallContext context)
     {
         if (!await visits.IsVisiting(context.GetSession().PlayerId, request.PlayerId))
-            throw new RpcException(new Status(StatusCode.PermissionDenied, "you are not visiting this player"));
+            throw RpcErrors.With(StatusCode.PermissionDenied, ErrorCode.Unspecified, RefusalKeys.ShopNotVisiting, "you are not visiting this player");
         await Stream(request.PlayerId, responseStream, context);
     }
 
     private async Task Stream(long playerId, IServerStreamWriter<SaveChunk> responseStream, ServerCallContext context)
     {
-        var current = await store.OpenCurrent(playerId) ?? throw new RpcException(new Status(StatusCode.NotFound, "no save stored for this player"));
+        var current = await store.OpenCurrent(playerId) ?? throw RpcErrors.With(StatusCode.NotFound, ErrorCode.Unspecified, RefusalKeys.SavesNone, "no save stored for this player");
         var (version, content) = current;
 
         await using (content)
@@ -69,8 +69,8 @@ public sealed class SavesGrpcService(SaveStore store, Rimlink.Server.Application
     {
         while (await stream.MoveNext(cancellationToken))
         {
-            if (stream.Current.PartCase != SaveChunk.PartOneofCase.Data) throw new SaveRejected("unexpected message in save stream");
-            if (stream.Current.Data.Length > Limits.SaveChunkBytes) throw new SaveRejected("chunk larger than 1 MB");
+            if (stream.Current.PartCase != SaveChunk.PartOneofCase.Data) throw new SaveRejected(RefusalKeys.SavesUnexpectedMessage, "unexpected message in save stream");
+            if (stream.Current.Data.Length > Limits.SaveChunkBytes) throw new SaveRejected(RefusalKeys.SavesChunkTooBig, "chunk larger than 1 MB");
             yield return stream.Current.Data.Memory;
         }
     }

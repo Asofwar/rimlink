@@ -19,10 +19,10 @@ public abstract record LoginResult
 {
     public sealed record Success(Session Session, Account Account, Player Player) : LoginResult;
 
-    public sealed record Failure(StatusCode Status, ErrorCode Code, string Message) : LoginResult;
+    public sealed record Failure(StatusCode Status, ErrorCode Code, string Key, string Message, params object[] Args) : LoginResult;
 
     /// <summary>Credentials were fine but the mods differ; the client gets the diff instead of a token.</summary>
     public sealed record ModpackMismatch(ModpackDiff Diff) : LoginResult;
 
-    public static LoginResult Failed(StatusCode status, ErrorCode code, string message) => new Failure(status, code, message);
+    public static LoginResult Failed(StatusCode status, ErrorCode code, string key, string message, params object[] args) => new Failure(status, code, key, message, args);
 }
