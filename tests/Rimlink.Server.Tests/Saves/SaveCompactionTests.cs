@@ -1,9 +1,12 @@
+using System.Security.Cryptography;
 using System.Text;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Rimlink.Protocol.V1;
 using Rimlink.Server.Application.Saves;
 using Rimlink.Server.Tests.Support;
 using Xunit;
+using static Rimlink.Server.Tests.Support.HygieneFixtures;
 using static Rimlink.Server.Tests.Support.SaveFixtures;
 
 namespace Rimlink.Server.Tests.Saves;
@@ -243,5 +246,121 @@ public class SaveCompactionTests
         await nova.Send(3);
 
         Assert.False(nova.Has("1.rws.zst"));
+    }
+
+    private static async Task<bool> Rollback(ServerFixture fixture, long playerId, int number)
+    {
+        using var scope = fixture.Services.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<SaveStore>().Rollback(playerId, number);
+    }
+
+    [Fact]
+    public async Task RollbackToADeltaRestoresTheContent()
+    {
+        using var fixture = Server();
+        var nova = await Join(fixture);
+        byte[] first = await nova.Send(1);
+        await nova.Send(2);
+
+        Assert.True(await Rollback(fixture, nova.Id, 1));
+
+        Assert.Equal(Decompress(first), Decompress((await Download(nova.Saves, nova.Token)).data));
+        Assert.True(nova.Has("1.rws.zst"));
+        Assert.False(nova.Has("1.d1.zst"));
+        Assert.True(nova.Has("2.d1.zst"));
+        Assert.False(nova.Has("2.rws.zst"));
+        var row = await Db(fixture, db => db.SaveVersions.AsNoTracking().SingleAsync(v => v.PlayerId == nova.Id && v.Number == 1));
+        byte[] file = File.ReadAllBytes(nova.PathOf("1.rws.zst"));
+        Assert.Equal(file.Length, row.Size);
+        Assert.Equal(SHA256.HashData(file), row.Sha256);
+    }
+
+    [Fact]
+    public async Task RollbackToADamagedDeltaIsRefused()
+    {
+        using var fixture = Server();
+        var nova = await Join(fixture);
+        await nova.Send(1);
+        byte[] second = await nova.Send(2);
+        File.WriteAllBytes(nova.PathOf("1.d1.zst"), File.ReadAllBytes(nova.PathOf("1.d1.zst"))[..^10]);
+
+        Assert.False(await Rollback(fixture, nova.Id, 1));
+
+        Assert.Equal(second, (await Download(nova.Saves, nova.Token)).data);
+    }
+
+    [Fact]
+    public async Task RollbackWithoutTheBaseIsRefused()
+    {
+        using var fixture = Server();
+        var nova = await Join(fixture);
+        await nova.Send(1);
+        byte[] second = await nova.Send(2);
+        File.Delete(nova.PathOf("base-1.rws.zst"));
+
+        Assert.False(await Rollback(fixture, nova.Id, 1));
+
+        Assert.Equal(second, (await Download(nova.Saves, nova.Token)).data);
+    }
+
+    [Fact]
+    public async Task DownloadRebuildsACurrentVersionLeftAsADelta()
+    {
+        using var fixture = Server();
+        var nova = await Join(fixture);
+        byte[] first = await nova.Send(1);
+        await nova.Send(2);
+        // A backup's database, older than the files packed after it.
+        await Db(fixture, db => db.SaveVersions.Where(v => v.PlayerId == nova.Id).ExecuteUpdateAsync(s => s.SetProperty(v => v.IsCurrent, v => v.Number == 1)));
+
+        var (header, data) = await Download(nova.Saves, nova.Token);
+
+        Assert.Equal(Decompress(first), Decompress(data));
+        Assert.True(nova.Has("1.rws.zst"));
+        Assert.Equal(new FileInfo(nova.PathOf("1.rws.zst")).Length, header.TotalSize);
+    }
+
+    [Fact]
+    public async Task RollbackWorksAfterCompactionWasTurnedOff()
+    {
+        string dataDir;
+        byte[] first;
+        using (var before = Server().KeepDataDir())
+        {
+            var colony = await Join(before);
+            first = await colony.Send(1);
+            await colony.Send(2);
+            dataDir = before.DataDir;
+        }
+
+        using var fixture = Server().WithSetting("Saves:CompactOldVersions", Off).WithDataDir(dataDir).WithoutWorld();
+        var nova = await Join(fixture);
+
+        Assert.True(await Rollback(fixture, nova.Id, 1));
+
+        Assert.Equal(Decompress(first), Decompress((await Download(nova.Saves, nova.Token)).data));
+    }
+
+    [Fact]
+    public async Task RollbacksAndUploadsKeepEveryVersionReadable()
+    {
+        using var fixture = Server();
+        var nova = await Join(fixture);
+        var uploaded = new Dictionary<int, byte[]>
+        {
+            [1] = await nova.Send(1),
+            [2] = await nova.Send(2),
+            [3] = await nova.Send(3),
+        };
+        Assert.True(await Rollback(fixture, nova.Id, 1));
+        uploaded[4] = await nova.Send(4);
+        Assert.True(await Rollback(fixture, nova.Id, 2));
+        uploaded[5] = await nova.Send(5);
+
+        foreach (var (number, save) in uploaded)
+        {
+            Assert.True(await Rollback(fixture, nova.Id, number));
+            Assert.Equal(Decompress(save), Decompress((await Download(nova.Saves, nova.Token)).data));
+        }
     }
 }

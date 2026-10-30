@@ -17,8 +17,8 @@ public sealed class SaveRejected(string key, string reason, params object[] args
     public object[] Args { get; } = args;
 }
 
-/// <summary>Versioned save storage: blobs under &lt;data&gt;/saves/&lt;playerId&gt;/&lt;n&gt;.rws.zst, metadata in save_versions.</summary>
-public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles files, EventBus events, Integrity.IntegrityService integrity, World.WorldService worlds, ILogger<SaveStore> log)
+/// <summary>Versioned save storage: blobs under &lt;data&gt;/saves/&lt;playerId&gt; (see <see cref="SaveFiles"/>), metadata in save_versions.</summary>
+public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles files, SaveCompactor compactor, EventBus events, Integrity.IntegrityService integrity, World.WorldService worlds, ILogger<SaveStore> log)
 {
     public async Task<SaveVersion> Store(long playerId, SaveHeader header, IAsyncEnumerable<ReadOnlyMemory<byte>> chunks, CancellationToken cancellationToken)
     {
@@ -123,10 +123,33 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
 
     public async Task<(SaveVersion Version, Stream Content)?> OpenCurrent(long playerId)
     {
-        var version = await db.SaveVersions.AsNoTracking().FirstOrDefaultAsync(v => v.PlayerId == playerId && v.IsCurrent);
-        if (version is null) return null;
-        var stream = new FileStream(PathOf(version), FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 16, FileOptions.Asynchronous | FileOptions.SequentialScan);
-        return (version, stream);
+        for (int attempt = 0; ; attempt++)
+        {
+            var version = await db.SaveVersions.AsNoTracking().FirstOrDefaultAsync(v => v.PlayerId == playerId && v.IsCurrent);
+            if (version is null) return null;
+            // A backup's database can be older than its files: the version it calls current may have become a delta after the snapshot.
+            if (!File.Exists(PathOf(version)))
+            {
+                await files.PerStoreLock.WaitAsync();
+                try
+                {
+                    await EnsureFull(version);
+                }
+                finally
+                {
+                    files.PerStoreLock.Release();
+                }
+            }
+            try
+            {
+                var stream = new FileStream(PathOf(version), FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 16, FileOptions.Asynchronous | FileOptions.SequentialScan);
+                return (version, stream);
+            }
+            catch (FileNotFoundException) when (attempt == 0)
+            {
+                // An upload made this version a delta between the read and the open: the row now names the new one.
+            }
+        }
     }
 
     public Task<List<SaveVersion>> List(long playerId) =>
@@ -136,8 +159,21 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
 
     public async Task<bool> Rollback(long playerId, int number)
     {
+        await files.PerStoreLock.WaitAsync();
+        try
+        {
+            return await RollbackHeld(playerId, number);
+        }
+        finally
+        {
+            files.PerStoreLock.Release();
+        }
+    }
+
+    private async Task<bool> RollbackHeld(long playerId, int number)
+    {
         var target = await db.SaveVersions.FirstOrDefaultAsync(v => v.PlayerId == playerId && v.Number == number);
-        if (target is null || !File.Exists(PathOf(target))) return false;
+        if (target is null || !await EnsureFull(target)) return false;
 
         await using var tx = await db.Database.BeginTransactionAsync();
         await db.SaveVersions.Where(v => v.PlayerId == playerId && v.IsCurrent && v.Id != target.Id).ExecuteUpdateAsync(s => s.SetProperty(v => v.IsCurrent, false));
@@ -156,7 +192,39 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
 
         events.SendTo(playerId, new ServerEvent { SaveRolledBack = new SaveRolledBack { Version = number } });
         log.LogInformation("Save of player {PlayerId} rolled back to v{Version}", playerId, number);
+        try { await compactor.Run(playerId); }
+        catch (Exception ex) { log.LogError(ex, "Compacting the saves of player {PlayerId} failed", playerId); }
         return true;
+    }
+
+    /// <summary>
+    /// Gives the version a full file; false when it cannot be read back. A rebuilt file need not match the upload byte for byte, so the
+    /// row takes its size and hash. The caller holds the store lock.
+    /// </summary>
+    private async Task<bool> EnsureFull(SaveVersion version)
+    {
+        switch (files.Locate(version.PlayerId, version.Number))
+        {
+            case SaveForm.Full:
+                return true;
+            case SaveForm.Delta delta:
+                try
+                {
+                    (version.Size, version.Sha256) = files.Rebuild(delta, PathOf(version));
+                }
+                catch (Exception ex) when (ex is InvalidDataException or IOException)
+                {
+                    log.LogError(ex, "Save v{Version} of player {PlayerId} cannot be rebuilt", version.Number, version.PlayerId);
+                    return false;
+                }
+                await db.SaveVersions.Where(v => v.Id == version.Id).ExecuteUpdateAsync(s => s.SetProperty(v => v.Size, version.Size).SetProperty(v => v.Sha256, version.Sha256));
+                // Left behind, it is only a spare: the full file wins and the next pass removes it.
+                try { files.DeleteDeltas(version.PlayerId, version.Number); }
+                catch (IOException ex) { log.LogDebug(ex, "A delta of save v{Version} of player {PlayerId} stays until the next pass", version.Number, version.PlayerId); }
+                return true;
+            default:
+                return false;
+        }
     }
 
     /// <summary>Moves every save file of the player into the archive directory and forgets the versions.</summary>
