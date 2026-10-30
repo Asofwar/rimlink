@@ -18,7 +18,7 @@ public class LoginRestoreTests
         var sessions = fixture.Services.GetRequiredService<SessionRegistry>();
         sessions.End(sessions.ByPlayer(colony.PlayerId)!.Token);
         using var scope = fixture.Services.CreateScope();
-        var outcome = await scope.ServiceProvider.GetRequiredService<ColonyArchive>().Archive(colony.PlayerId, "auto", Actor.System("system:hygiene"));
+        var outcome = await scope.ServiceProvider.GetRequiredService<ColonyArchive>().Archive(colony.PlayerId, "auto", Actor.Scheduled("system:hygiene"));
         return Assert.IsType<ArchiveOutcome.Archived>(outcome).ArchiveId;
     }
 

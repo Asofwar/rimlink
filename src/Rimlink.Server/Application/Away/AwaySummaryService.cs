@@ -57,11 +57,13 @@ public sealed partial class AwaySummaryService(RimlinkDbContext db)
         summary.ShopItemsSold = await db.PendingRemovals.AsNoTracking().Where(r => r.HostPlayerId == me && r.CreatedAt > since).SumAsync(r => r.Count);
 
         var name = session.PlayerName;
+        // Like the chat history: public lines of players this player blocked are not shown.
+        var blocked = (await db.PlayerBlocks.AsNoTracking().Where(b => b.BlockerPlayerId == me).Select(b => b.BlockedPlayerId).ToListAsync()).ToHashSet();
         var lines = (await db.ChatMessages.AsNoTracking()
                 .Where(m => m.SentAt > since && m.FromPlayerId != me
                     && (m.ToPlayerId == me || (m.ToPlayerId == null && (m.Kind == MessageKind.Player || m.Kind == MessageKind.External))))
                 .ToListAsync())
-            .Where(m => m.ToPlayerId == me || MentionMatcher.Mentions(m.Text, name))
+            .Where(m => m.ToPlayerId == me || (MentionMatcher.Mentions(m.Text, name) && !(m.FromPlayerId is { } from && blocked.Contains(from))))
             .ToList();
 
         var ids = raidsOnMe.Select(r => r.AttackerPlayerId)

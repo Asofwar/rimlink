@@ -130,7 +130,7 @@
   (новая колония начинается с тика 0). Запись остаётся `Archived`.
 - Другие отказы (архив повреждён): то же окно с текстом «колонию не удалось вернуть, обратитесь к админу», лог ошибки.
 
-Протокол (`auth.proto`, растёт): `ColonyRestore colony_restore = 10;`,
+Протокол (`auth.proto`, растёт): `ColonyRestore colony_restore = 11;` (10 занял `dev_mode_allowed` ветки integrity),
 `message ColonyRestore { bool restored = 1; string name = 2; int32 tile = 3; google.protobuf.Timestamp archived_at = 4; string reason = 5; }`
 (`reason` — `tile_taken` | `damaged` при `restored = false`).
 

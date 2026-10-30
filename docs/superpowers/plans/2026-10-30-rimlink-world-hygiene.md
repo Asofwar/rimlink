@@ -19,7 +19,7 @@ mod (Unity IMGUI), vanilla-JS panel, the Discord bot's feed formatter.
 ## Global Constraints
 
 - Protocol only grows: new field numbers, new messages, new `.proto` files; never renumber or reuse (AGENTS.md). `world.proto`
-  `WorldObject` 7–9, `events.proto` oneof 32, `auth.proto` `LoginReply` 10.
+  `WorldObject` 7–9, `events.proto` oneof 32, `auth.proto` `LoginReply` 11, `WorldInfo` 5 (renumbered at the rebase onto economy-part1: 10 and 4 went to integrity).
 - No version bump in this sub-project (coordinator's parallel rule; overrides AGENTS.md convention 5).
 - One EF migration `WorldHygiene`. If another branch lands a migration first, regenerate this one at rebase; if a proto
   number collides, the later branch renumbers at rebase.
@@ -211,7 +211,7 @@ mod (Unity IMGUI), vanilla-JS panel, the Discord bot's feed formatter.
 
 **Interfaces:**
 - Produces (proto): `message ColonyRestore { bool restored = 1; string name = 2; int32 tile = 3; google.protobuf.Timestamp archived_at = 4; string reason = 5; }`,
-  `LoginReply.colony_restore = 10`.
+  `LoginReply.colony_restore = 11`.
 - Produces: `ColonyArchive.RestoreOnLogin(long playerId) : Task<ColonyRestore?>` — null when there is nothing archived or the
   player has a live colony; otherwise tries `Restore(latest Archived, "player")`; on `TileTaken`/`Damaged` zeroes
   `LastOutgoingTick` and delivered parcels' `DeliveredTick` (as `SaveStore.Archive` does) and returns `restored = false` with

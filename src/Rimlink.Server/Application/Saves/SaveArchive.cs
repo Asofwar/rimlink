@@ -12,7 +12,9 @@ public sealed class SaveArchive(DataDirectory data)
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { WriteIndented = true };
 
-    public sealed record ManifestVersion(int Number, long GameTick, long Size, string Sha256, DateTime CreatedAt, bool IsCurrent);
+    /// <summary>One save version; the integrity marks default for manifests written before they existed.</summary>
+    public sealed record ManifestVersion(int Number, long GameTick, long Size, string Sha256, DateTime CreatedAt, bool IsCurrent,
+        bool DevMode = false, long WealthTotal = 0, long WealthItems = 0);
 
     public sealed record Manifest(long PlayerId, List<ManifestVersion> Versions);
 
@@ -37,7 +39,8 @@ public sealed class SaveArchive(DataDirectory data)
             File.Copy(PathOf(v.PlayerId, v.Number), target, overwrite: true);
             byte[] hash = await HashOf(target);
             if (!hash.AsSpan().SequenceEqual(v.Sha256)) throw new InvalidDataException($"save v{v.Number} of player {v.PlayerId} does not match its hash");
-            manifest.Versions.Add(new ManifestVersion(v.Number, v.GameTick, v.Size, Convert.ToHexString(v.Sha256), v.CreatedAt, v.IsCurrent));
+            manifest.Versions.Add(new ManifestVersion(v.Number, v.GameTick, v.Size, Convert.ToHexString(v.Sha256), v.CreatedAt, v.IsCurrent,
+                v.DevMode, v.WealthTotal, v.WealthItems));
         }
         await File.WriteAllTextAsync(Path.Combine(dir, ManifestFile), JsonSerializer.Serialize(manifest, Json));
     }
@@ -93,6 +96,9 @@ public sealed class SaveArchive(DataDirectory data)
                 Sha256 = Convert.FromHexString(v.Sha256),
                 CreatedAt = v.CreatedAt,
                 IsCurrent = v.IsCurrent,
+                DevMode = v.DevMode,
+                WealthTotal = v.WealthTotal,
+                WealthItems = v.WealthItems,
             });
         }
         return restored;

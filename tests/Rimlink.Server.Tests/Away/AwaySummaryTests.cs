@@ -164,6 +164,21 @@ public class AwaySummaryTests
     }
 
     [Fact]
+    public async Task MentionsSkipPlayersIBlocked()
+    {
+        // The chat history hides public lines of blocked players; the summary does the same.
+        using var fixture = HygieneServer();
+        var w = await Baseline(fixture);
+        await Seed(fixture, db =>
+        {
+            db.PlayerBlocks.Add(new PlayerBlock { BlockerPlayerId = w.Nova, BlockedPlayerId = w.Mira, CreatedAt = At(-10) });
+            db.ChatMessages.Add(new ChatMessage { FromPlayerId = w.Mira, Text = "Nova, answer me", Kind = MessageKind.Player, SentAt = At(1) });
+        });
+
+        Assert.Empty((await SummaryOfNova(fixture)).Mentions);
+    }
+
+    [Fact]
     public async Task AdminActionsOnMeAreListed()
     {
         using var fixture = HygieneServer();
@@ -187,7 +202,7 @@ public class AwaySummaryTests
         var sessions = fixture.Services.GetRequiredService<SessionRegistry>();
         sessions.End(sessions.ByPlayer(nova.PlayerId)!.Token);
         using (var scope = fixture.Services.CreateScope())
-            await scope.ServiceProvider.GetRequiredService<ColonyArchive>().Archive(nova.PlayerId, "auto", Actor.System("system:hygiene"));
+            await scope.ServiceProvider.GetRequiredService<ColonyArchive>().Archive(nova.PlayerId, "auto", Actor.Scheduled("system:hygiene"));
 
         var summary = await SummaryOfNova(fixture);
 

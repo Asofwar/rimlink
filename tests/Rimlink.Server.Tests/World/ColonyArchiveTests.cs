@@ -193,6 +193,22 @@ public class ColonyArchiveTests
     }
 
     [Fact]
+    public async Task RestoreKeepsTheIntegrityMarksOfEachVersion()
+    {
+        // A save made with dev mode must come back flagged, with the wealth it reported.
+        using var fixture = HygieneServer();
+        var nova = await Settled(fixture, "nova", tile: 100);
+        await Db(fixture, db => db.SaveVersions.Where(v => v.PlayerId == nova.PlayerId).ExecuteUpdateAsync(s => s
+            .SetProperty(v => v.DevMode, true).SetProperty(v => v.WealthTotal, 1234L).SetProperty(v => v.WealthItems, 567L)));
+        var archived = Assert.IsType<ArchiveOutcome.Archived>(await Archive(fixture, nova.PlayerId));
+
+        Assert.IsType<RestoreOutcome.Restored>(await Restore(fixture, archived.ArchiveId));
+
+        var version = await Db(fixture, db => db.SaveVersions.AsNoTracking().SingleAsync(v => v.PlayerId == nova.PlayerId));
+        Assert.Equal((true, 1234L, 567L), (version.DevMode, version.WealthTotal, version.WealthItems));
+    }
+
+    [Fact]
     public async Task RestoreOfUnknownArchiveIsNotFound()
     {
         using var fixture = HygieneServer();

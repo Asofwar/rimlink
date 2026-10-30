@@ -583,4 +583,7 @@
   <Rimlink.Away.Parcel.loot>raid loot</Rimlink.Away.Parcel.loot>
   <Rimlink.Away.Parcel.raid_return>pawns back from a raid</Rimlink.Away.Parcel.raid_return>
   <Rimlink.Away.Parcel.captive>captive</Rimlink.Away.Parcel.captive>
+  <Rimlink.Away.Parcel.gift_return>gift refused and sent back</Rimlink.Away.Parcel.gift_return>
+  <Rimlink.Away.Parcel.trade>trade</Rimlink.Away.Parcel.trade>
+  <Rimlink.Away.Parcel.trade_return>trade returned</Rimlink.Away.Parcel.trade_return>
 </LanguageData>

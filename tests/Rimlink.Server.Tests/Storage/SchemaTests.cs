@@ -231,6 +231,8 @@ public class SchemaTests : IDisposable
         using var second = CreateContext();
         second.ForbiddenDefs.Add(new ForbiddenDef { DefName = "Gun_Revolver" });
         Assert.Throws<DbUpdateException>(() => second.SaveChanges());
+    }
+
     private long Scalar(string sql)
     {
         using var cmd = connection.CreateCommand();
