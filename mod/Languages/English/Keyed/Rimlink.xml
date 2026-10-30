@@ -218,6 +218,10 @@
   <Rimlink.Raid.PodsReturned>The pods are flying back home.</Rimlink.Raid.PodsReturned>
   <Rimlink.Raid.WarningLabel>Raid coming: {0}</Rimlink.Raid.WarningLabel>
   <Rimlink.Raid.Warning>{0} has sent {1} raiders against your colony. They arrive in about a day.</Rimlink.Raid.Warning>
+  <Rimlink.Incident.WarningLabel>Event coming: {0}</Rimlink.Incident.WarningLabel>
+  <Rimlink.Incident.Warning>{0} ordered {1} (level {2}) against your colony: it comes in half a day.</Rimlink.Incident.Warning>
+  <Rimlink.Incident.OrderedBy>Ordered by {0}.</Rimlink.Incident.OrderedBy>
+  <Rimlink.Incident.GiftFrom>A gift from {0}.</Rimlink.Incident.GiftFrom>
   <Rimlink.Raid.LandedLabel>Raid: {0}</Rimlink.Raid.LandedLabel>
   <Rimlink.Raid.Landed>{1} raiders sent by {0} have arrived. Captured raiders are yours to keep; what they steal is gone.</Rimlink.Raid.Landed>
   <Rimlink.Raid.Resolved>The raid by {0} is over: {1} dead, {2} captured, {3} got away with loot worth {4} silver.</Rimlink.Raid.Resolved>

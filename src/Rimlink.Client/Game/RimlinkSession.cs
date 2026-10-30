@@ -19,6 +19,7 @@ public static class RimlinkSession
     public static bool Active => Connection is not null && Login is not null && Login.SessionToken.Length > 0;
     public static Rimlink.Client.Economy.EconomyClient? Economy => Connection is null ? null : new(Connection);
     public static Rimlink.Client.Raids.RaidClient? Raids => Connection is null ? null : new(Connection);
+    public static Rimlink.Client.Incidents.IncidentClient? Incidents => Connection is null ? null : new(Connection);
     public static Rimlink.Client.Visits.VisitClient? Visits => Connection is null ? null : new(Connection);
     public static Rimlink.Client.Visits.ShopClient? Shop => Connection is null ? null : new(Connection);
     public static Rimlink.Client.Social.TradesClient? Trades => Connection is null ? null : new(Connection);

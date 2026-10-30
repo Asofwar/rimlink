@@ -41,6 +41,8 @@ public static class Outgoing
     public static bool UnderThreat(Map? home)
     {
         if (RimlinkSession.State.Raids.Incoming.Any(r => r.Controller != RaidController.ControllerLive)) return true;
+        // A hostile paid incident ordered against us closes outflow as a raid does; weather and kind events do not.
+        if (RimlinkSession.State.Incidents.AnyHostileWaiting) return true;
         if (Current.Game?.GetComponent<RimlinkGameComponent>() is { ActiveRaids.Count: > 0 }) return true;
         if (Live.LiveHost.Active && Live.LiveHost.Session?.Kind == LiveKind.LiveRaid) return true;
         // During a visit or as a live guest the loaded map is someone else's copy: its enemies are not ours.

@@ -232,6 +232,12 @@ public static class LoginFlow
             catch (RpcException ex) { RimlinkLog.Instance.Warn("economy rules not loaded: " + Rimlink.Client.Economy.EconomyClient.MessageOf(ex)); }
             RimlinkSession.State.Economy.Load(await economy.Wallet(ct), await economy.Pending(ct), await economy.Lots(new MarketQuery { SellerPlayerId = me }, ct), rules);
             RimlinkSession.State.Raids.Load(await raids.Pending(ct), await raids.Mine(ct), await raids.Flags(ct));
+            try
+            {
+                var incidents = new Rimlink.Client.Incidents.IncidentClient(connection);
+                RimlinkSession.State.Incidents.Load(await incidents.Pending(ct), await incidents.Mine(ct), await incidents.Catalog(ct));
+            }
+            catch (RpcException ex) { RimlinkLog.Instance.Warn("paid incidents not loaded: " + Rimlink.Client.Economy.EconomyClient.MessageOf(ex)); }
             RimlinkSession.State.Social.Load(await trades.List(ct), await new Rimlink.Client.Social.SocialClient(connection).ListBlocks(ct));
             LiveSession? current = null;
             try { current = await live.Current(ct); }

@@ -15,6 +15,9 @@ public sealed class RimlinkGameComponent : GameComponent
     /// <summary>Raids landed on this colony and not yet reported; saved with the game so a reload still resolves them.</summary>
     public List<Raids.ActiveRaid> ActiveRaids = [];
 
+    /// <summary>Paid incidents that ran in this game and whose report the server has not taken yet: never fired twice.</summary>
+    public List<long> FiredIncidents = [];
+
     /// <summary>Dev mode was on in this game since the last upload (any session, or none): sent with the next upload, cleared after it.</summary>
     public bool DevModeSinceUpload;
 
@@ -25,6 +28,8 @@ public sealed class RimlinkGameComponent : GameComponent
         base.ExposeData();
         Scribe_Collections.Look(ref ActiveRaids, "rimlinkActiveRaids", LookMode.Deep);
         ActiveRaids ??= [];
+        Scribe_Collections.Look(ref FiredIncidents, "rimlinkFiredIncidents", LookMode.Value);
+        FiredIncidents ??= [];
         Scribe_Values.Look(ref DevModeSinceUpload, SaveMetaReader.DevModeNode);
         // Written for a save uploaded later from disk (the pending upload at login), whose header is read back by SaveMetaReader.
         long wealthTotal = 0, wealthItems = 0;
@@ -174,6 +179,7 @@ public sealed class RimlinkGameComponent : GameComponent
         Economy.GiftLetters.Tick();
         Economy.WealthRefresh.Tick();
         Raids.RaidIncoming.Tick();
+        Incidents.IncidentIncoming.Tick();
         Raids.RaidResolver.Tick();
         Live.LiveHost.Tick();
         Live.LiveGuest.Tick();
@@ -348,6 +354,7 @@ public sealed class RimlinkGameComponent : GameComponent
         ForeignSettlements.Clear();
         Economy.Incoming.Reset();
         Raids.RaidIncoming.Reset();
+        Incidents.IncidentIncoming.Reset();
         if (connection is not null) _ = connection.DisposeAsync();
     }
 }
