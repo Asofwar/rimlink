@@ -11,6 +11,7 @@ public static class Limits
     public const int ChatStored = 500;
     public const int ChatOnLogin = 50;
 
+    public const int NameMaxLength = 32;
     public const string NameRegex = @"^[\p{L}\p{N} _\-.']{2,32}$";
 
     // Economy: the client pre-checks these before taking anything off the map; the server enforces them.

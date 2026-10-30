@@ -1,6 +1,7 @@
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Rimlink.Protocol;
 using Rimlink.Protocol.V1;
 using Rimlink.Server.Application.Sessions;
 using Rimlink.Server.Grpc;
@@ -75,7 +76,8 @@ public sealed class AuthService(
                 Role = authOptions.Value.AdminSteamIds.Contains(identity.SteamId) ? Storage.Entities.Role.Admin : Storage.Entities.Role.Player,
                 CreatedAt = DateTime.UtcNow,
             };
-            string name = await FreeName("Player" + identity.SteamId.ToString()[^4..]);
+            string steamName = Names.Clean(await steam.PersonaName(identity.SteamId, CancellationToken.None)) ?? "Player" + identity.SteamId.ToString()[^4..];
+            string name = await FreeName(steamName);
             account.Player = new Player { Account = account, Name = name, FactionName = name };
             db.Accounts.Add(account);
             log.LogInformation("Registered Steam account {SteamId} ({Name})", identity.SteamId, name);
@@ -86,11 +88,15 @@ public sealed class AuthService(
         return await Complete(account, ctx, identity);
     }
 
-    /// <summary>Player names are unique (case-insensitive); the generated Steam name gets a suffix when taken.</summary>
+    /// <summary>Player names are unique (case-insensitive); a name from Steam gets a suffix when taken, shortened to stay a valid name.</summary>
     private async Task<string> FreeName(string wanted)
     {
         string candidate = wanted;
-        for (int i = 2; await db.Players.AnyAsync(p => p.Name == candidate); i++) candidate = $"{wanted}-{i}";
+        for (int i = 2; await db.Players.AnyAsync(p => p.Name == candidate); i++)
+        {
+            string suffix = $"-{i}";
+            candidate = wanted[..Math.Min(wanted.Length, Limits.NameMaxLength - suffix.Length)] + suffix;
+        }
         return candidate;
     }
 

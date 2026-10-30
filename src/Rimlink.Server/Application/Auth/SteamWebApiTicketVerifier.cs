@@ -9,6 +9,7 @@ public sealed class SteamWebApiTicketVerifier(HttpClient http, IOptions<AuthOpti
 {
     public const int RimWorldAppId = 294100;
     private const string Endpoint = "https://api.steampowered.com/ISteamUserAuth/AuthenticateUserTicket/v1/";
+    private const string SummariesEndpoint = "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/";
 
     public async Task<SteamIdentity?> Verify(byte[] ticket, CancellationToken cancellationToken)
     {
@@ -40,6 +41,26 @@ public sealed class SteamWebApiTicketVerifier(HttpClient http, IOptions<AuthOpti
         catch (Exception ex) when (ex is HttpRequestException or JsonException or FormatException or KeyNotFoundException or InvalidOperationException)
         {
             log?.LogWarning(ex, "Steam ticket verification failed");
+            return null;
+        }
+    }
+
+    public async Task<string?> PersonaName(long steamId, CancellationToken cancellationToken)
+    {
+        string? key = options.Value.SteamWebApiKey;
+        if (string.IsNullOrWhiteSpace(key)) return null;
+
+        try
+        {
+            string url = $"{SummariesEndpoint}?key={Uri.EscapeDataString(key)}&steamids={steamId}";
+            using var response = await http.GetAsync(url, cancellationToken);
+            using var json = JsonDocument.Parse(await response.Content.ReadAsStreamAsync(cancellationToken));
+            var players = json.RootElement.GetProperty("response").GetProperty("players");
+            return players.GetArrayLength() > 0 ? players[0].GetProperty("personaname").GetString() : null;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException or KeyNotFoundException or InvalidOperationException or OperationCanceledException)
+        {
+            log?.LogWarning("Steam name of {SteamId} not available: {Reason}", steamId, ex.GetType().Name);
             return null;
         }
     }

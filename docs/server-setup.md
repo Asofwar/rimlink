@@ -44,7 +44,7 @@ The server refuses to start without an HTTPS endpoint. Two options:
 
 - **Steam** (default): set `Auth:SteamWebApiKey` to a key from https://steamcommunity.com/dev/apikey (an ordinary
   Steam account's key is enough, no publisher key is needed). Accounts are
-  created on first login; the player name starts as `Player<last 4 digits of SteamID>` and can be changed in game
+  created on first login; the player name starts as the Steam name (characters a name cannot hold are dropped, a taken name gets `-2`; `Player<last 4 digits of SteamID>` when Steam gives none) and can be changed in game
   (`/rename`). Family-shared copies are tied to the owner's SteamID for bans.
 - **Login + password** (fallback): `Auth:AllowPassword=true` enables `Register` and password logins. Passwords are
   stored as Argon2id; player names are checked server-side.
