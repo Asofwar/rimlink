@@ -363,4 +363,59 @@ public class SaveCompactionTests
             Assert.Equal(Decompress(save), Decompress((await Download(nova.Saves, nova.Token)).data));
         }
     }
+
+    private static async Task<string> Reset(ServerFixture fixture, long playerId)
+    {
+        string target = Path.Combine(fixture.DataDir, "archive", "reset");
+        using var scope = fixture.Services.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<SaveStore>().Archive(playerId, target);
+        return target;
+    }
+
+    [Fact]
+    public async Task ResetLeavesFullFilesAndAnEmptyPlayerDirectory()
+    {
+        using var fixture = Server();
+        var nova = await Join(fixture);
+        byte[][] saves = [await nova.Send(1), await nova.Send(2), await nova.Send(3)];
+
+        string target = await Reset(fixture, nova.Id);
+
+        Assert.Equal(3, Directory.GetFiles(target).Length);
+        for (int number = 1; number <= 3; number++)
+            Assert.Equal(Decompress(saves[number - 1]), Decompress(File.ReadAllBytes(Path.Combine(target, $"{number}.rws.zst"))));
+        Assert.Empty(Directory.GetFiles(nova.Dir));
+    }
+
+    [Fact]
+    public async Task ResetMovesADamagedDeltaWithItsBase()
+    {
+        using var fixture = Server();
+        var nova = await Join(fixture);
+        await nova.Send(1);
+        await nova.Send(2);
+        await nova.Send(3);
+        File.WriteAllBytes(nova.PathOf("1.d1.zst"), File.ReadAllBytes(nova.PathOf("1.d1.zst"))[..^10]);
+
+        string target = await Reset(fixture, nova.Id);
+
+        Assert.Equal(["1.d1.zst", "2.rws.zst", "3.rws.zst", "base-1.rws.zst"], Directory.GetFiles(target).Select(Path.GetFileName).Order(StringComparer.Ordinal));
+        Assert.Empty(Directory.GetFiles(nova.Dir));
+    }
+
+    [Fact]
+    public async Task NumbersStartOverCleanlyAfterAReset()
+    {
+        using var fixture = Server();
+        var nova = await Join(fixture);
+        await nova.Send(1);
+        await nova.Send(2);
+        await Reset(fixture, nova.Id);
+
+        byte[] save = await nova.Send(10);
+
+        Assert.Equal(save, (await Download(nova.Saves, nova.Token)).data);
+        Assert.Equal(1, (await nova.Saves.ListAsync(new Empty(), GrpcTestExtensions.Bearer(nova.Token))).Versions.Single().Version);
+        Assert.Equal(["1.rws.zst"], Directory.GetFiles(nova.Dir).Select(Path.GetFileName));
+    }
 }

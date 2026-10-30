@@ -1,9 +1,12 @@
+using System.Security.Cryptography;
+using System.Text.Json;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Rimlink.Protocol.V1;
 using Rimlink.Server.Application.Admin;
 using Rimlink.Server.Application.Feed;
+using Rimlink.Server.Application.Saves;
 using Rimlink.Server.Application.World;
 using Rimlink.Server.Storage;
 using Rimlink.Server.Storage.Entities;
@@ -309,5 +312,101 @@ public class ColonyArchiveTests
         Assert.Equal(("Nova Home", 100, "auto", "api"), (archivedEvent.GetProperty("colony").GetString(), archivedEvent.GetProperty("tile").GetInt32(),
             archivedEvent.GetProperty("reason").GetString(), archivedEvent.GetProperty("actor").GetString()));
         Assert.Equal(("Nova Home", "api"), (restoredEvent.GetProperty("colony").GetString(), restoredEvent.GetProperty("actor").GetString()));
+    }
+
+    private static string SaveDir(ServerFixture fixture, long playerId) => Path.Combine(fixture.DataDir, "saves", playerId.ToString());
+
+    private static byte[] RawSave(long tick) => Decompress(MakeSave(ServerFixture.WorldSeed, "Nova", tick));
+
+    private static async Task<Colony> SettledWithDeltas(ServerFixture fixture, int uploads)
+    {
+        var nova = await Settled(fixture, "nova", tile: 100, tick: 3000, uploads: uploads);
+        await Compact(fixture, nova.PlayerId);
+        return nova;
+    }
+
+    [Fact]
+    public async Task ArchiveWritesDeltasAsFullFiles()
+    {
+        using var fixture = HygieneServer();
+        var nova = await SettledWithDeltas(fixture, uploads: 3);
+
+        var archived = Assert.IsType<ArchiveOutcome.Archived>(await Archive(fixture, nova.PlayerId));
+
+        string dir = Path.Combine(fixture.DataDir, (await Row(fixture, archived.ArchiveId)).Dir);
+        Assert.Equal(["1.rws.zst", "2.rws.zst", "3.rws.zst", "manifest.json"], Directory.GetFiles(dir).Select(Path.GetFileName).Order());
+        var manifest = JsonSerializer.Deserialize<SaveArchive.Manifest>(File.ReadAllText(Path.Combine(dir, SaveArchive.ManifestFile)), new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+        Assert.Equal(3, manifest.Versions.Count);
+        foreach (var version in manifest.Versions)
+        {
+            byte[] file = File.ReadAllBytes(Path.Combine(dir, $"{version.Number}.rws.zst"));
+            Assert.Equal(file.Length, version.Size);
+            Assert.Equal(Convert.ToHexString(SHA256.HashData(file)), version.Sha256);
+            Assert.Equal(RawSave(version.GameTick), Decompress(file));
+        }
+        Assert.Empty(Directory.GetFiles(SaveDir(fixture, nova.PlayerId)));
+    }
+
+    [Fact]
+    public async Task RestoreOfDeltasBringsBackTheContent()
+    {
+        using var fixture = HygieneServer();
+        var nova = await SettledWithDeltas(fixture, uploads: 2);
+        var archived = Assert.IsType<ArchiveOutcome.Archived>(await Archive(fixture, nova.PlayerId));
+        Assert.IsType<RestoreOutcome.Restored>(await Restore(fixture, archived.ArchiveId));
+
+        using (var scope = fixture.Services.CreateScope())
+        {
+            Assert.True(await scope.ServiceProvider.GetRequiredService<SaveStore>().Rollback(nova.PlayerId, 1));
+        }
+
+        var relogin = await fixture.RegisterAndLogin("nova");
+        var (_, data) = await Download(new Protocol.V1.Saves.SavesClient(fixture.CreateChannel()), relogin.SessionToken);
+        Assert.Equal(RawSave(2999), Decompress(data));
+    }
+
+    [Fact]
+    public async Task TheNextUploadCompactsARestoredColony()
+    {
+        using var fixture = HygieneServer();
+        var nova = await SettledWithDeltas(fixture, uploads: 2);
+        var archived = Assert.IsType<ArchiveOutcome.Archived>(await Archive(fixture, nova.PlayerId));
+        Assert.IsType<RestoreOutcome.Restored>(await Restore(fixture, archived.ArchiveId));
+        var relogin = await fixture.RegisterAndLogin("nova");
+        byte[] save = MakeSave(ServerFixture.WorldSeed, "Nova", tick: 4000);
+
+        await Upload(new Protocol.V1.Saves.SavesClient(fixture.CreateChannel()), relogin.SessionToken, save, HeaderFor(save, ServerFixture.WorldSeed, "Nova", tick: 4000));
+        await Compact(fixture, nova.PlayerId);
+
+        string dir = SaveDir(fixture, nova.PlayerId);
+        Assert.False(File.Exists(Path.Combine(dir, "1.rws.zst")));
+        Assert.Single(Directory.GetFiles(dir, "1.d*.zst"));
+    }
+
+    [Fact]
+    public async Task ArchiveIsRefusedWhenADeltaLostItsBase()
+    {
+        using var fixture = HygieneServer();
+        var nova = await SettledWithDeltas(fixture, uploads: 2);
+        foreach (string file in Directory.GetFiles(SaveDir(fixture, nova.PlayerId), "base-*")) File.Delete(file);
+
+        await Assert.ThrowsAnyAsync<Exception>(() => Archive(fixture, nova.PlayerId));
+
+        Assert.Equal(2, await Db(fixture, db => db.SaveVersions.CountAsync(v => v.PlayerId == nova.PlayerId)));
+        Assert.True(await Db(fixture, db => db.WorldObjects.AnyAsync(o => o.OwnerPlayerId == nova.PlayerId)));
+    }
+
+    [Fact]
+    public async Task ArchiveIsRefusedWhenADeltaIsDamaged()
+    {
+        using var fixture = HygieneServer();
+        var nova = await SettledWithDeltas(fixture, uploads: 2);
+        string delta = Path.Combine(SaveDir(fixture, nova.PlayerId), "1.d1.zst");
+        File.WriteAllBytes(delta, File.ReadAllBytes(delta)[..^10]);
+
+        await Assert.ThrowsAnyAsync<Exception>(() => Archive(fixture, nova.PlayerId));
+
+        Assert.Equal(2, await Db(fixture, db => db.SaveVersions.CountAsync(v => v.PlayerId == nova.PlayerId)));
+        Assert.True(await Db(fixture, db => db.WorldObjects.AnyAsync(o => o.OwnerPlayerId == nova.PlayerId)));
     }
 }

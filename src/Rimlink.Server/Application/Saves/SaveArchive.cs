@@ -24,10 +24,13 @@ public sealed class SaveArchive(SaveFiles files)
     public void EnsureFilesExist(long playerId, IEnumerable<SaveVersion> versions)
     {
         foreach (var v in versions)
-            if (!File.Exists(PathOf(playerId, v.Number))) throw new FileNotFoundException($"save v{v.Number} of player {playerId} is missing", PathOf(playerId, v.Number));
+            if (files.Locate(playerId, v.Number) is SaveForm.Missing) throw new FileNotFoundException($"save v{v.Number} of player {playerId} is missing", PathOf(playerId, v.Number));
     }
 
-    /// <summary>Copies every version into <paramref name="dir"/>, checks each copy against its recorded hash, writes the manifest.</summary>
+    /// <summary>
+    /// Writes every version into <paramref name="dir"/> as a full file, checks a copied one against its recorded hash and takes a delta's
+    /// size and hash from its rebuilt file, writes the manifest.
+    /// </summary>
     public async Task CopyOut(IReadOnlyList<SaveVersion> versions, string dir)
     {
         Directory.CreateDirectory(dir);
@@ -35,10 +38,18 @@ public sealed class SaveArchive(SaveFiles files)
         foreach (var v in versions)
         {
             string target = Path.Combine(dir, FileName(v.Number));
-            File.Copy(PathOf(v.PlayerId, v.Number), target, overwrite: true);
-            byte[] hash = await HashOf(target);
-            if (!hash.AsSpan().SequenceEqual(v.Sha256)) throw new InvalidDataException($"save v{v.Number} of player {v.PlayerId} does not match its hash");
-            manifest.Versions.Add(new ManifestVersion(v.Number, v.GameTick, v.Size, Convert.ToHexString(v.Sha256), v.CreatedAt, v.IsCurrent,
+            var (size, sha256) = (v.Size, v.Sha256);
+            if (files.Locate(v.PlayerId, v.Number) is SaveForm.Delta delta)
+            {
+                (size, sha256) = files.Rebuild(delta, target);
+            }
+            else
+            {
+                File.Copy(PathOf(v.PlayerId, v.Number), target, overwrite: true);
+                byte[] hash = await HashOf(target);
+                if (!hash.AsSpan().SequenceEqual(v.Sha256)) throw new InvalidDataException($"save v{v.Number} of player {v.PlayerId} does not match its hash");
+            }
+            manifest.Versions.Add(new ManifestVersion(v.Number, v.GameTick, size, Convert.ToHexString(sha256), v.CreatedAt, v.IsCurrent,
                 v.DevMode, v.WealthTotal, v.WealthItems));
         }
         await File.WriteAllTextAsync(Path.Combine(dir, ManifestFile), JsonSerializer.Serialize(manifest, Json));
@@ -105,11 +116,8 @@ public sealed class SaveArchive(SaveFiles files)
 
     public void DeleteFiles(long playerId, IEnumerable<int> numbers)
     {
-        foreach (int number in numbers)
-        {
-            string path = PathOf(playerId, number);
-            if (File.Exists(path)) File.Delete(path);
-        }
+        foreach (int number in numbers) files.Delete(playerId, number);
+        files.PruneBases(playerId);
     }
 
     private static async Task<byte[]> HashOf(string path)

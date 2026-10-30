@@ -227,20 +227,53 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
         }
     }
 
-    /// <summary>Moves every save file of the player into the archive directory and forgets the versions.</summary>
+    /// <summary>Moves every save file of the player into the archive directory, as full files, and forgets the versions.</summary>
     public async Task Archive(long playerId, string archiveDir)
     {
-        Directory.CreateDirectory(archiveDir);
-        foreach (var version in await db.SaveVersions.Where(v => v.PlayerId == playerId).ToListAsync())
+        await files.PerStoreLock.WaitAsync();
+        try
         {
-            string path = PathOf(version);
-            if (File.Exists(path)) File.Move(path, Path.Combine(archiveDir, Path.GetFileName(path)), overwrite: true);
-            db.SaveVersions.Remove(version);
+            Directory.CreateDirectory(archiveDir);
+            foreach (var version in await db.SaveVersions.Where(v => v.PlayerId == playerId).ToListAsync())
+            {
+                MoveOut(version, archiveDir);
+                db.SaveVersions.Remove(version);
+            }
+            files.PruneBases(playerId);
+            // A fresh colony starts at tick 0: the transfer stamp and the redelivery marks of the old one must not follow it.
+            await db.Players.Where(p => p.Id == playerId).ExecuteUpdateAsync(s => s.SetProperty(p => p.LastOutgoingTick, 0L));
+            await db.Parcels.Where(p => p.ToPlayerId == playerId && p.DeliveredAt != null).ExecuteUpdateAsync(s => s.SetProperty(p => p.DeliveredTick, 0L));
+            await db.SaveChangesAsync();
         }
-        // A fresh colony starts at tick 0: the transfer stamp and the redelivery marks of the old one must not follow it.
-        await db.Players.Where(p => p.Id == playerId).ExecuteUpdateAsync(s => s.SetProperty(p => p.LastOutgoingTick, 0L));
-        await db.Parcels.Where(p => p.ToPlayerId == playerId && p.DeliveredAt != null).ExecuteUpdateAsync(s => s.SetProperty(p => p.DeliveredTick, 0L));
-        await db.SaveChangesAsync();
+        finally
+        {
+            files.PerStoreLock.Release();
+        }
+    }
+
+    /// <summary>No row or manifest speaks for these files afterwards, so each must stand alone; a delta that cannot goes along with its base.</summary>
+    private void MoveOut(SaveVersion version, string archiveDir)
+    {
+        string target = Path.Combine(archiveDir, Path.GetFileName(PathOf(version)));
+        switch (files.Locate(version.PlayerId, version.Number))
+        {
+            case SaveForm.Full full:
+                File.Move(full.Path, target, overwrite: true);
+                break;
+            case SaveForm.Delta delta:
+                try
+                {
+                    files.Rebuild(delta, target);
+                }
+                catch (InvalidDataException ex)
+                {
+                    log.LogError(ex, "Save v{Version} of player {PlayerId} cannot be rebuilt: archiving its delta and base as they are", version.Number, version.PlayerId);
+                    File.Copy(delta.Path, Path.Combine(archiveDir, Path.GetFileName(delta.Path)), overwrite: true);
+                    File.Copy(delta.BasePath, Path.Combine(archiveDir, Path.GetFileName(delta.BasePath)), overwrite: true);
+                }
+                break;
+        }
+        files.Delete(version.PlayerId, version.Number);
     }
 
     public static SaveInfo ToInfo(SaveVersion v) => new()
