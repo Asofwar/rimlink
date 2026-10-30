@@ -210,6 +210,10 @@ from PowerShell):
   Engine code: `ilspycmd -p` on `Waylith.dll` / `UnityStubs.dll` / `Brutal.Glfw.dll` in the game folder.
 - `WealthWatcher` recounts at most every 5000 ticks: a value read right after things arrive is stale unless `ForceRecount()` runs
   first (done before a save writes its wealth).
+- Steam tickets: cancelling a ticket when a session ended made `AuthenticateUserTicket` answer 101 `Invalid ticket` for new tickets for
+  about two minutes. `GameCredentials` keeps one ticket for the whole game, replaces it only at the next login, waits for
+  `GetAuthSessionTicketResponse_t`, and `SteamLoginWait` retries the refusal (`STEAM_TICKET_REJECTED`) with the same ticket until Steam
+  confirms it (`SteamTicketReuse`).
 
 ## Commits
 

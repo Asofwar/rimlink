@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ModMetaData>
   <name>Rimlink</name>
-  <modVersion>0.6.0</modVersion>
+  <modVersion>0.6.1</modVersion>
   <author>Asofwar</author>
   <packageId>asofwar.rimlink</packageId>
   <url>https://github.com/Asofwar/rimlink</url>
