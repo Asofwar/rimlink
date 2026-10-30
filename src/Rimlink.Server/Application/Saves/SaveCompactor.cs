@@ -1,14 +1,35 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Rimlink.Server.Application.World;
 using Rimlink.Server.Hosting;
 using Rimlink.Server.Storage;
 
 namespace Rimlink.Server.Application.Saves;
 
 /// <summary>Turns a player's non-current versions into deltas against a base of theirs (save deltas spec §4).</summary>
-public sealed class SaveCompactor(RimlinkDbContext db, SaveFiles files, IOptions<SaveStorageOptions> options, ILogger<SaveCompactor> log)
+public sealed class SaveCompactor(RimlinkDbContext db, SaveFiles files, ColonyLocks locks, IOptions<SaveStorageOptions> options, ILogger<SaveCompactor> log)
 {
     private sealed record Reference(int Number, byte[] Raw);
+
+    /// <summary>Everyone with a full old version: saves from before an update, what a crash left, colonies back from the archive.</summary>
+    public async Task SweepAll(CancellationToken cancellationToken)
+    {
+        if (!options.Value.CompactOldVersions) return;
+        var old = await db.SaveVersions.AsNoTracking().Where(v => !v.IsCurrent).Select(v => new { v.PlayerId, v.Number }).ToListAsync(cancellationToken);
+        foreach (long playerId in old.Where(v => File.Exists(files.FullPath(v.PlayerId, v.Number))).Select(v => v.PlayerId).Distinct())
+        {
+            using var held = await locks.Hold(playerId);
+            await files.PerStoreLock.WaitAsync(cancellationToken);
+            try
+            {
+                await Run(playerId);
+            }
+            finally
+            {
+                files.PerStoreLock.Release();
+            }
+        }
+    }
 
     /// <summary>The caller holds <see cref="SaveFiles.PerStoreLock"/>. A version that fails stays as it is and the pass goes on.</summary>
     public async Task Run(long playerId)
@@ -72,6 +93,26 @@ public sealed class SaveCompactor(RimlinkDbContext db, SaveFiles files, IOptions
         {
             log.LogError(ex, "Base {Base} of player {PlayerId} is damaged", number, playerId);
             return null;
+        }
+    }
+}
+
+/// <summary>One pass at startup; from then on every upload compacts the version it replaces.</summary>
+public sealed class SaveCompactionService(IServiceScopeFactory scopes, ILogger<SaveCompactionService> log) : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        try
+        {
+            using var scope = scopes.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<SaveCompactor>().SweepAll(stoppingToken);
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            log.LogError(ex, "Compacting old saves at startup failed");
         }
     }
 }

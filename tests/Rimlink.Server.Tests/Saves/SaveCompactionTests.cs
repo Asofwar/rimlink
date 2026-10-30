@@ -37,10 +37,16 @@ public class SaveCompactionTests
 
         public SaveForm Locate(int number) => fixture.Services.GetRequiredService<SaveFiles>().Locate(Id, number);
 
-        public async Task<byte[]> Send(long tick, int padding = Padding)
+        public async Task<byte[]> Put(long tick, int padding = Padding)
         {
             byte[] save = MakeSave(ServerFixture.WorldSeed, "Nova", tick, padding);
             await Upload(Saves, Token, save, HeaderFor(save, ServerFixture.WorldSeed, "Nova", tick));
+            return save;
+        }
+
+        public async Task<byte[]> Send(long tick, int padding = Padding)
+        {
+            byte[] save = await Put(tick, padding);
             await Compact(fixture, Id);
             return save;
         }
@@ -445,5 +451,112 @@ public class SaveCompactionTests
 
         Assert.True(await Rollback(fixture, nova.Id, 1));
         Assert.Equal(Decompress(first), Decompress((await Download(nova.Saves, nova.Token)).data));
+    }
+
+    [Fact]
+    public async Task AnUploadCompactsTheVersionItReplaces()
+    {
+        using var fixture = Server();
+        var nova = await Join(fixture);
+        await nova.Put(1);
+
+        await nova.Put(2);
+
+        Assert.True(nova.Has("1.d1.zst"));
+        Assert.True(nova.Has("2.rws.zst"));
+        Assert.False(nova.Has("1.rws.zst"));
+    }
+
+    [Fact]
+    public async Task AnUploadStillSucceedsOverADamagedBase()
+    {
+        using var fixture = Server();
+        var nova = await Join(fixture);
+        await nova.Put(1);
+        await nova.Put(2);
+        File.WriteAllBytes(nova.PathOf("base-1.rws.zst"), [1, 2, 3]);
+
+        byte[] third = await nova.Put(3);
+
+        Assert.Equal(third, (await Download(nova.Saves, nova.Token)).data);
+        Assert.True(nova.Has("base-2.rws.zst"));
+    }
+
+    private static async Task Sweep(ServerFixture fixture)
+    {
+        using var scope = fixture.Services.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<SaveCompactor>().SweepAll(CancellationToken.None);
+    }
+
+    /// <summary>Versions stored by a server that did not compact: what an update finds on disk.</summary>
+    private static async Task<(string DataDir, List<byte[]> Saves)> FullVersions(int count)
+    {
+        using var before = Server().WithSetting("Saves:CompactOldVersions", Off).KeepDataDir();
+        var colony = await Join(before);
+        var saves = new List<byte[]>();
+        for (int tick = 1; tick <= count; tick++) saves.Add(await colony.Put(tick));
+        return (before.DataDir, saves);
+    }
+
+    private static ServerFixture Restarted(string dataDir, bool compact = true) =>
+        Server().WithSetting("Saves:CompactOldVersions", compact ? "true" : Off).WithDataDir(dataDir).WithoutWorld();
+
+    [Fact]
+    public async Task TheStartupPassCompactsVersionsFromBeforeTheUpdate()
+    {
+        var (dataDir, saves) = await FullVersions(3);
+
+        using var fixture = Restarted(dataDir);
+        var nova = await Join(fixture);
+
+        await Eventually(() => Task.FromResult(nova.Has("1.d1.zst") && nova.Has("2.d1.zst") && !nova.Has("2.rws.zst")));
+        Assert.Equal(saves[2], (await Download(nova.Saves, nova.Token)).data);
+    }
+
+    [Fact]
+    public async Task TheSweepDoesNothingWhenCompactionIsOff()
+    {
+        var (dataDir, _) = await FullVersions(3);
+        using var fixture = Restarted(dataDir, compact: false);
+        var nova = await Join(fixture);
+
+        await Sweep(fixture);
+
+        Assert.True(nova.Has("1.rws.zst"));
+        Assert.Empty(Directory.GetFiles(nova.Dir, "base-*"));
+    }
+
+    [Fact]
+    public async Task ASecondSweepChangesNothing()
+    {
+        var (dataDir, _) = await FullVersions(3);
+        using var fixture = Restarted(dataDir);
+        var nova = await Join(fixture);
+        await Sweep(fixture);
+        var before = Directory.GetFiles(nova.Dir).Order().ToDictionary(path => path, File.ReadAllBytes);
+
+        await Sweep(fixture);
+
+        Assert.Equal(before.Keys, Directory.GetFiles(nova.Dir).Order());
+        foreach (var (path, bytes) in before) Assert.Equal(bytes, File.ReadAllBytes(path));
+    }
+
+    [Fact]
+    public async Task AnUploadDuringTheSweepLosesNothing()
+    {
+        var (dataDir, saves) = await FullVersions(5);
+        using var fixture = Restarted(dataDir);
+        var nova = await Join(fixture);
+
+        var upload = nova.Put(6);
+        await Task.WhenAll(Sweep(fixture), upload);
+        saves.Add(await upload);
+
+        Assert.Equal(saves[5], (await Download(nova.Saves, nova.Token)).data);
+        for (int number = 1; number <= saves.Count; number++)
+        {
+            Assert.True(await Rollback(fixture, nova.Id, number));
+            Assert.Equal(Decompress(saves[number - 1]), Decompress((await Download(nova.Saves, nova.Token)).data));
+        }
     }
 }

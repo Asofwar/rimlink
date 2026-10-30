@@ -108,6 +108,7 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
                 // Stored is stored: a failing check is logged and never refuses the upload.
                 try { await integrity.OnStored(playerId, baseVersion, version); }
                 catch (Exception ex) { log.LogError(ex, "Integrity check of save v{Version} for player {PlayerId} failed", number, playerId); }
+                await TryCompact(playerId);
                 return version;
             }
             finally
@@ -192,9 +193,15 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
 
         events.SendTo(playerId, new ServerEvent { SaveRolledBack = new SaveRolledBack { Version = number } });
         log.LogInformation("Save of player {PlayerId} rolled back to v{Version}", playerId, number);
+        await TryCompact(playerId);
+        return true;
+    }
+
+    /// <summary>Stored is stored: a failing pass is logged and leaves full files behind.</summary>
+    private async Task TryCompact(long playerId)
+    {
         try { await compactor.Run(playerId); }
         catch (Exception ex) { log.LogError(ex, "Compacting the saves of player {PlayerId} failed", playerId); }
-        return true;
     }
 
     /// <summary>

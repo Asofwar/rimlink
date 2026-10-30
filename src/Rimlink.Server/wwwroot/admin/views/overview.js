@@ -24,7 +24,7 @@ export function render(root) {
       stat(t('nav.raids'), raidsFrozen ? t('public.frozen') : t('overview.raidsValue', { count: status.raids?.active ?? '—' }), raidsFrozen ? 'warn' : ''),
       stat(t('overview.liveActive'), status.liveActive),
       stat(t('overview.lastBackup'), status.backups?.lastAt ? fmtDate(status.backups.lastAt) : t('overview.never'), status.backups && !status.backups.lastAt ? 'warn' : ''),
-      stat(t('overview.saves'), status.saves ? `${status.saves.count} · ${fmtBytes(status.saves.totalBytes)}` : '—'),
+      stat(t('overview.saves'), status.saves ? `${status.saves.count} · ${fmtBytes(status.saves.diskBytes)}` : '—'),
       stat(t('overview.world'), status.worldExists ? t('overview.settlements', { count: status.settlements ?? '—' }) : t('overview.noWorld'), status.worldExists ? '' : 'warn'));
     facts.textContent = t('overview.facts', { version: status.version, protocol: status.protocolVersion, uptime: fmtDuration(status.uptimeSeconds) });
 

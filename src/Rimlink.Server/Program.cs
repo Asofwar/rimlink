@@ -87,6 +87,7 @@ builder.Services.AddScoped<LoginGate>();
 builder.Services.AddScoped<WorldService>();
 builder.Services.AddSingleton<SaveFiles>();
 builder.Services.AddScoped<SaveCompactor>();
+builder.Services.AddHostedService<SaveCompactionService>();
 builder.Services.AddScoped<SaveStore>();
 builder.Services.AddScoped<Rimlink.Server.Application.Integrity.IntegrityService>();
 builder.Services.AddScoped<ModpackService>();

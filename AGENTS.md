@@ -153,6 +153,12 @@ proto cannot import `events.proto` (define a local message instead of reusing `N
 the ef tool rejects it), plus a schema test in `tests/Rimlink.Server.Tests/Storage`. Migrations are applied at server start. Never
 commit a data directory or `*.db`.
 
+**Save files.** A version's form is its file name, not a column: `<n>.rws.zst` is full, `<n>.d<k>.zst` a delta against `base-<k>.rws.zst`,
+and only `SaveFiles` knows these names. `rimlink-tools backup` runs beside a live server and snapshots the database before the files, so
+a restored row can be older than the file next to it. Only the current version is sure to be full (`OpenCurrent` rebuilds it if a restore
+says otherwise): nothing may assume `<n>.rws.zst` exists for another one. `Size` and `Sha256` describe the full file, also while only a
+delta is on disk. zstd drops the part of a reference prefix that overlaps its input, so a prefix and its content are never one array.
+
 **Server.** Options classes under `Hosting/` (`*Options`, validated, documented in `appsettings.example.json`). Services under
 `Application/<Area>`; gRPC endpoints under `Grpc/`; the REST admin API and the CLI mirror every admin operation. Player-supplied names,
 paths and sizes are validated at the boundary (see the save and parcel size limits). Rate limits and size limits refuse with a typed

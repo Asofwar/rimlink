@@ -27,7 +27,8 @@ network, so you can also run them on your own PC against the server's address; `
 The server listens on HTTPS only, so a browser or `rimlink-tools` needs `https://` and, with the default self-signed
 certificate, `--insecure`. Once it runs, `https://<host>:25560/` shows the public page and the certificate fingerprint.
 
-The data directory layout: `rimlink.db` (SQLite), `saves/<playerId>/<n>.rws.zst`, `tls/`, `logs/`, `backups/`,
+The data directory layout: `rimlink.db` (SQLite), `saves/<playerId>/` (`<n>.rws.zst` is a full save, `<n>.d<k>.zst` an older
+version kept as a delta against `base-<k>.rws.zst`), `tls/`, `logs/`, `backups/`,
 `archive/` (data of reset players and recreated worlds), `server.lock` while running.
 
 ## 2. TLS
@@ -371,6 +372,14 @@ revocable on its own and named in the audit log:
   `POST /api/admin/backups`. A backup made from the panel lands in `backups/` with the scheduled ones and counts towards
   `Backup:Keep`, so it can push out the oldest scheduled archive.
 - Restore (server stopped): `rimlink-tools restore --data <dir> --from file.tar.zst`.
+
+Old save versions take little room: the current version of a save is a plain file, older ones are small deltas against a base
+file of that player, so a player's history and every backup shrink several times over. A rollback rebuilds the full file.
+`/status` shows the real size as `saves.diskBytes`. A damaged base takes the old versions that use it out of reach; the current
+version does not depend on it, and every backup holds a copy.
+
+- `Saves:CompactOldVersions` (default `true`): `false` stops making new deltas; existing ones stay readable.
+- Going back to a 0.6.1 server keeps the current saves working, but it refuses rollbacks to versions stored as deltas.
 
 ## 7a. Updating
 

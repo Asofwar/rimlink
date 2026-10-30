@@ -32,6 +32,29 @@ public class StatusConfigTests
     }
 
     [Fact]
+    public async Task StatusReportsWhatSavesTakeOnDisk()
+    {
+        using var fixture = new ServerFixture().WithSetting("Auth:AllowPassword", "true").WithSetting("Admin:ApiToken", AdminRestExtensions.ApiToken);
+        var nova = await fixture.RegisterAndLogin("nova", playerName: "Nova");
+        byte[] save = SaveFixtures.MakeSave(ServerFixture.WorldSeed, "Nova");
+        await SaveFixtures.Upload(new Protocol.V1.Saves.SavesClient(fixture.CreateChannel()), nova.SessionToken, save, SaveFixtures.HeaderFor(save, ServerFixture.WorldSeed, "Nova"));
+
+        var status = await fixture.Rest().GetFromJsonAsync<JsonElement>("/api/admin/status");
+
+        Assert.Equal(save.Length, status.GetProperty("saves").GetProperty("diskBytes").GetInt64());
+    }
+
+    [Fact]
+    public async Task ConfigShowsTheSaveStorageSettings()
+    {
+        using var fixture = new ServerFixture().WithSetting("Admin:ApiToken", AdminRestExtensions.ApiToken);
+
+        var config = await fixture.Rest().GetFromJsonAsync<JsonElement>("/api/admin/config");
+
+        Assert.True(config.GetProperty("saves").GetProperty("compactOldVersions").GetBoolean());
+    }
+
+    [Fact]
     public async Task ConfigHidesSecrets()
     {
         using var fixture = new ServerFixture()

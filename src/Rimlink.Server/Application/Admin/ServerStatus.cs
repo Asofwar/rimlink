@@ -26,6 +26,8 @@ public sealed record PublicStatus(
 /// <summary>Server status for the admin panel and integrations, the redacted config view, and the public page's data (spec §4).</summary>
 public sealed class ServerStatus(
     RimlinkDbContext db,
+    Saves.SaveFiles saveFiles,
+    IOptions<SaveStorageOptions> saveStorage,
     SessionRegistry sessions,
     AdminOperations ops,
     ModpackService modpack,
@@ -70,7 +72,7 @@ public sealed class ServerStatus(
             economy = economyStats is null ? null : new { frozen = economyStats.Frozen, reason = economyStats.FreezeReason },
             raids = raidStats is null ? null : new { frozen = raidStats.Frozen, reason = raidStats.FreezeReason, active = raidStats.Queued + raidStats.Announced + raidStats.Landed },
             liveActive = await Part("live", LiveActive),
-            saves = await Part("saves", async () => new { count = await db.SaveVersions.CountAsync(), totalBytes = await db.SaveVersions.SumAsync(v => (long?)v.Size) ?? 0 }),
+            saves = await Part("saves", async () => new { count = await db.SaveVersions.CountAsync(), totalBytes = await db.SaveVersions.SumAsync(v => (long?)v.Size) ?? 0, diskBytes = saveFiles.DiskBytes() }),
             backups = await Part("backups", () =>
             {
                 var list = backups.List();
@@ -89,6 +91,7 @@ public sealed class ServerStatus(
             ["tls"] = JsonSerializer.SerializeToNode(tls.Value, Web),
             ["auth"] = JsonSerializer.SerializeToNode(auth.Value, Web),
             ["backup"] = JsonSerializer.SerializeToNode(backup.Value, Web),
+            ["saves"] = JsonSerializer.SerializeToNode(saveStorage.Value, Web),
             ["economy"] = JsonSerializer.SerializeToNode(economy.Value, Web),
             ["raids"] = JsonSerializer.SerializeToNode(raids.Value, Web),
             ["live"] = JsonSerializer.SerializeToNode(live.Value, Web),
