@@ -17,7 +17,7 @@ namespace Rimlink.Client.UI.Economy;
 /// </summary>
 public sealed class Dialog_Economy : Window
 {
-    private enum Tab { Market, MyLots, Send, Wallet, Mailbox, Trades, Raids, Shops }
+    private enum Tab { Market, MyLots, Send, Wallet, Mailbox, Trades, Events, Raids, Shops }
 
     private readonly Map? map;
     private readonly Caravan? caravan;
@@ -38,6 +38,7 @@ public sealed class Dialog_Economy : Window
     private PlayerRef? shopHost;
     private ShopList? shopList;
     private readonly TradesTab tradesTab = new();
+    private readonly EventsTab eventsTab = new();
 
     public Dialog_Economy(Map map)
     {
@@ -126,12 +127,15 @@ public sealed class Dialog_Economy : Window
         if (fixedRecipient is null)
         {
             float x = 0f;
-            foreach (Tab t in Enum.GetValues(typeof(Tab)))
+            var tabs = (Tab[])Enum.GetValues(typeof(Tab));
+            // The tabs share the row left of the refresh button.
+            float tabWidth = (inRect.width - 76f) / tabs.Length - 4f;
+            foreach (Tab t in tabs)
             {
-                var r = new Rect(x, 36f, 88f, 28f);
+                var r = new Rect(x, 36f, tabWidth, 28f);
                 if (tab == t) Widgets.DrawHighlightSelected(r);
                 if (Widgets.ButtonText(r, ("Rimlink.Economy.Tab." + t).Translate())) tab = t;
-                x += 92f;
+                x += tabWidth + 4f;
             }
             if (Widgets.ButtonText(new Rect(inRect.width - 70f, 36f, 70f, 28f), "Rimlink.Economy.Refresh".Translate())) Refresh();
         }
@@ -145,6 +149,7 @@ public sealed class Dialog_Economy : Window
             case Tab.Wallet: DrawWallet(body); break;
             case Tab.Mailbox: DrawMailbox(body); break;
             case Tab.Trades: tradesTab.Draw(body, map, KnownPlayers()); break;
+            case Tab.Events: eventsTab.Draw(body, KnownPlayers()); break;
             case Tab.Raids: DrawRaids(body); break;
             case Tab.Shops: DrawShops(body); break;
         }

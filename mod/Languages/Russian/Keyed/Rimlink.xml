@@ -221,6 +221,24 @@
   <Rimlink.Incident.Warning>{0} заказал(а) против вашей колонии: {1} (уровень {2}). Оно придёт через полдня.</Rimlink.Incident.Warning>
   <Rimlink.Incident.OrderedBy>Заказчик: {0}.</Rimlink.Incident.OrderedBy>
   <Rimlink.Incident.GiftFrom>Подарок от {0}.</Rimlink.Incident.GiftFrom>
+  <Rimlink.Incident.Unavailable>Сервер не предлагает платных событий.</Rimlink.Incident.Unavailable>
+  <Rimlink.Incident.PickEvent>Выберите событие слева.</Rimlink.Incident.PickEvent>
+  <Rimlink.Incident.Kind.IncidentHostile>враждебное</Rimlink.Incident.Kind.IncidentHostile>
+  <Rimlink.Incident.Kind.IncidentWeather>погода</Rimlink.Incident.Kind.IncidentWeather>
+  <Rimlink.Incident.Kind.IncidentKind>подарок</Rimlink.Incident.Kind.IncidentKind>
+  <Rimlink.Incident.Level>Уровень {0}</Rimlink.Incident.Level>
+  <Rimlink.Incident.Pods>Капсулами</Rimlink.Incident.Pods>
+  <Rimlink.Incident.Price>Цена: {0} серебра{1}</Rimlink.Incident.Price>
+  <Rimlink.Incident.Warned> — объявляется за полдня</Rimlink.Incident.Warned>
+  <Rimlink.Incident.Order>Заказать</Rimlink.Incident.Order>
+  <Rimlink.Incident.Ordered>Заказано: {0} против {1}.</Rimlink.Incident.Ordered>
+  <Rimlink.Incident.MyOrders>Мои заказы ({0})</Rimlink.Incident.MyOrders>
+  <Rimlink.Incident.State.IncidentQueued>ждёт</Rimlink.Incident.State.IncidentQueued>
+  <Rimlink.Incident.State.IncidentAnnounced>объявлено</Rimlink.Incident.State.IncidentAnnounced>
+  <Rimlink.Incident.State.IncidentFired>произошло</Rimlink.Incident.State.IncidentFired>
+  <Rimlink.Incident.State.IncidentFailed>не удалось, возвращено</Rimlink.Incident.State.IncidentFailed>
+  <Rimlink.Incident.State.IncidentExpired>истекло, возвращено</Rimlink.Incident.State.IncidentExpired>
+  <Rimlink.Incident.State.IncidentCancelled>отменено, возвращено</Rimlink.Incident.State.IncidentCancelled>
   <Rimlink.Raid.LandedLabel>Рейд: {0}</Rimlink.Raid.LandedLabel>
   <Rimlink.Raid.Landed>Прибыли рейдеры от {0} ({1}). Пленённые останутся у вас; украденное — пропало.</Rimlink.Raid.Landed>
   <Rimlink.Raid.Resolved>Рейд от {0} окончен: погибло {1}, пленено {2}, ушло {3} с добычей на {4} серебра.</Rimlink.Raid.Resolved>
@@ -328,6 +346,7 @@
   <Rimlink.Live.State.LiveFallback>отклонена, продолжилась как обычный рейд</Rimlink.Live.State.LiveFallback>
   <!-- Safe trades: gifts with a decision, block list, two-way trades -->
   <Rimlink.Economy.Tab.Trades>Сделки</Rimlink.Economy.Tab.Trades>
+  <Rimlink.Economy.Tab.Events>События</Rimlink.Economy.Tab.Events>
   <Rimlink.Economy.Kind.ParcelGiftReturn>Возврат подарка</Rimlink.Economy.Kind.ParcelGiftReturn>
   <Rimlink.Economy.Kind.ParcelTrade>Сделка</Rimlink.Economy.Kind.ParcelTrade>
   <Rimlink.Economy.Kind.ParcelTradeReturn>Возврат из сделки</Rimlink.Economy.Kind.ParcelTradeReturn>

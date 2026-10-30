@@ -222,6 +222,24 @@
   <Rimlink.Incident.Warning>{0} ordered {1} (level {2}) against your colony: it comes in half a day.</Rimlink.Incident.Warning>
   <Rimlink.Incident.OrderedBy>Ordered by {0}.</Rimlink.Incident.OrderedBy>
   <Rimlink.Incident.GiftFrom>A gift from {0}.</Rimlink.Incident.GiftFrom>
+  <Rimlink.Incident.Unavailable>This server offers no paid events.</Rimlink.Incident.Unavailable>
+  <Rimlink.Incident.PickEvent>Pick an event on the left.</Rimlink.Incident.PickEvent>
+  <Rimlink.Incident.Kind.IncidentHostile>hostile</Rimlink.Incident.Kind.IncidentHostile>
+  <Rimlink.Incident.Kind.IncidentWeather>weather</Rimlink.Incident.Kind.IncidentWeather>
+  <Rimlink.Incident.Kind.IncidentKind>gift</Rimlink.Incident.Kind.IncidentKind>
+  <Rimlink.Incident.Level>Level {0}</Rimlink.Incident.Level>
+  <Rimlink.Incident.Pods>By drop pods</Rimlink.Incident.Pods>
+  <Rimlink.Incident.Price>Price: {0} silver{1}</Rimlink.Incident.Price>
+  <Rimlink.Incident.Warned> — announced half a day ahead</Rimlink.Incident.Warned>
+  <Rimlink.Incident.Order>Order</Rimlink.Incident.Order>
+  <Rimlink.Incident.Ordered>Ordered: {0} against {1}.</Rimlink.Incident.Ordered>
+  <Rimlink.Incident.MyOrders>My orders ({0})</Rimlink.Incident.MyOrders>
+  <Rimlink.Incident.State.IncidentQueued>waiting</Rimlink.Incident.State.IncidentQueued>
+  <Rimlink.Incident.State.IncidentAnnounced>announced</Rimlink.Incident.State.IncidentAnnounced>
+  <Rimlink.Incident.State.IncidentFired>happened</Rimlink.Incident.State.IncidentFired>
+  <Rimlink.Incident.State.IncidentFailed>failed, refunded</Rimlink.Incident.State.IncidentFailed>
+  <Rimlink.Incident.State.IncidentExpired>expired, refunded</Rimlink.Incident.State.IncidentExpired>
+  <Rimlink.Incident.State.IncidentCancelled>cancelled, refunded</Rimlink.Incident.State.IncidentCancelled>
   <Rimlink.Raid.LandedLabel>Raid: {0}</Rimlink.Raid.LandedLabel>
   <Rimlink.Raid.Landed>{1} raiders sent by {0} have arrived. Captured raiders are yours to keep; what they steal is gone.</Rimlink.Raid.Landed>
   <Rimlink.Raid.Resolved>The raid by {0} is over: {1} dead, {2} captured, {3} got away with loot worth {4} silver.</Rimlink.Raid.Resolved>
@@ -328,6 +346,7 @@
   <Rimlink.Live.State.LiveFallback>declined, went on as a normal raid</Rimlink.Live.State.LiveFallback>
   <!-- Safe trades: gifts with a decision, block list, two-way trades -->
   <Rimlink.Economy.Tab.Trades>Trades</Rimlink.Economy.Tab.Trades>
+  <Rimlink.Economy.Tab.Events>Events</Rimlink.Economy.Tab.Events>
   <Rimlink.Economy.Kind.ParcelGiftReturn>Gift returned</Rimlink.Economy.Kind.ParcelGiftReturn>
   <Rimlink.Economy.Kind.ParcelTrade>Trade</Rimlink.Economy.Kind.ParcelTrade>
   <Rimlink.Economy.Kind.ParcelTradeReturn>Trade returned</Rimlink.Economy.Kind.ParcelTradeReturn>
