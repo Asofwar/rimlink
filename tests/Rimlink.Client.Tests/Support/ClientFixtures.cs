@@ -32,10 +32,10 @@ public static class ClientFixtures
 
     public static async Task WaitUntil(Func<bool> condition, TimeSpan? timeout = null)
     {
-        var deadline = DateTime.UtcNow + (timeout ?? TimeSpan.FromSeconds(10));
+        var waited = System.Diagnostics.Stopwatch.StartNew();
         while (!condition())
         {
-            if (DateTime.UtcNow > deadline) throw new TimeoutException("condition not met");
+            if (waited.Elapsed > (timeout ?? TimeSpan.FromSeconds(10))) throw new TimeoutException("condition not met");
             await Task.Delay(50);
         }
     }

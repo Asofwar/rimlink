@@ -175,8 +175,8 @@ public class MarketTests
         await sweep.StartAsync(CancellationToken.None);
         try
         {
-            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-            while ((await n.Mailbox.ListAsync(new Empty(), n.Auth)).Parcels.Count == 0 && DateTime.UtcNow < deadline) await Task.Delay(100);
+            var waited = System.Diagnostics.Stopwatch.StartNew();
+            while ((await n.Mailbox.ListAsync(new Empty(), n.Auth)).Parcels.Count == 0 && waited.Elapsed < TimeSpan.FromSeconds(10)) await Task.Delay(100);
         }
         finally
         {

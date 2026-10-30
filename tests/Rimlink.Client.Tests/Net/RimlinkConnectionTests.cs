@@ -293,8 +293,8 @@ public class RimlinkConnectionTests
         connection.DropNetwork(TimeSpan.FromSeconds(2));
         await WaitForState(connection, ConnectionState.Reconnecting);
         Assert.NotNull(connection.ReconnectingSince);
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
-        while (!connection.OutageIsLong && DateTime.UtcNow < deadline) await Task.Delay(20);
+        var waited = System.Diagnostics.Stopwatch.StartNew();
+        while (!connection.OutageIsLong && waited.Elapsed < TimeSpan.FromSeconds(5)) await Task.Delay(20);
 
         Assert.True(connection.OutageIsLong);
         Assert.Equal(ConnectionState.Reconnecting, connection.State);

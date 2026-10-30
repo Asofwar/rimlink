@@ -72,8 +72,8 @@ public class LiveClientTests : IDisposable
     /// <summary>The next queued frame of that kind (the host's own Hello may arrive first when the streams race).</summary>
     private static async Task<LiveServerMsg> Next(LiveClient guest, LiveServerMsg.MOneofCase kind)
     {
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-        while (DateTime.UtcNow < deadline)
+        var waited = System.Diagnostics.Stopwatch.StartNew();
+        while (waited.Elapsed < TimeSpan.FromSeconds(10))
         {
             if (guest.Incoming.TryDequeue(out var frame)) { if (frame!.MCase == kind) return frame; continue; }
             await Task.Delay(25);
@@ -120,8 +120,8 @@ public class LiveClientTests : IDisposable
         await ClientFixtures.WaitUntil(() => !channel.Handling);
         for (int beats = 0; beats < 2; beats++) // the client sends nothing else, so each change of the server's last-heard time is a heartbeat
         {
-            var heard = channel.LastFrameAt;
-            await ClientFixtures.WaitUntil(() => channel.LastFrameAt > heard, TimeSpan.FromSeconds(20));
+            long heard = channel.LastFrameTimestamp;
+            await ClientFixtures.WaitUntil(() => channel.LastFrameTimestamp > heard, TimeSpan.FromSeconds(20));
         }
         Assert.Equal(LiveStateDb.Running, await StateOf(fixture, s.Session.Id));
         Assert.True(guest.IsOpen);

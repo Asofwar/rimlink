@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Google.Protobuf;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
@@ -258,7 +259,7 @@ public class LiveRelayTests
     {
         var channel = fixture.Services.GetRequiredService<LiveRelay>().ChannelOf(sessionId, playerId)!;
         await HygieneFixtures.Eventually(() => Task.FromResult(!channel.Handling)); // the end of a frame counts as heard
-        channel.LastFrameAt = DateTime.UtcNow.AddHours(-1);
+        channel.LastFrameTimestamp -= 3600 * Stopwatch.Frequency;
     }
 
     [Fact]
@@ -271,7 +272,7 @@ public class LiveRelayTests
 
         using var guest = await Open(p.Nova, p.Session.Id, LiveRelay.GuestRole);
         await slow.Reached; // the guest's Hello is writing Running: that write now takes longer than the heartbeat timeout
-        fixture.Services.GetRequiredService<LiveRelay>().ChannelOf(p.Session.Id, p.Nova.PlayerId)!.LastFrameAt = DateTime.UtcNow.AddHours(-1);
+        fixture.Services.GetRequiredService<LiveRelay>().ChannelOf(p.Session.Id, p.Nova.PlayerId)!.LastFrameTimestamp -= 3600 * Stopwatch.Frequency;
         await Task.Delay(2500); // two sweeps
         slow.Release();
 
@@ -343,6 +344,40 @@ public class LiveRelayTests
         using var hostBack = await Open(p.Bob, p.Session.Id, LiveRelay.HostRole);
         Assert.Equal(p.Session.Id, (await ReadEvent(novaEvents, ServerEvent.BodyOneofCase.LivePeerBack, e => e.LivePeerBack)).SessionId);
         Assert.Equal(LiveStateDb.Running, await StateOf(fixture, p.Session.Id));
+    }
+
+    [Fact]
+    public async Task AWallClockStepDoesNotTimeAStreamOut()
+    {
+        var clock = new SteppedClock();
+        var p = await Started(LiveServer().WithServices(s => s.AddSingleton<TimeProvider>(clock)));
+        using var fixture = p.Fixture;
+        using var host = await Open(p.Bob, p.Session.Id, LiveRelay.HostRole);
+        using var guest = await Open(p.Nova, p.Session.Id, LiveRelay.GuestRole);
+        await Read(host, LiveServerMsg.MOneofCase.PeerHello);
+
+        clock.Step(TimeSpan.FromHours(1)); // a virtual machine syncing its time: the streams were not silent for an hour
+        await Task.Delay(2500); // two sweeps
+
+        Assert.Equal(LiveStateDb.Running, await StateOf(fixture, p.Session.Id));
+    }
+
+    private sealed class SteppedClock : TimeProvider
+    {
+        private TimeSpan offset;
+
+        public void Step(TimeSpan by) => offset += by;
+
+        public override DateTimeOffset GetUtcNow() => base.GetUtcNow() + offset;
+    }
+
+    [Fact]
+    public void AWallClockSteppedBackDoesNotEmptyTheRateBuckets()
+    {
+        var limiter = new FrameLimiter(new Rimlink.Server.Hosting.LiveOptions());
+        var now = DateTime.UtcNow;
+        Assert.Null(limiter.Refuse(LiveClientMsg.MOneofCase.Delta, 10, now));
+        Assert.Null(limiter.Refuse(LiveClientMsg.MOneofCase.Delta, 10, now - TimeSpan.FromSeconds(20)));
     }
 
     [Fact]

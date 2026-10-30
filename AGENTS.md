@@ -157,7 +157,15 @@ commit a data directory or `*.db`.
 `Application/<Area>`; gRPC endpoints under `Grpc/`; the REST admin API and the CLI mirror every admin operation. Player-supplied names,
 paths and sizes are validated at the boundary (see the save and parcel size limits). Rate limits and size limits refuse with a typed
 `ErrorCode`, never with a crash. Escrow rules: anything a player sends away (items, pawns, silver) is stored server-side and returned by
-mailbox parcel; nothing is duplicated and nothing is lost on a drop.
+mailbox parcel; nothing is duplicated and nothing is lost on a drop. A live session's state changes only under `LiveStateLock`, row read
+inside the lock: stream handlers, the sweep, RPCs and admins all race for it.
+
+**Tests of streams and timeouts.** `Open` returning is not the server having attached: assert on what the peer receives, not on an order.
+`LiveServer()` keeps the invite minute and does not time raw streams out; a test of a lapse shortens the window (`ShortInvites()`) or
+backdates the one channel it is about (`LiveRelay.ChannelOf(...).LastFrameTimestamp`). `LiveWriteHold` opens the gap between a read and a
+write. Test deadlines use `Stopwatch`, not `DateTime.UtcNow`: a virtual machine's wall clock steps (WSL's jumps ±20 s about once a minute), and
+so does a real server's in a VM, which is why stream silence is measured on the monotonic clock. Before calling a timing fix done: repeat
+the full suite on two CPUs (skill `dotnet-linux-tests-wsl`).
 
 **Client core.** No `Verse`/`RimWorld` references. All network calls are async and cancellable; unanswered mutating calls go
 through the outbox with a `client_request_id` and are replayed on reconnect. State for the UI lives in `SharedState`.

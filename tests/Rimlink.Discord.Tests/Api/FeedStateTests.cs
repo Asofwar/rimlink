@@ -80,10 +80,10 @@ public class FeedStateTests : IDisposable
 
     private static async Task WaitFor(Func<bool> condition)
     {
-        var until = DateTime.UtcNow.AddSeconds(10);
+        var waited = System.Diagnostics.Stopwatch.StartNew();
         while (!condition())
         {
-            if (DateTime.UtcNow > until) throw new TimeoutException("condition not met in 10 s");
+            if (waited.Elapsed > TimeSpan.FromSeconds(10)) throw new TimeoutException("condition not met in 10 s");
             await Task.Delay(50);
         }
     }

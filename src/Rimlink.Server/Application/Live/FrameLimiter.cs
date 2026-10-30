@@ -34,7 +34,7 @@ public sealed class FrameLimiter(LiveOptions options)
 
         public bool Take(DateTime now)
         {
-            if (last != DateTime.MinValue) tokens = Math.Min(capacity, tokens + (now - last).TotalSeconds * perSecond);
+            if (last != DateTime.MinValue && now > last) tokens = Math.Min(capacity, tokens + (now - last).TotalSeconds * perSecond); // a clock stepped back owes nothing
             last = now;
             if (tokens < 1) return false;
             tokens -= 1;

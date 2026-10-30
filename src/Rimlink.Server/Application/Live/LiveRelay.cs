@@ -13,7 +13,8 @@ public sealed class LiveChannel(long sessionId, long playerId, int role, LiveOpt
     public int Role { get; } = role;
     public RelayQueue Queue { get; } = new();
     public FrameLimiter Limiter { get; } = new(options);
-    public DateTime LastFrameAt { get; set; } = DateTime.UtcNow;
+    /// <summary>When a frame was last heard, on the monotonic clock (<see cref="TimeProvider.GetTimestamp"/>): a stepped wall clock is not silence.</summary>
+    public long LastFrameTimestamp { get; set; }
     private volatile bool handling;
     /// <summary>Set while the relay handles one of this channel's frames: the heartbeat sweep never times a channel out mid-frame.</summary>
     public bool Handling { get => handling; set => handling = value; }
@@ -31,7 +32,7 @@ public sealed class LiveChannel(long sessionId, long playerId, int role, LiveOpt
 /// rate limits, a bounded queue per receiver, peer-lost/peer-back on detach and reattach, and the session state
 /// changes a Hello, an End or a lost heartbeat imply.
 /// </summary>
-public sealed class LiveRelay(IServiceScopeFactory scopes, IOptions<LiveOptions> options, LiveTimeoutService timeouts, ILogger<LiveRelay> log)
+public sealed class LiveRelay(IServiceScopeFactory scopes, IOptions<LiveOptions> options, LiveTimeoutService timeouts, TimeProvider time, ILogger<LiveRelay> log)
 {
     public const int HostRole = 1, GuestRole = 2;
 
@@ -47,7 +48,7 @@ public sealed class LiveRelay(IServiceScopeFactory scopes, IOptions<LiveOptions>
     public LiveChannel Attach(long sessionId, long playerId, int role)
     {
         EnsureSweep();
-        var channel = new LiveChannel(sessionId, playerId, role, options.Value);
+        var channel = new LiveChannel(sessionId, playerId, role, options.Value) { LastFrameTimestamp = time.GetTimestamp() };
         LiveChannel? replaced, peer;
         SnapshotReady? snapshot;
         lock (gate)
@@ -100,12 +101,12 @@ public sealed class LiveRelay(IServiceScopeFactory scopes, IOptions<LiveOptions>
     /// </summary>
     public async Task Forward(LiveChannel from, LiveClientMsg msg, int size)
     {
-        from.LastFrameAt = DateTime.UtcNow;
+        from.LastFrameTimestamp = time.GetTimestamp();
         from.Handling = true;
         try { await Route(from, msg, size); }
         finally
         {
-            from.LastFrameAt = DateTime.UtcNow;
+            from.LastFrameTimestamp = time.GetTimestamp();
             from.Handling = false;
         }
     }
@@ -113,7 +114,7 @@ public sealed class LiveRelay(IServiceScopeFactory scopes, IOptions<LiveOptions>
     private async Task Route(LiveChannel from, LiveClientMsg msg, int size)
     {
         LiveMetrics.Frames.WithLabels(from.Role == HostRole ? "host" : "guest").Inc();
-        if (from.Limiter.Refuse(msg.MCase, size, from.LastFrameAt) is { } refusal)
+        if (from.Limiter.Refuse(msg.MCase, size, time.GetUtcNow().UtcDateTime) is { } refusal)
         {
             from.Queue.Enqueue(new LiveServerMsg { Notice = new LiveNotice { Text = "frame dropped: " + refusal } });
             return;
@@ -232,11 +233,11 @@ public sealed class LiveRelay(IServiceScopeFactory scopes, IOptions<LiveOptions>
     }
 
     /// <summary>A channel silent for HeartbeatTimeoutSeconds is detached: its peer waits, the session goes Waiting.</summary>
-    private async Task SweepHeartbeats(DateTime now)
+    private async Task SweepHeartbeats(DateTime _)
     {
         var limit = TimeSpan.FromSeconds(options.Value.HeartbeatTimeoutSeconds);
         List<LiveChannel> silent;
-        lock (gate) silent = channels.Values.Where(c => !c.Handling && now - c.LastFrameAt > limit).ToList();
+        lock (gate) silent = channels.Values.Where(c => !c.Handling && time.GetElapsedTime(c.LastFrameTimestamp) > limit).ToList();
         foreach (var c in silent) await Detach(c, "timeout");
     }
 }

@@ -64,10 +64,10 @@ public static class HygieneFixtures
     /// <summary>Polls until <paramref name="condition"/> holds (fire-and-forget session handlers write asynchronously).</summary>
     public static async Task Eventually(Func<Task<bool>> condition, int timeoutMs = 5000)
     {
-        var until = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+        var waited = System.Diagnostics.Stopwatch.StartNew();
         while (!await condition())
         {
-            if (DateTime.UtcNow > until) throw new TimeoutException("condition not met in time");
+            if (waited.ElapsedMilliseconds > timeoutMs) throw new TimeoutException("condition not met in time");
             await Task.Delay(25);
         }
     }
