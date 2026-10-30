@@ -26,7 +26,7 @@ namespace Rimlink.Server.Application.Live;
 /// The host's report ends either kind through <see cref="RaidService.Report"/> or <see cref="ReportVisit"/>.
 /// </summary>
 public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, RaidRules rules, ParcelValidator validator, MailboxService mailbox,
-    SessionRegistry registry, EventBus events, AdminFeed feed, LiveRelay relay, IOptions<LiveOptions> options, IOptions<RaidOptions> raidOptions, ILogger<LiveSessionService> log)
+    SessionRegistry registry, EventBus events, AdminFeed feed, LiveRelay relay, LiveStateLock stateLock, IOptions<LiveOptions> options, IOptions<RaidOptions> raidOptions, ILogger<LiveSessionService> log)
 {
     public static readonly LiveStateDb[] FinalStates = [LiveStateDb.Ended, LiveStateDb.Fallback];
 
@@ -50,6 +50,7 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
         if (p.HostPlayerId == guestId) throw RpcErrors.Failed(ErrorCode.SelfTrade, RefusalKeys.LiveSelf, "you cannot visit or raid yourself");
         if (p.Pawns is null || p.Pawns.Pawns.Count == 0) throw RpcErrors.Failed(ErrorCode.Unspecified, RefusalKeys.LiveNoPawns, "a live session needs at least one pawn");
         if (p.Pawns.Pawns.Count > raidOptions.Value.MaxRaiders) throw RpcErrors.Failed(ErrorCode.ParcelTooBig, RefusalKeys.LiveTooManyPawns, $"too many pawns ({p.Pawns.Pawns.Count} > {raidOptions.Value.MaxRaiders})", p.Pawns.Pawns.Count, raidOptions.Value.MaxRaiders);
+        using var held = await stateLock.Hold(); // the checks below and the new row are one step: two proposals never both see a free host
         if (!string.IsNullOrEmpty(p.ClientRequestId))
         {
             var existing = await db.LiveSessions.AsNoTracking().FirstOrDefaultAsync(s => s.GuestPlayerId == guestId && s.ClientRequestId == p.ClientRequestId);
@@ -103,6 +104,7 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
 
     public async Task<LiveSessionRow> Respond(long hostId, long sessionId, bool accept)
     {
+        using var held = await stateLock.Hold();
         var session = await db.LiveSessions.FirstOrDefaultAsync(s => s.Id == sessionId && s.HostPlayerId == hostId);
         if (session is null || session.State != LiveStateDb.Proposed) throw RpcErrors.Failed(ErrorCode.LiveGone, RefusalKeys.LiveInviteGone, "that invitation is no longer open");
         if (accept) await Start(session); else await Fallback(session);
@@ -112,6 +114,7 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
     /// <summary>The guest before the start: the pawns come back and nothing falls back. Either side afterwards: the session ends (the host owes the report).</summary>
     public async Task Cancel(long playerId, long sessionId)
     {
+        using var held = await stateLock.Hold();
         var session = await db.LiveSessions.FirstOrDefaultAsync(s => s.Id == sessionId && (s.HostPlayerId == playerId || s.GuestPlayerId == playerId));
         if (session is null || FinalStates.Contains(session.State) || session.State == LiveStateDb.Ending) throw RpcErrors.Failed(ErrorCode.LiveGone, RefusalKeys.LiveOver, "that live session is over");
         bool guest = session.GuestPlayerId == playerId;
@@ -191,6 +194,7 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
     /// <summary>A Hello from <paramref name="playerId"/>: the session runs, unless it waits for the other player (their peer's Hello does not end the wait).</summary>
     public async Task MarkRunning(long sessionId, long playerId)
     {
+        using var held = await stateLock.Hold();
         var session = await db.LiveSessions.FirstOrDefaultAsync(s => s.Id == sessionId);
         if (session is null || session.State is not (LiveStateDb.Starting or LiveStateDb.Waiting)) return;
         bool back = session.State == LiveStateDb.Waiting;
@@ -210,6 +214,7 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
 
     public async Task MarkWaiting(long sessionId, long lostPlayerId)
     {
+        using var held = await stateLock.Hold();
         var session = await db.LiveSessions.FirstOrDefaultAsync(s => s.Id == sessionId);
         if (session is null || session.State is not (LiveStateDb.Running or LiveStateDb.Starting)) return;
         session.State = LiveStateDb.Waiting;
@@ -245,6 +250,7 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
 
     public async Task MarkEnding(long sessionId, LiveEndReason reason)
     {
+        using var held = await stateLock.Hold();
         var session = await db.LiveSessions.FirstOrDefaultAsync(s => s.Id == sessionId);
         if (session is null || FinalStates.Contains(session.State) || session.State == LiveStateDb.Ending) return;
         await MarkEnding(session, reason);
@@ -267,6 +273,7 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
     /// <summary>An admin gives up on the host's report: the guest's pawns come home from the escrow as they left.</summary>
     public async Task CloseEnding(long sessionId)
     {
+        using var held = await stateLock.Hold();
         var session = await db.LiveSessions.FirstOrDefaultAsync(s => s.Id == sessionId);
         if (session is null || session.State != LiveStateDb.Ending) return;
         await ReturnEscrow(session, "live session closed by an admin");
@@ -276,6 +283,7 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
     /// <summary>The host's report for a live raid went through <see cref="RaidService.Report"/>: the session is over.</summary>
     public async Task Ended(long raidId)
     {
+        using var held = await stateLock.Hold();
         var session = await db.LiveSessions.FirstOrDefaultAsync(s => s.RaidId == raidId);
         if (session is null || FinalStates.Contains(session.State)) return;
         await Close(session);
@@ -284,6 +292,7 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
     /// <summary>The host's report for a live visit: every living pawn comes home as one parcel; loot, captives and dead pawns are not the guest's.</summary>
     public async Task ReportVisit(long hostId, RaidReport r)
     {
+        using var held = await stateLock.Hold();
         var session = await db.LiveSessions.FirstOrDefaultAsync(s => s.Id == r.LiveSessionId && s.HostPlayerId == hostId);
         if (session is null || session.RaidId is not null) throw RpcErrors.Failed(ErrorCode.LiveGone, RefusalKeys.LiveNoVisit, "no such live visit");
         if (FinalStates.Contains(session.State)) return;
@@ -353,12 +362,18 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
         var inviteBefore = now - TimeSpan.FromSeconds(options.Value.InviteSeconds);
         foreach (var session in await db.LiveSessions.Where(s => s.State == LiveStateDb.Proposed && s.CreatedAt <= inviteBefore).ToListAsync())
         {
+            using var held = await stateLock.Hold();
+            await db.Entry(session).ReloadAsync(); // the list is older than the lock: the invitation may have been answered since
+            if (session.State != LiveStateDb.Proposed) continue;
             await Fallback(session);
             n++;
         }
         var waitBefore = now - TimeSpan.FromMinutes(options.Value.ReconnectWaitMinutes);
         foreach (var session in await db.LiveSessions.Where(s => s.State == LiveStateDb.Waiting && s.WaitingSince <= waitBefore).ToListAsync())
         {
+            using var held = await stateLock.Hold();
+            await db.Entry(session).ReloadAsync();
+            if (session.State != LiveStateDb.Waiting) continue;
             await MarkEnding(session, session.LostPlayerId == session.HostPlayerId ? LiveEndReason.EndHostLost : LiveEndReason.EndGuestLost);
             n++;
         }
@@ -367,6 +382,9 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
         var deadBefore = waitBefore - TimeSpan.FromSeconds(options.Value.HeartbeatTimeoutSeconds);
         foreach (var session in await db.LiveSessions.Where(s => (s.State == LiveStateDb.Starting || s.State == LiveStateDb.Running) && (s.StartedAt ?? s.CreatedAt) <= deadBefore).ToListAsync())
         {
+            using var held = await stateLock.Hold();
+            await db.Entry(session).ReloadAsync();
+            if (session.State is not (LiveStateDb.Starting or LiveStateDb.Running)) continue;
             bool host = relay.IsAttached(session.Id, session.HostPlayerId), guest = relay.IsAttached(session.Id, session.GuestPlayerId);
             if (host && guest) continue;
             await MarkEnding(session, host ? LiveEndReason.EndGuestLost : LiveEndReason.EndHostLost);

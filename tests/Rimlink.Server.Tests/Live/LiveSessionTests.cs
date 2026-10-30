@@ -251,6 +251,45 @@ public class LiveSessionTests
     }
 
     [Fact]
+    public async Task AnAcceptAndACancelAtOnceLeaveOneOutcome()
+    {
+        var hold = new LiveWriteHold(LiveStateDb.Starting);
+        var p = await NovaAndBob(hold.On(LiveServer()));
+        using var fixture = p.Fixture;
+        var session = await p.Nova.Live.ProposeAsync(Propose(p.Bob.PlayerId, LiveKind.LiveVisit), p.Nova.Auth);
+
+        var accept = p.Bob.Live.RespondAsync(new LiveAnswer { SessionId = session.Id, Accept = true }, p.Bob.Auth).ResponseAsync;
+        await hold.Reached; // the accept read Proposed and is about to write Starting
+        var cancel = p.Nova.Live.CancelAsync(new LiveRef { SessionId = session.Id }, p.Nova.Auth).ResponseAsync;
+        await Task.WhenAny(cancel, Task.Delay(1500));
+        hold.Release();
+        await accept;
+        await cancel;
+
+        // The accept came first: the session ends, the host owes the report and the pawns stay in escrow until then (never both at home and on the map).
+        Assert.Equal(LiveStateDb.Ending, (await Db(fixture, db => db.LiveSessions.SingleAsync(s => s.Id == session.Id))).State);
+        Assert.Empty((await p.Nova.Mailbox.ListAsync(new Empty(), p.Nova.Auth)).Parcels);
+    }
+
+    [Fact]
+    public async Task AnAcceptTheInviteSweepOvertakesDoesNotFallBackToo()
+    {
+        var hold = new LiveWriteHold(LiveStateDb.Starting);
+        var p = await NovaAndBob(hold.On(LiveServer().ShortInvites()));
+        using var fixture = p.Fixture;
+        var session = await p.Nova.Live.ProposeAsync(Propose(p.Bob.PlayerId, LiveKind.LiveVisit), p.Nova.Auth);
+
+        var accept = p.Bob.Live.RespondAsync(new LiveAnswer { SessionId = session.Id, Accept = true }, p.Bob.Auth).ResponseAsync;
+        await hold.Reached;
+        await Task.Delay(3500); // the invitation lapses and the sweep runs while the accept is on its way to the database
+        hold.Release();
+        await accept;
+
+        Assert.Equal(LiveStateDb.Starting, (await Db(fixture, db => db.LiveSessions.SingleAsync(s => s.Id == session.Id))).State);
+        Assert.Empty((await p.Nova.Mailbox.ListAsync(new Empty(), p.Nova.Auth)).Parcels);
+    }
+
+    [Fact]
     public async Task HostAbortEnds()
     {
         var p = await NovaAndBob();
