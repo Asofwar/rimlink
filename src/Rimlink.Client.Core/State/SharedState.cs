@@ -12,6 +12,7 @@ public sealed class SharedState
     public Economy.EconomyState Economy { get; } = new();
     public Raids.RaidsState Raids { get; } = new();
     public Live.LiveState Live { get; } = new();
+    public Incidents.IncidentsState Incidents { get; } = new();
     public Social.SocialState Social { get; } = new();
     public List<Notice> Notices { get; } = [];
     public int? PendingRollbackVersion { get; private set; }
@@ -100,6 +101,10 @@ public sealed class SharedState
             case ServerEvent.BodyOneofCase.LivePeerBack:
                 Live.Apply(ev);
                 break;
+            case ServerEvent.BodyOneofCase.IncidentQueued:
+            case ServerEvent.BodyOneofCase.IncidentResolved:
+                Incidents.Apply(ev);
+                break;
             // SessionReplaced is handled by the connection; unknown bodies (newer server) are skipped.
         }
     }
@@ -120,6 +125,7 @@ public sealed class SharedState
         Social.Reset();
         Raids.Reset();
         Live.Reset();
+        Incidents.Reset();
     }
 }
 

@@ -167,6 +167,28 @@ public class IncidentLifecycleTests
     }
 
     [Fact]
+    public async Task CancelAndExpiryTellTheTarget()
+    {
+        // The target's client drops the incident from its queue (and stops closing its outflow), as RaidExpired does for raids.
+        var p = await NovaAndBob();
+        using var fixture = p.Fixture;
+        using var bobStream = new Protocol.V1.Events.EventsClient(fixture.CreateChannel()).Subscribe(new Empty(), p.B);
+        var cancelled = await p.Api.OrderAsync(Order(p.BobId), p.N);
+        var expired = await p.Api.OrderAsync(Order(p.BobId, entry: "cold-snap"), p.N);
+        using var scope = fixture.Services.CreateScope();
+        var service = scope.ServiceProvider.GetRequiredService<IncidentService>();
+        await service.Cancel(cancelled.Id, "abuse");
+        await scope.ServiceProvider.GetRequiredService<RimlinkDbContext>().IncidentOrders.Where(i => i.Id == expired.Id)
+            .ExecuteUpdateAsync(s => s.SetProperty(i => i.ExpiresAt, DateTime.UtcNow.AddMinutes(-1)));
+        await service.ExpireDue(DateTime.UtcNow);
+
+        var first = await ReadEvent(bobStream, ServerEvent.BodyOneofCase.IncidentResolved, e => e.IncidentResolved);
+        var second = await ReadEvent(bobStream, ServerEvent.BodyOneofCase.IncidentResolved, e => e.IncidentResolved);
+        Assert.Equal((cancelled.Id, IncidentState.IncidentCancelled, 0L), (first.Incident.Id, first.Incident.State, first.Refund));
+        Assert.Equal((expired.Id, IncidentState.IncidentExpired, 0L), (second.Incident.Id, second.Incident.State, second.Refund));
+    }
+
+    [Fact]
     public async Task ResetCancelsAndRefunds()
     {
         var p = await NovaAndBob();

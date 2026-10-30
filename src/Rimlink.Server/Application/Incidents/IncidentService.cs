@@ -165,7 +165,11 @@ public sealed class IncidentService(RimlinkDbContext db, WalletService wallet, R
         }
         wallet.FlushEvents();
         log.LogInformation("Incident {Incident} {State}{Reason}", order.Id, state, reason is null ? "" : ": " + reason);
-        events.SendTo(order.BuyerPlayerId, new ServerEvent { IncidentResolved = new IncidentResolved { Incident = await ToProto(order), Refund = refund ? order.Price : 0 } });
+        var proto = await ToProto(order);
+        events.SendTo(order.BuyerPlayerId, new ServerEvent { IncidentResolved = new IncidentResolved { Incident = proto, Refund = refund ? order.Price : 0 } });
+        // The target reported Fired and Failed itself; a cancelled or expired one must leave its queue (and its outflow block).
+        if (state is IncidentStateDb.Cancelled or IncidentStateDb.Expired)
+            events.SendTo(order.TargetPlayerId, new ServerEvent { IncidentResolved = new IncidentResolved { Incident = proto } });
         return true;
     }
 
