@@ -14,10 +14,11 @@ public sealed record LiveClients(Protocol.V1.Live.LiveClient Live, Protocol.V1.R
 public static class LiveFixtures
 {
     /// <summary>
-    /// Raid server with a one-second timeout sweep. Invitations keep the configured minute, so a slow machine never sees one lapse in the
-    /// middle of a test; the tests of the lapse shorten it with <see cref="ShortInvites"/>.
+    /// Raid server with a one-second timeout sweep. Invitations keep the configured minute and raw test streams, which send no heartbeats,
+    /// are not timed out, so a slow machine never sees either lapse in the middle of a test; the tests of a lapse shorten it themselves
+    /// (<see cref="ShortInvites"/>, <c>Live:HeartbeatTimeoutSeconds</c>).
     /// </summary>
-    public static ServerFixture LiveServer() => RaidFixtures.RaidServer().WithSetting("Live:SweepSeconds", "1");
+    public static ServerFixture LiveServer() => RaidFixtures.RaidServer().WithSetting("Live:SweepSeconds", "1").WithSetting("Live:HeartbeatTimeoutSeconds", "300");
 
     /// <summary>Invitations lapse after two seconds.</summary>
     public static ServerFixture ShortInvites(this ServerFixture fixture) => fixture.WithSetting("Live:InviteSeconds", "2");

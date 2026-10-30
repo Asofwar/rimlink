@@ -21,6 +21,8 @@ public sealed class LiveChannel(long sessionId, long playerId, int role, LiveOpt
     public bool PeerLostSent { get; set; }
     /// <summary>Why the channel was closed by the relay: "replaced", "ended" or "timeout" (null while open or closed by the client).</summary>
     public string? ClosedBy { get; set; }
+    /// <summary>The guest's latest Hello, for a host that attaches after it (read and written under the relay's lock).</summary>
+    public Hello? Hello { get; set; }
     public CancellationTokenSource Closed { get; } = new();
 }
 
@@ -38,7 +40,10 @@ public sealed class LiveRelay(IServiceScopeFactory scopes, IOptions<LiveOptions>
     private readonly object gate = new();
     private bool sweeping;
 
-    /// <summary>A second stream of the same player replaces the first; a returning peer is announced to the other side.</summary>
+    /// <summary>
+    /// A second stream of the same player replaces the first; a returning peer is announced to the other side. A host that attaches
+    /// after the guest gets its Hello now: nothing else lifts the host's wait for the guest.
+    /// </summary>
     public LiveChannel Attach(long sessionId, long playerId, int role)
     {
         EnsureSweep();
@@ -51,13 +56,14 @@ public sealed class LiveRelay(IServiceScopeFactory scopes, IOptions<LiveOptions>
             channels[(sessionId, playerId)] = channel;
             peer = PeerOf(channel);
             snapshots.TryGetValue(sessionId, out snapshot);
+            if (role == HostRole && peer?.Hello is { } guestHello) channel.Queue.Enqueue(new LiveServerMsg { PeerHello = guestHello });
+            if (peer is { PeerLostSent: true })
+            {
+                peer.PeerLostSent = false;
+                peer.Queue.Enqueue(new LiveServerMsg { PeerBack = new Empty() });
+            }
         }
         if (replaced is not null) Close(replaced, "replaced");
-        if (peer is { PeerLostSent: true })
-        {
-            peer.PeerLostSent = false;
-            peer.Queue.Enqueue(new LiveServerMsg { PeerBack = new Empty() });
-        }
         if (role == GuestRole && snapshot is not null) channel.Queue.Enqueue(new LiveServerMsg { SnapshotReady = snapshot }); // the host announced it before the guest attached
         log.LogInformation("Live session {Session}: player {Player} attached as {Role}", sessionId, playerId, role == HostRole ? "host" : "guest");
         return channel;
@@ -66,28 +72,26 @@ public sealed class LiveRelay(IServiceScopeFactory scopes, IOptions<LiveOptions>
     /// <summary>The client closed its stream or stopped answering: the peer waits for it, the session goes Waiting.</summary>
     public async Task Detach(LiveChannel channel, string reason)
     {
-        LiveChannel? peer;
         lock (gate)
         {
             if (!channels.TryGetValue((channel.SessionId, channel.PlayerId), out var current) || current != channel) return; // replaced or ended already
             channels.Remove((channel.SessionId, channel.PlayerId));
-            peer = PeerOf(channel);
+            if (PeerOf(channel) is { PeerLostSent: false } peer)
+            {
+                peer.PeerLostSent = true;
+                peer.Queue.Enqueue(new LiveServerMsg { PeerLost = new Empty() });
+            }
         }
         channel.ClosedBy ??= reason;
         channel.Queue.Complete();
         channel.Closed.Cancel();
-        if (peer is not null && !peer.PeerLostSent)
-        {
-            peer.PeerLostSent = true;
-            peer.Queue.Enqueue(new LiveServerMsg { PeerLost = new Empty() });
-        }
         log.LogInformation("Live session {Session}: player {Player} detached ({Reason})", channel.SessionId, channel.PlayerId, reason);
         using var scope = scopes.CreateScope();
         var sessions = scope.ServiceProvider.GetRequiredService<LiveSessionService>();
         await sessions.MarkWaiting(channel.SessionId, channel.PlayerId);
         bool back;
         lock (gate) back = channels.ContainsKey((channel.SessionId, channel.PlayerId));
-        if (back) await sessions.MarkRunning(channel.SessionId, channel.PlayerId); // a new stream of the same player arrived while this one was being closed
+        if (back) await MarkRunning(channel); // a new stream of the same player arrived while this one was being closed (a new scope: the row must be read afresh)
     }
 
     /// <summary>
@@ -120,13 +124,13 @@ public sealed class LiveRelay(IServiceScopeFactory scopes, IOptions<LiveOptions>
                 return;
             case LiveClientMsg.MOneofCase.Hello:
                 // The guest's first Hello starts the run (the state is Running before the host sees PeerHello); a lost side's Hello ends a wait.
-                if (from.Role == GuestRole) { await MarkRunning(from); ToPeer(from, new LiveServerMsg { PeerHello = msg.Hello }); }
+                if (from.Role == GuestRole) { await MarkRunning(from); GuestHello(from, msg.Hello); }
                 else { ToPeer(from, new LiveServerMsg { PeerHello = msg.Hello }); await MarkRunning(from); }
                 return;
             case LiveClientMsg.MOneofCase.SnapshotReady:
-                lock (gate) snapshots[from.SessionId] = msg.SnapshotReady;
                 using (var scope = scopes.CreateScope())
                     await scope.ServiceProvider.GetRequiredService<LiveSessionService>().SetSnapshot(from.SessionId, msg.SnapshotReady.SaveVersion);
+                lock (gate) snapshots[from.SessionId] = msg.SnapshotReady; // on record first: the guest reads the session once it hears
                 ToPeer(from, new LiveServerMsg { SnapshotReady = msg.SnapshotReady });
                 return;
             case LiveClientMsg.MOneofCase.End:
@@ -183,6 +187,21 @@ public sealed class LiveRelay(IServiceScopeFactory scopes, IOptions<LiveOptions>
     public bool IsAttached(long sessionId, long playerId)
     {
         lock (gate) return channels.ContainsKey((sessionId, playerId));
+    }
+
+    public LiveChannel? ChannelOf(long sessionId, long playerId)
+    {
+        lock (gate) return channels.GetValueOrDefault((sessionId, playerId));
+    }
+
+    /// <summary>Tells the host, or keeps the Hello for <see cref="Attach"/> when it is not there yet; the lock makes it exactly one of the two.</summary>
+    private void GuestHello(LiveChannel guest, Hello hello)
+    {
+        lock (gate)
+        {
+            guest.Hello = hello;
+            PeerOf(guest)?.Queue.Enqueue(new LiveServerMsg { PeerHello = hello });
+        }
     }
 
     private void ToPeer(LiveChannel from, LiveServerMsg msg)

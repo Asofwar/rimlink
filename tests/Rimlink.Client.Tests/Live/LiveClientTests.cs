@@ -81,12 +81,6 @@ public class LiveClientTests : IDisposable
         throw new TimeoutException($"no {kind} frame");
     }
 
-    private static Task KeepAlive(AsyncDuplexStreamingCall<LiveClientMsg, LiveServerMsg> host, long sessionId, CancellationToken ct) => Task.Run(async () =>
-    {
-        try { while (!ct.IsCancellationRequested) { await Task.Delay(400, ct); await host.RequestStream.WriteAsync(new LiveClientMsg { SessionId = sessionId, Heartbeat = new Empty() }); } }
-        catch { }
-    });
-
     private static async Task<LiveStateDb> StateOf(ServerFixture fixture, long id)
     {
         using var scope = fixture.Services.CreateScope();
@@ -100,38 +94,38 @@ public class LiveClientTests : IDisposable
         using var fixture = s.Fixture;
         await using var nova = s.Nova;
         using var host = await OpenHost(s.Fixture, s.Bob, s.Session.Id);
-        using var alive = new CancellationTokenSource();
-        var keepAlive = KeepAlive(host, s.Session.Id, alive.Token);
         var guest = new LiveClient(nova, new ConsoleLog()) { HelloLetterPause = LetterPause.Any };
 
         await guest.Open(s.Session.Id, LiveRelay.GuestRole, 1, CancellationToken.None);
 
         Assert.Equal(LetterPause.Any, (await Read(host, LiveServerMsg.MOneofCase.PeerHello)).PeerHello.LetterPause);
         await guest.Close();
-        alive.Cancel();
     }
 
     [Fact]
     public async Task OpenSendsHelloAndHeartbeats()
     {
-        var s = await Started(LiveServer().WithSetting("Live:HeartbeatTimeoutSeconds", "3"));
+        var s = await Started();
         using var fixture = s.Fixture;
         await using var nova = s.Nova;
         using var host = await OpenHost(s.Fixture, s.Bob, s.Session.Id);
         var guest = new LiveClient(nova, new ConsoleLog());
-        using var alive = new CancellationTokenSource();
-        var keepAlive = KeepAlive(host, s.Session.Id, alive.Token);
 
         await guest.Open(s.Session.Id, LiveRelay.GuestRole, 2, CancellationToken.None);
 
         var hello = await Read(host, LiveServerMsg.MOneofCase.PeerHello);
         Assert.Equal(LiveRelay.GuestRole, hello.PeerHello.Role);
         Assert.Equal(2, hello.PeerHello.SnapshotSeq);
-        await Task.Delay(6000); // twice the heartbeat timeout: only the 2 s heartbeats keep the guest attached
+        var channel = fixture.Services.GetRequiredService<LiveRelay>().ChannelOf(s.Session.Id, nova.Login!.Player.PlayerId)!;
+        await ClientFixtures.WaitUntil(() => !channel.Handling);
+        for (int beats = 0; beats < 2; beats++) // the client sends nothing else, so each change of the server's last-heard time is a heartbeat
+        {
+            var heard = channel.LastFrameAt;
+            await ClientFixtures.WaitUntil(() => channel.LastFrameAt > heard, TimeSpan.FromSeconds(20));
+        }
         Assert.Equal(LiveStateDb.Running, await StateOf(fixture, s.Session.Id));
         Assert.True(guest.IsOpen);
         await guest.Close();
-        alive.Cancel();
     }
 
     [Fact]
@@ -159,15 +153,13 @@ public class LiveClientTests : IDisposable
     [Fact]
     public async Task ReconnectAfterADropResumesTheSession()
     {
-        var s = await Started(LiveServer().WithSetting("Live:HeartbeatTimeoutSeconds", "3"));
+        var s = await Started();
         using var fixture = s.Fixture;
         await using var nova = s.Nova;
         using var host = await OpenHost(s.Fixture, s.Bob, s.Session.Id);
         var guest = new LiveClient(nova, new ConsoleLog());
         int reconnected = 0;
         guest.Reconnected += () => reconnected++;
-        using var alive = new CancellationTokenSource();
-        var keepAlive = KeepAlive(host, s.Session.Id, alive.Token);
         await guest.Open(s.Session.Id, LiveRelay.GuestRole, 1, CancellationToken.None);
         await Read(host, LiveServerMsg.MOneofCase.PeerHello);
 
@@ -180,7 +172,6 @@ public class LiveClientTests : IDisposable
         Assert.Equal(LiveStateDb.Running, await StateOf(fixture, s.Session.Id));
         Assert.True(guest.IsOpen);
         await guest.Close();
-        alive.Cancel();
     }
 
     [Fact]

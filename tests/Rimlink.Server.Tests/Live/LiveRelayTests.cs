@@ -1,7 +1,6 @@
 using Google.Protobuf;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Rimlink.Protocol.V1;
 using Rimlink.Server.Application.Live;
@@ -127,6 +126,42 @@ public class LiveRelayTests
     }
 
     [Fact]
+    public async Task AHostThatAttachesAfterTheGuestStillHearsItsHello()
+    {
+        var p = await Started();
+        using var fixture = p.Fixture;
+        using var guest = await Open(p.Nova, p.Session.Id, LiveRelay.GuestRole, snapshotSeq: 3, letterPause: LetterPause.Major);
+        await HygieneFixtures.Eventually(async () => await StateOf(fixture, p.Session.Id) == LiveStateDb.Running);
+
+        using var host = await Open(p.Bob, p.Session.Id, LiveRelay.HostRole);
+
+        var hello = await Read(host, LiveServerMsg.MOneofCase.PeerHello);
+        Assert.Equal(LiveRelay.GuestRole, hello.PeerHello.Role);
+        Assert.Equal(3, hello.PeerHello.SnapshotSeq);
+        Assert.Equal(LetterPause.Major, hello.PeerHello.LetterPause);
+    }
+
+    [Fact]
+    public async Task ASnapshotIsOnRecordBeforeAnyoneHearsOfIt()
+    {
+        var hold = new LiveWriteHold(s => s.SnapshotVersion == 12);
+        var p = await Started(hold.On(LiveServer()));
+        using var fixture = p.Fixture;
+        using var host = await Open(p.Bob, p.Session.Id, LiveRelay.HostRole);
+        await host.RequestStream.WriteAsync(new LiveClientMsg { SessionId = p.Session.Id, SnapshotReady = new SnapshotReady { SaveVersion = 12 } });
+        await hold.Reached; // the version is on its way to the database
+
+        using var guest = await Open(p.Nova, p.Session.Id, LiveRelay.GuestRole);
+        var heard = Read(guest, LiveServerMsg.MOneofCase.SnapshotReady);
+        await Task.WhenAny(heard, Task.Delay(1000));
+        Assert.False(heard.IsCompleted);
+        hold.Release();
+
+        Assert.Equal(12, (await heard).SnapshotReady.SaveVersion);
+        Assert.Equal(12, (await p.Nova.Live.CurrentAsync(new Empty(), p.Nova.Auth)).SnapshotVersion);
+    }
+
+    [Fact]
     public async Task SnapshotReadyReachesAGuestThatAttachesLater()
     {
         var p = await Started();
@@ -196,19 +231,15 @@ public class LiveRelayTests
     [Fact]
     public async Task HeartbeatTimeoutMarksWaitingAndReconnectResumes()
     {
-        var p = await Started(LiveServer().WithSetting("Live:HeartbeatTimeoutSeconds", "1"));
+        var p = await Started();
         using var fixture = p.Fixture;
         using var bobEvents = p.Bob.Subscribe();
         using var host = await Open(p.Bob, p.Session.Id, LiveRelay.HostRole);
-        // The host's heartbeats start at once: with a 1 s timeout a slow PeerHello would otherwise time the host out first.
-        var keepAlive = Task.Run(async () =>
-        {
-            for (int i = 0; i < 25; i++) { await Task.Delay(400); try { await host.RequestStream.WriteAsync(new LiveClientMsg { SessionId = p.Session.Id, Heartbeat = new Empty() }); } catch { return; } }
-        });
         var guest = await Open(p.Nova, p.Session.Id, LiveRelay.GuestRole);
         await Read(host, LiveServerMsg.MOneofCase.PeerHello);
 
         // The guest goes silent (no heartbeat) without closing anything.
+        await Silence(fixture, p.Session.Id, p.Nova.PlayerId);
         Assert.Equal(LiveServerMsg.MOneofCase.PeerLost, (await Read(host, LiveServerMsg.MOneofCase.PeerLost, TimeSpan.FromSeconds(8))).MCase);
         Assert.Equal(p.Session.Id, (await ReadEvent(bobEvents, ServerEvent.BodyOneofCase.LivePeerLost, e => e.LivePeerLost)).SessionId);
         Assert.Equal(LiveStateDb.Waiting, await StateOf(fixture, p.Session.Id));
@@ -220,23 +251,29 @@ public class LiveRelayTests
         Assert.Equal(LiveServerMsg.MOneofCase.PeerBack, (await Read(host, LiveServerMsg.MOneofCase.PeerBack)).MCase);
         Assert.Equal(p.Session.Id, (await ReadEvent(bobEvents, ServerEvent.BodyOneofCase.LivePeerBack, e => e.LivePeerBack)).SessionId);
         Assert.Equal(LiveStateDb.Running, await StateOf(fixture, p.Session.Id));
-        await keepAlive;
+    }
+
+    /// <summary>Puts one channel past the heartbeat timeout, so the next sweep finds it silent and its peer not, however slow the machine.</summary>
+    private static async Task Silence(ServerFixture fixture, long sessionId, long playerId)
+    {
+        var channel = fixture.Services.GetRequiredService<LiveRelay>().ChannelOf(sessionId, playerId)!;
+        await HygieneFixtures.Eventually(() => Task.FromResult(!channel.Handling)); // the end of a frame counts as heard
+        channel.LastFrameAt = DateTime.UtcNow.AddHours(-1);
     }
 
     [Fact]
     public async Task TheServersOwnTimeOnAFrameIsNotTheClientsSilence()
     {
-        var slow = new SlowRunningWrite();
-        var p = await Started(LiveServer().WithSetting("Live:HeartbeatTimeoutSeconds", "1")
-            .WithServices(s => s.ConfigureDbContext<RimlinkDbContext>(o => o.AddInterceptors(slow))));
+        var slow = new LiveWriteHold(LiveStateDb.Running);
+        var p = await Started(slow.On(LiveServer()));
         using var fixture = p.Fixture;
-        using var alive = new CancellationTokenSource();
         using var host = await Open(p.Bob, p.Session.Id, LiveRelay.HostRole);
-        var hostBeats = Beat(host, p.Session.Id, alive.Token);
-        slow.Armed = true; // the guest's Hello writes Running: that write now takes longer than the heartbeat timeout
 
         using var guest = await Open(p.Nova, p.Session.Id, LiveRelay.GuestRole);
-        var guestBeats = Beat(guest, p.Session.Id, alive.Token);
+        await slow.Reached; // the guest's Hello is writing Running: that write now takes longer than the heartbeat timeout
+        fixture.Services.GetRequiredService<LiveRelay>().ChannelOf(p.Session.Id, p.Nova.PlayerId)!.LastFrameAt = DateTime.UtcNow.AddHours(-1);
+        await Task.Delay(2500); // two sweeps
+        slow.Release();
 
         var before = new List<LiveServerMsg.MOneofCase>();
         using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15)))
@@ -245,42 +282,39 @@ public class LiveRelayTests
                 before.Add(host.ResponseStream.Current.MCase);
         }
         Assert.Equal(LiveServerMsg.MOneofCase.PeerHello, host.ResponseStream.Current.MCase);
-        Assert.True(slow.Delayed);
         Assert.DoesNotContain(LiveServerMsg.MOneofCase.PeerLost, before);
         Assert.Equal(LiveStateDb.Running, await StateOf(fixture, p.Session.Id));
-        alive.Cancel();
-        await Task.WhenAll(hostBeats, guestBeats);
     }
 
-    private static Task Beat(AsyncDuplexStreamingCall<LiveClientMsg, LiveServerMsg> call, long sessionId, CancellationToken ct) => Task.Run(async () =>
+    [Fact]
+    public async Task AHostLostDuringTheGuestsHelloStaysLost()
     {
-        try
-        {
-            while (true)
-            {
-                await Task.Delay(300, ct);
-                await call.RequestStream.WriteAsync(new LiveClientMsg { SessionId = sessionId, Heartbeat = new Empty() }, ct);
-            }
-        }
-        catch (Exception ex) when (ex is OperationCanceledException or RpcException) { }
-    });
+        var hold = new LiveWriteHold(LiveStateDb.Running);
+        var p = await Started(hold.On(LiveServer()));
+        using var fixture = p.Fixture;
+        var relay = fixture.Services.GetRequiredService<LiveRelay>();
+        var host = await Open(p.Bob, p.Session.Id, LiveRelay.HostRole);
+        await HygieneFixtures.Eventually(() => Task.FromResult(relay.IsAttached(p.Session.Id, p.Bob.PlayerId)));
 
-    /// <summary>Once armed, holds the first save that moves a live session to Running for 2.5 s (a slow database).</summary>
-    private sealed class SlowRunningWrite : SaveChangesInterceptor
+        using var guest = await Open(p.Nova, p.Session.Id, LiveRelay.GuestRole);
+        await hold.Reached; // the guest's Hello read Starting and is about to write Running
+        host.Dispose();
+        await Soon(async () => await StateOf(fixture, p.Session.Id) == LiveStateDb.Waiting);
+        hold.Release();
+        await hold.Saved;
+
+        await HygieneFixtures.Eventually(async () => await StateOf(fixture, p.Session.Id) == LiveStateDb.Waiting);
+        using var scope = fixture.Services.CreateScope();
+        var row = await scope.ServiceProvider.GetRequiredService<RimlinkDbContext>().LiveSessions.AsNoTracking().SingleAsync(s => s.Id == p.Session.Id);
+        Assert.Equal(p.Bob.PlayerId, row.LostPlayerId);
+        Assert.NotNull(row.WaitingSince);
+    }
+
+    /// <summary>Gives <paramref name="condition"/> a moment; when it stays false that is fine (the other side of a race was held back).</summary>
+    private static async Task Soon(Func<Task<bool>> condition)
     {
-        public volatile bool Armed;
-        public volatile bool Delayed;
-
-        public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
-        {
-            if (Armed && eventData.Context!.ChangeTracker.Entries<Rimlink.Server.Storage.Entities.LiveSession>().Any(e => e.State == EntityState.Modified && e.Entity.State == LiveStateDb.Running))
-            {
-                Armed = false;
-                await Task.Delay(2500, cancellationToken);
-                Delayed = true;
-            }
-            return result;
-        }
+        try { await HygieneFixtures.Eventually(condition, 1500); }
+        catch (TimeoutException) { }
     }
 
     [Fact]
