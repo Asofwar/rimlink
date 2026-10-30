@@ -3,6 +3,7 @@
     <RootNamespace>Rimlink.Server</RootNamespace>
     <AssemblyName>rimlink-server</AssemblyName>
     <UserSecretsId>rimlink-server</UserSecretsId>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Grpc.AspNetCore" />
