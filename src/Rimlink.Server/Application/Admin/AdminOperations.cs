@@ -606,5 +606,23 @@ public sealed class AdminOperations(
         return list;
     }
 
+    /// <summary>The newest paid incidents (200), optionally only those a player bought or receives.</summary>
+    public Task<List<IncidentOrder>> ListIncidents(Actor actor, long? playerId)
+    {
+        actor.Require(Role.Moderator);
+        var query = db.IncidentOrders.AsNoTracking();
+        if (playerId is { } id) query = query.Where(i => i.TargetPlayerId == id || i.BuyerPlayerId == id);
+        return query.OrderByDescending(i => i.Id).Take(200).ToListAsync();
+    }
+
+    /// <summary>Cancels a waiting paid incident and refunds the buyer; false when it is not waiting.</summary>
+    public async Task<bool> CancelIncident(Actor actor, long id, string reason)
+    {
+        actor.Require(Role.Admin);
+        if (!await incidents.Cancel(id, reason)) return false;
+        await Audit(actor, "incident-cancel", null, $"incident {id}: {reason}");
+        return true;
+    }
+
     private Task Audit(Actor actor, string action, long? targetAccountId, string details) => audit.Write(actor, action, targetAccountId, details);
 }

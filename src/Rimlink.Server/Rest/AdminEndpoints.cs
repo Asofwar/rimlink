@@ -171,6 +171,15 @@ public static class AdminEndpoints
         group.MapGet("/economy/forbidden-defs", (HttpContext ctx, AdminOperations ops) => new { defs = ops.ListForbiddenDefs(ctx.Actor()) }).RequireScope(ApiScope.Read);
         group.MapPut("/economy/forbidden-defs", async (ForbiddenDefsBody body, HttpContext ctx, AdminOperations ops) =>
             new { defs = await ops.SetForbiddenDefs(ctx.Actor(), body.Defs ?? []) }).RequireScope(ApiScope.Admin);
+
+        group.MapGet("/incidents", async (HttpContext ctx, AdminOperations ops, AdminDirectory directory, [FromQuery] long? playerId = null) =>
+        {
+            var list = await ops.ListIncidents(ctx.Actor(), playerId);
+            var names = await directory.NamesByPlayer(list.SelectMany(i => new[] { i.BuyerPlayerId, i.TargetPlayerId }));
+            return list.Select(i => new { i.Id, i.BuyerPlayerId, buyerName = NameOf(names, i.BuyerPlayerId), i.TargetPlayerId, targetName = NameOf(names, i.TargetPlayerId), i.EntryId, i.Level, i.Pods, i.Price, State = i.State.ToString(), i.FireTick, i.CreatedAt, i.ResolvedAt, i.ExpiresAt, i.Reason });
+        }).RequireScope(ApiScope.Read);
+        group.MapPost("/incidents/{id:long}/cancel", async (long id, ReasonBody body, HttpContext ctx, AdminOperations ops) =>
+            await ops.CancelIncident(ctx.Actor(), id, body.Reason ?? "cancelled by admin") ? Results.Ok() : Results.NotFound()).RequireScope(ApiScope.Admin);
     }
 
     private static string? NameOf(Dictionary<long, string> names, long? playerId) =>

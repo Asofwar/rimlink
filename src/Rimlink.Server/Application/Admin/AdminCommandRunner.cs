@@ -21,7 +21,8 @@ public sealed class AdminCommandRunner(AdminOperations ops, ModpackService modpa
         trades [player] | trade cancel <id> [reason] |
         freeze <player> [reason] | unfreeze <player> |
         forbid list | forbid add <def...> | forbid remove <def...> |
-        archive list | archive <player> | archive restore <id>
+        archive list | archive <player> | archive restore <id> |
+        incidents list [player] | incidents cancel <id> [reason]
         """;
 
     public async Task<string> Execute(Actor actor, AdminCommand command)
@@ -196,6 +197,16 @@ public sealed class AdminCommandRunner(AdminOperations ops, ModpackService modpa
                         var row = (await ops.ListArchived(actor, "archived")).First(r => r.Id == archived.ArchiveId);
                         return $"'{row.Colony}' of {row.PlayerName} archived as #{row.Id}";
                     }
+                }
+            case "incidents":
+                switch (Arg(0))
+                {
+                    case "list":
+                        var incidents = await ops.ListIncidents(actor, args.Count > 1 ? await PlayerId(Arg(1)) : null);
+                        return incidents.Count == 0 ? "no incidents" : string.Join("\n", incidents.Select(i => $"#{i.Id} {i.BuyerPlayerId}->{i.TargetPlayerId} {i.EntryId} L{i.Level}{(i.Pods ? " pods" : "")} {i.Price} silver {i.State}{(i.Reason is { } r ? ": " + r : "")} created {i.CreatedAt:u}"));
+                    case "cancel":
+                        return await ops.CancelIncident(actor, long.Parse(Arg(1)), args.Count > 2 ? Rest(2) : "cancelled by admin") ? "incident cancelled" : "no such waiting incident";
+                    default: throw new RpcException(new Status(StatusCode.InvalidArgument, "incidents list [player] | cancel <id> [reason]"));
                 }
             case "live":
                 switch (Arg(0))
