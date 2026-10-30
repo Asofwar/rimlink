@@ -16,8 +16,16 @@ docker compose up -d
 docker compose logs -f
 ```
 
-**Bare (Windows or Linux):** unpack the release, copy `appsettings.example.json` next to the executable as
-`appsettings.Local.json` (or set `Rimlink__Section__Key` environment variables) and run `rimlink-server`.
+**Bare (Windows or Linux):** install the ASP.NET Core 10 runtime, unpack `rimlink-server-<version>-<runtime>.zip` from the
+[release](https://github.com/Asofwar/rimlink/releases/latest), copy `appsettings.example.json` next to the executable as
+`appsettings.Production.json`, edit it (or set `Rimlink__Section__Key` environment variables instead) and run
+`rimlink-server` from that folder. A file with any other name is not read.
+
+`rimlink-tools`, the admin CLI this guide uses, is in the same zip. Most of its commands talk to a running server over the
+network, so you can also run them on your own PC against the server's address; `backup` and `restore` work on the data directory.
+
+The server listens on HTTPS only, so a browser or `rimlink-tools` needs `https://` and, with the default self-signed
+certificate, `--insecure`. Once it runs, `https://<host>:25560/` shows the public page and the certificate fingerprint.
 
 The data directory layout: `rimlink.db` (SQLite), `saves/<playerId>/<n>.rws.zst`, `tls/`, `logs/`, `backups/`,
 `archive/` (data of reset players and recreated worlds), `server.lock` while running.
@@ -203,7 +211,7 @@ Every upload is checked after it is stored (a failing check never refuses a save
 Both checks trust what the game reports: they catch spawning and duplication by an unmodified client (dev mode, bugs, exploits),
 not a modified client that lies about its wealth or its dev mode.
 
-## 5d. World hygiene: archive, away letter, map markers
+## 5e. World hygiene: archive, away letter, map markers
 
 - Abandoned colonies go to an archive when every enabled condition holds. Settings under `Hygiene` (defaults):
   `ArchiveAfterDays` 14 (days since the later of the last login and the end of the last session; `0` turns the archive off),
@@ -221,7 +229,7 @@ not a modified client that lies about its wealth or its dev mode.
 - At login after an absence the game shows one letter with what happened since the last session: raids, visits, parcels, lot and
   shop sales, chat mentions (the player's name as a word, or a direct message; the server keeps 500 chat lines) and admin actions.
 
-## 5e. Paid incidents
+## 5f. Paid incidents
 
 Players order incidents against other colonies for wallet silver (`Dialog_Economy`, tab Events); the incident runs in the
 target's game on their home map. Section `Incidents`:
@@ -295,7 +303,7 @@ with a wrong `Kind`, an empty id or def, a repeated id or a multiplier of 0 stop
   - server: `POST /saveall`, `GET /status`, `GET /config` (secrets shown as `set`), `GET /chat?playerId=&before=|after=&limit=`
     (public channel only), `GET /actions?before=`;
   - backups: `GET /backups`, `POST /backups` (make one now; 409 while one runs), `GET /backups/{name}` (download).
-  - archive (5d): `GET /archive?state=archived|restored|all` (scope `moderate`, newest first, up to 500),
+  - archive (5e): `GET /archive?state=archived|restored|all` (scope `moderate`, newest first, up to 500),
     `POST /players/{id}/archive` and `POST /archive/{id}/restore` (scope `admin`); refusals are 404 `unknown archive` and 409
     `no colony`, `player is online` (only offline players are archived), `already restored`, `player has a colony`, `tile taken`,
     `archive damaged`. Chat command `/archive list | <player> |
@@ -364,6 +372,14 @@ revocable on its own and named in the audit log:
   `Backup:Keep`, so it can push out the oldest scheduled archive.
 - Restore (server stopped): `rimlink-tools restore --data <dir> --from file.tar.zst`.
 
+## 7a. Updating
+
+1. Back up the data directory (above).
+2. Docker: `docker compose pull && docker compose up -d`. Bare: replace the files from the new zip and keep your
+   `appsettings.Production.json`. Database migrations run at start.
+3. Update the Rimlink mod on the admin's side and import the modpack again (section 5): the server pins the Rimlink
+   version, and players on the old version are refused until they update.
+
 ## 8. Monitoring
 
 `GET /health` (used by the Docker health check) and Prometheus metrics at `GET /metrics` (economy: `rimlink_trades_total{kind}`, `rimlink_silver_moved_total`, `rimlink_parcels_pending`, `rimlink_economy_errors_total{code}`; gifts and trades: `rimlink_gifts_refused_total`, `rimlink_player_trades_total{outcome}` (`opened|completed|cancelled|expired`);
@@ -411,7 +427,9 @@ Discord roles. It talks to the server only through the admin REST API, with a to
    - Real certificate (`Tls:CertificatePath`): set `RIMLINK_CERT_NAME` to the name it is issued for (`play.example.com`);
      the chain is checked as usual, the name against that one. Renewals need no change.
    - `RimlinkBot:Server:Insecure=true` skips the check and is only acceptable inside the compose network.
-5. **Run.** `docker compose -f docker-compose.yml -f docker-compose.discord.yml up -d` with the values above in `.env`
+5. **Run.** Next to `docker-compose.yml`, fetch the addition with
+   `curl -O https://raw.githubusercontent.com/Asofwar/rimlink/main/deploy/docker-compose.discord.yml`, then run
+   `docker compose -f docker-compose.yml -f docker-compose.discord.yml up -d` with the values above in `.env`
    (the file lists every variable); `deploy/discord.appsettings.example.json` shows the same settings as JSON. The bot
    stops at start when a token is missing; a channel it cannot write to or a role it cannot find only turns that part off
    (see its log).

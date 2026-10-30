@@ -12,7 +12,8 @@ chat and your save games. Your colony is frozen while you are offline.
 3. Enable **Harmony** and **Rimlink** in the game's mod list (Harmony first), restart.
    The main menu gains a **Multiplayer** button.
 
-Rimlink needs the exact server version it was built with (the server tells you when it does not match).
+You also need a server to join: Rimlink is the client, and it has no server of its own. Ask your admin for the address, or
+[run one yourself](server-setup.md). Your Rimlink has to fit that server: when the versions differ, the login says so.
 
 ## 2. Connect
 
