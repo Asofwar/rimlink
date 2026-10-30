@@ -21,6 +21,8 @@ public static class IncidentIncoming
     // Failures whose report did not reach the server; nothing ran in the game, so they are not saved with it.
     private static readonly Dictionary<long, string> failedUnsent = [];
     private static DateTime lastAttempt = DateTime.MinValue;
+    // The storyteller's minimum threat points (StorytellerUtility's floor for a new colony).
+    private const float MinPoints = 35f;
 
     public static void Reset()
     {
@@ -130,13 +132,18 @@ public static class IncidentIncoming
         var parms = StorytellerUtility.DefaultParmsNow(def.category, target);
         parms.forced = true;
         if (incident.Kind != IncidentKind.IncidentHostile) return parms;
-        parms.points = StorytellerUtility.DefaultThreatPointsNow(map) * (float)IncidentLevels.Factor(incident.Level);
+        // Never below the storyteller's own floor: half the points of a young colony make no raiders at all.
+        parms.points = Math.Max(MinPoints, StorytellerUtility.DefaultThreatPointsNow(map) * (float)IncidentLevels.Factor(incident.Level));
         if (def.Worker is IncidentWorker_Raid)
         {
             // A faction of that def friendly to us would walk in as raiders it is not: the worker then picks a hostile one.
             if (DefDatabase<FactionDef>.GetNamedSilentFail(incident.FactionDef) is { } factionDef
                 && Find.FactionManager.FirstFactionOfDef(factionDef) is { } faction && faction.HostileTo(Faction.OfPlayer))
+            {
                 parms.faction = faction;
+                // Below its cheapest combat group the faction sends nobody and the paid raid fails.
+                parms.points = Math.Max(parms.points, faction.def.MinPointsToGeneratePawnGroup(PawnGroupKindDefOf.Combat) * 1.2f);
+            }
             parms.raidArrivalMode = incident.Pods ? PawnsArrivalModeDefOf.EdgeDrop : PawnsArrivalModeDefOf.EdgeWalkIn;
         }
         return parms;
@@ -178,6 +185,5 @@ public static class IncidentIncoming
         RimlinkLog.Instance.Info($"incident {id} reported {(fired ? "fired" : "failed: " + reason)}");
     }
 
-    private static string LabelOf(Incident incident) =>
-        DefDatabase<IncidentDef>.GetNamedSilentFail(incident.IncidentDef)?.LabelCap.ToString() ?? incident.EntryId;
+    private static string LabelOf(Incident incident) => IncidentLabels.Of(incident.IncidentDef, incident.FactionDef, incident.EntryId);
 }

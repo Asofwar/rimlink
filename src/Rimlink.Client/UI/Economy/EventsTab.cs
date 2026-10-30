@@ -1,6 +1,7 @@
 using Grpc.Core;
 using RimWorld;
 using Rimlink.Client.Game;
+using Rimlink.Client.Game.Incidents;
 using Rimlink.Protocol.V1;
 using UnityEngine;
 using Verse;
@@ -49,7 +50,7 @@ public sealed class EventsTab
         GUI.color = Color.white;
 
         float top = rect.y + 34f, listHeight = (rect.height - 34f) * 0.55f;
-        var listRect = new Rect(0f, top, 300f, listHeight);
+        var listRect = new Rect(0f, top, 360f, listHeight);
         Widgets.BeginScrollView(listRect, ref catalogScroll, new Rect(0f, 0f, listRect.width - 16f, Math.Max(listRect.height, entries.Count * 28f)));
         float y = 0f;
         foreach (var e in entries)
@@ -57,7 +58,7 @@ public sealed class EventsTab
             var row = new Rect(0f, y, listRect.width - 16f, 26f);
             if (e.Id == entryId) Widgets.DrawHighlightSelected(row);
             else if (Mouse.IsOver(row)) Widgets.DrawHighlight(row);
-            Widgets.Label(new Rect(4f, y + 2f, row.width - 90f, 24f), LabelOf(e.IncidentDef, e.Id));
+            Widgets.Label(new Rect(4f, y + 2f, row.width - 90f, 24f), IncidentLabels.Of(e.IncidentDef, e.FactionDef, e.Id));
             GUI.color = Color.gray;
             Text.Anchor = TextAnchor.MiddleRight;
             Widgets.Label(new Rect(row.width - 88f, y, 84f, 26f), ("Rimlink.Incident.Kind." + e.Kind).Translate());
@@ -69,7 +70,7 @@ public sealed class EventsTab
         Widgets.EndScrollView();
 
         var entry = entries.FirstOrDefault(e => e.Id == entryId);
-        DrawChoice(new Rect(312f, top, rect.width - 312f, listHeight), entry);
+        DrawChoice(new Rect(372f, top, rect.width - 372f, listHeight), entry);
         DrawOrders(new Rect(0f, top + listHeight + 8f, rect.width, rect.height - 34f - listHeight - 8f), incidents.Mine);
     }
 
@@ -82,14 +83,14 @@ public sealed class EventsTab
         }
         float y = rect.y;
         Text.Font = GameFont.Medium;
-        Widgets.Label(new Rect(rect.x, y, rect.width, 32f), LabelOf(entry.IncidentDef, entry.Id));
+        Widgets.Label(new Rect(rect.x, y, rect.width, 32f), IncidentLabels.Of(entry.IncidentDef, entry.FactionDef, entry.Id));
         Text.Font = GameFont.Small;
         y += 36f;
         bool hostile = entry.Kind == IncidentKind.IncidentHostile;
         if (hostile)
         {
             for (int l = 1; l <= 4; l++)
-                if (Widgets.RadioButtonLabeled(new Rect(rect.x + (l - 1) * 120f, y, 112f, 26f), "Rimlink.Incident.Level".Translate(l), level == l)) level = l;
+                if (Widgets.RadioButtonLabeled(new Rect(rect.x + (l - 1) * 108f, y, 104f, 26f), "Rimlink.Incident.Level".Translate(l), level == l)) level = l;
             y += 30f;
             if (entry.PodsAllowed) Widgets.CheckboxLabeled(new Rect(rect.x, y, 240f, 26f), "Rimlink.Incident.Pods".Translate(), ref pods);
             y += 30f;
@@ -132,7 +133,7 @@ public sealed class EventsTab
             string level = i.Kind == IncidentKind.IncidentHostile ? $" ({"Rimlink.Incident.Level".Translate(i.Level)})" : "";
             string reason = i.Reason.Length > 0 ? ": " + i.Reason : "";
             Widgets.Label(new Rect(16f, y, list.width - 32f, 24f),
-                $"→ {i.Target?.Name ?? "?"}: {LabelOf(i.IncidentDef, i.EntryId)}{level}, {i.Price} — {("Rimlink.Incident.State." + i.State).Translate()}{reason}");
+                $"→ {i.Target?.Name ?? "?"}: {IncidentLabels.Of(i.IncidentDef, i.FactionDef, i.EntryId)}{level}, {i.Price} — {("Rimlink.Incident.State." + i.State).Translate()}{reason}");
             y += 26f;
         }
         Widgets.EndScrollView();
@@ -170,7 +171,7 @@ public sealed class EventsTab
         if (RimlinkSession.Incidents is not { } client) return;
         busy = true;
         var request = new OrderIncidentRequest { ClientRequestId = requestId, TargetPlayerId = to.PlayerId, EntryId = entry.Id, Level = withLevel, Pods = withPods };
-        string label = LabelOf(entry.IncidentDef, entry.Id);
+        string label = IncidentLabels.Of(entry.IncidentDef, entry.FactionDef, entry.Id);
         _ = Task.Run(async () =>
         {
             try
@@ -200,6 +201,4 @@ public sealed class EventsTab
         });
     }
 
-    private static string LabelOf(string incidentDef, string fallback) =>
-        DefDatabase<IncidentDef>.GetNamedSilentFail(incidentDef)?.LabelCap.ToString() ?? fallback;
 }
