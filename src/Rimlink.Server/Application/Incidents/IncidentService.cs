@@ -51,7 +51,7 @@ public sealed class IncidentService(RimlinkDbContext db, WalletService wallet, R
         var o = options.Value;
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         // Replay first: an order the server already took is returned as it is, whatever changed since (balance, queue, rules).
-        if (!string.IsNullOrEmpty(r.ClientRequestId) && await db.IncidentOrders.AsNoTracking().FirstOrDefaultAsync(i => i.ClientRequestId == r.ClientRequestId) is { } existing)
+        if (!string.IsNullOrEmpty(r.ClientRequestId) && await db.IncidentOrders.AsNoTracking().FirstOrDefaultAsync(i => i.BuyerPlayerId == buyerId && i.ClientRequestId == r.ClientRequestId) is { } existing)
             return existing;
 
         if (!o.Enabled) throw RpcErrors.Failed(ErrorCode.EconomyFrozen, RefusalKeys.IncidentsDisabled, "paid incidents are disabled on this server");

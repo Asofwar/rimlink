@@ -159,7 +159,7 @@ public sealed class RimlinkDbContext(DbContextOptions<RimlinkDbContext> options)
             e.ToTable("incidents");
             e.HasIndex(i => new { i.TargetPlayerId, i.State });
             e.HasIndex(i => i.BuyerPlayerId);
-            e.HasIndex(i => i.ClientRequestId).IsUnique().HasFilter("\"ClientRequestId\" IS NOT NULL");
+            e.HasIndex(i => new { i.BuyerPlayerId, i.ClientRequestId }).IsUnique().HasFilter("\"ClientRequestId\" IS NOT NULL");
         });
 
         model.Entity<Raid>(e =>

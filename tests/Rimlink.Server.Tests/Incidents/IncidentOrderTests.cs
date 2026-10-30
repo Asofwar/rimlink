@@ -96,6 +96,21 @@ public class IncidentOrderTests
     }
 
     [Fact]
+    public async Task AnotherPlayersRequestIdIsNotAReplay()
+    {
+        // The id comes from the client: a collision must not hand one player another's order.
+        var p = await Players();
+        using var fixture = p.Fixture;
+        var novas = await p.Api.OrderAsync(Order(p.BobId, entry: "trader", requestId: "shared"), p.N);
+
+        var caras = await p.Api.OrderAsync(Order(p.BobId, entry: "resource-pod", requestId: "shared"), p.C);
+
+        Assert.NotEqual(novas.Id, caras.Id);
+        Assert.Equal(("Cara", "resource-pod"), (caras.Buyer.Name, caras.EntryId));
+        Assert.Equal(10000 - caras.Price, await BalanceOf(fixture, p.Cara.Player.PlayerId));
+    }
+
+    [Fact]
     public async Task ReplayReturnsTheOriginalWithoutCharging()
     {
         var p = await Players();

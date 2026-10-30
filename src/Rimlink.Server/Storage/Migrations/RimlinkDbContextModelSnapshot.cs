@@ -295,7 +295,7 @@ namespace Rimlink.Server.Storage.Migrations
 
                     b.HasIndex("BuyerPlayerId");
 
-                    b.HasIndex("ClientRequestId")
+                    b.HasIndex("BuyerPlayerId", "ClientRequestId")
                         .IsUnique()
                         .HasFilter("\"ClientRequestId\" IS NOT NULL");
 

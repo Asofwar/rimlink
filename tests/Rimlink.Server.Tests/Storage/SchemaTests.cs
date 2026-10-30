@@ -233,8 +233,13 @@ public class SchemaTests : IDisposable
         Assert.Equal("RaidEnemy", db.IncidentOrders.AsNoTracking().Single().IncidentDef);
 
         using var second = CreateContext();
-        second.IncidentOrders.Add(new IncidentOrder { EntryId = "x", IncidentDef = "x", CreatedAt = DateTime.UtcNow, ExpiresAt = DateTime.UtcNow, ClientRequestId = "o-1" });
+        second.IncidentOrders.Add(new IncidentOrder { BuyerPlayerId = 1, EntryId = "x", IncidentDef = "x", CreatedAt = DateTime.UtcNow, ExpiresAt = DateTime.UtcNow, ClientRequestId = "o-1" });
         Assert.Throws<DbUpdateException>(() => second.SaveChanges());
+
+        // The same id from another buyer is another order.
+        using var third = CreateContext();
+        third.IncidentOrders.Add(new IncidentOrder { BuyerPlayerId = 3, EntryId = "x", IncidentDef = "x", CreatedAt = DateTime.UtcNow, ExpiresAt = DateTime.UtcNow, ClientRequestId = "o-1" });
+        third.SaveChanges();
     }
 
     [Fact]
