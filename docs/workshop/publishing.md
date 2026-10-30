@@ -9,7 +9,7 @@ What goes where:
 |---|---|---|
 | Title, tags, files | `About/About.xml`, the mod folder | every upload from the game |
 | Preview image | `mod/About/Preview.png`, under 1 MB | every upload from the game |
-| Page text | `docs/workshop/description.bbcode`, English and Russian, under 8000 bytes | pasted on the item page; the game sets a description only when it creates the item, from `About.xml` |
+| Page text | `docs/workshop/description.bbcode`, English and Russian, under 8000 UTF-8 bytes with each line break counted twice | pasted on the item page; the game sets a description only when it creates the item, from `About.xml` |
 | Gallery | `docs/images/gallery-*.jpg` | added on the item page |
 | Required items | Harmony | added on the item page |
 
