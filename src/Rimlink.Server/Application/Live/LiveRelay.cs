@@ -22,8 +22,8 @@ public sealed class LiveChannel(long sessionId, long playerId, int role, LiveOpt
     public bool PeerLostSent { get; set; }
     /// <summary>Why the channel was closed by the relay: "replaced", "ended" or "timeout" (null while open or closed by the client).</summary>
     public string? ClosedBy { get; set; }
-    /// <summary>The guest's latest Hello, for a host that attaches after it (read and written under the relay's lock).</summary>
-    public Hello? Hello { get; set; }
+    /// <summary>The guest's Hello while no host was there to hear it (read and written under the relay's lock).</summary>
+    public Hello? UnheardHello { get; set; }
     public CancellationTokenSource Closed { get; } = new();
 }
 
@@ -38,12 +38,14 @@ public sealed class LiveRelay(IServiceScopeFactory scopes, IOptions<LiveOptions>
 
     private readonly Dictionary<(long Session, long Player), LiveChannel> channels = [];
     private readonly Dictionary<long, SnapshotReady> snapshots = [];
+    private readonly HashSet<(long Session, long Player)> detaching = [];
     private readonly object gate = new();
     private bool sweeping;
 
     /// <summary>
     /// A second stream of the same player replaces the first; a returning peer is announced to the other side. A host that attaches
-    /// after the guest gets its Hello now: nothing else lifts the host's wait for the guest.
+    /// after the guest gets the Hello nobody heard: nothing else lifts the host's wait for the guest. Only that one: a Hello the host
+    /// already had must not end the wait of a later resync.
     /// </summary>
     public LiveChannel Attach(long sessionId, long playerId, int role)
     {
@@ -57,7 +59,11 @@ public sealed class LiveRelay(IServiceScopeFactory scopes, IOptions<LiveOptions>
             channels[(sessionId, playerId)] = channel;
             peer = PeerOf(channel);
             snapshots.TryGetValue(sessionId, out snapshot);
-            if (role == HostRole && peer?.Hello is { } guestHello) channel.Queue.Enqueue(new LiveServerMsg { PeerHello = guestHello });
+            if (role == HostRole && peer is { UnheardHello: { } hello })
+            {
+                peer.UnheardHello = null;
+                channel.Queue.Enqueue(new LiveServerMsg { PeerHello = hello });
+            }
             if (peer is { PeerLostSent: true })
             {
                 peer.PeerLostSent = false;
@@ -77,6 +83,7 @@ public sealed class LiveRelay(IServiceScopeFactory scopes, IOptions<LiveOptions>
         {
             if (!channels.TryGetValue((channel.SessionId, channel.PlayerId), out var current) || current != channel) return; // replaced or ended already
             channels.Remove((channel.SessionId, channel.PlayerId));
+            detaching.Add((channel.SessionId, channel.PlayerId));
             if (PeerOf(channel) is { PeerLostSent: false } peer)
             {
                 peer.PeerLostSent = true;
@@ -89,7 +96,8 @@ public sealed class LiveRelay(IServiceScopeFactory scopes, IOptions<LiveOptions>
         log.LogInformation("Live session {Session}: player {Player} detached ({Reason})", channel.SessionId, channel.PlayerId, reason);
         using var scope = scopes.CreateScope();
         var sessions = scope.ServiceProvider.GetRequiredService<LiveSessionService>();
-        await sessions.MarkWaiting(channel.SessionId, channel.PlayerId);
+        try { await sessions.MarkWaiting(channel.SessionId, channel.PlayerId); }
+        finally { lock (gate) detaching.Remove((channel.SessionId, channel.PlayerId)); }
         bool back;
         lock (gate) back = channels.ContainsKey((channel.SessionId, channel.PlayerId));
         if (back) await MarkRunning(channel); // a new stream of the same player arrived while this one was being closed (a new scope: the row must be read afresh)
@@ -185,9 +193,10 @@ public sealed class LiveRelay(IServiceScopeFactory scopes, IOptions<LiveOptions>
         await scope.ServiceProvider.GetRequiredService<LiveSessionService>().MarkRunning(from.SessionId, from.PlayerId);
     }
 
+    /// <summary>Also while a detach is on its way to the database: that side gets the wait, it is not a side that never came.</summary>
     public bool IsAttached(long sessionId, long playerId)
     {
-        lock (gate) return channels.ContainsKey((sessionId, playerId));
+        lock (gate) return channels.ContainsKey((sessionId, playerId)) || detaching.Contains((sessionId, playerId));
     }
 
     public LiveChannel? ChannelOf(long sessionId, long playerId)
@@ -195,13 +204,13 @@ public sealed class LiveRelay(IServiceScopeFactory scopes, IOptions<LiveOptions>
         lock (gate) return channels.GetValueOrDefault((sessionId, playerId));
     }
 
-    /// <summary>Tells the host, or keeps the Hello for <see cref="Attach"/> when it is not there yet; the lock makes it exactly one of the two.</summary>
+    /// <summary>Tells the host, or keeps the Hello for <see cref="Attach"/> when it is not there; the lock makes it exactly one of the two.</summary>
     private void GuestHello(LiveChannel guest, Hello hello)
     {
         lock (gate)
         {
-            guest.Hello = hello;
-            PeerOf(guest)?.Queue.Enqueue(new LiveServerMsg { PeerHello = hello });
+            if (PeerOf(guest) is { } host) host.Queue.Enqueue(new LiveServerMsg { PeerHello = hello });
+            else guest.UnheardHello = hello;
         }
     }
 
@@ -237,7 +246,10 @@ public sealed class LiveRelay(IServiceScopeFactory scopes, IOptions<LiveOptions>
     {
         var limit = TimeSpan.FromSeconds(options.Value.HeartbeatTimeoutSeconds);
         List<LiveChannel> silent;
-        lock (gate) silent = channels.Values.Where(c => !c.Handling && time.GetElapsedTime(c.LastFrameTimestamp) > limit).ToList();
-        foreach (var c in silent) await Detach(c, "timeout");
+        lock (gate) silent = channels.Values.Where(c => Silent(c, limit)).ToList();
+        foreach (var c in silent)
+            if (Silent(c, limit)) await Detach(c, "timeout"); // the detach before this one may have waited long enough for this channel to speak up
     }
+
+    private bool Silent(LiveChannel c, TimeSpan limit) => !c.Handling && time.GetElapsedTime(c.LastFrameTimestamp) > limit;
 }

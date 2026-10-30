@@ -143,6 +143,21 @@ public class LiveRelayTests
     }
 
     [Fact]
+    public async Task AHostThatComesBackDoesNotHearAnOldHelloAgain()
+    {
+        var p = await Started();
+        using var fixture = p.Fixture;
+        using var first = await Open(p.Bob, p.Session.Id, LiveRelay.HostRole);
+        using var guest = await Open(p.Nova, p.Session.Id, LiveRelay.GuestRole);
+        await Read(first, LiveServerMsg.MOneofCase.PeerHello);
+
+        using var second = await Open(p.Bob, p.Session.Id, LiveRelay.HostRole);
+
+        // A resync waits for the guest's next Hello: the one the host already had must not end that wait.
+        Assert.DoesNotContain(await Drain(second, TimeSpan.FromSeconds(1)), f => f.MCase == LiveServerMsg.MOneofCase.PeerHello);
+    }
+
+    [Fact]
     public async Task ASnapshotIsOnRecordBeforeAnyoneHearsOfIt()
     {
         var hold = new LiveWriteHold(s => s.SnapshotVersion == 12);
@@ -309,6 +324,59 @@ public class LiveRelayTests
         var row = await scope.ServiceProvider.GetRequiredService<RimlinkDbContext>().LiveSessions.AsNoTracking().SingleAsync(s => s.Id == p.Session.Id);
         Assert.Equal(p.Bob.PlayerId, row.LostPlayerId);
         Assert.NotNull(row.WaitingSince);
+    }
+
+    [Fact]
+    public async Task ASweepThatMeetsADetachLeavesTheWaitToIt()
+    {
+        var p = await Started();
+        using var fixture = p.Fixture;
+        var relay = fixture.Services.GetRequiredService<LiveRelay>();
+        using var host = await Open(p.Bob, p.Session.Id, LiveRelay.HostRole);
+        var guest = await Open(p.Nova, p.Session.Id, LiveRelay.GuestRole);
+        await Read(host, LiveServerMsg.MOneofCase.PeerHello);
+
+        var held = await fixture.Services.GetRequiredService<LiveStateLock>().Hold();
+        var sweep = Expire(fixture, DateTime.UtcNow.AddHours(1)); // an old session, so the sweep checks that both sides are attached
+        await Task.Delay(300); // it queues for the lock first
+        guest.Dispose();
+        await HygieneFixtures.Eventually(() => Task.FromResult(relay.ChannelOf(p.Session.Id, p.Nova.PlayerId) is null));
+        held.Dispose();
+        await sweep;
+
+        await HygieneFixtures.Eventually(async () => await StateOf(fixture, p.Session.Id) == LiveStateDb.Waiting); // a blink waits for the player, it is not a loss
+    }
+
+    [Fact]
+    public async Task AChannelThatSpeaksUpWhileTheSweepWaitsStaysAttached()
+    {
+        var p = await Started();
+        using var fixture = p.Fixture;
+        var relay = fixture.Services.GetRequiredService<LiveRelay>();
+        using var host = await Open(p.Bob, p.Session.Id, LiveRelay.HostRole);
+        await HygieneFixtures.Eventually(() => Task.FromResult(relay.IsAttached(p.Session.Id, p.Bob.PlayerId)));
+        using var guest = await Open(p.Nova, p.Session.Id, LiveRelay.GuestRole);
+        await Read(host, LiveServerMsg.MOneofCase.PeerHello);
+
+        var held = await fixture.Services.GetRequiredService<LiveStateLock>().Hold();
+        await Silence(fixture, p.Session.Id, p.Bob.PlayerId);
+        await Silence(fixture, p.Session.Id, p.Nova.PlayerId);
+        await HygieneFixtures.Eventually(() => Task.FromResult(relay.ChannelOf(p.Session.Id, p.Bob.PlayerId) is null)); // the sweep took both and stands in the host's detach
+        var channel = relay.ChannelOf(p.Session.Id, p.Nova.PlayerId)!;
+        long before = channel.LastFrameTimestamp;
+        await guest.RequestStream.WriteAsync(new LiveClientMsg { SessionId = p.Session.Id, Heartbeat = new Empty() });
+        await HygieneFixtures.Eventually(() => Task.FromResult(channel.LastFrameTimestamp > before));
+        held.Dispose();
+
+        await HygieneFixtures.Eventually(async () => await StateOf(fixture, p.Session.Id) == LiveStateDb.Waiting);
+        await Task.Delay(300); // the sweep comes to the guest now
+        Assert.Same(channel, relay.ChannelOf(p.Session.Id, p.Nova.PlayerId));
+    }
+
+    private static async Task<int> Expire(ServerFixture fixture, DateTime now)
+    {
+        using var scope = fixture.Services.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<LiveSessionService>().ExpireDue(now);
     }
 
     /// <summary>Gives <paramref name="condition"/> a moment; when it stays false that is fine (the other side of a race was held back).</summary>

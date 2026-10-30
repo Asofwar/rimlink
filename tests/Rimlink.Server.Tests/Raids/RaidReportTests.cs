@@ -225,8 +225,8 @@ public class RaidReportTests
         await sweep.StartAsync(CancellationToken.None);
         try
         {
-            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-            while (Assert.Single((await p.N.Raids.MineAsync(new Empty(), p.N.Auth)).Raids).State != RaidState.RaidExpired && DateTime.UtcNow < deadline)
+            var waited = System.Diagnostics.Stopwatch.StartNew();
+            while (Assert.Single((await p.N.Raids.MineAsync(new Empty(), p.N.Auth)).Raids).State != RaidState.RaidExpired && waited.Elapsed < TimeSpan.FromSeconds(10))
                 await Task.Delay(100);
         }
         finally

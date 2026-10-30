@@ -2,6 +2,7 @@ using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Rimlink.Protocol.V1;
+using Rimlink.Server.Application.Live;
 using Rimlink.Server.Storage;
 using Rimlink.Server.Storage.Entities;
 using Rimlink.Server.Tests.Support;
@@ -275,15 +276,18 @@ public class LiveSessionTests
     public async Task AnAcceptTheInviteSweepOvertakesDoesNotFallBackToo()
     {
         var hold = new LiveWriteHold(LiveStateDb.Starting);
-        var p = await NovaAndBob(hold.On(LiveServer().ShortInvites()));
+        var p = await NovaAndBob(hold.On(LiveServer()));
         using var fixture = p.Fixture;
         var session = await p.Nova.Live.ProposeAsync(Propose(p.Bob.PlayerId, LiveKind.LiveVisit), p.Nova.Auth);
 
         var accept = p.Bob.Live.RespondAsync(new LiveAnswer { SessionId = session.Id, Accept = true }, p.Bob.Auth).ResponseAsync;
         await hold.Reached;
-        await Task.Delay(3500); // the invitation lapses and the sweep runs while the accept is on its way to the database
+        using var scope = fixture.Services.CreateScope();
+        var sweep = scope.ServiceProvider.GetRequiredService<LiveSessionService>().ExpireDue(DateTime.UtcNow.AddSeconds(90)); // the invitation lapsed while the accept is on its way to the database
+        await Task.WhenAny(sweep, Task.Delay(1500));
         hold.Release();
         await accept;
+        await sweep;
 
         Assert.Equal(LiveStateDb.Starting, (await Db(fixture, db => db.LiveSessions.SingleAsync(s => s.Id == session.Id))).State);
         Assert.Empty((await p.Nova.Mailbox.ListAsync(new Empty(), p.Nova.Auth)).Parcels);

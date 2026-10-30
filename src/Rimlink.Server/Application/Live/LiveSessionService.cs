@@ -373,7 +373,7 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
         {
             using var held = await stateLock.Hold();
             await db.Entry(session).ReloadAsync();
-            if (session.State != LiveStateDb.Waiting) continue;
+            if (session.State != LiveStateDb.Waiting || session.WaitingSince > waitBefore) continue;
             await MarkEnding(session, session.LostPlayerId == session.HostPlayerId ? LiveEndReason.EndHostLost : LiveEndReason.EndGuestLost);
             n++;
         }
