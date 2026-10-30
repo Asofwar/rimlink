@@ -1,9 +1,11 @@
+using System.Net.Http.Json;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Rimlink.Protocol.V1;
 using Rimlink.Server.Application.Economy;
 using Rimlink.Server.Application.Incidents;
+using Rimlink.Server.Application.Sessions;
 using Rimlink.Server.Storage;
 using Rimlink.Server.Storage.Entities;
 using Rimlink.Server.Tests.Support;
@@ -186,6 +188,49 @@ public class IncidentLifecycleTests
         var second = await ReadEvent(bobStream, ServerEvent.BodyOneofCase.IncidentResolved, e => e.IncidentResolved);
         Assert.Equal((cancelled.Id, IncidentState.IncidentCancelled, 0L), (first.Incident.Id, first.Incident.State, first.Refund));
         Assert.Equal((expired.Id, IncidentState.IncidentExpired, 0L), (second.Incident.Id, second.Incident.State, second.Refund));
+    }
+
+    [Fact]
+    public async Task PermanentBanCancelsAndRefunds()
+    {
+        var p = await NovaAndBob();
+        using var fixture = p.Fixture;
+        var order = await p.Api.OrderAsync(Order(p.BobId), p.N);
+
+        (await fixture.Rest().PostAsJsonAsync("/api/admin/bans", new { playerId = p.BobId, reason = "cheating" })).EnsureSuccessStatusCode();
+
+        Assert.Equal(IncidentStateDb.Cancelled, await StateOf(fixture, order.Id));
+        Assert.Equal(10000, await BalanceOf(fixture, p.NovaId));
+    }
+
+    [Fact]
+    public async Task ATemporaryBanLeavesTheOrderWaiting()
+    {
+        // The player comes back; the order runs then or expires as usual.
+        var p = await NovaAndBob();
+        using var fixture = p.Fixture;
+        var order = await p.Api.OrderAsync(Order(p.BobId), p.N);
+
+        (await fixture.Rest().PostAsJsonAsync("/api/admin/bans", new { playerId = p.BobId, reason = "cool down", days = 1.0 })).EnsureSuccessStatusCode();
+
+        Assert.Equal(IncidentStateDb.Queued, await StateOf(fixture, order.Id));
+    }
+
+    [Fact]
+    public async Task ArchivingTheTargetCancelsAndRefunds()
+    {
+        using var fixture = HygieneFixtures.HygieneServer();
+        var bob = await HygieneFixtures.Settled(fixture, "bob", tile: 100);
+        var nova = await fixture.RegisterAndLogin("nova", playerName: "Nova");
+        await Fund(fixture, nova.Player.PlayerId, 10000);
+        var order = await IncidentsOf(fixture).OrderAsync(Order(bob.PlayerId, entry: "trader"), Bearer(nova.SessionToken));
+        var sessions = fixture.Services.GetRequiredService<SessionRegistry>();
+        sessions.End(sessions.ByPlayer(bob.PlayerId)!.Token);
+
+        (await fixture.Rest().PostAsync($"/api/admin/players/{bob.PlayerId}/archive", null)).EnsureSuccessStatusCode();
+
+        Assert.Equal(IncidentStateDb.Cancelled, await StateOf(fixture, order.Id));
+        Assert.Equal(10000, await BalanceOf(fixture, nova.Player.PlayerId));
     }
 
     [Fact]

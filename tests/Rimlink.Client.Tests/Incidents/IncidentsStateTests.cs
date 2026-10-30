@@ -80,6 +80,27 @@ public class IncidentsStateTests
     }
 
     [Fact]
+    public void AReloadDoesNotBringBackWhatThisSessionHandled()
+    {
+        // A resync can read Pending just before the report lands: the stale row must not fire the paid incident a second time.
+        var state = new IncidentsState();
+        var stale = ListOf(Hostile(5, IncidentState.IncidentAnnounced, fireTick: 100));
+        state.Load(stale, new IncidentList(), new IncidentCatalog());
+        state.Remove(5);
+
+        state.Load(stale, new IncidentList(), new IncidentCatalog());
+        state.Apply(new ServerEvent { IncidentQueued = new IncidentQueued { Incident = Hostile(5) } });
+
+        Assert.Empty(state.Incoming);
+        Assert.Empty(state.Due(100, new HashSet<long>()));
+
+        // A new session starts from what the server and the save say.
+        state.Reset();
+        state.Load(stale, new IncidentList(), new IncidentCatalog());
+        Assert.Equal([5L], state.Incoming.Select(i => i.Id).ToArray());
+    }
+
+    [Fact]
     public void AnyHostileWaitingIgnoresWeatherAndKind()
     {
         var state = new IncidentsState();

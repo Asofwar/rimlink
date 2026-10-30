@@ -42,7 +42,9 @@ builder.Services.AddOptions<EconomyOptions>().Bind(builder.Configuration.GetSect
 builder.Services.AddOptions<SocialOptions>().Bind(builder.Configuration.GetSection(SocialOptions.Section))
     .Validate(o => o.MaxBlocks >= 1, "Social:MaxBlocks must be at least 1")
     .ValidateOnStart();
-builder.Services.Configure<IncidentOptions>(builder.Configuration.GetSection(IncidentOptions.Section));
+builder.Services.AddOptions<IncidentOptions>().Bind(builder.Configuration.GetSection(IncidentOptions.Section))
+    .Validate(o => o.CatalogIsValid(), "Incidents:Catalog entries need a unique Id, an IncidentDef, a Kind of Hostile, Weather or Kind and positive multipliers")
+    .ValidateOnStart();
 builder.Services.Configure<RaidOptions>(builder.Configuration.GetSection(RaidOptions.Section));
 builder.Services.Configure<LiveOptions>(builder.Configuration.GetSection(LiveOptions.Section));
 builder.Services.Configure<PanelOptions>(builder.Configuration.GetSection(PanelOptions.Section));

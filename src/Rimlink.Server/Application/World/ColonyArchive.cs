@@ -46,6 +46,7 @@ public sealed class ColonyArchive(
     RaidService raids,
     VisitService visits,
     LiveSessionService live,
+    Incidents.IncidentService incidents,
     SaveArchive files,
     WorldService worlds,
     DataDirectory data,
@@ -70,6 +71,7 @@ public sealed class ColonyArchive(
         await raids.CancelAllOf(playerId, "colony archived", returnOwnPawns: true);
         await visits.EndAllOf(playerId);
         await live.EndAllOf(playerId, LiveEndReason.EndAdmin);
+        await incidents.CancelAllOf(playerId, "colony archived");
 
         var now = time.GetUtcNow().UtcDateTime;
         string relativeDir = Path.Combine("archive", $"colony-{playerId}-{now:yyyyMMddHHmmss}");

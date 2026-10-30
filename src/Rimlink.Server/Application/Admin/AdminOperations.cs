@@ -408,6 +408,8 @@ public sealed class AdminOperations(
             steamId ??= player.Account.SteamId;
         }
         var ban = await bans.Ban(new BanRequest(accountId, steamId, ip, reason, duration, actor.AccountId));
+        // Nobody is coming back to run them: the buyers get their silver now, not in a week. A temporary ban leaves them waiting.
+        if (playerId is { } banned && duration is null) await incidents.CancelAllOf(banned, "player banned");
         await Audit(actor, "ban", accountId, $"ban #{ban.Id}: {reason}" + (duration is { } d ? $" for {d.TotalDays:0.#} days" : " permanently"));
         return ban;
     }

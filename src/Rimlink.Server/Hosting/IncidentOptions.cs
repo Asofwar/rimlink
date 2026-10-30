@@ -18,6 +18,15 @@ public sealed class IncidentOptions
 
     public IReadOnlyList<IncidentCatalogEntry> EffectiveCatalog => Catalog.Count > 0 ? Catalog : DefaultCatalog;
 
+    /// <summary>A misspelt kind would sell a raid as a gift, past every protection of the target: such a catalog stops the server.</summary>
+    public bool CatalogIsValid()
+    {
+        var catalog = EffectiveCatalog;
+        return catalog.Select(e => e.Id).Distinct().Count() == catalog.Count && catalog.All(e =>
+            !string.IsNullOrEmpty(e.Id) && !string.IsNullOrEmpty(e.IncidentDef) && e.Kind is "Hostile" or "Weather" or "Kind"
+            && e.PriceMultiplier > 0 && e.PodsMultiplier is null or > 0);
+    }
+
     public static readonly IReadOnlyList<IncidentCatalogEntry> DefaultCatalog =
     [
         new("pirates", "RaidEnemy", "Pirate", "Hostile", 1, 1.4),

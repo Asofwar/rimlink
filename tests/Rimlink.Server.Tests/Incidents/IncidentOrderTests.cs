@@ -226,6 +226,29 @@ public class IncidentOrderTests
     }
 
     [Fact]
+    public async Task AReplayIsAnsweredWhileIncidentsAreOff()
+    {
+        // The order was paid before the switch: refusing its replay would tell the buyer it never happened.
+        using var fixture = IncidentServer().WithSetting("Incidents:Enabled", "false");
+        var nova = await fixture.RegisterAndLogin("nova", playerName: "Nova");
+        var bob = await fixture.RegisterAndLogin("bob", playerName: "Bob");
+        using (var scope = fixture.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Rimlink.Server.Storage.RimlinkDbContext>();
+            db.IncidentOrders.Add(new Rimlink.Server.Storage.Entities.IncidentOrder
+            {
+                BuyerPlayerId = nova.Player.PlayerId, TargetPlayerId = bob.Player.PlayerId, EntryId = "pirates", IncidentDef = "RaidEnemy", Level = 2, Price = 77,
+                State = Rimlink.Server.Storage.Entities.IncidentStateDb.Queued, CreatedAt = DateTime.UtcNow, ExpiresAt = DateTime.UtcNow.AddDays(7), ClientRequestId = "paid",
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var replay = await IncidentsOf(fixture).OrderAsync(Order(bob.Player.PlayerId, requestId: "paid"), Bearer(nova.SessionToken));
+
+        Assert.Equal(77, replay.Price);
+    }
+
+    [Fact]
     public async Task OrderKeepsItsDefsWhenTheCatalogChanges()
     {
         string dataDir;

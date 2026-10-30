@@ -49,12 +49,12 @@ public sealed class IncidentService(RimlinkDbContext db, WalletService wallet, R
     public async Task<IncidentOrder> Order(long buyerId, OrderIncidentRequest r)
     {
         var o = options.Value;
-        if (!o.Enabled) throw RpcErrors.Failed(ErrorCode.EconomyFrozen, RefusalKeys.IncidentsDisabled, "paid incidents are disabled on this server");
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         // Replay first: an order the server already took is returned as it is, whatever changed since (balance, queue, rules).
         if (!string.IsNullOrEmpty(r.ClientRequestId) && await db.IncidentOrders.AsNoTracking().FirstOrDefaultAsync(i => i.ClientRequestId == r.ClientRequestId) is { } existing)
             return existing;
 
+        if (!o.Enabled) throw RpcErrors.Failed(ErrorCode.EconomyFrozen, RefusalKeys.IncidentsDisabled, "paid incidents are disabled on this server");
         var (entry, level) = Validate(buyerId, r.EntryId, r.Level, r.Pods, r.TargetPlayerId);
         var buyer = await db.Players.AsNoTracking().FirstAsync(p => p.Id == buyerId);
         var target = await TargetOf(r.TargetPlayerId);

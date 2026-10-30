@@ -8,6 +8,19 @@ namespace Rimlink.Server.Tests.Incidents;
 
 public class IncidentOptionsTests
 {
+    [Theory]
+    [InlineData("hostile", "RaidEnemy", "1")]
+    [InlineData("Hostile", "", "1")]
+    [InlineData("Hostile", "RaidEnemy", "0")]
+    public void ABadCatalogEntryStopsTheServer(string kind, string incidentDef, string multiplier)
+    {
+        // A misspelt kind would sell a raid as a gift, past every protection of the target.
+        using var fixture = new ServerFixture().WithSetting("Incidents:Catalog:0:Id", "raid").WithSetting("Incidents:Catalog:0:Kind", kind)
+            .WithSetting("Incidents:Catalog:0:IncidentDef", incidentDef).WithSetting("Incidents:Catalog:0:PriceMultiplier", multiplier);
+
+        Assert.Contains("Incidents:Catalog", Assert.ThrowsAny<Exception>(() => fixture.CreateClient()).ToString());
+    }
+
     [Fact]
     public void DefaultsMatchTheSpec()
     {

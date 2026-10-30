@@ -251,8 +251,9 @@ deposits, lots and sends like a raid (`BlockOutflowUnderThreat`).
 Silver goes to the bank when ordered (wallet kind `incident`); Failed, Expired and Cancelled orders refund it
 (`incident-refund`). Admins: chat `/incidents list [player] | cancel <id> [reason]`, CLI `rimlink-tools admin incidents list
 [playerId] | cancel <id> [reason]`, REST `GET /api/admin/incidents?playerId=` (scope read) and
-`POST /api/admin/incidents/{id}/cancel {"reason": "..."}` (scope admin). A colony reset or a recreated world cancels and
-refunds what waits for that player.
+`POST /api/admin/incidents/{id}/cancel {"reason": "..."}` (scope admin). A colony reset, an archived colony, a permanent
+ban or a recreated world cancels and refunds what waits for that player; a temporary ban leaves it waiting. A catalog
+with a wrong `Kind`, an empty id or def, a repeated id or a multiplier of 0 stops the server at start.
 
 ## 6. Administration
 

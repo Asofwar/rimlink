@@ -6,6 +6,8 @@ namespace Rimlink.Client.Incidents;
 public sealed class IncidentsState
 {
     private readonly List<Incident> incoming = [];
+    // Handled in this session. A resync can read Pending before our report lands; the stale row must not run the incident again.
+    private readonly HashSet<long> handled = [];
 
     /// <summary>Paid incidents waiting for this colony (queued or announced), oldest first.</summary>
     public IReadOnlyList<Incident> Incoming => incoming;
@@ -39,8 +41,12 @@ public sealed class IncidentsState
     public IEnumerable<Incident> Due(long ticksGame, ISet<long> fired) =>
         incoming.Where(i => i.State == IncidentState.IncidentAnnounced && i.FireTick <= ticksGame && !fired.Contains(i.Id)).ToList();
 
-    /// <summary>Drops an incident from the queue (fired or failed here, or refused by the server as no longer waiting).</summary>
-    public void Remove(long incidentId) => incoming.RemoveAll(i => i.Id == incidentId);
+    /// <summary>Drops an incident from the queue for this session (fired or failed here, or no longer waiting on the server).</summary>
+    public void Remove(long incidentId)
+    {
+        handled.Add(incidentId);
+        incoming.RemoveAll(i => i.Id == incidentId);
+    }
 
     public void Apply(ServerEvent ev)
     {
@@ -63,14 +69,15 @@ public sealed class IncidentsState
     public void Reset()
     {
         incoming.Clear();
+        handled.Clear();
         Mine.Clear();
         Catalog = new IncidentCatalog();
     }
 
-    /// <summary>False when the incident is already known (replayed event).</summary>
+    /// <summary>False when the incident is already known or handled (replayed event, stale list).</summary>
     private bool Add(Incident incident)
     {
-        if (incoming.Any(i => i.Id == incident.Id)) return false;
+        if (handled.Contains(incident.Id) || incoming.Any(i => i.Id == incident.Id)) return false;
         incoming.Add(incident);
         return true;
     }
