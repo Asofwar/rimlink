@@ -7,8 +7,9 @@ chat and your save games. Your colony is frozen while you are offline.
 ## 1. Install
 
 1. Subscribe to **Harmony** on the Steam Workshop (`brrainz.harmony`) or install it by hand.
-2. Install the Rimlink mod: unpack `rimlink-client-<version>.zip` into `RimWorld/Mods/` so that
-   `RimWorld/Mods/Rimlink/About/About.xml` exists.
+2. Subscribe to [Rimlink on the Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3830084263), or unpack
+   `rimlink-client-<version>.zip` from the [latest release](https://github.com/Asofwar/rimlink/releases/latest) into
+   `RimWorld/Mods/` so that `RimWorld/Mods/Rimlink/About/About.xml` exists.
 3. Enable **Harmony** and **Rimlink** in the game's mod list (Harmony first), restart.
    The main menu gains a **Multiplayer** button.
 

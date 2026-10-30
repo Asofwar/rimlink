@@ -50,8 +50,9 @@ mods and does not work with them.
 You need RimWorld 1.7, the [Harmony](https://steamcommunity.com/sharedfiles/filedetails/?id=2009463077) mod and a Rimlink
 server to join. Rimlink has no central server: ask your admin for an address, or run your own.
 
-1. Download `rimlink-client-<version>.zip` from the [latest release](https://github.com/Asofwar/rimlink/releases/latest) and
-   unpack it into `RimWorld/Mods/`, so that `RimWorld/Mods/Rimlink/About/About.xml` exists.
+1. Subscribe to [Rimlink on the Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3830084263). Or download
+   `rimlink-client-<version>.zip` from the [latest release](https://github.com/Asofwar/rimlink/releases/latest) and unpack it
+   into `RimWorld/Mods/`, so that `RimWorld/Mods/Rimlink/About/About.xml` exists.
 2. Enable **Harmony** and **Rimlink** in the mod list (Harmony first) and restart the game.
 3. Open **Multiplayer** → **Add server** in the main menu and enter the address and port (default `25560`).
 4. Compare the certificate fingerprint with the one your admin gave you, then confirm it. Steam logs you in by itself; some
