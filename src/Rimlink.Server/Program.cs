@@ -36,6 +36,7 @@ builder.Services.AddOptions<AdminOptions>().Bind(builder.Configuration.GetSectio
     .Validate(o => o.FeedBufferSize is >= 100 and <= 100000 && o.FeedPingSeconds is >= 1 and <= 300, "Admin:FeedBufferSize must be 100-100000 and Admin:FeedPingSeconds 1-300")
     .ValidateOnStart();
 builder.Services.Configure<BackupOptions>(builder.Configuration.GetSection(BackupOptions.Section));
+builder.Services.Configure<SaveStorageOptions>(builder.Configuration.GetSection(SaveStorageOptions.Section));
 builder.Services.AddOptions<EconomyOptions>().Bind(builder.Configuration.GetSection(EconomyOptions.Section))
     .Validate(o => o.GiftDecisionDays >= 1 && o.TradeLifetimeDays >= 1 && o.MaxOpenTrades >= 1, "Economy:GiftDecisionDays, Economy:TradeLifetimeDays and Economy:MaxOpenTrades must be at least 1")
     .ValidateOnStart();
@@ -85,6 +86,7 @@ builder.Services.AddScoped<BanService>();
 builder.Services.AddScoped<LoginGate>();
 builder.Services.AddScoped<WorldService>();
 builder.Services.AddSingleton<SaveFiles>();
+builder.Services.AddScoped<SaveCompactor>();
 builder.Services.AddScoped<SaveStore>();
 builder.Services.AddScoped<Rimlink.Server.Application.Integrity.IntegrityService>();
 builder.Services.AddScoped<ModpackService>();

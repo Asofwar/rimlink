@@ -20,6 +20,9 @@ public static unsafe class SaveDelta
 
     public static byte[] Compress(byte[] reference, byte[] content)
     {
+        // zstd drops the part of a prefix that overlaps its input, which for one array is all of it.
+        if (ReferenceEquals(reference, content)) content = (byte[])content.Clone();
+
         var context = Methods.ZSTD_createCCtx();
         try
         {

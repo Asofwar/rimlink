@@ -26,6 +26,17 @@ public class SaveDeltaTests
     }
 
     [Fact]
+    public void TheReferenceItselfPacksToAlmostNothing()
+    {
+        byte[] reference = RandomBytes(1_000_000, 12);
+
+        byte[] delta = SaveDelta.Compress(reference, reference);
+
+        Assert.True(delta.Length < 1_000, $"delta is {delta.Length} bytes");
+        Assert.Equal(reference, SaveDelta.Decompress(reference, delta));
+    }
+
+    [Fact]
     public void UnrelatedContentRoundTrips()
     {
         byte[] reference = RandomBytes(1_000_000, 2);

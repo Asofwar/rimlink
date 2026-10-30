@@ -2,8 +2,10 @@ using System.Security.Cryptography;
 using System.Text;
 using Google.Protobuf;
 using Grpc.Core;
+using Microsoft.Extensions.DependencyInjection;
 using Rimlink.Protocol;
 using Rimlink.Protocol.V1;
+using Rimlink.Server.Application.Saves;
 using ZstdSharp;
 
 namespace Rimlink.Server.Tests.Support;
@@ -46,6 +48,22 @@ public static class SaveFixtures
         byte[] raw = new byte[bytes * 3 / 4];
         random.NextBytes(raw);
         return Convert.ToBase64String(raw);
+    }
+
+    /// <summary>Runs the compactor for the player the way the server does: under the store lock.</summary>
+    public static async Task Compact(ServerFixture fixture, long playerId)
+    {
+        var files = fixture.Services.GetRequiredService<SaveFiles>();
+        await files.PerStoreLock.WaitAsync();
+        try
+        {
+            using var scope = fixture.Services.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<SaveCompactor>().Run(playerId);
+        }
+        finally
+        {
+            files.PerStoreLock.Release();
+        }
     }
 
     public static byte[] Compress(byte[] raw)

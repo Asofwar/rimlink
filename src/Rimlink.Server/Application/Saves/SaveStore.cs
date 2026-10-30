@@ -191,10 +191,10 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
         var all = await db.SaveVersions.Where(v => v.PlayerId == playerId).ToListAsync();
         foreach (var old in SaveRetention.Select(all, DateTime.UtcNow))
         {
-            string path = PathOf(old);
-            if (File.Exists(path)) File.Delete(path);
+            files.Delete(playerId, old.Number);
             db.SaveVersions.Remove(old);
         }
         await db.SaveChangesAsync();
+        files.PruneBases(playerId);
     }
 }
