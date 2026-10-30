@@ -18,10 +18,8 @@ public sealed class SaveRejected(string key, string reason, params object[] args
 }
 
 /// <summary>Versioned save storage: blobs under &lt;data&gt;/saves/&lt;playerId&gt;/&lt;n&gt;.rws.zst, metadata in save_versions.</summary>
-public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, EventBus events, Integrity.IntegrityService integrity, World.WorldService worlds, ILogger<SaveStore> log)
+public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles files, EventBus events, Integrity.IntegrityService integrity, World.WorldService worlds, ILogger<SaveStore> log)
 {
-    private static readonly SemaphoreSlim PerStoreLock = new(1, 1);
-
     public async Task<SaveVersion> Store(long playerId, SaveHeader header, IAsyncEnumerable<ReadOnlyMemory<byte>> chunks, CancellationToken cancellationToken)
     {
         if (header.TotalSize <= 0 || header.TotalSize > Limits.MaxSaveBytes)
@@ -57,14 +55,14 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, EventBus 
 
             // From here on the upload is complete: finish without the call token, so a client that drops right
             // after its last chunk does not leave a file without a row (or a row without a file).
-            await PerStoreLock.WaitAsync(CancellationToken.None);
+            await files.PerStoreLock.WaitAsync(CancellationToken.None);
             try
             {
                 var seenBefore = await worlds.DescribeSettlementOf(playerId);
                 int number = (await db.SaveVersions.Where(v => v.PlayerId == playerId).MaxAsync(v => (int?)v.Number) ?? 0) + 1;
                 // The integrity check compares with the version this upload replaces as current.
                 var baseVersion = await db.SaveVersions.AsNoTracking().FirstOrDefaultAsync(v => v.PlayerId == playerId && v.IsCurrent);
-                string final = Path.Combine(dir, $"{number}.rws.zst");
+                string final = files.FullPath(playerId, number);
 
                 await using var tx = await db.Database.BeginTransactionAsync();
                 await db.SaveVersions.Where(v => v.PlayerId == playerId && v.IsCurrent).ExecuteUpdateAsync(s => s.SetProperty(v => v.IsCurrent, false));
@@ -114,7 +112,7 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, EventBus 
             }
             finally
             {
-                PerStoreLock.Release();
+                files.PerStoreLock.Release();
             }
         }
         finally
@@ -186,7 +184,7 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, EventBus 
         GameTick = v.GameTick,
     };
 
-    private string PathOf(SaveVersion v) => Path.Combine(data.Saves(v.PlayerId), $"{v.Number}.rws.zst");
+    private string PathOf(SaveVersion v) => files.FullPath(v.PlayerId, v.Number);
 
     private async Task ApplyRetention(long playerId)
     {

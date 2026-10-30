@@ -1,12 +1,11 @@
 using System.Security.Cryptography;
 using System.Text.Json;
-using Rimlink.Server.Storage;
 using Rimlink.Server.Storage.Entities;
 
 namespace Rimlink.Server.Application.Saves;
 
 /// <summary>Copies a player's save files into an archive directory with a manifest of their versions, and back.</summary>
-public sealed class SaveArchive(DataDirectory data)
+public sealed class SaveArchive(SaveFiles files)
 {
     public const string ManifestFile = "manifest.json";
 
@@ -18,7 +17,7 @@ public sealed class SaveArchive(DataDirectory data)
 
     public sealed record Manifest(long PlayerId, List<ManifestVersion> Versions);
 
-    private string PathOf(long playerId, int number) => Path.Combine(data.Saves(playerId), $"{number}.rws.zst");
+    private string PathOf(long playerId, int number) => files.FullPath(playerId, number);
 
     private static string FileName(int number) => $"{number}.rws.zst";
 

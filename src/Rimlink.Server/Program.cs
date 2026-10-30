@@ -84,6 +84,7 @@ builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<BanService>();
 builder.Services.AddScoped<LoginGate>();
 builder.Services.AddScoped<WorldService>();
+builder.Services.AddSingleton<SaveFiles>();
 builder.Services.AddScoped<SaveStore>();
 builder.Services.AddScoped<Rimlink.Server.Application.Integrity.IntegrityService>();
 builder.Services.AddScoped<ModpackService>();
