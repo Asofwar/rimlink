@@ -25,7 +25,7 @@ namespace Rimlink.Server.Application.Trades;
 /// </summary>
 public sealed class TradeService(
     RimlinkDbContext db, WalletService wallet, MailboxService mailbox, TransferService transfers, ParcelValidator validator, EconomyGate gate,
-    EventBus events, IOptions<EconomyOptions> options, ILogger<TradeService> log)
+    EconomyGuard guard, EventBus events, IOptions<EconomyOptions> options, ILogger<TradeService> log)
 {
     public const int MaxNoteLength = 200;
     private static readonly TimeSpan ListClosedFor = TimeSpan.FromDays(7);
@@ -50,6 +50,7 @@ public sealed class TradeService(
                 ?? throw RpcErrors.With(StatusCode.NotFound, ErrorCode.RecipientUnknown, RefusalKeys.EconomyRecipientUnknown, $"no player with id {r.PartnerId}", r.PartnerId);
             await BlockRules.RequireNotBlocked(db, playerId, partner.Id);
             await gate.RequireNotFrozen(playerId);
+            await RequireOutflowOpen(playerId, r.Items, r.Pawns, r.Silver);
             await gate.RequireTradePartnerOpen(partner.Id);
             if (partner.TradesClosed) throw RpcErrors.Failed(ErrorCode.TradesClosed, RefusalKeys.TradesClosed, $"{partner.Name} does not accept trade offers", partner.Name);
             int max = options.Value.MaxOpenTrades;
@@ -110,6 +111,7 @@ public sealed class TradeService(
             await gate.RequireNotFrozen(playerId); // a frozen player can only cancel: the goods go back to their owners
             var side = new Side(trade, trade.InitiatorPlayerId == playerId);
             var other = new Side(trade, trade.InitiatorPlayerId != playerId);
+            await RequireOutflowOpen(playerId, r.Items, r.Pawns, r.Silver - side.Silver);
 
             var items = r.Items ?? new ItemList();
             var pawns = r.Pawns ?? new PawnList();
@@ -304,7 +306,16 @@ public sealed class TradeService(
     private void CheckGoods(ItemList? items, PawnList? pawns, long silver)
     {
         if (silver < 0) throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.TradesNegativeSilver, "silver must not be negative");
-        if (validator.Validate(items, pawns) is { } reason) throw RpcErrors.Failed(reason.Code, reason.Key, reason.Message, reason.Args);
+        // Only what is new here: goods already in escrow may be forbidden since, and they still have to move or go back.
+        if (validator.Validate(items, pawns, checkForbidden: true) is { } reason) throw RpcErrors.Failed(reason.Code, reason.Key, reason.Message, reason.Args);
+    }
+
+    /// <summary>What would leave the colony waits while it is under attack or in debt, as a send does; a side that shrinks brings things home.</summary>
+    private async Task RequireOutflowOpen(long playerId, ItemList? items, PawnList? pawns, long silverAdded)
+    {
+        if (!HasGoods(items, pawns) && silverAdded <= 0) return;
+        await guard.RequireNoThreat(playerId);
+        await guard.RequireNoDebt(playerId);
     }
 
     private static bool HasGoods(ItemList? items, PawnList? pawns) => (items?.Items.Count ?? 0) > 0 || (pawns?.Pawns.Count ?? 0) > 0;

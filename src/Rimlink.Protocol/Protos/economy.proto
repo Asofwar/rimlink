@@ -101,7 +101,7 @@ message LotList {
 
 message WalletState {
   int64 balance = 1;
-  int64 server_wealth = 2;   // wallet, open lots and parcels in transit, as the storyteller and the loot cap count them
+  int64 server_wealth = 2;   // wallet, open lots, open trades and parcels in transit, as the storyteller and the loot cap count them
 }
 
 // What the economy window needs to know before asking: forbidden defs and the storage fee.

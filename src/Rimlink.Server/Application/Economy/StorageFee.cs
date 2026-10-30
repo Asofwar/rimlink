@@ -25,8 +25,8 @@ public static class StorageFee
     public static long LotBase(Lot lot) =>
         lot.Pawn is { Length: > 0 } ? ServerWealth.ValueOf(lot) : Perishables(ItemList.Parser.ParseFrom(lot.Items));
 
-    /// <summary>Gifts and purchases pay for pawns and perishables; returns, withdrawals, admin and raid parcels are free.</summary>
-    public static long ParcelBase(Parcel parcel) => parcel.Kind is ParcelKindDb.Gift or ParcelKindDb.Purchase
+    /// <summary>Gifts, purchases and trades pay for pawns and perishables; returns, withdrawals, admin and raid parcels are free.</summary>
+    public static long ParcelBase(Parcel parcel) => parcel.Kind is ParcelKindDb.Gift or ParcelKindDb.Purchase or ParcelKindDb.Trade
         ? Sum(ServerWealth.ValueOf(PawnList.Parser.ParseFrom(parcel.Pawns)), Perishables(ItemList.Parser.ParseFrom(parcel.Items)))
         : 0;
 

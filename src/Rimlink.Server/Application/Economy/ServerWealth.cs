@@ -9,7 +9,8 @@ using Lot = Rimlink.Server.Storage.Entities.Lot;
 namespace Rimlink.Server.Application.Economy;
 
 /// <summary>
-/// What a player holds on the server, in silver: the wallet (never below zero), open lots and parcels on the way to them.
+/// What a player holds on the server, in silver: the wallet (never below zero), open lots, their sides of open trades and
+/// parcels on the way to them.
 /// The storyteller, the loot cap and the poor-colony threshold count it as colony wealth, so it cannot be hidden here.
 /// Raid escrow is not counted: those pawns are fighting. Declared values come from the client and saturate instead of overflowing.
 /// </summary>
@@ -24,6 +25,13 @@ public sealed class ServerWealth(RimlinkDbContext db, IOptions<EconomyOptions> o
         decimal sum = Math.Max(0, (await db.Wallets.AsNoTracking().FirstOrDefaultAsync(w => w.PlayerId == playerId))?.Balance ?? 0);
         foreach (var lot in await db.Lots.AsNoTracking().Where(l => l.SellerPlayerId == playerId && l.Status == LotStatusDb.Open).ToListAsync())
             sum += ValueOf(lot);
+        foreach (var trade in await db.Trades.AsNoTracking().Where(t => t.Status == TradeStatusDb.Open && (t.InitiatorPlayerId == playerId || t.PartnerPlayerId == playerId)).ToListAsync())
+        {
+            bool initiator = trade.InitiatorPlayerId == playerId;
+            sum += initiator ? trade.InitiatorSilver : trade.PartnerSilver;
+            sum += (decimal)ValueOf(ItemList.Parser.ParseFrom(initiator ? trade.InitiatorItems : trade.PartnerItems))
+                + ValueOf(PawnList.Parser.ParseFrom(initiator ? trade.InitiatorPawns : trade.PartnerPawns));
+        }
         foreach (var parcel in await db.Parcels.AsNoTracking().Where(p => p.ToPlayerId == playerId && p.DeliveredAt == null).ToListAsync())
         {
             sum += parcel.Silver;
@@ -35,11 +43,11 @@ public sealed class ServerWealth(RimlinkDbContext db, IOptions<EconomyOptions> o
     }
 
     /// <summary>
-    /// A gift's values are the sender's, loot's, a raid return's and a captive's the other side's: a third party could inflate
+    /// A gift's values are the sender's, a trade parcel's the partner's, loot's, a raid return's and a captive's the other side's: a third party could inflate
     /// them to strip the recipient of the poor-colony protection or raise its loot cap. Only their silver counts.
     /// </summary>
     public static bool DeclaredByAnother(ParcelKindDb kind) =>
-        kind is ParcelKindDb.Gift or ParcelKindDb.Loot or ParcelKindDb.RaidReturn or ParcelKindDb.Captive;
+        kind is ParcelKindDb.Gift or ParcelKindDb.Trade or ParcelKindDb.Loot or ParcelKindDb.RaidReturn or ParcelKindDb.Captive;
 
     public static long ValueOf(ItemList? items) =>
         Saturate(items?.Items.Sum(i => (decimal)i.MarketValueX100 * Math.Max(0, i.Count)) / 100m ?? 0);

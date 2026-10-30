@@ -38,6 +38,17 @@ public class EconomyStateTests
         Assert.False(state.IsForbidden("Steel"));
     }
 
+    [Fact]
+    public void ATradeEventMarksWealthStale()
+    {
+        // Goods moved in or out of a trade's escrow change what the server holds for us without touching the wallet.
+        var shared = new Rimlink.Client.State.SharedState();
+
+        shared.Apply(new ServerEvent { TradeUpdated = new TradeUpdated { Trade = new Trade { Id = 1 } } });
+
+        Assert.True(shared.Economy.WealthStale);
+    }
+
     [Theory]
     [InlineData(ServerEvent.BodyOneofCase.ParcelArrived)]
     [InlineData(ServerEvent.BodyOneofCase.LotSold)]

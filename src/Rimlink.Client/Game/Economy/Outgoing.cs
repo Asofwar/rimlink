@@ -77,10 +77,18 @@ public static class Outgoing
             request => RimlinkSession.Economy!.Send((TransferRequest)request, CancellationToken.None));
     }
 
+    /// <summary>A trade is a way out of the colony too; a side that shrinks brings things home and is never refused.</summary>
+    private static bool TradeOutflowRefused(int fromTheMap, long silverAdded)
+    {
+        long silver = Math.Max(0, silverAdded);
+        return (fromTheMap > 0 || silver > 0) && (RefusedUnderThreat(fromTheMap, silver) || RefusedInDebt());
+    }
+
     /// <summary>Offers a trade: the picked things and pawns leave the map into the trade's escrow, the silver leaves the wallet.</summary>
     public static void OpenTrade(Map map, long partnerId, string partnerName, IReadOnlyList<Pick> picks, IReadOnlyList<Pawn> pawns, long silver, string note)
     {
         if (RefusedInVisit(picks.Count + pawns.Count)) return;
+        if (TradeOutflowRefused(picks.Count + pawns.Count, silver)) return;
         if (CheckLimits(picks.Count, pawns.Count) is { } limit) { Messages.Message(limit, MessageTypeDefOf.RejectInput, historical: false); return; }
         var taken = TakeFromMap(map, picks, pawns);
         if (taken is null) return;
@@ -100,6 +108,8 @@ public static class Outgoing
     public static void SetTradeSide(Map map, Trade trade, IReadOnlyList<Pick> picks, IReadOnlyList<Pawn> pawns, long silver, string note, bool returnGoods)
     {
         if (RefusedInVisit(picks.Count + pawns.Count)) return;
+        var mine = trade.Initiator?.PlayerId == RimlinkSession.MyPlayerId ? trade.InitiatorSide : trade.PartnerSide;
+        if (TradeOutflowRefused(picks.Count + pawns.Count, silver - (mine?.Silver ?? 0))) return;
         if (CheckLimits(picks.Count, pawns.Count) is { } limit) { Messages.Message(limit, MessageTypeDefOf.RejectInput, historical: false); return; }
         var taken = TakeFromMap(map, picks, pawns);
         if (taken is null) return;

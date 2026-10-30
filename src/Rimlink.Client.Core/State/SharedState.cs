@@ -83,6 +83,7 @@ public sealed class SharedState
                 break;
             case ServerEvent.BodyOneofCase.TradeUpdated:
                 Social.Apply(ev);
+                Economy.MarkWealthStale(); // goods moved in or out of escrow without touching the wallet
                 break;
             case ServerEvent.BodyOneofCase.RaidQueued:
             case ServerEvent.BodyOneofCase.RaidLanded:

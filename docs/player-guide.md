@@ -173,6 +173,11 @@ and change hands only when both players confirmed the same offer. Start one with
 
 Tick **Not accepting trades** (Raids tab) to refuse new offers; open trades go on.
 
+A trade is a way out of your colony too. While the colony is under threat or you owe storage fees, nothing new joins a trade:
+no new offer with goods or silver, no additions to your side. Taking things back, **Confirm** and **Cancel** always work. Things
+the admin forbade cannot join a trade. What sits in your open trades still counts as your wealth, and a finished trade's parcel
+pays the storage fee like a gift if it stays undelivered past the free days.
+
 ### Blocking
 
 **Block** in the Players window: that player's direct messages, gifts and trade offers to you are refused, their lines
