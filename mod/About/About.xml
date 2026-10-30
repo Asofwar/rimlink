@@ -25,5 +25,9 @@
     <li>Ludeon.RimWorld.Anomaly</li>
     <li>Ludeon.RimWorld.Odyssey</li>
   </loadAfter>
-  <description>Persistent multiplayer: your own colony in a world shared with other players on a dedicated Rimlink server. Open source (MIT), https://github.com/Asofwar/rimlink</description>
+  <description>Persistent multiplayer: your own colony on a planet shared with other players through a dedicated Rimlink server. A colony is frozen while its owner is offline. Raids and visits work at any time, or live when both players are online; the market, gifts and trades go through server escrow.
+
+You need a Rimlink server to play: ask your admin for an address or run your own.
+
+Open source (MIT): https://github.com/Asofwar/rimlink</description>
 </ModMetaData>
