@@ -14,7 +14,8 @@ public static class BackupArchive
     public const string SavesDir = "saves";
     public const string LockFile = "server.lock";
 
-    public static void Create(string dataDir, string outFile)
+    /// <param name="beforeEntry">Called with each save file's archive path before it is packed.</param>
+    public static void Create(string dataDir, string outFile, Action<string>? beforeEntry = null)
     {
         dataDir = Path.GetFullPath(dataDir);
         string snapshot = Path.Combine(dataDir, $"{DatabaseFile}-backup-{Guid.NewGuid():N}");
@@ -37,19 +38,39 @@ public static class BackupArchive
             {
                 tar.WriteEntry(snapshot, DatabaseFile);
                 string saves = Path.Combine(dataDir, SavesDir);
-                if (Directory.Exists(saves))
-                {
-                    foreach (string path in Directory.EnumerateFiles(saves, "*", SearchOption.AllDirectories))
-                    {
-                        tar.WriteEntry(path, Path.GetRelativePath(dataDir, path).Replace('\\', '/'));
-                    }
-                }
+                if (Directory.Exists(saves)) PackSaves(tar, dataDir, saves, beforeEntry);
             }
             File.Move(temp, outFile, overwrite: true);
         }
         finally
         {
             if (File.Exists(snapshot)) File.Delete(snapshot);
+        }
+    }
+
+    /// <summary>
+    /// A running server replaces save files while this packs, and the CLI is another process, so no lock can hold them still. A version's
+    /// new form is written before its old one goes: a second pass over the tree finds what replaced a file the first one missed.
+    /// </summary>
+    private static void PackSaves(TarWriter tar, string dataDir, string saves, Action<string>? beforeEntry)
+    {
+        var packed = new HashSet<string>(StringComparer.Ordinal);
+        for (int pass = 0; pass < 2; pass++)
+        {
+            foreach (string path in Directory.EnumerateFiles(saves, "*", SearchOption.AllDirectories))
+            {
+                string name = Path.GetRelativePath(dataDir, path).Replace('\\', '/');
+                if (path.EndsWith(".tmp", StringComparison.Ordinal) || !packed.Add(name)) continue;
+                beforeEntry?.Invoke(name);
+                try
+                {
+                    tar.WriteEntry(path, name);
+                }
+                catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+                {
+                    // Gone since the listing: replaced, or removed by retention.
+                }
+            }
         }
     }
 

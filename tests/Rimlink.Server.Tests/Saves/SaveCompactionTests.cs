@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Rimlink.Protocol.V1;
 using Rimlink.Server.Application.Saves;
+using Rimlink.Server.Backup;
 using Rimlink.Server.Tests.Support;
 using Xunit;
 using static Rimlink.Server.Tests.Support.HygieneFixtures;
@@ -417,5 +418,32 @@ public class SaveCompactionTests
         Assert.Equal(save, (await Download(nova.Saves, nova.Token)).data);
         Assert.Equal(1, (await nova.Saves.ListAsync(new Empty(), GrpcTestExtensions.Bearer(nova.Token))).Versions.Single().Version);
         Assert.Equal(["1.rws.zst"], Directory.GetFiles(nova.Dir).Select(Path.GetFileName));
+    }
+
+    [Fact]
+    public async Task AServerRestoredFromABackupReadsItsDeltas()
+    {
+        string source;
+        byte[] first;
+        using (var before = Server().KeepDataDir())
+        {
+            var colony = await Join(before);
+            first = await colony.Send(1);
+            await colony.Send(2);
+            await colony.Send(3);
+            source = before.DataDir;
+        }
+        string archive = source + ".tar.zst";
+        string restored = source + "-restored";
+        BackupArchive.Create(source, archive);
+        BackupArchive.Restore(archive, restored);
+        File.Delete(archive);
+        try { Directory.Delete(source, recursive: true); } catch (IOException) { }
+
+        using var fixture = Server().WithDataDir(restored).WithoutWorld();
+        var nova = await Join(fixture);
+
+        Assert.True(await Rollback(fixture, nova.Id, 1));
+        Assert.Equal(Decompress(first), Decompress((await Download(nova.Saves, nova.Token)).data));
     }
 }

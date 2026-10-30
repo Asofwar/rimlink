@@ -49,6 +49,75 @@ public class BackupArchiveTests : IDisposable
         Assert.Empty(Directory.GetFiles(source, "*.db-*")); // VACUUM INTO temp cleaned up
     }
 
+    private static string SavePath(string dir, string name) => Path.Combine(dir, "saves", "7", name);
+
+    private string RoundTrip(string source, Action<string>? beforeEntry = null)
+    {
+        string archive = Path.Combine(root, "backup.tar.zst");
+        BackupArchive.Create(source, archive, beforeEntry);
+        string target = Path.Combine(root, "restored");
+        BackupArchive.Restore(archive, target);
+        return target;
+    }
+
+    [Fact]
+    public void BackupCarriesDeltasAndBases()
+    {
+        string source = MakeDataDir("source", "alpha");
+        File.WriteAllText(SavePath(source, "4.d1.zst"), "delta");
+        File.WriteAllText(SavePath(source, "base-1.rws.zst"), "base");
+
+        string target = RoundTrip(source);
+
+        Assert.Equal("delta", File.ReadAllText(SavePath(target, "4.d1.zst")));
+        Assert.Equal("base", File.ReadAllText(SavePath(target, "base-1.rws.zst")));
+    }
+
+    [Fact]
+    public void TemporaryFilesAreNotPacked()
+    {
+        string source = MakeDataDir("source", "alpha");
+        File.WriteAllText(SavePath(source, "upload-x.tmp"), "half an upload");
+        File.WriteAllText(SavePath(source, "compact-x.tmp"), "half a delta");
+
+        string target = RoundTrip(source);
+
+        Assert.Equal(["3.rws.zst"], Directory.GetFiles(Path.Combine(target, "saves", "7")).Select(Path.GetFileName));
+    }
+
+    [Fact]
+    public void AFileGoneDuringPackingIsSkipped()
+    {
+        string source = MakeDataDir("source", "alpha");
+        File.WriteAllText(SavePath(source, "4.rws.zst"), "beta");
+        bool gone = false;
+
+        string target = RoundTrip(source, entry =>
+        {
+            if (gone) return;
+            gone = true;
+            File.Delete(SavePath(source, entry.EndsWith("3.rws.zst", StringComparison.Ordinal) ? "4.rws.zst" : "3.rws.zst"));
+        });
+
+        Assert.Single(Directory.GetFiles(Path.Combine(target, "saves", "7")));
+    }
+
+    [Fact]
+    public void AFileAddedDuringPackingIsCaughtByTheSecondPass()
+    {
+        string source = MakeDataDir("source", "alpha");
+        bool added = false;
+
+        string target = RoundTrip(source, _ =>
+        {
+            if (added) return;
+            added = true;
+            File.WriteAllText(SavePath(source, "5.d1.zst"), "delta");
+        });
+
+        Assert.Equal("delta", File.ReadAllText(SavePath(target, "5.d1.zst")));
+    }
+
     [Fact]
     public void RestoreRefusesWhileServerHoldsTheLock()
     {
