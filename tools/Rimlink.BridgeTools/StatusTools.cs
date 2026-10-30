@@ -45,6 +45,7 @@ public sealed class StatusTools
                 .Select(o => new { owner = o.Owner.Name, ownerId = o.Owner.PlayerId, tile = o.Tile, name = o.Name }).ToList(),
             economy = new { balance = state.Economy.Balance, pendingParcels = state.Economy.Pending.Count, myLots = state.Economy.MyLots.Count },
             raids = new { incoming = state.Raids.Incoming.Count, mine = state.Raids.Mine.Count, peaceful = state.Raids.Flags.Peaceful },
+            incidents = new { incoming = state.Incidents.Incoming.Count, mine = state.Incidents.Mine.Count, hostileWaiting = state.Incidents.AnyHostileWaiting },
             social = new
             {
                 flags = new { acceptGifts = state.Raids.Flags.AcceptGifts, tradesClosed = state.Raids.Flags.TradesClosed },
