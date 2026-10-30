@@ -212,6 +212,24 @@ copy of the host's colony.
   sold things are collected from your stockpiles at your next login. A sale while you play shows a message with the
   buyer, the item and the price.
 
+### Paid events
+
+The **Events** tab of the economy window orders an event against another player's colony for wallet silver. Pick the
+player and the event, a level for hostile ones (level 1 is half of the colony's threat points, 2 all of them, 3 one and a
+half, 4 double) and **By drop pods** where it is offered; the price comes from the server before you pay and follows the
+target's wealth, server-held wealth included, the level and the event.
+
+- **Hostile** (raids, infestation) and **weather** events obey the same rules as raids: nobody in peaceful mode on either
+  side, no new colonies, no colonies under the poor-colony threshold, and they share the cooldown on a target with raids.
+- **Gifts** (a trader, a resource pod, a wanderer) only have a short cooldown per target.
+- A colony holds at most two events waiting. They run in the target's game, when they play: hostile events of level 3 and
+  4 are announced by a letter with your name half a day ahead, the others come at once. The target is told who ordered
+  each one.
+- While a hostile event waits for your colony, deposits, new lots and sends are closed, as under a raid.
+- **My orders** shows each order's state. An event that could not start (say, an infestation on a map without mountains),
+  or that the target did not play in time (7 days), or that an admin cancelled, is refunded in full. The silver of an event
+  that happened goes to the bank, the target gets nothing.
+
 ## 6. Live raids and visits
 
 When both players are online, a raid or a visit can happen live: your pawns walk onto the host's map while the host plays,

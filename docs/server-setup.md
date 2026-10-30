@@ -220,6 +220,40 @@ not a modified client that lies about its wealth or its dev mode.
 - At login after an absence the game shows one letter with what happened since the last session: raids, visits, parcels, lot and
   shop sales, chat mentions (the player's name as a word, or a direct message; the server keeps 500 chat lines) and admin actions.
 
+## 5e. Paid incidents
+
+Players order incidents against other colonies for wallet silver (`Dialog_Economy`, tab Events); the incident runs in the
+target's game on their home map. Section `Incidents`:
+
+| Key | Default | Meaning |
+|---|---|---|
+| `Enabled` | `true` | off refuses new orders with `ECONOMY_FROZEN` |
+| `MaxQueuedPerTarget` | `2` | unfinished orders per target; more are refused with `INCIDENT_QUEUE_FULL` |
+| `BasePrice` | `100` | silver for a level 2 entry of multiplier 1 against a colony of 100000 wealth |
+| `MinPrice` | `50` | price floor |
+| `WarnTicks` | `30000` | how far ahead hostile orders of `WarnFromLevel` and above are announced |
+| `WarnFromLevel` | `3` | lowest level with the warning |
+| `KindCooldownHours` | `1` | cooldown per buyer and target for kind events |
+| `ExpireRealDays` | `7` | an order the target's game did not announce by then is refunded (sweep at start and hourly) |
+| `Catalog` | empty | what can be ordered; empty means the 13 built-in entries, a list replaces them whole |
+
+Price: `W` = target's `WealthTotal` plus server-held wealth; hostile `BasePrice × (W/100000)^(2/3) × L^(3/2) × multiplier ×
+(pods ? PodsMultiplier : 1)` with level 1–4 → `L` 0.5 / 1 / 1.5 / 2; weather and kind `BasePrice × (W/100000)^(2/3) ×
+multiplier`; rounded, at least `MinPrice`.
+
+Catalog entries: `{"Id": "pirates", "IncidentDef": "RaidEnemy", "FactionDef": "Pirate", "Kind": "Hostile", "PriceMultiplier": 1,
+"PodsMultiplier": 1.4}`. `Kind` is `Hostile`, `Weather` or `Kind`; `FactionDef` is for raids; `PodsMultiplier` absent means no
+drop pods. Hostile and weather orders obey `/raids freeze`, peaceful mode of both sides, `NewbieProtectionDays`,
+`MinColonyWealth` and the target cooldown shared with raids (`Raids:TargetCooldownHours`; refunded orders do not count). Kind
+orders obey `KindCooldownHours` only. Every order refuses a buyer in debt. A hostile order waiting for a player closes their
+deposits, lots and sends like a raid (`BlockOutflowUnderThreat`).
+
+Silver goes to the bank when ordered (wallet kind `incident`); Failed, Expired and Cancelled orders refund it
+(`incident-refund`). Admins: chat `/incidents list [player] | cancel <id> [reason]`, CLI `rimlink-tools admin incidents list
+[playerId] | cancel <id> [reason]`, REST `GET /api/admin/incidents?playerId=` (scope read) and
+`POST /api/admin/incidents/{id}/cancel {"reason": "..."}` (scope admin). A colony reset or a recreated world cancels and
+refunds what waits for that player.
+
 ## 6. Administration
 
 - In game, moderators and admins type `/help` in chat.
