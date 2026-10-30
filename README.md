@@ -7,6 +7,7 @@
   <a href="https://github.com/Asofwar/rimlink/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Asofwar/rimlink/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="RimWorld 1.7" src="https://img.shields.io/badge/RimWorld-1.7-c8553d">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue"></a>
+  <a href="#support"><img alt="Donate: Gram (TON)" src="https://img.shields.io/badge/donate-Gram%20(TON)-0098EA"></a>
 </p>
 
 Rimlink is persistent multiplayer for RimWorld 1.7. Every player runs their own colony in their own game, on one planet
@@ -121,6 +122,16 @@ The client mod needs RimWorld 1.7 and the Harmony mod (PowerShell):
 
 [AGENTS.md](AGENTS.md) is the full guide to the code and the rules of the project; design documents are in
 [docs/superpowers/specs](docs/superpowers/specs).
+
+## Support
+
+Rimlink is free. If you enjoy it and want to buy me a coffee, you can send Gram (TON) to my Telegram wallet:
+
+<p><img src="docs/images/donate-gram-qr.png" alt="Gram (TON), Telegram wallet: QR" width="160"></p>
+
+`UQAdvK_4JyPGKpuD3Z27LkRZG7qmQ-03oWtUROMYNTz-Sx23` ·
+[send from a TON wallet](https://app.tonkeeper.com/transfer/UQAdvK_4JyPGKpuD3Z27LkRZG7qmQ-03oWtUROMYNTz-Sx23?text=Rimlink)
+(TON network only: a transfer from another network is lost)
 
 ## License
 
