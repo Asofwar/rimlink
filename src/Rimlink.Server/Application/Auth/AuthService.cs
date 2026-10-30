@@ -65,7 +65,8 @@ public sealed class AuthService(
     {
         var identity = await steam.Verify(ticket, CancellationToken.None);
         if (identity is null)
-            return LoginResult.Failed(StatusCode.Unauthenticated, ErrorCode.Unspecified, RefusalKeys.AuthSteamTicketInvalid, "Steam ticket is not valid");
+            return LoginResult.Failed(StatusCode.Unauthenticated, steam.Configured ? ErrorCode.SteamTicketRejected : ErrorCode.Unspecified,
+                RefusalKeys.AuthSteamTicketInvalid, "Steam ticket is not valid");
 
         var account = await db.Accounts.Include(a => a.Player).FirstOrDefaultAsync(a => a.SteamId == identity.SteamId);
         if (account is null)

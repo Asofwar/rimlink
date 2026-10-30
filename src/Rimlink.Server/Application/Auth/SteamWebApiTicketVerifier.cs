@@ -11,6 +11,8 @@ public sealed class SteamWebApiTicketVerifier(HttpClient http, IOptions<AuthOpti
     private const string Endpoint = "https://api.steampowered.com/ISteamUserAuth/AuthenticateUserTicket/v1/";
     private const string SummariesEndpoint = "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/";
 
+    public bool Configured => !string.IsNullOrWhiteSpace(options.Value.SteamWebApiKey);
+
     public async Task<SteamIdentity?> Verify(byte[] ticket, CancellationToken cancellationToken)
     {
         string? key = options.Value.SteamWebApiKey;

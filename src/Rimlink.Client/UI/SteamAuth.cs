@@ -10,9 +10,16 @@ namespace Rimlink.Client.UI;
 /// <summary>Builds login requests: a Steam session ticket when Steam runs, otherwise a login/password asked from the player.</summary>
 public sealed class GameCredentials : ICredentialProvider
 {
+    private static readonly TimeSpan TicketConfirmation = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// The ticket of this game, across sessions: replaced by the next login, never cancelled when a session ends. After such a cancel
+    /// Steam refused new tickets for about two minutes (2026-10-30). Steam drops it when the game exits.
+    /// </summary>
+    private static HAuthTicket ticket = HAuthTicket.Invalid;
+
     private readonly PresetLogin? preset;
     private PasswordLogin? password;
-    private HAuthTicket ticket = HAuthTicket.Invalid;
 
     public GameCredentials() { }
 
@@ -43,7 +50,7 @@ public sealed class GameCredentials : ICredentialProvider
         request.Mods.AddRange(await ModpackActions.RunningMods());
         request.ModSettings.AddRange(ModpackActions.RunningModSettings());
 
-        if (!PreferPassword && SteamManager.Initialized && TryGetTicket(out byte[] steamTicket))
+        if (!PreferPassword && SteamManager.Initialized && await GetTicket(cancellationToken) is { } steamTicket)
         {
             request.SteamTicket = ByteString.CopyFrom(steamTicket);
             return request;
@@ -66,28 +73,46 @@ public sealed class GameCredentials : ICredentialProvider
 
     public void ForgetPassword() => password = null;
 
-    private bool TryGetTicket(out byte[] bytes)
+    /// <summary>
+    /// A new ticket, once Steam confirmed it (the callback arrives on the main thread, where <see cref="SteamManager"/> runs it).
+    /// No confirmation in time: the ticket goes anyway, and a refusal is retried by the login flow.
+    /// </summary>
+    private static async Task<byte[]?> GetTicket(CancellationToken cancellationToken)
     {
-        bytes = [];
+        var confirmed = new TaskCompletionSource<EResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        Callback<GetAuthSessionTicketResponse_t>? callback = null;
+        byte[]? bytes = await MainThread.Get(() =>
+        {
+            try
+            {
+                if (ticket != HAuthTicket.Invalid) SteamUser.CancelAuthTicket(ticket);
+                var issued = HAuthTicket.Invalid;
+                callback = Callback<GetAuthSessionTicketResponse_t>.Create(r => { if (r.m_hAuthTicket == issued) confirmed.TrySetResult(r.m_eResult); });
+                byte[] buffer = new byte[1024];
+                issued = ticket = SteamUser.GetAuthSessionTicket(buffer, buffer.Length, out uint length);
+                return ticket == HAuthTicket.Invalid || length == 0 ? null : buffer[..(int)length];
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("[Rimlink] Steam ticket unavailable: " + ex.Message);
+                return null;
+            }
+        });
         try
         {
-            if (ticket != HAuthTicket.Invalid) SteamUser.CancelAuthTicket(ticket);
-            byte[] buffer = new byte[1024];
-            ticket = SteamUser.GetAuthSessionTicket(buffer, buffer.Length, out uint length);
-            if (ticket == HAuthTicket.Invalid || length == 0) return false;
-            bytes = buffer[..(int)length];
-            return true;
+            if (bytes is null) return null;
+            await Task.WhenAny(confirmed.Task, Task.Delay(TicketConfirmation, cancellationToken));
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!confirmed.Task.IsCompleted) Log.Warning("[Rimlink] Steam did not confirm the ticket in time, sending it anyway");
+            else if (confirmed.Task.Result != EResult.k_EResultOK) Log.Warning("[Rimlink] Steam answered the ticket with " + confirmed.Task.Result);
+            return bytes;
         }
-        catch (Exception ex)
+        finally
         {
-            Log.Warning("[Rimlink] Steam ticket unavailable: " + ex.Message);
-            return false;
+            MainThread.Post(() => callback?.Dispose());
         }
     }
 
-    public void Dispose()
-    {
-        if (ticket != HAuthTicket.Invalid) { try { SteamUser.CancelAuthTicket(ticket); } catch { } }
-        ticket = HAuthTicket.Invalid;
-    }
+    /// <summary>The ticket stays alive after the session: see <see cref="ticket"/>.</summary>
+    public void Dispose() { }
 }

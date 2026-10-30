@@ -7,6 +7,8 @@ namespace Rimlink.Server.Tests.Support;
 /// <summary>Accepts tickets of the form "steam:&lt;steamid&gt;[:&lt;ownersteamid&gt;]" (UTF-8); anything else is invalid.</summary>
 public sealed class FakeSteamVerifier : ISteamTicketVerifier
 {
+    public bool Configured { get; set; } = true;
+
     /// <summary>Steam names by SteamID; an id not listed has none.</summary>
     public static readonly ConcurrentDictionary<long, string> Personas = new();
 

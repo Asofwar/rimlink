@@ -88,6 +88,7 @@
   <Rimlink.Overlay.Chat>Чат</Rimlink.Overlay.Chat>
   <Rimlink.Overlay.Players>Игроки</Rimlink.Overlay.Players>
   <Rimlink.Flow.Connecting>Подключение к {0}...</Rimlink.Flow.Connecting>
+  <Rimlink.Flow.SteamWait>Ждём, пока Steam подтвердит вход, это может занять пару минут...</Rimlink.Flow.SteamWait>
   <Rimlink.Flow.LoadingWorld>Загрузка общего мира...</Rimlink.Flow.LoadingWorld>
   <Rimlink.Flow.Downloading>Загрузка вашего сохранения с сервера...</Rimlink.Flow.Downloading>
   <Rimlink.Flow.Uploading>Отправка последнего сохранения на сервер...</Rimlink.Flow.Uploading>

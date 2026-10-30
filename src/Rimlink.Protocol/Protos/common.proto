@@ -58,6 +58,8 @@ enum ErrorCode {
   DEF_FORBIDDEN = 41;  // the admin forbade this def in sends and lots
   // Paid incidents.
   INCIDENT_QUEUE_FULL = 42;  // the target already has the maximum of paid incidents waiting
+  // Steam did not accept a ticket (or could not be asked). Steam may take minutes after a ticket was cancelled: the client tries again.
+  STEAM_TICKET_REJECTED = 43;
 }
 
 // Attached to failed calls as the "rimlink-error-bin" trailer.

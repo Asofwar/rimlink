@@ -88,6 +88,7 @@
   <Rimlink.Overlay.Chat>Chat</Rimlink.Overlay.Chat>
   <Rimlink.Overlay.Players>Players</Rimlink.Overlay.Players>
   <Rimlink.Flow.Connecting>Connecting to {0}...</Rimlink.Flow.Connecting>
+  <Rimlink.Flow.SteamWait>Waiting for Steam to accept the login, this can take a couple of minutes...</Rimlink.Flow.SteamWait>
   <Rimlink.Flow.LoadingWorld>Loading the shared world...</Rimlink.Flow.LoadingWorld>
   <Rimlink.Flow.Downloading>Downloading your save from the server...</Rimlink.Flow.Downloading>
   <Rimlink.Flow.Uploading>Sending your last save to the server...</Rimlink.Flow.Uploading>

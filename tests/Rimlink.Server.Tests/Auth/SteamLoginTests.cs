@@ -61,6 +61,29 @@ public class SteamLoginTests
         var ex = await Assert.ThrowsAsync<RpcException>(() => auth.LoginAsync(SteamLogin([1, 2, 3])).ResponseAsync);
 
         Assert.Equal(StatusCode.Unauthenticated, ex.StatusCode);
+        Assert.Equal(ErrorCode.SteamTicketRejected, ex.ErrorDetail()?.Code);
+    }
+
+    [Fact]
+    public async Task AServerWithoutASteamKeyDoesNotCallItARejectedTicket()
+    {
+        using var fixture = new ServerFixture();
+        ((FakeSteamVerifier)fixture.Services.GetRequiredService<ISteamTicketVerifier>()).Configured = false;
+        var auth = new Protocol.V1.Auth.AuthClient(fixture.CreateChannel());
+
+        var ex = await Assert.ThrowsAsync<RpcException>(() => auth.LoginAsync(SteamLogin([1, 2, 3])).ResponseAsync);
+
+        Assert.Equal(StatusCode.Unauthenticated, ex.StatusCode);
+        Assert.NotEqual(ErrorCode.SteamTicketRejected, ex.ErrorDetail()?.Code);
+    }
+
+    [Fact]
+    public void TheWebApiVerifierIsConfiguredByItsKey()
+    {
+        static SteamWebApiTicketVerifier With(string key) => new(new HttpClient(), Options.Create(new AuthOptions { SteamWebApiKey = key }));
+
+        Assert.True(With("key").Configured);
+        Assert.False(With(" ").Configured);
     }
 
     [Fact]

@@ -273,6 +273,7 @@ the result a moment later.
 | What you see | What it means / what to do |
 |---|---|
 | `Steam ticket is not valid` + the account dialog | The server cannot verify Steam logins (no Web API key) or Steam is offline. Use a password account. |
+| `Waiting for Steam to accept the login` | Steam has not accepted the login yet. The game keeps trying for about two and a half minutes; after that the account dialog opens. Try again in a minute or two. |
 | `login details are invalid` | Wrong login or password. |
 | `login already taken` / `player name already taken` | Pick another login or player name. |
 | Certificate fingerprint changed | Ask the admin. Accept only if they confirm a new certificate. |

@@ -29,7 +29,7 @@ public static class LoginFlow
             try
             {
                 connection = new RimlinkConnection(endpoint, credentials, pins, RimlinkLog.Instance);
-                var reply = await Login(connection, credentials, endpoint, cts.Token);
+                var reply = await Login(connection, credentials, endpoint, wait, cts.Token);
 
                 if (reply.SessionToken.Length == 0)
                 {
@@ -143,14 +143,23 @@ public static class LoginFlow
             : new LoginOutcome(LoginOutcomeKind.Failed, credentials.LastError);
 
     /// <summary>Connects, re-asking for credentials where a retry can help; everything else propagates.</summary>
-    private static async Task<LoginReply> Login(RimlinkConnection connection, GameCredentials credentials, ServerEndpoint endpoint, CancellationToken ct)
+    private static async Task<LoginReply> Login(RimlinkConnection connection, GameCredentials credentials, ServerEndpoint endpoint, Dialog_Wait wait, CancellationToken ct)
     {
         bool serverPasswordAsked = false;
+        var steamWait = new SteamLoginWait();
         while (true)
         {
             try
             {
                 return await connection.ConnectAsync(ct);
+            }
+            catch (RpcException ex) when (ex.StatusCode == StatusCode.Unauthenticated && !credentials.PreferPassword
+                                          && steamWait.Next(ErrorCodeOf(ex)) is { } delay)
+            {
+                // Steam did not accept the ticket; it may take a couple of minutes, and a new ticket goes with the next try.
+                RimlinkLog.Instance.Info($"Steam refused the ticket, trying again in {delay.TotalSeconds:0} s");
+                MainThread.Post(() => wait.Text = "Rimlink.Flow.SteamWait".Translate());
+                await Task.Delay(delay, ct);
             }
             catch (RpcException ex) when (ex.StatusCode == StatusCode.Unauthenticated && !credentials.PreferPassword)
             {
