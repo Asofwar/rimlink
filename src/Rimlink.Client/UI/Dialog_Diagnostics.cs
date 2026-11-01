@@ -21,7 +21,7 @@ public sealed class Dialog_Diagnostics : Window
         forcePause = true;
         absorbInputAroundWindow = true;
         var connection = RimlinkSession.Connection;
-        var live = MirrorMode.Session ?? RimlinkSession.State.Live.Current;
+        var live = MirrorMode.Session ?? LiveHost.Session;
         var role = MirrorMode.Active ? DiagnosticLiveRole.Guest :
             live is not null && live.Host?.PlayerId == RimlinkSession.MyPlayerId ? DiagnosticLiveRole.Host :
             Game.Visits.VisitSession.Active ? DiagnosticLiveRole.Visitor : DiagnosticLiveRole.None;
