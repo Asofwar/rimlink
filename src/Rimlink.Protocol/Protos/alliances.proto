@@ -1,0 +1,105 @@
+syntax = "proto3";
+package rimlink.v1;
+option csharp_namespace = "Rimlink.Protocol.V1";
+import "common.proto";
+import "google/protobuf/timestamp.proto";
+
+service Community {
+  rpc Get (Empty) returns (CommunityState);
+  rpc Profile (PlayerRef) returns (PublicProfile);
+  rpc Directory (Empty) returns (PublicProfiles);
+  rpc Mutate (CommunityRequest) returns (CommunityReceipt);
+}
+
+enum CommunityAction {
+  COMMUNITY_UNSPECIFIED = 0;
+  ALLIANCE_CREATE = 1;
+  ALLIANCE_INVITE = 2;
+  INVITE_ACCEPT = 3;
+  INVITE_REFUSE = 4;
+  INVITE_REVOKE = 5;
+  ALLIANCE_LEAVE = 6;
+  ALLIANCE_TRANSFER = 7;
+  ALLIANCE_DISBAND = 8;
+  TREASURY_DEPOSIT = 9;
+  TREASURY_WITHDRAW = 10;
+  TREASURY_PERMISSION = 11;
+  ALLIANCE_CHAT = 12;
+  FRIEND_INVITE = 13;
+  FRIEND_REMOVE = 14;
+  PROFILE_UPDATE = 15;
+  PROFILE_RENAME = 16;
+}
+
+// Every mutation is persisted with the caller and the complete original intent.
+message CommunityRequest {
+  string client_request_id = 1;
+  CommunityAction action = 2;
+  int64 alliance_id = 3;
+  int64 player_id = 4;
+  int64 invite_id = 5;
+  int64 silver = 6;
+  string text = 7;
+  bool may_withdraw = 8;
+  int64 daily_cap = 9;
+  bool invitations_open = 10;
+  bool notifications = 11;
+}
+message CommunityReceipt { int64 alliance_id = 1; }
+// No account identifiers, credentials, network addresses or moderation data.
+message PublicProfile {
+  int64 player_id = 1;
+  string name = 2;
+  string bio = 3;
+  google.protobuf.Timestamp last_seen = 4;
+  bool invitations_open = 5;
+  bool notifications = 6;
+}
+message PublicProfiles { repeated PublicProfile players = 1; }
+message CommunityInvite {
+  int64 id = 1;
+  PlayerRef from = 2;
+  PlayerRef to = 3;
+  int64 alliance_id = 4;
+  string alliance_name = 5;
+}
+message AllianceMemberInfo {
+  PlayerRef player = 1;
+  bool may_withdraw = 2;
+  int64 daily_cap = 3;
+  int64 withdrawn_today = 4;
+}
+message AllianceInfo {
+  int64 id = 1;
+  string name = 2;
+  int64 owner_id = 3;
+  int64 silver = 4;
+  repeated AllianceMemberInfo members = 5;
+}
+message AllianceAuditLine {
+  int64 id = 1;
+  int64 actor_id = 2;
+  int64 subject_id = 3;
+  string kind = 4;
+  int64 delta = 5;
+  int64 balance = 6;
+  int64 daily_cap = 7;
+  bool may_withdraw = 8;
+  google.protobuf.Timestamp at = 9;
+}
+message AllianceChatLine {
+  int64 id = 1;
+  PlayerRef from = 2;
+  string text = 3;
+  google.protobuf.Timestamp at = 4;
+}
+message CommunityState {
+  AllianceInfo alliance = 1;
+  repeated CommunityInvite invitations = 2;
+  repeated PlayerRef friends = 3;
+  PublicProfile profile = 4;
+  repeated AllianceAuditLine audit = 5;
+  repeated AllianceChatLine chat = 6;
+}
+// Invalidation only: no private state or chat is broadcast to another group.
+message CommunityChanged {}

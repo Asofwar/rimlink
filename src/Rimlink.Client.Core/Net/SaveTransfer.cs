@@ -16,6 +16,21 @@ public sealed class SaveTransfer(RimlinkConnection connection)
     /// <summary>Compresses the file into memory (saves are tens of MB at most), then streams it; the local file is never touched.</summary>
     public async Task<SaveInfo> UploadAsync(string rwsPath, SaveMeta meta, CancellationToken cancellationToken)
     {
+        try
+        {
+            var info = await UploadCore(rwsPath, meta, cancellationToken);
+            connection.UploadStatus.Succeeded(info.Version);
+            return info;
+        }
+        catch (Exception ex)
+        {
+            connection.UploadStatus.Failed(ex);
+            throw;
+        }
+    }
+
+    private async Task<SaveInfo> UploadCore(string rwsPath, SaveMeta meta, CancellationToken cancellationToken)
+    {
         byte[] compressed;
         using (var compressor = new Compressor(3))
         {

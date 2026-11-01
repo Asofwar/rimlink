@@ -20,7 +20,7 @@ public sealed class Dialog_ServerList : Window
         absorbInputAroundWindow = true;
     }
 
-    public override Vector2 InitialSize => new(560f, 480f);
+    public override Vector2 InitialSize => new(700f, 520f);
 
     public override void DoWindowContents(Rect inRect)
     {
@@ -36,7 +36,9 @@ public sealed class Dialog_ServerList : Window
         foreach (var server in servers)
         {
             var row = new Rect(0f, y, viewRect.width, 30f);
-            Widgets.Label(new Rect(row.x, row.y + 4f, row.width - 200f, 24f), $"{server.Display}  ({server.Host}:{server.Port})");
+            Widgets.Label(new Rect(row.x, row.y + 4f, row.width - 294f, 24f), $"{server.Display}  ({server.Host}:{server.Port})");
+            if (Widgets.ButtonText(new Rect(row.xMax - 290f, row.y, 88f, 28f), "Rimlink.Invite.ExportShort".Translate()))
+                Find.WindowStack.Add(new Dialog_ServerInvite(server));
             if (Widgets.ButtonText(new Rect(row.xMax - 196f, row.y, 100f, 28f), "Rimlink.Servers.Connect".Translate()))
             {
                 Close();
@@ -75,5 +77,9 @@ public sealed class Dialog_ServerList : Window
                 Messages.Message("Rimlink.Servers.Invalid".Translate(), MessageTypeDefOf.RejectInput, historical: false);
             }
         }
+        if (Widgets.ButtonText(new Rect(172f, formY + 36f, 244f, 32f), "Rimlink.Invite.Import".Translate()))
+            Find.WindowStack.Add(new Dialog_ServerInvite());
+        if (Widgets.ButtonText(new Rect(428f, formY + 36f, 220f, 32f), "Rimlink.Diagnostics.Title".Translate()))
+            Find.WindowStack.Add(new Dialog_Diagnostics());
     }
 }

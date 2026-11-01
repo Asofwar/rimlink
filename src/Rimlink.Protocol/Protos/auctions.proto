@@ -1,0 +1,50 @@
+syntax = "proto3";
+package rimlink.v1;
+option csharp_namespace = "Rimlink.Protocol.V1";
+import "common.proto";
+import "economy.proto";
+import "google/protobuf/timestamp.proto";
+
+enum AuctionStatus {
+  AUCTION_OPEN = 0;
+  AUCTION_SOLD = 1;
+  AUCTION_CANCELLED = 2;
+  AUCTION_EXPIRED = 3;
+}
+message Auction {
+  int64 id = 1;
+  PlayerRef seller = 2;
+  ItemList items = 3; // descriptors only; winning goods arrive through Mailbox
+  int64 start_price = 4;
+  int64 buyout_price = 5; // zero means no buyout
+  int64 bid = 6;
+  PlayerRef bidder = 7;
+  google.protobuf.Timestamp expires_at = 8;
+  google.protobuf.Timestamp max_expires_at = 9;
+  AuctionStatus status = 10;
+  string close_reason = 11;
+}
+message AuctionPostRequest {
+  string client_request_id = 1;
+  ItemList items = 2;
+  int64 start_price = 3;
+  int64 buyout_price = 4;
+  int32 duration_seconds = 5;
+  int64 game_tick = 6;
+}
+message AuctionBidRequest {
+  string client_request_id = 1;
+  int64 auction_id = 2;
+  int64 amount = 3; // exact buyout price when buyout=true; never silently debit a different amount
+  bool buyout = 4;
+}
+message AuctionCancelRequest { string client_request_id = 1; int64 auction_id = 2; }
+message AuctionQuery { int32 page = 1; bool mine = 2; }
+message AuctionList { repeated Auction auctions = 1; bool has_more = 2; }
+message AuctionUpdated { Auction auction = 1; }
+service Auctions {
+  rpc List (AuctionQuery) returns (AuctionList);
+  rpc Post (AuctionPostRequest) returns (Auction);
+  rpc Bid (AuctionBidRequest) returns (Auction);
+  rpc Cancel (AuctionCancelRequest) returns (Auction);
+}

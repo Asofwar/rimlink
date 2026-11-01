@@ -1,5 +1,7 @@
 # Rimlink — player guide
 
+Alliances, shared silver, friends and public profiles: [Social window guide](community.md).
+
 Rimlink lets a group of players share one RimWorld 1.7 planet. Each player runs their own
 colony in their own game; the server keeps the shared world map, everyone's settlements, the
 chat and your save games. Your colony is frozen while you are offline.
@@ -17,6 +19,12 @@ You also need a server to join: Rimlink is the client, and it has no server of i
 [run one yourself](server-setup.md). Your Rimlink has to fit that server: when the versions differ, the login says so.
 
 ## 2. Connect
+
+For a server link shared by someone you trust, use **Multiplayer → Import server invitation**,
+review the address and certificate, then explicitly add the bookmark and trust it. An existing
+different certificate blocks import. To share a server you have already verified, use **Invite**
+beside its bookmark and confirm copying. See [invitations and local diagnostics](client-diagnostics-invites.md)
+for the format, privacy limits and the local ZIP export available from **Diagnostics** in the server list or overlay.
 
 Many servers have a public page at `https://<address>:<port>/`: it lists the modpack in load order with Workshop
 links (subscribe before the first connection), the login modes, the address to add and the certificate fingerprint.
@@ -226,6 +234,10 @@ player and the event, a level for hostile ones (level 1 is half of the colony's 
 half, 4 double) and **By drop pods** where it is offered; the price comes from the server before you pay and follows the
 target's wealth, server-held wealth included, the level and the event.
 
+If the order's answer is lost, the tab shows the original order and **Retry original order**. Resolve it before choosing
+another target or event: retries keep the original request and cannot charge twice. The request is saved locally and also
+retried after reconnecting or logging in again, even if you closed the economy window.
+
 - **Hostile** (raids, infestation) and **weather** events obey the same rules as raids: nobody in peaceful mode on either
   side, no new colonies, no colonies under the poor-colony threshold, and they share the cooldown on a target with raids.
 - **Gifts** (a trader, a resource pod, a wanderer) only have a short cooldown per target.
@@ -302,3 +314,24 @@ the result a moment later.
 | Save upload failed (message in the log) | The upload is retried at your next login; do not delete `Saves/Rimlink/`. |
 
 Logs: `Player.log` in RimWorld's log folder; Rimlink lines are prefixed with `[Rimlink]`.
+
+## Item auctions
+
+Open **Auctions** in the comms console's Rimlink window. **New auction** selects items under trade beacons
+(no pawns), a starting price, an optional buyout price (`0` disables it) and a duration in hours. Posting saves and uploads
+the colony without those items before creating the auction. Auctions and fixed-price lots share the server's open-lot limit.
+
+Bid with silver already in your wallet. A bid reserves its full amount; raising your own bid reserves only the difference.
+An outbid player receives their silver back immediately. The seller cannot bid and can cancel only before the first bid.
+**Buy out** confirms the exact displayed price and closes the auction immediately. A bid during the last 30 seconds adds
+30 seconds to the deadline, up to five minutes beyond the original deadline.
+
+The server finishes auctions while both players are offline. The winner gets the items by mailbox; the seller gets wallet
+proceeds less the existing market/storage fees. No bids means the items return to the seller's mailbox. A full mailbox
+does not discard committed auction goods. Frozen auctions wait for trading to reopen; admin cancellation refunds both
+sides. Colony reset/archive cancels affected auctions and returns both escrows. Forbidden defs and the seller's threat/debt
+are checked when posting; goods already in escrow can finish after these rules change, as fixed-price lots do.
+
+**My auctions / bids** also shows completed auctions in which you are the seller or final bidder. If a response is lost,
+use **Retry pending operations** or reconnect: the original operation is replayed with its saved ID. Do not remove the
+outbox file. A wallet at its numeric limit can postpone a refund or settlement; spend silver to leave room or contact an admin.

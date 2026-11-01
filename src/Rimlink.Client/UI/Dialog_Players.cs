@@ -30,8 +30,10 @@ public sealed class Dialog_Players : Window
 
     public override void DoWindowContents(Rect inRect)
     {
+        if (Widgets.ButtonText(new Rect(inRect.width - 128f, 0f, 122f, 30f), "Rimlink.Community.Title".Translate()))
+            Find.WindowStack.Add(new Dialog_Community());
         Text.Font = GameFont.Medium;
-        Widgets.Label(new Rect(0f, 0f, inRect.width, 36f), "Rimlink.Players.Title".Translate(RimlinkSession.State.Players.Online.Count));
+        Widgets.Label(new Rect(0f, 0f, inRect.width - 134f, 36f), "Rimlink.Players.Title".Translate(RimlinkSession.State.Players.Online.Count));
         Text.Font = GameFont.Small;
         var social = RimlinkSession.State.Social;
         var players = RimlinkSession.State.Players.Online.OrderBy(p => p.Name).ToList();
@@ -45,7 +47,7 @@ public sealed class Dialog_Players : Window
             bool blocked = social.IsBlocked(p.PlayerId);
             if (blocked) GUI.color = Color.gray;
             string name = blocked ? "Rimlink.Social.BlockedName".Translate(p.Name).ToString() : $"{p.Name}  ({p.FactionName})";
-            Widgets.Label(new Rect(0f, y + 3f, w - 266f, 24f), name);
+            if (Widgets.ButtonText(new Rect(0f, y, w - 266f, 26f), name)) Find.WindowStack.Add(new Dialog_Community(p.PlayerId));
             GUI.color = Color.white;
             if (p.PlayerId != RimlinkSession.MyPlayerId)
             {

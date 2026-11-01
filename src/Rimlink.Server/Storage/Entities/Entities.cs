@@ -389,6 +389,8 @@ public sealed class LiveSession
     /// <summary>Set while Waiting: when the lost peer went missing, and who.</summary>
     public DateTime? WaitingSince { get; set; }
     public long? LostPlayerId { get; set; }
+    // Existing host pawns assigned to a coop guest; never serialized pawn escrow.
+    public string? ColonyPawnIds { get; set; }
 }
 
 public sealed class Visit

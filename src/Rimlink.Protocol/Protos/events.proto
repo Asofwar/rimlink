@@ -14,6 +14,11 @@ import "live.proto";
 import "visits.proto";
 import "trades.proto";
 import "incidents.proto";
+import "procurement.proto";
+
+import "auctions.proto";
+
+import "alliances.proto";
 
 // One server-push stream per session; everything that changes arrives here.
 service Events {
@@ -56,6 +61,11 @@ message ServerEvent {
     PingEvent ping = 78;
     IncidentQueued incident_queued = 80;
     IncidentResolved incident_resolved = 81;
+    ProcurementChanged procurement_changed = 90;
+
+    AuctionUpdated auction_updated = 110;
+
+    CommunityChanged community_changed = 100;
   }
 }
 

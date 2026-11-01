@@ -7,7 +7,7 @@ using Verse;
 namespace Rimlink.Client.UI.Economy;
 
 /// <summary>Checkbox list of launchable things (under trade beacons) with per-stack counts, plus colonists and animals.</summary>
-public sealed class ThingPicker(Map map, bool allowPawns)
+public sealed class ThingPicker(Map map, bool allowPawns, bool includeSilver = false)
 {
     private readonly Dictionary<Thing, int> counts = [];
     private readonly Dictionary<Thing, string> buffers = [];
@@ -30,7 +30,7 @@ public sealed class ThingPicker(Map map, bool allowPawns)
         var source = BlobDebugActions.PickAnywhere && Prefs.DevMode
             ? map.listerThings.AllThings.Where(t => t.def.category == ThingCategory.Item && t.Spawned && !t.Position.Fogged(map))
             : TradeUtility.AllLaunchableThingsForTrade(map);
-        var things = source.Where(t => t.def != ThingDefOf.Silver).OrderBy(t => t.LabelCapNoCount).ToList();
+        var things = source.Where(t => includeSilver || t.def != ThingDefOf.Silver).OrderBy(t => t.LabelCapNoCount).ToList();
         var colonists = allowPawns ? map.mapPawns.FreeColonistsSpawned.Concat(map.mapPawns.SpawnedColonyAnimals).ToList() : [];
         float height = (things.Count + colonists.Count) * 28f + (allowPawns ? 30f : 0f) + 30f;
         Widgets.BeginScrollView(rect, ref scroll, new Rect(0f, 0f, rect.width - 16f, Math.Max(height, rect.height)));

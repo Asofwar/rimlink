@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <Rimlink.Colonies.Title>Совместная колония</Rimlink.Colonies.Title>
+  <Rimlink.Colonies.Kind>Совместная игра</Rimlink.Colonies.Kind>
+  <Rimlink.Colonies.Limits>Хозяин ведёт симуляцию и сохраняет колонию. Одновременно один партнёр управляет выделенными колонистами; без хозяина прогресс приостановлен. Членство сохраняется между сессиями.</Rimlink.Colonies.Limits>
+  <Rimlink.Colonies.Refresh>Обновить</Rimlink.Colonies.Refresh>
+  <Rimlink.Colonies.Empty>Пригласите игрока в свою колонию или обновите список, чтобы увидеть приглашения других хозяев.</Rimlink.Colonies.Empty>
+  <Rimlink.Colonies.Invite>Пригласить игрока онлайн</Rimlink.Colonies.Invite>
+  <Rimlink.Colonies.Access>{0}: {1}; выделено колонистов: {2}</Rimlink.Colonies.Access>
+  <Rimlink.Colonies.Accepted>участник</Rimlink.Colonies.Accepted>
+  <Rimlink.Colonies.Pending>ожидает согласия</Rimlink.Colonies.Pending>
+  <Rimlink.Colonies.Accept>Принять</Rimlink.Colonies.Accept>
+  <Rimlink.Colonies.Assign>Выделить колонистов</Rimlink.Colonies.Assign>
+  <Rimlink.Colonies.AssignHelp>Разрешить управление этими колонистами (до 32). Изменение назначения завершает текущую сессию.</Rimlink.Colonies.AssignHelp>
+  <Rimlink.Colonies.Apply>Применить назначение</Rimlink.Colonies.Apply>
+  <Rimlink.Colonies.Join>Войти в колонию</Rimlink.Colonies.Join>
+  <Rimlink.Colonies.Revoke>Отозвать доступ</Rimlink.Colonies.Revoke>
+  <Rimlink.Colonies.Leave>Покинуть колонию</Rimlink.Colonies.Leave>
+  <Rimlink.Colonies.RevokeConfirm>Прекратить совместный доступ с {0}? Текущая совместная сессия завершится. Колонисты останутся у хозяина.</Rimlink.Colonies.RevokeConfirm>
+  <Rimlink.Colonies.NeedHome>Сначала вернитесь в свою колонию и завершите текущую сессию.</Rimlink.Colonies.NeedHome>
+  <Rimlink.Colonies.PawnsUnavailable>Выделенных колонистов нет на этой домашней карте. Обновите назначение.</Rimlink.Colonies.PawnsUnavailable>
+  <Rimlink.Refusal.Colonies.Permission>Нет доступа к этой колонии: приглашение не принято, заблокировано или отозвано.</Rimlink.Refusal.Colonies.Permission>
+  <Rimlink.Refusal.Colonies.Invalid>Выберите подходящего игрока или назначение. Доступно восемь участников и до 32 выделенных колонистов.</Rimlink.Refusal.Colonies.Invalid>
+  <Rimlink.Refusal.Colonies.NoPawns>Хозяин колонии ещё не выделил колонистов.</Rimlink.Refusal.Colonies.NoPawns>
+  <Rimlink.Refusal.Colonies.UpdateClient>Для совместной колонии оба игрока должны обновить мод.</Rimlink.Refusal.Colonies.UpdateClient>
+</LanguageData>

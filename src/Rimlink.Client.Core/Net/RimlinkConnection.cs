@@ -78,15 +78,19 @@ public sealed class RimlinkConnection : IAsyncDisposable
         WalletApi = new Protocol.V1.Wallet.WalletClient(channel);
         MailboxApi = new Protocol.V1.Mailbox.MailboxClient(channel);
         MarketApi = new Protocol.V1.Market.MarketClient(channel);
+        AuctionsApi = new Protocol.V1.Auctions.AuctionsClient(channel);
         TransferApi = new Protocol.V1.Transfer.TransferClient(channel);
         RaidsApi = new Protocol.V1.Raids.RaidsClient(channel);
         VisitsApi = new Protocol.V1.Visits.VisitsClient(channel);
         ShopApi = new Protocol.V1.Shop.ShopClient(channel);
         LiveApi = new Protocol.V1.Live.LiveClient(channel);
+        ProcurementApi = new Protocol.V1.Procurement.ProcurementClient(channel);
         TradesApi = new Protocol.V1.Trades.TradesClient(channel);
         SocialApi = new Protocol.V1.Social.SocialClient(channel);
+        CommunityApi = new Protocol.V1.Community.CommunityClient(channel);
         AwayApi = new Protocol.V1.Away.AwayClient(channel);
         IncidentsApi = new Protocol.V1.Incidents.IncidentsClient(channel);
+        ColoniesApi = new Protocol.V1.Colonies.ColoniesClient(channel);
     }
 
     /// <summary>Pins live next to the game's config; the game layer sets the path before the first connection.</summary>
@@ -102,6 +106,7 @@ public sealed class RimlinkConnection : IAsyncDisposable
 
     public ServerEndpoint Endpoint => endpoint;
     public ConnectionState State => state;
+    public Diagnostics.UploadStatus UploadStatus { get; } = new();
 
     /// <summary>When the current outage began (UTC) while the connection is reconnecting; null otherwise.</summary>
     public DateTime? ReconnectingSince => Interlocked.Read(ref reconnectingSinceTicks) is var t and not 0 ? new DateTime(t, DateTimeKind.Utc) : null;
@@ -125,15 +130,19 @@ public sealed class RimlinkConnection : IAsyncDisposable
     public Protocol.V1.Wallet.WalletClient WalletApi { get; }
     public Protocol.V1.Mailbox.MailboxClient MailboxApi { get; }
     public Protocol.V1.Market.MarketClient MarketApi { get; }
+    public Protocol.V1.Auctions.AuctionsClient AuctionsApi { get; }
     public Protocol.V1.Transfer.TransferClient TransferApi { get; }
     public Protocol.V1.Raids.RaidsClient RaidsApi { get; }
     public Protocol.V1.Visits.VisitsClient VisitsApi { get; }
     public Protocol.V1.Shop.ShopClient ShopApi { get; }
     public Protocol.V1.Live.LiveClient LiveApi { get; }
+    public Protocol.V1.Procurement.ProcurementClient ProcurementApi { get; }
     public Protocol.V1.Trades.TradesClient TradesApi { get; }
     public Protocol.V1.Social.SocialClient SocialApi { get; }
+    public Protocol.V1.Community.CommunityClient CommunityApi { get; }
     public Protocol.V1.Away.AwayClient AwayApi { get; }
     public Protocol.V1.Incidents.IncidentsClient IncidentsApi { get; }
+    public Protocol.V1.Colonies.ColoniesClient ColoniesApi { get; }
 
     /// <summary>Logs in and starts the event stream. A modpack mismatch returns the reply (no token) and leaves the connection down.</summary>
     public async Task<LoginReply> ConnectAsync(CancellationToken cancellationToken)

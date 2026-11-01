@@ -125,6 +125,36 @@ public static class Outgoing
             });
     }
 
+    public static void SupplyProcurement(Map map, ProcurementEntry order, IReadOnlyList<Pick> picks)
+    {
+        if (RefusedInVisit(picks.Count) || RefusedUnderThreat(picks.Count, 0) || RefusedInDebt()) return;
+        long units = picks.Sum(p => (long)p.Count);
+        int remaining = order.Quantity - order.Supplied;
+        if (units <= 0 || units > remaining || picks.Any(p => p.Thing.def.defName != order.DefName)
+            || (order.Kind == ProcurementKind.SupplyContract && units != remaining))
+        {
+            Messages.Message("Rimlink.Refusal.Procurement.Goods".Translate(), MessageTypeDefOf.RejectInput, historical: false);
+            return;
+        }
+        if (CheckLimits(picks.Count, 0) is { } limit) { Messages.Message(limit, MessageTypeDefOf.RejectInput, historical: false); return; }
+        var taken = TakeFromMap(map, picks, []);
+        if (taken is null) return;
+        Run(taken, "Rimlink.Procurement.Submitted".Translate(),
+            (items, _, tick) => new ProcurementSupply { ClientRequestId = EconomyClient.NewRequestId(), ProcurementId = order.Id, Items = items, GameTick = tick },
+            request => RimlinkSession.Procurement!.Supply((ProcurementSupply)request, CancellationToken.None));
+    }
+
+    public static void PostAuction(Map map, IReadOnlyList<Pick> picks, long startPrice, long buyoutPrice, int durationSeconds)
+    {
+        if (picks.Count == 0 || RefusedInVisit(picks.Count) || RefusedUnderThreat(picks.Count, 0) || RefusedInDebt()) return;
+        if (CheckLimits(picks.Count, 0) is { } limit) { Messages.Message(limit, MessageTypeDefOf.RejectInput, historical: false); return; }
+        var taken = TakeFromMap(map, picks, []);
+        if (taken is null) return;
+        Run(taken, "Rimlink.Auctions.Posted".Translate(),
+            (items, _, tick) => new AuctionPostRequest { ClientRequestId = EconomyClient.NewRequestId(), Items = items, StartPrice = startPrice, BuyoutPrice = buyoutPrice, DurationSeconds = durationSeconds, GameTick = tick },
+            async request => { await RimlinkSession.Economy!.PostAuction((AuctionPostRequest)request, CancellationToken.None); });
+    }
+
     public static void PostLot(Map map, IReadOnlyList<Pick> picks, Pawn? pawn, long price)
     {
         IReadOnlyList<Pawn> pawns = pawn is null ? [] : [pawn];
@@ -325,6 +355,9 @@ public static class Outgoing
         var things = new List<Thing>();
         switch (request)
         {
+            case AuctionPostRequest auction:
+                foreach (var i in auction.Items.Items) things.Add(ThingBlobs.DeserializeItem(i));
+                break;
             case TransferRequest send:
                 foreach (var i in send.Items.Items) things.Add(ThingBlobs.DeserializeItem(i));
                 foreach (var p in send.Pawns.Pawns) things.Add(ThingBlobs.DeserializePawn(p));
@@ -341,6 +374,9 @@ public static class Outgoing
                 break;
             case LiveProposal proposal:
                 foreach (var p in proposal.Pawns.Pawns) things.Add(ThingBlobs.DeserializePawn(p));
+                break;
+            case ProcurementSupply supply:
+                foreach (var i in supply.Items.Items) things.Add(ThingBlobs.DeserializeItem(i));
                 break;
             case TradeOpenRequest open:
                 foreach (var i in open.Items.Items) things.Add(ThingBlobs.DeserializeItem(i));

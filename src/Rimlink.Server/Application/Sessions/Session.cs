@@ -20,4 +20,5 @@ public sealed class Session
     public Protocol.V1.ColonyRestore? ColonyRestore { get; set; }
     /// <summary>Presence for live sessions: the client reports whether the player is on their home map.</summary>
     public volatile bool AtHome;
+    public volatile bool CoopCapable;
 }

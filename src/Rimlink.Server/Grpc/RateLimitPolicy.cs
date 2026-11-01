@@ -9,6 +9,8 @@ public static class RateLimitPolicy
     {
         ["/rimlink.v1.Chat/Send"] = (5, TimeSpan.FromSeconds(5)),
         ["/rimlink.v1.Chat/Ping"] = (12, TimeSpan.FromMinutes(1)),
+        ["/rimlink.v1.Community/Mutate"] = (5, TimeSpan.FromSeconds(5)),
+        ["/rimlink.v1.Community/Directory"] = (5, TimeSpan.FromSeconds(10)),
         ["/rimlink.v1.Saves/Upload"] = (3, TimeSpan.FromSeconds(30)), // a transfer, a delivery and a leave can each save within half a minute
         ["/rimlink.v1.World/Settle"] = (1, TimeSpan.FromSeconds(10)),
         ["/rimlink.v1.Auth/Login"] = (10, TimeSpan.FromSeconds(60)),
@@ -16,7 +18,12 @@ public static class RateLimitPolicy
         // Economy: one outgoing transfer per cooldown (Economy:SendCooldownSeconds is read by the interceptor for these two).
         ["/rimlink.v1.Transfer/Send"] = (1, TimeSpan.FromSeconds(5)),
         ["/rimlink.v1.Trades/Open"] = (1, TimeSpan.FromSeconds(5)),
+        ["/rimlink.v1.Auctions/Post"] = (1, TimeSpan.FromSeconds(5)),
+        ["/rimlink.v1.Auctions/Bid"] = (6, TimeSpan.FromSeconds(5)),
+        ["/rimlink.v1.Auctions/Cancel"] = (6, TimeSpan.FromSeconds(5)),
         ["/rimlink.v1.Trades/SetSide"] = (1, TimeSpan.FromSeconds(5)),
+        ["/rimlink.v1.Procurement/Create"] = (1, TimeSpan.FromSeconds(5)),
+        ["/rimlink.v1.Procurement/Supply"] = (1, TimeSpan.FromSeconds(5)),
         ["/rimlink.v1.Market/Post"] = (1, TimeSpan.FromSeconds(5)),
         ["/rimlink.v1.Raids/Launch"] = (1, TimeSpan.FromSeconds(5)),
         ["/rimlink.v1.Shop/Buy"] = (1, TimeSpan.FromSeconds(5)),

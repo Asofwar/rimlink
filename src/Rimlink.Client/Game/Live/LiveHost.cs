@@ -66,6 +66,11 @@ public static class LiveHost
         LiveTempo.UseBudget(session);
         LiveTempo.RememberSpeed();
         Messages.Message("Rimlink.Live.Starting".Translate(session.Guest?.Name ?? "?"), MessageTypeDefOf.NeutralEvent, historical: false);
+        if (session.Kind == LiveKind.LiveCoop)
+        {
+            BeginCoop(session, live);
+            return;
+        }
         _ = Task.Run(async () =>
         {
             try
@@ -88,6 +93,30 @@ public static class LiveHost
                 _ = live.Cancel(session.Id, CancellationToken.None);
             }
         });
+    }
+
+    private static void BeginCoop(LiveSession session, LiveClient live)
+    {
+        var map = Find.AnyPlayerHomeMap!;
+        var assigned = map.mapPawns.FreeColonistsSpawned.Where(p => session.ColonyPawnIds.Contains(p.thingIDNumber)).ToList();
+        if (assigned.Count != session.ColonyPawnIds.Count || assigned.Count == 0)
+        {
+            Starting = false;
+            Session = null;
+            _ = live.Cancel(session.Id, CancellationToken.None);
+            Messages.Message("Rimlink.Colonies.PawnsUnavailable".Translate(), MessageTypeDefOf.RejectInput, historical: false);
+            return;
+        }
+        Map = map;
+        emptyChecks = 0;
+        guestSeen = false;
+        refusedDeltas = 0;
+        sentHealth.Clear();
+        var owners = MapComponent_LiveOwners.Of(map);
+        foreach (var pawn in assigned) owners.Loan(pawn, session.Guest.PlayerId);
+        LiveTempo.Begin();
+        collector = new DeltaCollector(map);
+        Snapshot(live, first: true);
     }
 
     private static void Spawn(LiveSession session, PawnList pawns, long cap, LiveClient live)
@@ -337,6 +366,7 @@ public static class LiveHost
     public static bool TryRecordExit(Pawn pawn)
     {
         if (!Active || Session is null || Map is not { } map || pawn.Map != map) return false;
+        if (Session.Kind == LiveKind.LiveCoop) return false; // a host pawn leaving its own map is never raid loot
         var owners = MapComponent_LiveOwners.Of(map);
         if (owners.OwnerOf(pawn) != Session.Guest.PlayerId || exits.Any(e => e.PawnId == pawn.thingIDNumber)) return false;
         if (Session.Kind == LiveKind.LiveVisit) StripForeignGear(pawn, owners, visit: true);
@@ -481,6 +511,13 @@ public static class LiveHost
     private static void Resolve(LiveSession session, Map map)
     {
         var owners = MapComponent_LiveOwners.Of(map);
+        if (session.Kind == LiveKind.LiveCoop)
+        {
+            owners.ForgetAll(session.Guest.PlayerId);
+            RaidResolver.ReportOnly(new RaidReport { LiveSessionId = session.Id, GameTick = Find.TickManager.TicksGame, Loot = new ItemList(), Captives = new PawnList() });
+            SaveSync.TriggerSave("coop-ended");
+            return;
+        }
         var ids = owners.IdsOf(session.Guest.PlayerId);
         var raid = new ActiveRaid
         {
@@ -536,6 +573,7 @@ public static class LiveHost
                 int n = 0;
                 foreach (var p in map.mapPawns.AllPawns.Where(p => owners.OwnerOf(p) == owner).ToList())
                 {
+                    if (owners.IsLoaned(p)) continue;
                     PawnExit.Remove(p);
                     n++;
                 }

@@ -235,7 +235,8 @@ public static class LoginFlow
         {
             var live = RimlinkSession.Live ?? new Rimlink.Client.Live.LiveClient(connection, RimlinkLog.Instance);
             var trades = new Rimlink.Client.Social.TradesClient(connection);
-            if (outbox is not null) await outbox.Replay(new Rimlink.Client.Economy.OutboxClients(economy, raids, new Rimlink.Client.Visits.ShopClient(connection), live, trades), ct);
+            var incidents = new Rimlink.Client.Incidents.IncidentClient(connection);
+            if (outbox is not null) await outbox.Replay(new Rimlink.Client.Economy.OutboxClients(economy, raids, new Rimlink.Client.Visits.ShopClient(connection), live, trades, Incidents: incidents, Procurement: new Rimlink.Client.Procurement.ProcurementClient(connection), Community: new Rimlink.Client.Social.CommunityClient(connection)), ct);
             Rimlink.Protocol.V1.EconomyRules? rules = null;
             try { rules = await economy.Rules(ct); }
             catch (RpcException ex) { RimlinkLog.Instance.Warn("economy rules not loaded: " + Rimlink.Client.Economy.EconomyClient.MessageOf(ex)); }
@@ -243,7 +244,6 @@ public static class LoginFlow
             RimlinkSession.State.Raids.Load(await raids.Pending(ct), await raids.Mine(ct), await raids.Flags(ct));
             try
             {
-                var incidents = new Rimlink.Client.Incidents.IncidentClient(connection);
                 RimlinkSession.State.Incidents.Load(await incidents.Pending(ct), await incidents.Mine(ct), await incidents.Catalog(ct));
             }
             catch (RpcException ex) { RimlinkLog.Instance.Warn("paid incidents not loaded: " + Rimlink.Client.Economy.EconomyClient.MessageOf(ex)); }

@@ -78,7 +78,7 @@ public sealed class Formatter(Strings s)
         return s.Maybe($"live.reason.{reason}") ?? Escape(reason);
     }
 
-    private static string Kind(JsonElement d) => d.TryGetProperty("kind", out var k) && k.GetString() == "visit" ? "visit" : "raid";
+    private static string Kind(JsonElement d) => d.TryGetProperty("kind", out var k) && k.GetString() is "visit" or "coop" ? k.GetString()! : "raid";
 
     private static bool Has(JsonElement d, string name) =>
         d.ValueKind == JsonValueKind.Object && d.TryGetProperty(name, out var v) && v.ValueKind is not (JsonValueKind.Null or JsonValueKind.Undefined);

@@ -23,8 +23,15 @@ public sealed class ServerWealth(RimlinkDbContext db, IOptions<EconomyOptions> o
         if (!o.Enabled) return 0;
 
         decimal sum = Math.Max(0, (await db.Wallets.AsNoTracking().FirstOrDefaultAsync(w => w.PlayerId == playerId))?.Balance ?? 0);
+        // The whole treasury belongs to its refund recipient for wealth; members never count it again.
+        sum += await db.Set<AllianceGroup>().AsNoTracking().Where(g => g.OwnerId == playerId && !g.Disbanded).SumAsync(g => g.Silver);
         foreach (var lot in await db.Lots.AsNoTracking().Where(l => l.SellerPlayerId == playerId && l.Status == LotStatusDb.Open).ToListAsync())
             sum += ValueOf(lot);
+        foreach (var auction in await db.Set<AuctionRow>().AsNoTracking().Where(a => a.Status == 0 && (a.SellerPlayerId == playerId || a.BidderPlayerId == playerId)).ToListAsync())
+        {
+            if (auction.SellerPlayerId == playerId) sum += ValueOf(ItemList.Parser.ParseFrom(auction.Items));
+            if (auction.BidderPlayerId == playerId) sum += auction.Bid;
+        }
         foreach (var trade in await db.Trades.AsNoTracking().Where(t => t.Status == TradeStatusDb.Open && (t.InitiatorPlayerId == playerId || t.PartnerPlayerId == playerId)).ToListAsync())
         {
             bool initiator = trade.InitiatorPlayerId == playerId;
@@ -39,6 +46,7 @@ public sealed class ServerWealth(RimlinkDbContext db, IOptions<EconomyOptions> o
                 sum += (decimal)ValueOf(ItemList.Parser.ParseFrom(parcel.Items)) + ValueOf(PawnList.Parser.ParseFrom(parcel.Pawns));
         }
 
+        sum += await Procurement.ProcurementService.HeldWealth(db, playerId);
         return Saturate(sum * Math.Clamp(o.ServerWealthPercent, 0, 1000) / 100m);
     }
 

@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <Rimlink.Refusal.Community.WalletLimit>Кошелёк получателя не вмещает такую сумму серебра.</Rimlink.Refusal.Community.WalletLimit>
+  <Rimlink.Refusal.Community.Rename>Имя игрока недопустимо или уже занято.</Rimlink.Refusal.Community.Rename>
+  <Rimlink.Community.SetCap>Лимит</Rimlink.Community.SetCap>
+  <Rimlink.Community.Rename>Изменить имя</Rimlink.Community.Rename>
+  <Rimlink.Community.Invited>{0} приглашает вас: {1}. Откройте Игроки → Общение → Приглашения.</Rimlink.Community.Invited>
+  <Rimlink.Community.Title>Общение</Rimlink.Community.Title>
+  <Rimlink.Community.Refresh>Обновить</Rimlink.Community.Refresh>
+  <Rimlink.Community.People>Игроки / друзья</Rimlink.Community.People>
+  <Rimlink.Community.Alliance>Союз</Rimlink.Community.Alliance>
+  <Rimlink.Community.Invitations>Приглашения</Rimlink.Community.Invitations>
+  <Rimlink.Community.Profile>Профиль</Rimlink.Community.Profile>
+  <Rimlink.Community.Pending>Запрос сохранён без ответа. Переподключитесь для его завершения перед новой операцией.</Rimlink.Community.Pending>
+  <Rimlink.Community.Loading>Обновление социальных данных…</Rimlink.Community.Loading>
+  <Rimlink.Community.Friend>Друг</Rimlink.Community.Friend>
+  <Rimlink.Community.Ally>Союзник</Rimlink.Community.Ally>
+  <Rimlink.Community.AllyLabel>[Союзник] {0}</Rimlink.Community.AllyLabel>
+  <Rimlink.Community.Unfriend>Удалить друга</Rimlink.Community.Unfriend>
+  <Rimlink.Community.AddFriend>Добавить друга</Rimlink.Community.AddFriend>
+  <Rimlink.Community.InviteAlly>Пригласить в союз</Rimlink.Community.InviteAlly>
+  <Rimlink.Community.NoAlliance>У вас нет союза. Создайте его или примите приглашение. Максимум 16 участников.</Rimlink.Community.NoAlliance>
+  <Rimlink.Community.Create>Создать союз</Rimlink.Community.Create>
+  <Rimlink.Community.GroupSummary>{0} — казна: {1} серебра</Rimlink.Community.GroupSummary>
+  <Rimlink.Community.Disband>Распустить союз</Rimlink.Community.Disband>
+  <Rimlink.Community.Leave>Выйти из союза</Rimlink.Community.Leave>
+  <Rimlink.Community.DisbandConfirm>Распустить союз? Всё оставшееся серебро вернётся на кошелёк владельца.</Rimlink.Community.DisbandConfirm>
+  <Rimlink.Community.LeaveConfirm>Выйти из союза? Внесённое серебро останется в казне союза.</Rimlink.Community.LeaveConfirm>
+  <Rimlink.Community.TransferConfirm>Передать союз этому участнику? Богатство казны и возврат при роспуске перейдут к нему.</Rimlink.Community.TransferConfirm>
+  <Rimlink.Community.Silver>Серебро</Rimlink.Community.Silver>
+  <Rimlink.Community.Deposit>Пополнить</Rimlink.Community.Deposit>
+  <Rimlink.Community.Withdraw>Снять</Rimlink.Community.Withdraw>
+  <Rimlink.Community.DailyCap>Лимит в сутки (UTC)</Rimlink.Community.DailyCap>
+  <Rimlink.Community.Owner>Владелец</Rimlink.Community.Owner>
+  <Rimlink.Community.NoWithdraw>Снятие запрещено</Rimlink.Community.NoWithdraw>
+  <Rimlink.Community.Revoke>Отозвать</Rimlink.Community.Revoke>
+  <Rimlink.Community.Grant>Разрешить снятие</Rimlink.Community.Grant>
+  <Rimlink.Community.Transfer>Владелец</Rimlink.Community.Transfer>
+  <Rimlink.Community.Chat>Чат союза — текущие участники, история с момента вступления</Rimlink.Community.Chat>
+  <Rimlink.Community.Send>Отправить</Rimlink.Community.Send>
+  <Rimlink.Community.Audit>Журнал казны и членства (последние 100 записей)</Rimlink.Community.Audit>
+  <Rimlink.Community.Accept>Принять</Rimlink.Community.Accept>
+  <Rimlink.Community.Refuse>Отклонить</Rimlink.Community.Refuse>
+  <Rimlink.Community.LastSeen>Последняя активность: {0}</Rimlink.Community.LastSeen>
+  <Rimlink.Community.Unknown>неизвестно</Rimlink.Community.Unknown>
+  <Rimlink.Community.InvitationsOpen>Принимать социальные приглашения</Rimlink.Community.InvitationsOpen>
+  <Rimlink.Community.InvitationsClosed>Социальные приглашения закрыты</Rimlink.Community.InvitationsClosed>
+  <Rimlink.Community.Notifications>Показывать уведомления о приглашениях</Rimlink.Community.Notifications>
+  <Rimlink.Community.Save>Сохранить профиль</Rimlink.Community.Save>
+  <Rimlink.Community.MyProfile>Мой профиль</Rimlink.Community.MyProfile>
+  <Rimlink.Community.InvalidNumber>Введите допустимую сумму серебра или дневной лимит (не более 1000000000).</Rimlink.Community.InvalidNumber>
+  <Rimlink.Community.Audit_create>создание</Rimlink.Community.Audit_create>
+  <Rimlink.Community.Audit_join>вступление</Rimlink.Community.Audit_join>
+  <Rimlink.Community.Audit_deposit>пополнение</Rimlink.Community.Audit_deposit>
+  <Rimlink.Community.Audit_withdraw>снятие</Rimlink.Community.Audit_withdraw>
+  <Rimlink.Community.Audit_permission>права</Rimlink.Community.Audit_permission>
+  <Rimlink.Community.Audit_leave>выход</Rimlink.Community.Audit_leave>
+  <Rimlink.Community.Audit_transfer>передача владельца</Rimlink.Community.Audit_transfer>
+  <Rimlink.Community.Audit_disband>роспуск / возврат</Rimlink.Community.Audit_disband>
+  <Rimlink.Community.Audit_block-revoke>отзыв прав при блокировке</Rimlink.Community.Audit_block-revoke>
+  <Rimlink.Refusal.Community.AlliedTarget>Нельзя атаковать союзника.</Rimlink.Refusal.Community.AlliedTarget>
+  <Rimlink.Refusal.Community.NoPlayer>Игрок не найден.</Rimlink.Refusal.Community.NoPlayer>
+  <Rimlink.Refusal.Community.RequestId>Нужен ID запроса из 1–64 букв, цифр или дефисов.</Rimlink.Refusal.Community.RequestId>
+  <Rimlink.Refusal.Community.Size>Текст не должен превышать 500 символов.</Rimlink.Refusal.Community.Size>
+  <Rimlink.Refusal.Community.Intent>Этот ID запроса принадлежит другой операции.</Rimlink.Refusal.Community.Intent>
+  <Rimlink.Refusal.Community.AlreadyMember>Игрок уже состоит в союзе.</Rimlink.Refusal.Community.AlreadyMember>
+  <Rimlink.Refusal.Community.Name>Название союза: 1–32 символа без управляющих символов и разметки.</Rimlink.Refusal.Community.Name>
+  <Rimlink.Refusal.Community.Self>Выберите другого игрока.</Rimlink.Refusal.Community.Self>
+  <Rimlink.Refusal.Community.Members>В союзе не может быть больше 16 участников.</Rimlink.Refusal.Community.Members>
+  <Rimlink.Refusal.Community.AlreadyFriend>Вы уже друзья.</Rimlink.Refusal.Community.AlreadyFriend>
+  <Rimlink.Refusal.Community.Pending>Приглашение уже ожидает ответа.</Rimlink.Refusal.Community.Pending>
+  <Rimlink.Refusal.Community.Invites>Может ожидать не более 32 приглашений.</Rimlink.Refusal.Community.Invites>
+  <Rimlink.Refusal.Community.InviteGone>Это приглашение уже недействительно.</Rimlink.Refusal.Community.InviteGone>
+  <Rimlink.Refusal.Community.Permission>Вы не можете изменить это приглашение.</Rimlink.Refusal.Community.Permission>
+  <Rimlink.Refusal.Community.Bio>Текст не должен содержать управляющие символы или разметку.</Rimlink.Refusal.Community.Bio>
+  <Rimlink.Refusal.Community.Muted>Отправка сообщений вам запрещена.</Rimlink.Refusal.Community.Muted>
+  <Rimlink.Refusal.Community.Amount>Количество серебра: 1–1000000000.</Rimlink.Refusal.Community.Amount>
+  <Rimlink.Refusal.Community.Balance>Достигнут предел баланса казны.</Rimlink.Refusal.Community.Balance>
+  <Rimlink.Refusal.Community.DailyCap>Нет права снятия либо превышен оставшийся дневной лимит.</Rimlink.Refusal.Community.DailyCap>
+  <Rimlink.Refusal.Community.Insufficient>В казне недостаточно серебра.</Rimlink.Refusal.Community.Insufficient>
+  <Rimlink.Refusal.Community.Cap>Дневной лимит: 0–1000000000.</Rimlink.Refusal.Community.Cap>
+  <Rimlink.Refusal.Community.Member>Игрок не состоит в этом союзе.</Rimlink.Refusal.Community.Member>
+  <Rimlink.Refusal.Community.OwnerLeave>Перед выходом передайте владение или распустите союз.</Rimlink.Refusal.Community.OwnerLeave>
+  <Rimlink.Refusal.Community.Action>Неизвестная социальная операция.</Rimlink.Refusal.Community.Action>
+  <Rimlink.Refusal.Community.InvitesClosed>Игрок закрыл социальные приглашения.</Rimlink.Refusal.Community.InvitesClosed>
+  <Rimlink.Refusal.Community.Friends>Разрешено не более 100 друзей.</Rimlink.Refusal.Community.Friends>
+  <Rimlink.Refusal.Community.Owner>Это может сделать только владелец союза.</Rimlink.Refusal.Community.Owner>
+  <Rimlink.Refusal.Community.ActiveHarm>Перед вступлением завершите враждебные действия между будущими участниками.</Rimlink.Refusal.Community.ActiveHarm>
+</LanguageData>

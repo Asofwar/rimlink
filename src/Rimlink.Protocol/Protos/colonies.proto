@@ -1,0 +1,27 @@
+syntax = "proto3";
+package rimlink.v1;
+option csharp_namespace = "Rimlink.Protocol.V1";
+import "common.proto";
+import "live.proto";
+
+// The owner is the only simulation and save writer. Membership outlives a live connection.
+message ColonyAccess {
+  PlayerRef owner = 1;
+  PlayerRef member = 2;
+  bool accepted = 3;
+  repeated int64 pawn_ids = 4;
+}
+message ColonyAccessList { repeated ColonyAccess entries = 1; }
+message ColonyInviteRequest { int64 member_player_id = 1; }
+message ColonyAnswerRequest { int64 owner_player_id = 1; bool accept = 2; }
+message ColonyAccessRef { int64 owner_player_id = 1; int64 member_player_id = 2; }
+message ColonyAssignment { int64 member_player_id = 1; repeated int64 pawn_ids = 2; }
+message ColonyJoinRequest { int64 owner_player_id = 1; string client_request_id = 2; }
+service Colonies {
+  rpc List (Empty) returns (ColonyAccessList);
+  rpc Invite (ColonyInviteRequest) returns (ColonyAccess);
+  rpc Answer (ColonyAnswerRequest) returns (Empty);
+  rpc Assign (ColonyAssignment) returns (ColonyAccess);
+  rpc Revoke (ColonyAccessRef) returns (Empty);
+  rpc Join (ColonyJoinRequest) returns (LiveSession);
+}

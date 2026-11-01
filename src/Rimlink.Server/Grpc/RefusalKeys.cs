@@ -6,7 +6,45 @@ namespace Rimlink.Server.Grpc;
 /// </summary>
 public static class RefusalKeys
 {
+    public const string CommunityAction = "Community.Action";
+    public const string CommunityActiveHarm = "Community.ActiveHarm";
+    public const string CommunityAlliedTarget = "Community.AlliedTarget";
+    public const string CommunityAlreadyFriend = "Community.AlreadyFriend";
+    public const string CommunityAlreadyMember = "Community.AlreadyMember";
+    public const string CommunityAmount = "Community.Amount";
+    public const string CommunityBalance = "Community.Balance";
+    public const string CommunityBio = "Community.Bio";
+    public const string CommunityCap = "Community.Cap";
+    public const string CommunityDailyCap = "Community.DailyCap";
+    public const string CommunityFriends = "Community.Friends";
+    public const string CommunityInsufficient = "Community.Insufficient";
+    public const string CommunityIntent = "Community.Intent";
+    public const string CommunityInviteGone = "Community.InviteGone";
+    public const string CommunityInvites = "Community.Invites";
+    public const string CommunityInvitesClosed = "Community.InvitesClosed";
+    public const string CommunityMember = "Community.Member";
+    public const string CommunityMembers = "Community.Members";
+    public const string CommunityMuted = "Community.Muted";
+    public const string CommunityName = "Community.Name";
+    public const string CommunityNoPlayer = "Community.NoPlayer";
+    public const string CommunityOwner = "Community.Owner";
+    public const string CommunityOwnerLeave = "Community.OwnerLeave";
+    public const string CommunityPending = "Community.Pending";
+    public const string CommunityPermission = "Community.Permission";
+    public const string CommunityRequestId = "Community.RequestId";
+    public const string CommunityRename = "Community.Rename";
+    public const string CommunityWalletLimit = "Community.WalletLimit";
+    public const string CommunitySelf = "Community.Self";
+    public const string CommunitySize = "Community.Size";
+
     public const string RateLimited = "RateLimited";
+    public const string AuctionsInvalid = "Auctions.Invalid";
+    public const string AuctionsGone = "Auctions.Gone";
+    public const string AuctionsBidInvalid = "Auctions.BidInvalid";
+    public const string AuctionsHasBids = "Auctions.HasBids";
+    public const string AuctionsIntentMismatch = "Auctions.IntentMismatch";
+    public const string AuctionsOverflow = "Auctions.Overflow";
+    public const string AuctionsArchived = "Auctions.Archived";
 
     public const string NoSuchPlayer = "Common.NoSuchPlayer";
 
@@ -35,6 +73,10 @@ public static class RefusalKeys
     public const string LiveWrongRole = "Live.WrongRole";
     public const string LiveOnlyHostSpawns = "Live.OnlyHostSpawns";
     public const string LiveHelloRequired = "Live.HelloRequired";
+    public const string ColoniesPermission = "Colonies.Permission";
+    public const string ColoniesInvalid = "Colonies.Invalid";
+    public const string ColoniesNoPawns = "Colonies.NoPawns";
+    public const string ColoniesUpdateClient = "Colonies.UpdateClient";
 
     public const string VisitsClosed = "Visits.Closed";
     public const string VisitsSelf = "Visits.Self";

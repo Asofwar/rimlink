@@ -46,5 +46,11 @@ public static class Overlay
             if (Find.WindowStack.WindowOfType<Dialog_Players>() is { } players) players.Close();
             else Find.WindowStack.Add(new Dialog_Players());
         }
+        if (Widgets.ButtonText(new Rect(x, y + 52f, 220f, 26f), "Rimlink.Colonies.Title".Translate())) Find.WindowStack.Add(new Colonies.Dialog_Colonies());
+        if (Widgets.ButtonText(new Rect(x, y + 82f, 220f, 26f), "Rimlink.Diagnostics.Title".Translate()))
+        {
+            if (Find.WindowStack.WindowOfType<Dialog_Diagnostics>() is { } diagnostics) diagnostics.Close();
+            else Find.WindowStack.Add(new Dialog_Diagnostics());
+        }
     }
 }

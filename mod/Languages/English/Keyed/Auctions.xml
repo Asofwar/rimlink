@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <Rimlink.Economy.Tab.Auctions>Auctions</Rimlink.Economy.Tab.Auctions>
+  <Rimlink.Auctions.Board>Board</Rimlink.Auctions.Board>
+  <Rimlink.Auctions.Create>New auction</Rimlink.Auctions.Create>
+  <Rimlink.Auctions.All>All auctions</Rimlink.Auctions.All>
+  <Rimlink.Auctions.Mine>My auctions / bids</Rimlink.Auctions.Mine>
+  <Rimlink.Auctions.Retry>Retry pending operations ({0})</Rimlink.Auctions.Retry>
+  <Rimlink.Auctions.Start>Starting price</Rimlink.Auctions.Start>
+  <Rimlink.Auctions.Buyout>Buyout (0 = none)</Rimlink.Auctions.Buyout>
+  <Rimlink.Auctions.Hours>Duration (hours)</Rimlink.Auctions.Hours>
+  <Rimlink.Auctions.Rules>Items leave your colony after a save upload. Bids reserve wallet silver; outbid silver returns immediately. Last 30 seconds: +30 seconds, capped at +5 minutes. Goods arrive by mailbox. Market and storage fees apply.</Rimlink.Auctions.Rules>
+  <Rimlink.Auctions.Post>Post auction</Rimlink.Auctions.Post>
+  <Rimlink.Auctions.Page>Page {0}</Rimlink.Auctions.Page>
+  <Rimlink.Auctions.None>No auctions on this page.</Rimlink.Auctions.None>
+  <Rimlink.Auctions.NoBids>no bids</Rimlink.Auctions.NoBids>
+  <Rimlink.Auctions.Current>Start: {0} | Bid: {1} ({2}) | Deadline: {3}</Rimlink.Auctions.Current>
+  <Rimlink.Auctions.Cancel>Cancel / return goods</Rimlink.Auctions.Cancel>
+  <Rimlink.Auctions.Bid>Place bid</Rimlink.Auctions.Bid>
+  <Rimlink.Auctions.Buy>Buy out for {0}</Rimlink.Auctions.Buy>
+  <Rimlink.Auctions.BuyConfirm>Reserve {0} silver and complete this auction now?</Rimlink.Auctions.BuyConfirm>
+  <Rimlink.Auctions.Posted>Auction posted.</Rimlink.Auctions.Posted>
+  <Rimlink.Auctions.Applied>Auction operation completed.</Rimlink.Auctions.Applied>
+  <Rimlink.Auctions.Loading>Loading…</Rimlink.Auctions.Loading>
+  <Rimlink.Auctions.Status.AuctionOpen>Open</Rimlink.Auctions.Status.AuctionOpen>
+  <Rimlink.Auctions.Status.AuctionSold>Sold — goods in the winner's mailbox</Rimlink.Auctions.Status.AuctionSold>
+  <Rimlink.Auctions.Status.AuctionCancelled>Cancelled — goods returned, bid refunded</Rimlink.Auctions.Status.AuctionCancelled>
+  <Rimlink.Auctions.Status.AuctionExpired>Expired without bids — goods returned</Rimlink.Auctions.Status.AuctionExpired>
+  <Rimlink.Refusal.Auctions.Invalid>Invalid auction. Check prices, duration and selected items.</Rimlink.Refusal.Auctions.Invalid>
+  <Rimlink.Refusal.Auctions.Gone>Auction is closed or its deadline has passed.</Rimlink.Refusal.Auctions.Gone>
+  <Rimlink.Refusal.Auctions.BidInvalid>Beat the current bid. Use Buy out for the exact buyout price.</Rimlink.Refusal.Auctions.BidInvalid>
+  <Rimlink.Refusal.Auctions.HasBids>An auction with bids cannot be cancelled by its seller.</Rimlink.Refusal.Auctions.HasBids>
+  <Rimlink.Refusal.Auctions.IntentMismatch>This request ID belongs to a different auction operation.</Rimlink.Refusal.Auctions.IntentMismatch>
+  <Rimlink.Refusal.Auctions.Overflow>Wallet limit exceeded. Escrow is unchanged; spend silver or contact an administrator.</Rimlink.Refusal.Auctions.Overflow>
+  <Rimlink.Refusal.Auctions.Archived>Restore your colony before using auctions.</Rimlink.Refusal.Auctions.Archived>
+</LanguageData>

@@ -14,7 +14,7 @@ public static class LiveHud
         var session = MirrorMode.Session;
         if (session is null) return 0f;
         Text.Font = GameFont.Small;
-        string kind = session.Kind == LiveKind.LiveRaid ? "Rimlink.Live.KindRaid".Translate() : "Rimlink.Live.KindVisit".Translate();
+        string kind = Kind(session.Kind);
         Widgets.Label(new Rect(x, y, 220f, 24f), "Rimlink.Live.GuestHud".Translate(kind, session.Host?.Name ?? "?"));
         Text.Font = GameFont.Tiny;
         string state = LiveGuest.HostGone ? "Rimlink.Live.StateHostLost".Translate()
@@ -34,7 +34,7 @@ public static class LiveHud
     {
         if (!LiveHost.Active && !LiveHost.Starting) return 0f;
         Text.Font = GameFont.Small;
-        string kind = LiveHost.Session?.Kind == LiveKind.LiveRaid ? "Rimlink.Live.KindRaid".Translate() : "Rimlink.Live.KindVisit".Translate();
+        string kind = Kind(LiveHost.Session?.Kind ?? LiveKind.LiveVisit);
         string state = LiveHost.Starting ? "Rimlink.Live.StateStarting".Translate()
             : !LiveHost.GuestHere ? "Rimlink.Live.StateWaiting".Translate()
             : LiveTempo.PausedBy == 3 ? "Rimlink.Live.StateLetterPaused".Translate(LiveTempo.Rules.LetterLabel ?? "?")
@@ -48,4 +48,6 @@ public static class LiveHud
             Find.WindowStack.Add(Dialog_MessageBox.CreateConfirmation("Rimlink.Live.AbortConfirm".Translate(LiveHost.GuestName), LiveHost.Abort, destructive: true));
         return 76f;
     }
+
+    private static string Kind(LiveKind kind) => (kind == LiveKind.LiveCoop ? "Rimlink.Colonies.Kind" : kind == LiveKind.LiveRaid ? "Rimlink.Live.KindRaid" : "Rimlink.Live.KindVisit").Translate();
 }

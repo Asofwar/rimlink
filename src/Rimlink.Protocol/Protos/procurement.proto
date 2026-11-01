@@ -1,0 +1,49 @@
+syntax = "proto3";
+package rimlink.v1;
+option csharp_namespace = "Rimlink.Protocol.V1";
+import "common.proto";
+import "economy.proto";
+import "google/protobuf/timestamp.proto";
+
+enum ProcurementKind { BUY_ORDER = 0; SUPPLY_CONTRACT = 1; COMMUNITY_GOAL = 2; }
+enum ProcurementStatus { PROCUREMENT_OPEN = 0; PROCUREMENT_COMPLETED = 1; PROCUREMENT_CANCELLED = 2; PROCUREMENT_EXPIRED = 3; }
+message ProcurementEntry {
+  int64 id = 1;
+  ProcurementKind kind = 2;
+  PlayerRef buyer = 3;
+  PlayerRef supplier = 4;
+  string def_name = 5;
+  int32 quantity = 6;
+  int32 supplied = 7;
+  int64 reward = 8; // per unit for buy orders, total fund for contracts and goals
+  int64 escrow = 9;
+  ProcurementStatus status = 10;
+  google.protobuf.Timestamp expires_at = 11;
+  repeated ProcurementContribution contributions = 12;
+}
+message ProcurementContribution { PlayerRef supplier = 1; int32 quantity = 2; int64 paid = 3; }
+message ProcurementList { repeated ProcurementEntry entries = 1; int32 total = 2; }
+message ProcurementQuery { int32 page = 1; bool mine = 2; }
+message ProcurementCreate {
+  string client_request_id = 1;
+  ProcurementKind kind = 2;
+  string def_name = 3;
+  int32 quantity = 4;
+  int64 reward = 5;
+  int64 supplier_player_id = 6;
+  int32 lifetime_hours = 7;
+}
+message ProcurementSupply {
+  string client_request_id = 1;
+  int64 procurement_id = 2;
+  ItemList items = 3;
+  int64 game_tick = 4;
+}
+message ProcurementCancel { string client_request_id = 1; int64 procurement_id = 2; }
+message ProcurementChanged { int64 procurement_id = 1; } // invalidation only, no private contract data
+service Procurement {
+  rpc List (ProcurementQuery) returns (ProcurementList);
+  rpc Create (ProcurementCreate) returns (ProcurementEntry);
+  rpc Supply (ProcurementSupply) returns (ProcurementEntry);
+  rpc Cancel (ProcurementCancel) returns (ProcurementEntry);
+}

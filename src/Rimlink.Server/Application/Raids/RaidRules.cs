@@ -20,7 +20,7 @@ public sealed class RaidGate(IOptions<RaidOptions> options, RaidFreezeState free
 }
 
 /// <summary>Who may raid whom right now (spec §3): peaceful mode, newbie and wealth protection, cooldowns, active-raid limit; and the loot cap.</summary>
-public sealed class RaidRules(IOptions<RaidOptions> options, RimlinkDbContext db, ServerWealth wealth)
+public sealed class RaidRules(IOptions<RaidOptions> options, RimlinkDbContext db, ServerWealth wealth, Social.AllianceService alliances)
 {
     private static readonly RaidStateDb[] Final = [RaidStateDb.Resolved, RaidStateDb.Expired, RaidStateDb.Cancelled];
 
@@ -49,6 +49,7 @@ public sealed class RaidRules(IOptions<RaidOptions> options, RimlinkDbContext db
     /// </summary>
     public async Task<(ErrorCode Code, string Key, string Message, object[] Args)?> CheckTarget(Player attacker, Player target, DateTime now)
     {
+        await alliances.RequireMayAttack(attacker.Id, target.Id);
         var o = options.Value;
         if (IsPeaceful(attacker, now)) return (ErrorCode.PeacefulMode, RefusalKeys.RaidsPeacefulSelf, "you are in peaceful mode", []);
         if (IsPeaceful(target, now)) return (ErrorCode.PeacefulMode, RefusalKeys.RaidsPeacefulTarget, $"{target.Name} is in peaceful mode", [target.Name]);

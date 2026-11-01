@@ -49,7 +49,7 @@ message RegisterRequest {
   repeated ModSettingsHash mod_settings = 5;
 }
 
-message AtHomeRequest { bool at_home = 1; }
+message AtHomeRequest { bool at_home = 1; bool coop_capable = 2; }
 
 message LoginReply {
   string session_token = 1;

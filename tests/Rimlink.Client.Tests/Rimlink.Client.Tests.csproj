@@ -10,6 +10,8 @@
     <PackageReference Include="xunit.runner.visualstudio" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Exercise the map's save contract without loading or driving the game. -->
+    <Compile Include="..\..\src\Rimlink.Client\Game\Live\MapComponent_LiveOwners.cs" Link="Linked\MapComponent_LiveOwners.cs" />
     <ProjectReference Include="..\..\src\Rimlink.Client.Core\Rimlink.Client.Core.csproj" />
     <!-- In-process server for connection tests (ServerFixture and friends). -->
     <ProjectReference Include="..\Rimlink.Server.Tests\Rimlink.Server.Tests.csproj" />

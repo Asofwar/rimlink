@@ -263,6 +263,13 @@ public static class RaidResolver
     /// Sends the report. A refusal marks the entry so the loot comes back to the colony by pod (Outgoing.ReturnRefused);
     /// unless the raid is gone, a loot-less report is then sent once more so the raid still resolves for the attacker.
     /// </summary>
+    public static void ReportOnly(RaidReport report)
+    {
+        if (RimlinkSession.Raids is not { } raids) return;
+        var outbox = RimlinkSession.Outbox;
+        _ = Send(raids, outbox, outbox?.Add(report), report);
+    }
+
     private static async Task Send(Rimlink.Client.Raids.RaidClient raids, TransferOutbox? outbox, OutboxEntry? entry, RaidReport report)
     {
         try

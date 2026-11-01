@@ -17,6 +17,7 @@ using Player = Rimlink.Server.Storage.Entities.Player;
 using Transfer = Rimlink.Server.Storage.Entities.Transfer;
 using Grpc.Core;
 using Rimlink.Server.Application.Feed;
+using Rimlink.Server.Application.Colonies;
 
 namespace Rimlink.Server.Application.Live;
 
@@ -31,7 +32,7 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
     public static readonly LiveStateDb[] FinalStates = [LiveStateDb.Ended, LiveStateDb.Fallback];
 
     private static LiveData FeedData(Protocol.V1.LiveSession s, LiveEndReason? reason) => new(
-        s.Id, s.Kind == LiveKind.LiveVisit ? "visit" : "raid", new FeedPlayer(s.Host.PlayerId, s.Host.Name), new FeedPlayer(s.Guest.PlayerId, s.Guest.Name),
+        s.Id, s.Kind == LiveKind.LiveCoop ? "coop" : s.Kind == LiveKind.LiveVisit ? "visit" : "raid", new FeedPlayer(s.Host.PlayerId, s.Host.Name), new FeedPlayer(s.Guest.PlayerId, s.Guest.Name),
         reason switch
         {
             null => null,
@@ -46,6 +47,7 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
 
     public async Task<LiveSessionRow> Propose(long guestId, LiveProposal p)
     {
+        if (p.Kind is not (LiveKind.LiveRaid or LiveKind.LiveVisit)) throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.ColoniesInvalid, "use the colony membership flow for coop");
         if (!options.Value.Enabled) throw RpcErrors.Failed(ErrorCode.LiveDisabled, RefusalKeys.LiveDisabled, "live sessions are disabled on this server");
         if (p.HostPlayerId == guestId) throw RpcErrors.Failed(ErrorCode.SelfTrade, RefusalKeys.LiveSelf, "you cannot visit or raid yourself");
         if (p.Pawns is null || p.Pawns.Pawns.Count == 0) throw RpcErrors.Failed(ErrorCode.Unspecified, RefusalKeys.LiveNoPawns, "a live session needs at least one pawn");
@@ -100,6 +102,42 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
         if (host.AutoAcceptLive) await Start(session);
         else events.SendTo(host.Id, new ServerEvent { LiveInvite = new LiveInvite { Session = await ToProto(session), InviteSeconds = options.Value.InviteSeconds } });
         return session;
+    }
+
+    public async Task<LiveSessionRow> JoinColony(long memberId, ColonyJoinRequest request)
+    {
+        if (!options.Value.Enabled) throw RpcErrors.Failed(ErrorCode.LiveDisabled, RefusalKeys.LiveDisabled, "live sessions are disabled on this server");
+        if (string.IsNullOrWhiteSpace(request.ClientRequestId) || request.ClientRequestId.Length > 64) throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.ColoniesInvalid, "a request id of at most 64 characters is required");
+        using var held = await stateLock.Hold();
+        var existing = await db.LiveSessions.AsNoTracking().FirstOrDefaultAsync(s => s.GuestPlayerId == memberId && s.ClientRequestId == request.ClientRequestId);
+        if (existing is not null)
+        {
+            if (existing.HostPlayerId != request.OwnerPlayerId || existing.Kind != (int)LiveKind.LiveCoop) throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.ColoniesInvalid, "request id belongs to another action");
+            return existing;
+        }
+        var grant = await db.Set<ColonyMember>().AsNoTracking().FirstOrDefaultAsync(x => x.OwnerPlayerId == request.OwnerPlayerId && x.MemberPlayerId == memberId && x.Accepted);
+        if (grant is null) throw RpcErrors.With(StatusCode.PermissionDenied, ErrorCode.Unspecified, RefusalKeys.ColoniesPermission, "accept the owner's invitation first");
+        if (ColonyService.ParseIds(grant.PawnIds).Length == 0) throw RpcErrors.Failed(ErrorCode.LiveActive, RefusalKeys.ColoniesNoPawns, "the owner has not assigned any pawns");
+        if (await db.PlayerBlocks.AnyAsync(b => b.BlockerPlayerId == memberId && b.BlockedPlayerId == request.OwnerPlayerId || b.BlockerPlayerId == request.OwnerPlayerId && b.BlockedPlayerId == memberId)) throw RpcErrors.With(StatusCode.PermissionDenied, ErrorCode.Unspecified, RefusalKeys.ColoniesPermission, "one of these players blocked the other");
+        if (registry.ByPlayer(request.OwnerPlayerId) is not { AtHome: true }) throw RpcErrors.Failed(ErrorCode.HostOffline, RefusalKeys.LiveHostOffline, "the colony owner is not at home");
+        if (registry.ByPlayer(memberId) is not { AtHome: true }) throw RpcErrors.Failed(ErrorCode.LiveActive, RefusalKeys.LiveOnVisit, "return to your colony before joining");
+        if (registry.ByPlayer(request.OwnerPlayerId) is not { CoopCapable: true } || registry.ByPlayer(memberId) is not { CoopCapable: true }) throw RpcErrors.Failed(ErrorCode.LiveActive, RefusalKeys.ColoniesUpdateClient, "both players must update their client for shared colonies");
+        if (await db.LiveSessions.AnyAsync(s => !FinalStates.Contains(s.State) && (s.HostPlayerId == memberId || s.GuestPlayerId == memberId || s.HostPlayerId == request.OwnerPlayerId || s.GuestPlayerId == request.OwnerPlayerId)))
+            throw RpcErrors.Failed(ErrorCode.LiveActive, RefusalKeys.LiveHostBusy, "one participant is already in a live session");
+        var since = DateTime.UtcNow - TimeSpan.FromHours(raidOptions.Value.VisitHours);
+        if (await db.Visits.AnyAsync(v => v.VisitorPlayerId == memberId && v.EndedAt == null && v.StartedAt > since)) throw RpcErrors.Failed(ErrorCode.LiveActive, RefusalKeys.LiveOnVisit, "you are on a visit");
+        var session = new LiveSessionRow { HostPlayerId = request.OwnerPlayerId, GuestPlayerId = memberId, Kind = (int)LiveKind.LiveCoop, ColonyPawnIds = grant.PawnIds, State = LiveStateDb.Starting, CreatedAt = DateTime.UtcNow, ClientRequestId = request.ClientRequestId };
+        db.LiveSessions.Add(session);
+        await db.SaveChangesAsync();
+        await Start(session);
+        return session;
+    }
+
+    public async Task RequireColonyControl(LiveSessionRow session)
+    {
+        if (session.Kind != (int)LiveKind.LiveCoop) return;
+        if (!await db.Set<ColonyMember>().AsNoTracking().AnyAsync(x => x.OwnerPlayerId == session.HostPlayerId && x.MemberPlayerId == session.GuestPlayerId && x.Accepted && x.PawnIds == session.ColonyPawnIds))
+            throw RpcErrors.With(StatusCode.PermissionDenied, ErrorCode.Unspecified, RefusalKeys.ColoniesPermission, "the colony grant was revoked or changed");
     }
 
     public async Task<LiveSessionRow> Respond(long hostId, long sessionId, bool accept)
@@ -180,6 +218,7 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
         if (session is null || session.State is not (LiveStateDb.Starting or LiveStateDb.Running or LiveStateDb.Waiting)) throw RpcErrors.Failed(ErrorCode.LiveGone, RefusalKeys.LiveNotOpen, "that live session is not open");
         bool host = session.HostPlayerId == playerId, guest = session.GuestPlayerId == playerId;
         if (!(host && role == 1) && !(guest && role == 2)) throw RpcErrors.With(StatusCode.PermissionDenied, ErrorCode.Unspecified, RefusalKeys.LiveWrongRole, "not your role in this live session");
+        await RequireColonyControl(session);
         return session;
     }
 
@@ -296,6 +335,12 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
         var session = await db.LiveSessions.FirstOrDefaultAsync(s => s.Id == r.LiveSessionId && s.HostPlayerId == hostId);
         if (session is null || session.RaidId is not null) throw RpcErrors.Failed(ErrorCode.LiveGone, RefusalKeys.LiveNoVisit, "no such live visit");
         if (FinalStates.Contains(session.State)) return;
+        if (session.Kind == (int)LiveKind.LiveCoop)
+        {
+            if (r.Outcomes.Count != 0 || r.Loot?.Items.Count > 0 || r.Captives?.Pawns.Count > 0) throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.ColoniesInvalid, "coop cannot return or loot the owner's pawns");
+            await Close(session);
+            return;
+        }
         int count = PawnList.Parser.ParseFrom(session.Pawns ?? []).Pawns.Count;
         var survivors = new PawnList();
         var seen = new HashSet<int>();
@@ -445,5 +490,6 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
         RaidId = s.RaidId ?? 0,
         EndReason = (LiveEndReason)(s.EndReason ?? 0),
         CreatedAt = Timestamp.FromDateTime(DateTime.SpecifyKind(s.CreatedAt, DateTimeKind.Utc)),
+        ColonyPawnIds = { ColonyService.ParseIds(s.ColonyPawnIds) },
     };
 }

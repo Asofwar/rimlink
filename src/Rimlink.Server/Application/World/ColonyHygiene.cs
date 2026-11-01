@@ -9,7 +9,7 @@ using Rimlink.Server.Storage.Entities;
 namespace Rimlink.Server.Application.World;
 
 /// <summary>Finds abandoned colonies (every enabled condition of spec §2.3) and sends them to the archive.</summary>
-public sealed class ColonyHygiene(RimlinkDbContext db, SessionRegistry sessions, ColonyArchive archive, IOptions<HygieneOptions> options, ILogger<ColonyHygiene> log)
+public sealed class ColonyHygiene(RimlinkDbContext db, SessionRegistry sessions, ColonyArchive archive, Economy.ServerWealth wealth, IOptions<HygieneOptions> options, ILogger<ColonyHygiene> log)
 {
     public static readonly Actor Sweeper = Actor.Scheduled("system:hygiene");
 
@@ -43,7 +43,7 @@ public sealed class ColonyHygiene(RimlinkDbContext db, SessionRegistry sessions,
             if (o.ArchiveMaxWealth > 0)
             {
                 if (hasSave && c.WealthTotal == 0) continue; // a save that never reported its wealth: unknown, not poor
-                if ((hasSave ? c.WealthTotal : 0) >= o.ArchiveMaxWealth) continue;
+                if ((decimal)(hasSave ? c.WealthTotal : 0) + await wealth.Of(c.PlayerId) >= o.ArchiveMaxWealth) continue;
             }
             if (o.ArchiveMaxColonyDays > 0 && (c.Tick ?? 0) / GameTime.TicksPerDay >= o.ArchiveMaxColonyDays) continue;
 

@@ -49,9 +49,11 @@ public sealed class PlayerSettlement : WorldObject
 
     private DateTime? LastSeenDay => seenOnlineDay is { } seen && (OwnerLastSeen is not { } known || seen > known) ? seen : OwnerLastSeen;
 
-    public override string Label => SettlementName.Length > 0 ? SettlementName : OwnerName;
+    public override string Label => RimlinkSession.State.Community.IsAlly(OwnerPlayerId)
+        ? "Rimlink.Community.AllyLabel".Translate(SettlementName.Length > 0 ? SettlementName : OwnerName)
+        : SettlementName.Length > 0 ? SettlementName : OwnerName;
 
-    public override Color ExpandingIconColor => new(
+    public override Color ExpandingIconColor => RimlinkSession.State.Community.IsAlly(OwnerPlayerId) ? Color.green : new(
         ((ColorArgb >> 16) & 0xFF) / 255f,
         ((ColorArgb >> 8) & 0xFF) / 255f,
         (ColorArgb & 0xFF) / 255f,
@@ -64,6 +66,7 @@ public sealed class PlayerSettlement : WorldObject
             FactionName.Length > 0 ? "Rimlink.Settlement.InspectFaction".Translate(OwnerName, FactionName) : "Rimlink.Settlement.Inspect".Translate(OwnerName),
         };
         if (OwnerOnline) lines.Add("Rimlink.Settlement.Online".Translate());
+        if (RimlinkSession.State.Community.IsAlly(OwnerPlayerId)) lines.Add("Rimlink.Community.Ally".Translate());
         else if (LastSeenDay is { } day)
         {
             int days = Math.Max(0, (int)(DateTime.UtcNow.Date - day.Date).TotalDays);

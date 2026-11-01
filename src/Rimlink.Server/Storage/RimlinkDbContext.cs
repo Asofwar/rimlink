@@ -36,6 +36,7 @@ public sealed class RimlinkDbContext(DbContextOptions<RimlinkDbContext> options)
 
     protected override void OnModelCreating(ModelBuilder model)
     {
+        model.ApplyConfigurationsFromAssembly(typeof(RimlinkDbContext).Assembly);
         model.Entity<Account>(e =>
         {
             e.ToTable("accounts");

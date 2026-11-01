@@ -93,6 +93,24 @@ public class SchemaTests : IDisposable
     }
 
     [Fact]
+    public void SharedColonyMembershipAndLoanSnapshotSurviveMigration()
+    {
+        using var db = CreateContext();
+        Assert.Contains("OwnerPlayerId", Columns("colony_members"));
+        Assert.Contains("MemberPlayerId", Columns("colony_members"));
+        Assert.Contains("Accepted", Columns("colony_members"));
+        Assert.Contains("ColonyPawnIds", Columns("live_sessions"));
+        var owner = new Player { Account = new Account { CreatedAt = DateTime.UtcNow }, Name = "Owner", FactionName = "Owner" };
+        var member = new Player { Account = new Account { CreatedAt = DateTime.UtcNow }, Name = "Member", FactionName = "Member" };
+        db.AddRange(owner, member);
+        db.SaveChanges();
+        db.Add(new ColonyMember { OwnerPlayerId = owner.Id, MemberPlayerId = member.Id, Accepted = true, PawnIds = "12,42" });
+        db.SaveChanges();
+        db.ChangeTracker.Clear();
+        Assert.Equal("12,42", db.Set<ColonyMember>().Single().PawnIds);
+    }
+
+    [Fact]
     public void AdminActionsHaveActorName()
     {
         using var db = CreateContext();

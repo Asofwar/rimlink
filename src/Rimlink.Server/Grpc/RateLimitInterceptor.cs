@@ -23,7 +23,7 @@ public sealed class RateLimitInterceptor : Interceptor, IDisposable
         limiter = PartitionedRateLimiter.Create<(string Caller, string Method), (string, string)>(key =>
         {
             var (permits, window) = RateLimitPolicy.For(key.Method);
-            if (key.Method is "/rimlink.v1.Transfer/Send" or "/rimlink.v1.Market/Post" or "/rimlink.v1.Raids/Launch" or "/rimlink.v1.Shop/Buy") window = TimeSpan.FromSeconds(Math.Max(1, sendCooldown));
+            if (key.Method is "/rimlink.v1.Transfer/Send" or "/rimlink.v1.Market/Post" or "/rimlink.v1.Raids/Launch" or "/rimlink.v1.Shop/Buy" or "/rimlink.v1.Procurement/Create" or "/rimlink.v1.Procurement/Supply") window = TimeSpan.FromSeconds(Math.Max(1, sendCooldown));
             if (testPermits is { } p && RateLimitPolicy.For(key.Method) == RateLimitPolicy.Default) permits = p;
             return RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions
             {

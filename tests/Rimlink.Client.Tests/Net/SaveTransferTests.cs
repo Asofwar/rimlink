@@ -54,6 +54,9 @@ public class SaveTransferTests : IDisposable
         string downloaded = await transfer.DownloadAsync(Path.Combine(dir, "restored", "current.rws"), CancellationToken.None);
 
         Assert.Equal(1, info.Version);
+        Assert.Equal(1, connection.UploadStatus.Snapshot.Version);
+        Assert.NotNull(connection.UploadStatus.Snapshot.LastSuccessUtc);
+        Assert.Equal(Rimlink.Client.Diagnostics.UploadFailure.None, connection.UploadStatus.Snapshot.Failure);
         Assert.Equal(777, info.GameTick);
         Assert.Equal(File.ReadAllBytes(rws), File.ReadAllBytes(downloaded));
         Assert.Equal(Path.Combine(dir, "restored", "current.rws"), downloaded);
@@ -87,7 +90,28 @@ public class SaveTransferTests : IDisposable
         var ex = await Assert.ThrowsAsync<RpcException>(() => transfer.UploadAsync(rws, new SaveMeta("WrongSeed", "Nova", 1), CancellationToken.None));
 
         Assert.Equal(ErrorCode.SaveInvalid, ex.ErrorDetail()?.Code);
+        Assert.Equal(Rimlink.Client.Diagnostics.UploadFailure.Refused, connection.UploadStatus.Snapshot.Failure);
+        Assert.Null(connection.UploadStatus.Snapshot.LastSuccessUtc);
         Assert.Equal(before, File.ReadAllBytes(rws));
+    }
+
+    [Fact]
+    public async Task UploadDiagnosticsKeepLastSuccessThroughRefusalAndRecoverOnNextTransfer()
+    {
+        using var fixture = new ServerFixture().WithSetting("Auth:AllowPassword", "true");
+        await using var connection = await Connected(fixture);
+        var transfer = new SaveTransfer(connection);
+        string good = WriteRws("good.rws", ServerFixture.WorldSeed, "Nova", tick: 777);
+        string bad = WriteRws("bad.rws", "WrongSeed", "Nova", tick: 778);
+        await transfer.UploadAsync(good, new SaveMeta(ServerFixture.WorldSeed, "Nova", 777), CancellationToken.None);
+        var success = connection.UploadStatus.Snapshot;
+        await Assert.ThrowsAsync<RpcException>(() => transfer.UploadAsync(bad, new SaveMeta("WrongSeed", "Nova", 778), CancellationToken.None));
+        Assert.Equal(success.LastSuccessUtc, connection.UploadStatus.Snapshot.LastSuccessUtc);
+        Assert.Equal(1, connection.UploadStatus.Snapshot.Version);
+        Assert.Equal(Rimlink.Client.Diagnostics.UploadFailure.Refused, connection.UploadStatus.Snapshot.Failure);
+        await transfer.UploadAsync(good, new SaveMeta(ServerFixture.WorldSeed, "Nova", 777), CancellationToken.None);
+        Assert.Equal(2, connection.UploadStatus.Snapshot.Version);
+        Assert.Equal(Rimlink.Client.Diagnostics.UploadFailure.None, connection.UploadStatus.Snapshot.Failure);
     }
 
     [Fact]

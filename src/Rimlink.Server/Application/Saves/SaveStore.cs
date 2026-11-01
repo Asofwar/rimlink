@@ -183,6 +183,8 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
         await using var tx = await db.Database.BeginTransactionAsync();
         await db.SaveVersions.Where(v => v.PlayerId == playerId && v.IsCurrent && v.Id != target.Id).ExecuteUpdateAsync(s => s.SetProperty(v => v.IsCurrent, false));
         target.IsCurrent = true;
+        // An older timeline may reuse a pawn id: revoke assignments in the same transaction as the rollback.
+        await db.Set<ColonyMember>().Where(x => x.OwnerPlayerId == playerId).ExecuteUpdateAsync(s => s.SetProperty(x => x.PawnIds, ""));
         // An admin rolling back behind a transfer knowingly returns what was given away; the stale-save guard moves with it.
         var player = await db.Players.FirstAsync(p => p.Id == playerId);
         if (player.LastOutgoingTick > target.GameTick) player.LastOutgoingTick = target.GameTick;

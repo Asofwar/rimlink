@@ -60,6 +60,24 @@ enum ErrorCode {
   INCIDENT_QUEUE_FULL = 42;  // the target already has the maximum of paid incidents waiting
   // Steam did not accept a ticket (or could not be asked). Steam may take minutes after a ticket was cancelled: the client tries again.
   STEAM_TICKET_REJECTED = 43;
+  PROCUREMENT_INVALID = 44;
+  PROCUREMENT_GONE = 45;
+  PROCUREMENT_ACCESS = 46;
+  PROCUREMENT_LIMIT = 47;
+  PROCUREMENT_INTENT = 48;
+  PROCUREMENT_GOODS = 49;
+
+  ALLIANCE_REFUSED = 50;
+  COMMUNITY_LIMIT = 51;
+  COMMUNITY_GONE = 52;
+  TREASURY_LIMIT = 53;
+  COMMUNITY_INTENT = 54;
+  ALLIED_TARGET = 55;
+
+  AUCTION_GONE = 56;
+  AUCTION_BID_TOO_LOW = 57;
+  AUCTION_HAS_BIDS = 58;
+  AUCTION_INTENT_MISMATCH = 59;
 }
 
 // Attached to failed calls as the "rimlink-error-bin" trailer.

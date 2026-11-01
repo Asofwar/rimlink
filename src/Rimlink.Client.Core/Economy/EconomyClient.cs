@@ -35,6 +35,11 @@ public sealed class EconomyClient(RimlinkConnection connection)
 
     public static string NewRequestId() => Guid.NewGuid().ToString("N");
 
+    public Task<AuctionList> Auctions(AuctionQuery query, CancellationToken ct) => connection.AuctionsApi.ListAsync(query, deadline: Until, cancellationToken: ct).ResponseAsync;
+    public Task<Auction> PostAuction(AuctionPostRequest request, CancellationToken ct) => connection.AuctionsApi.PostAsync(request, deadline: Until, cancellationToken: ct).ResponseAsync;
+    public Task<Auction> BidAuction(AuctionBidRequest request, CancellationToken ct) => connection.AuctionsApi.BidAsync(request, deadline: Until, cancellationToken: ct).ResponseAsync;
+    public Task<Auction> CancelAuction(AuctionCancelRequest request, CancellationToken ct) => connection.AuctionsApi.CancelAsync(request, deadline: Until, cancellationToken: ct).ResponseAsync;
+
     /// <summary>The server's error code from the "rimlink-error-bin" trailer, or null for a plain gRPC failure.</summary>
     public static ErrorCode? CodeOf(RpcException ex) => RpcErrorDetail.Read(ex).Code;
 

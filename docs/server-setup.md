@@ -1,5 +1,7 @@
 # Rimlink server setup
 
+Alliances, treasury limits, privacy and profile routes: [Community guide and integration contract](community.md).
+
 The server is a single .NET 10 process. It needs one open TCP port (25560 by default), a data directory and,
 for Steam logins, a Steam Web API key. Everything shared (accounts, world, settlements, chat, modpack, saves)
 lives in the data directory.
@@ -468,3 +470,42 @@ The bot keeps the last feed event id in `RimlinkBot:StateFile` (compose: the `ri
 restart it posts what happened while it was down, as long as the server's buffer (`Admin:FeedBufferSize`) still holds it.
 It says "the server is unreachable" in the server channel after a minute without the server and "reachable again" when it
 is back.
+
+## Auctions
+
+The item-auction feature uses the existing `Economy` settings: `Enabled`, `MaxLotsPerPlayer` (shared with fixed-price
+lots), `LotLifetimeDays` (maximum auction duration, also bounded to 30 days), parcel/item size limits, `MarketFeePercent`,
+storage fees, `ServerWealthPercent`, threat/debt/freeze guards and forbidden defs. Duration is 60 seconds to 30 days via
+the API; the game UI offers 1–720 hours. The UI's post prices are bounded to 1,000,000 silver; the API and bids support
+positive int64 prices with checked wallet arithmetic. No new configuration keys are needed.
+
+Descriptors are limited to 256 characters per name/label, non-negative unit values and at most int64 silver in total
+declared item value. This prevents accepted auction goods from overflowing the existing wealth/storage calculations.
+As with existing lots, forbidden defs apply to new postings; already escrowed goods can still be bid on, returned or sold.
+The seller's threat/debt block new postings. The bidder's threat/debt block new bids; a threat to the seller does not
+prevent completion of a sale whose goods already left the colony.
+
+The sweep runs at startup and every five seconds, trying each due auction independently so a frozen/failed auction cannot
+starve later deadlines. Each settlement rechecks
+the deadline inside a serializable transaction. Last-30-second bids add 30 seconds, capped at +300 seconds. A settlement
+failure rolls back the wallet, parcel and auction together and is retried. Global/player freezes defer settlement;
+admin cancellation is available while frozen. Overflow leaves escrow unchanged until there is room in the credited
+wallet. Already committed deliveries/returns bypass the pending-mailbox cap; new item postings still obey parcel limits.
+
+Moderator REST routes, under the existing token scope/cookie-CSRF checks:
+
+- `GET /api/admin/auctions/`: at most 500 open auctions, descriptors excluded from the admin projection.
+- `POST /api/admin/auctions/{id}/cancel`, JSON `{ "reason": "cancelled by admin" }`: returns goods and reserved bid;
+  repeated cancellation returns `false`. Reasons are 1–256 characters without controls. The action is audited.
+
+The existing admin CLI supports `auctions` and `auction cancel <id> [reason]`; the same commands work in admin chat.
+For example, in PowerShell, with an existing admin token in `RIMLINK_ADMIN_TOKEN`:
+
+```powershell
+rtk proxy dotnet run --project src/Rimlink.Tools -- admin --server https://localhost:25560 --token $env:RIMLINK_ADMIN_TOKEN --insecure auctions
+rtk proxy dotnet run --project src/Rimlink.Tools -- admin --server https://localhost:25560 --token $env:RIMLINK_ADMIN_TOKEN --insecure auction cancel 1 "cancelled by admin"
+```
+
+Auction items remain part of the seller's server wealth, and reserved bids of the bidder's wealth, until completion.
+Seller commission goes to the existing bank ledger. Storage charges apply to perishable auction items under the existing
+rules. Reset/archive cancels auctions where the player is the seller or current highest bidder and refunds both sides.

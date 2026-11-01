@@ -99,7 +99,7 @@ public static class OrderExecutor
                 }
                 case Order.OOneofCase.WorkPriority:
                 {
-                    if (kind != LiveKind.LiveVisit) return "raiders do not work";
+                    if (kind == LiveKind.LiveRaid) return "raiders do not work";
                     var def = DefDatabase<WorkTypeDef>.GetNamedSilentFail(o.WorkPriority.WorkDef);
                     if (def is null) return "unknown work type";
                     if (pawn.workSettings is null || pawn.WorkTypeIsDisabled(def)) return "incapable";
@@ -108,7 +108,7 @@ public static class OrderExecutor
                 }
                 case Order.OOneofCase.Schedule:
                 {
-                    if (kind != LiveKind.LiveVisit) return "raiders keep no schedule";
+                    if (kind == LiveKind.LiveRaid) return "raiders keep no schedule";
                     var def = DefDatabase<TimeAssignmentDef>.GetNamedSilentFail(o.Schedule.AssignmentDef);
                     if (def is null || pawn.timetable is null) return "unknown assignment";
                     pawn.timetable.SetAssignment(Math.Clamp(o.Schedule.Hour, 0, 23), def);

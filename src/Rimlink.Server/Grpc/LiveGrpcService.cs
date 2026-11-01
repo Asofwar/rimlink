@@ -33,7 +33,7 @@ public sealed class LiveGrpcService(LiveSessionService live, LiveRelay relay, IL
         if (!await requestStream.MoveNext(context.CancellationToken) || requestStream.Current.MCase != LiveClientMsg.MOneofCase.Hello)
             throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.LiveHelloRequired, "the first frame must be a Hello");
         var hello = requestStream.Current;
-        await live.ForStream(hello.SessionId, session.PlayerId, hello.Hello.Role);
+        var liveSession = await live.ForStream(hello.SessionId, session.PlayerId, hello.Hello.Role);
         var channel = relay.Attach(hello.SessionId, session.PlayerId, hello.Hello.Role);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, channel.Closed.Token);
         var ct = linked.Token;
@@ -59,6 +59,7 @@ public sealed class LiveGrpcService(LiveSessionService live, LiveRelay relay, IL
             {
                 var msg = requestStream.Current;
                 if (msg.SessionId != hello.SessionId) continue;
+                if (hello.Hello.Role == 2 && msg.MCase == LiveClientMsg.MOneofCase.Order && liveSession.Kind == (int)LiveKind.LiveCoop) await live.RequireColonyControl(liveSession);
                 await relay.Forward(channel, msg, msg.CalculateSize());
             }
         }

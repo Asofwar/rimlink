@@ -339,6 +339,7 @@
   "timing.TimingWarned": "warned",
   "live.LiveRaid": "live raid",
   "live.LiveVisit": "live visit",
+  "live.LiveCoop": "shared colony",
   "live.Proposed": "proposed",
   "live.Starting": "starting",
   "live.Running": "running",

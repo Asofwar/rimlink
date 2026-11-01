@@ -13,15 +13,37 @@ public sealed class CertificatePinStore
 {
     private readonly string path;
     private readonly Dictionary<string, string> pins;
-    private readonly object sync = new();
+    private static readonly object sync = new();
 
     public CertificatePinStore(string path)
     {
         this.path = path;
-        pins = Load(path);
+        lock (sync) pins = Load(path);
     }
 
     public static string Fingerprint(X509Certificate2 certificate) => Convert.ToHexString(SHA256.HashData(certificate.RawData));
+
+    public string? KnownFingerprint(ServerEndpoint endpoint)
+    {
+        lock (sync) return pins.GetValueOrDefault(endpoint.Id);
+    }
+
+    /// <summary>Import is deliberately unable to replace an existing pin, including between preview and confirmation.</summary>
+    public bool TryTrustInvite(ServerInvite invite)
+    {
+        lock (sync)
+        {
+            // A preview can outlive another connection's trust change. A broken file must fail closed on import.
+            var next = File.Exists(path) ? JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(path))
+                ?? throw new JsonException("Invalid trust file.") : new Dictionary<string, string>();
+            if (pins.TryGetValue(invite.Endpoint.Id, out var cached) && cached != invite.Fingerprint) return false;
+            if (next.TryGetValue(invite.Endpoint.Id, out var known) && known != invite.Fingerprint) return false;
+            next[invite.Endpoint.Id] = invite.Fingerprint;
+            Persist(next);
+            pins[invite.Endpoint.Id] = invite.Fingerprint;
+            return true;
+        }
+    }
 
     public PinCheck Check(ServerEndpoint endpoint, X509Certificate2 certificate)
     {
@@ -37,10 +59,23 @@ public sealed class CertificatePinStore
     {
         lock (sync)
         {
+            var next = Load(path);
+            next[endpoint.Id] = fingerprint;
+            Persist(next);
             pins[endpoint.Id] = fingerprint;
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, JsonSerializer.Serialize(pins, new JsonSerializerOptions { WriteIndented = true }));
         }
+    }
+
+    private void Persist(Dictionary<string, string> next)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
+        string temp = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            File.WriteAllText(temp, JsonSerializer.Serialize(next, new JsonSerializerOptions { WriteIndented = true }), new System.Text.UTF8Encoding(false));
+            File.Move(temp, path, overwrite: true);
+        }
+        finally { if (File.Exists(temp)) File.Delete(temp); }
     }
 
     private static Dictionary<string, string> Load(string path)

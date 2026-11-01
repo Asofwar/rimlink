@@ -25,7 +25,8 @@ namespace Rimlink.Server.Tests.Hosting;
 public class RefusalKeysTests
 {
     private static Dictionary<string, string> Keyed(string language) =>
-        XDocument.Load(Path.Combine(RepoPaths.Root, "mod", "Languages", language, "Keyed", "Rimlink.xml")).Root!.Elements()
+        Directory.EnumerateFiles(Path.Combine(RepoPaths.Root, "mod", "Languages", language, "Keyed"), "*.xml")
+            .SelectMany(file => XDocument.Load(file).Root!.Elements())
             .ToDictionary(e => e.Name.LocalName, e => e.Value);
 
     private static int Placeholders(string text) => Regex.Matches(text, @"\{\d+\}").Select(m => m.Value).Distinct().Count();
@@ -50,7 +51,9 @@ public class RefusalKeysTests
         // These calls forward a structured refusal. Check its producers below rather than exempting player refusals.
         (string File, string Call)[] forwarding =
         [
+            ("Application/Auctions/AuctionService.cs", "RpcErrors.Failed(refusal.Code, refusal.Key, refusal.Message, refusal.Args)"),
             ("Application/Economy/MarketService.cs", "RpcErrors.Failed(reason.Code, reason.Key, reason.Message, reason.Args)"),
+            ("Application/Procurement/ProcurementService.cs", "RpcErrors.Failed(reason.Code, reason.Key, reason.Message, reason.Args)"),
             ("Application/Economy/TransferService.cs", "RpcErrors.Failed(reason.Code, reason.Key, reason.Message, reason.Args)"),
             ("Application/Incidents/IncidentService.cs", "RpcErrors.Failed(refusal.Code, refusal.Key, refusal.Message, refusal.Args)"),
             ("Application/Live/LiveSessionService.cs", "RpcErrors.Failed(reason.Code, reason.Key, reason.Message, reason.Args)"),

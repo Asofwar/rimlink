@@ -12,7 +12,7 @@ using Rimlink.Server.Storage.Entities;
 namespace Rimlink.Server.Application.Social;
 
 /// <summary>A player's block list and the two personal flags of the safe trades spec (gifts without asking, no trade offers).</summary>
-public sealed class SocialService(RimlinkDbContext db, EventBus events, Trades.TradeService trades, IOptions<SocialOptions> options)
+public sealed class SocialService(RimlinkDbContext db, EventBus events, Trades.TradeService trades, IOptions<SocialOptions> options, AllianceService alliances)
 {
     public async Task<List<PlayerRef>> Block(long blockerId, long blockedId)
     {
@@ -32,6 +32,7 @@ public sealed class SocialService(RimlinkDbContext db, EventBus events, Trades.T
         }
         // Open trades between the two end here, each side going back to its owner; gifts already waiting stay (they can be refused).
         await trades.CancelBetween(blockerId, blockedId, "blocked");
+        await alliances.OnBlock(blockerId, blockedId);
         return await List(blockerId);
     }
 

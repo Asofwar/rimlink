@@ -35,7 +35,7 @@ public static class LiveFixtures
     {
         var reply = await fixture.RegisterAndLogin(login, playerName: char.ToUpperInvariant(login[0]) + login[1..]);
         var clients = LiveClientsOf(fixture, reply);
-        if (atHome) await clients.AuthApi.SetAtHomeAsync(new AtHomeRequest { AtHome = true }, clients.Auth);
+        if (atHome) await clients.AuthApi.SetAtHomeAsync(new AtHomeRequest { AtHome = true, CoopCapable = true }, clients.Auth);
         return clients;
     }
 

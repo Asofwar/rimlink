@@ -54,6 +54,7 @@ public sealed class AdminOperations(
     ShopService shop,
     VisitService visits,
     Trades.TradeService trades,
+    Procurement.ProcurementService procurement,
     Backup.BackupService backups,
     AdminFeed feed,
     PlayerFreeze playerFreeze,
@@ -62,7 +63,8 @@ public sealed class AdminOperations(
     ILogger<AdminOperations> log,
     ForbiddenDefsService forbiddenStore,
     ForbiddenDefs forbidden,
-    Incidents.IncidentService incidents)
+    Incidents.IncidentService incidents,
+    Auctions.AuctionService auctions)
 {
     /// <summary>Archived colonies, newest first (at most 500); <paramref name="state"/> is archived, restored or all.</summary>
     public async Task<List<ArchivedRow>> ListArchived(Actor actor, string state)
@@ -458,7 +460,11 @@ public sealed class AdminOperations(
         long targetTick = await db.SaveVersions.AsNoTracking().Where(v => v.PlayerId == playerId && v.Number == version).Select(v => v.GameTick).FirstOrDefaultAsync();
         bool returnsGivenAway = targetTick < player.LastOutgoingTick;
         bool ok = await saves.Rollback(playerId, version);
-        if (ok) await Audit(actor, "rollback", player.AccountId, $"to v{version}" + (returnsGivenAway ? $" (returns items given away after tick {targetTick})" : ""));
+        if (ok)
+        {
+            await live.EndAllOf(playerId, LiveEndReason.EndAdmin);
+            await Audit(actor, "rollback", player.AccountId, $"to v{version}" + (returnsGivenAway ? $" (returns items given away after tick {targetTick})" : ""));
+        }
         return ok;
     }
 
@@ -467,6 +473,7 @@ public sealed class AdminOperations(
     {
         actor.Require(Role.Admin);
         var player = await FindPlayer(playerId);
+        await auctions.CancelAllOf(playerId, "colony reset");
         if (sessions.ByPlayer(playerId) is { } session)
         {
             events.SendTo(playerId, new ServerEvent { Notice = new Notice { Text = "Your colony was reset by an admin" } });
@@ -474,6 +481,8 @@ public sealed class AdminOperations(
         }
 
         string archive = Path.Combine(data.Archive, $"{playerId}-{DateTime.UtcNow:yyyyMMdd-HHmmss}");
+        await live.EndAllOf(playerId, LiveEndReason.EndAdmin);
+        await db.Set<ColonyMember>().Where(x => x.OwnerPlayerId == playerId).ExecuteDeleteAsync();
         await saves.Archive(playerId, archive);
         // The next colony starts from nothing: its age and wealth come from its own saves.
         await db.Players.Where(p => p.Id == playerId).ExecuteUpdateAsync(s => s
@@ -486,6 +495,7 @@ public sealed class AdminOperations(
         await shop.ClearOf(playerId);
         await visits.EndAllOf(playerId);
         await trades.CancelAllOf(playerId, "colony reset");
+        await procurement.CancelAllOf(playerId);
         await Audit(actor, "reset", player.AccountId, archive);
         log.LogInformation("Player {Name} reset by {Actor}", player.Name, actor.Name);
     }
@@ -566,6 +576,8 @@ public sealed class AdminOperations(
             await shop.ClearOf(playerId);
             await visits.EndAllOf(playerId);
         }
+        await db.Set<ColonyMember>().ExecuteDeleteAsync();
+        await procurement.CancelAllOf(null);
         await db.WorldObjects.ExecuteDeleteAsync();
         await db.World.ExecuteDeleteAsync();
         await Audit(actor, "recreateworld", null, archive);

@@ -1,7 +1,9 @@
 using Grpc.Core;
 using RimWorld;
+using Rimlink.Client.Economy;
 using Rimlink.Client.Game;
 using Rimlink.Client.Game.Incidents;
+using Rimlink.Client.Incidents;
 using Rimlink.Protocol.V1;
 using UnityEngine;
 using Verse;
@@ -23,8 +25,6 @@ public sealed class EventsTab
     private string? quotedFor;
     private string priceLine = "";
     private bool canOrder;
-    // Kept until the server answered for sure: a retry after a lost answer replays the same order instead of paying twice.
-    private string requestId = Guid.NewGuid().ToString("N");
     private Vector2 catalogScroll, ordersScroll;
     private string status = "";
     private bool busy;
@@ -32,6 +32,11 @@ public sealed class EventsTab
     public void Draw(Rect rect, IEnumerable<PlayerRef> knownPlayers)
     {
         var incidents = RimlinkSession.State.Incidents;
+        if (RimlinkSession.Outbox is { } outbox && new IncidentOrderRetry(outbox).Pending is { } pending)
+        {
+            DrawPending(rect, pending, knownPlayers);
+            return;
+        }
         var entries = incidents.Catalog.Entries;
         if (entries.Count == 0)
         {
@@ -74,6 +79,24 @@ public sealed class EventsTab
         DrawOrders(new Rect(0f, top + listHeight + 8f, rect.width, rect.height - 34f - listHeight - 8f), incidents.Mine);
     }
 
+    private void DrawPending(Rect rect, OutboxEntry pending, IEnumerable<PlayerRef> knownPlayers)
+    {
+        var request = (OrderIncidentRequest)TransferOutbox.Decode(pending);
+        var incidents = RimlinkSession.State.Incidents;
+        var entry = incidents.Catalog.Entries.FirstOrDefault(e => e.Id == request.EntryId);
+        string label = entry is null ? request.EntryId : IncidentLabels.Of(entry.IncidentDef, entry.FactionDef, entry.Id);
+        string name = knownPlayers.FirstOrDefault(p => p.PlayerId == request.TargetPlayerId)?.Name ?? request.TargetPlayerId.ToString();
+        string details = "Rimlink.Incident.PendingOrder".Translate(label, name);
+        if (request.Level > 0) details += " " + "Rimlink.Incident.Level".Translate(request.Level);
+        if (request.Pods) details += " " + "Rimlink.Incident.Pods".Translate();
+        Widgets.Label(new Rect(0f, rect.y, rect.width, 48f), "Rimlink.Incident.Unanswered".Translate());
+        Widgets.Label(new Rect(0f, rect.y + 50f, rect.width, 54f), details);
+        if (Widgets.ButtonText(new Rect(0f, rect.y + 108f, 220f, 30f), "Rimlink.Incident.Retry".Translate(), active: !busy) && !busy)
+            Order(pending);
+        Widgets.Label(new Rect(230f, rect.y + 108f, rect.width - 230f, 48f), busy ? "Rimlink.Economy.Working".Translate().ToString() : status);
+        DrawOrders(new Rect(0f, rect.y + 164f, rect.width, rect.height - 164f), incidents.Mine);
+    }
+
     private void DrawChoice(Rect rect, CatalogEntry? entry)
     {
         if (entry is null)
@@ -106,7 +129,7 @@ public sealed class EventsTab
         y += 32f;
 
         var economy = RimlinkSession.State.Economy;
-        bool enabled = target is not null && canOrder && !economy.InDebt && !busy;
+        bool enabled = target is not null && canOrder && !economy.InDebt && !busy && RimlinkSession.Outbox is not null;
         var orderRect = new Rect(rect.x, y, 160f, 30f);
         if (!enabled) GUI.color = Color.gray;
         if (Widgets.ButtonText(orderRect, "Rimlink.Incident.Order".Translate(), active: enabled) && enabled)
@@ -168,32 +191,44 @@ public sealed class EventsTab
 
     private void Order(PlayerRef to, CatalogEntry entry, int withLevel, bool withPods)
     {
-        if (RimlinkSession.Incidents is not { } client) return;
+        if (RimlinkSession.Outbox is not { } outbox) return;
+        try
+        {
+            var pending = new IncidentOrderRetry(outbox).Begin(new OrderIncidentRequest { TargetPlayerId = to.PlayerId, EntryId = entry.Id, Level = withLevel, Pods = withPods });
+            Order(pending);
+        }
+        catch (Exception ex) { status = RefusalText.Of(Rimlink.Client.Net.RpcErrorDetail.Read(ex)); }
+    }
+
+    private void Order(OutboxEntry pending)
+    {
+        if (RimlinkSession.Incidents is not { } client || RimlinkSession.Outbox is not { } outbox) return;
         busy = true;
-        var request = new OrderIncidentRequest { ClientRequestId = requestId, TargetPlayerId = to.PlayerId, EntryId = entry.Id, Level = withLevel, Pods = withPods };
-        string label = IncidentLabels.Of(entry.IncidentDef, entry.FactionDef, entry.Id);
+        var request = (OrderIncidentRequest)TransferOutbox.Decode(pending);
         _ = Task.Run(async () =>
         {
             try
             {
                 var order = await client.Order(request, CancellationToken.None);
+                outbox.Remove(pending.Id);
                 MainThread.Post(() =>
                 {
+                    if (!ReferenceEquals(RimlinkSession.Outbox, outbox)) return;
                     var mine = RimlinkSession.State.Incidents.Mine;
                     if (!mine.Any(i => i.Id == order.Id)) mine.Insert(0, order);
-                    requestId = Guid.NewGuid().ToString("N");
                     quotedFor = null; // the target's queue and cooldown changed
-                    status = "Rimlink.Incident.Ordered".Translate(label, to.Name);
+                    status = "Rimlink.Incident.Ordered".Translate(IncidentLabels.Of(order.IncidentDef, order.FactionDef, order.EntryId), order.Target?.Name ?? request.TargetPlayerId.ToString());
                     busy = false;
                 });
             }
             catch (Exception ex)
             {
                 var refusal = Rimlink.Client.Net.RpcErrorDetail.Read(ex);
-                bool definitive = ex is RpcException rpc && rpc.StatusCode is StatusCode.FailedPrecondition or StatusCode.InvalidArgument or StatusCode.NotFound;
+                if (ex is RpcException rpc && TransferOutbox.IsDefinitive(rpc)) outbox.Refuse(pending.Id, refusal);
                 MainThread.Post(() =>
                 {
-                    if (definitive) requestId = Guid.NewGuid().ToString("N");
+                    if (!ReferenceEquals(RimlinkSession.Outbox, outbox)) return;
+                    quotedFor = null;
                     status = RefusalText.Of(refusal);
                     busy = false;
                 });

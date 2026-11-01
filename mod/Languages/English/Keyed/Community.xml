@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <Rimlink.Refusal.Community.WalletLimit>The receiving wallet cannot hold that much silver.</Rimlink.Refusal.Community.WalletLimit>
+  <Rimlink.Refusal.Community.Rename>That player name is invalid or already taken.</Rimlink.Refusal.Community.Rename>
+  <Rimlink.Community.SetCap>Set cap</Rimlink.Community.SetCap>
+  <Rimlink.Community.Rename>Rename player</Rimlink.Community.Rename>
+  <Rimlink.Community.Invited>{0} invited you: {1}. Open Players → Social → Invitations.</Rimlink.Community.Invited>
+  <Rimlink.Community.Title>Social</Rimlink.Community.Title>
+  <Rimlink.Community.Refresh>Refresh</Rimlink.Community.Refresh>
+  <Rimlink.Community.People>Players / friends</Rimlink.Community.People>
+  <Rimlink.Community.Alliance>Alliance</Rimlink.Community.Alliance>
+  <Rimlink.Community.Invitations>Invitations</Rimlink.Community.Invitations>
+  <Rimlink.Community.Profile>Profile</Rimlink.Community.Profile>
+  <Rimlink.Community.Pending>An unanswered social request is saved. Reconnect to resolve it before sending another.</Rimlink.Community.Pending>
+  <Rimlink.Community.Loading>Updating social information…</Rimlink.Community.Loading>
+  <Rimlink.Community.Friend>Friend</Rimlink.Community.Friend>
+  <Rimlink.Community.Ally>Ally</Rimlink.Community.Ally>
+  <Rimlink.Community.AllyLabel>[Ally] {0}</Rimlink.Community.AllyLabel>
+  <Rimlink.Community.Unfriend>Remove friend</Rimlink.Community.Unfriend>
+  <Rimlink.Community.AddFriend>Add friend</Rimlink.Community.AddFriend>
+  <Rimlink.Community.InviteAlly>Invite to alliance</Rimlink.Community.InviteAlly>
+  <Rimlink.Community.NoAlliance>You have no alliance. Create one or accept an invitation. Maximum 16 members.</Rimlink.Community.NoAlliance>
+  <Rimlink.Community.Create>Create alliance</Rimlink.Community.Create>
+  <Rimlink.Community.GroupSummary>{0} — treasury: {1} silver</Rimlink.Community.GroupSummary>
+  <Rimlink.Community.Disband>Disband alliance</Rimlink.Community.Disband>
+  <Rimlink.Community.Leave>Leave alliance</Rimlink.Community.Leave>
+  <Rimlink.Community.DisbandConfirm>Disband the alliance? All remaining silver returns to the owner’s wallet.</Rimlink.Community.DisbandConfirm>
+  <Rimlink.Community.LeaveConfirm>Leave the alliance? Treasury contributions stay with the alliance.</Rimlink.Community.LeaveConfirm>
+  <Rimlink.Community.TransferConfirm>Transfer alliance ownership to this member? Treasury wealth and any disband refund will belong to them.</Rimlink.Community.TransferConfirm>
+  <Rimlink.Community.Silver>Silver</Rimlink.Community.Silver>
+  <Rimlink.Community.Deposit>Deposit</Rimlink.Community.Deposit>
+  <Rimlink.Community.Withdraw>Withdraw</Rimlink.Community.Withdraw>
+  <Rimlink.Community.DailyCap>Daily cap (UTC)</Rimlink.Community.DailyCap>
+  <Rimlink.Community.Owner>Owner</Rimlink.Community.Owner>
+  <Rimlink.Community.NoWithdraw>Withdrawal disabled</Rimlink.Community.NoWithdraw>
+  <Rimlink.Community.Revoke>Revoke</Rimlink.Community.Revoke>
+  <Rimlink.Community.Grant>Allow withdrawal</Rimlink.Community.Grant>
+  <Rimlink.Community.Transfer>Make owner</Rimlink.Community.Transfer>
+  <Rimlink.Community.Chat>Alliance chat — current members only, history since joining</Rimlink.Community.Chat>
+  <Rimlink.Community.Send>Send</Rimlink.Community.Send>
+  <Rimlink.Community.Audit>Treasury / membership audit (last 100 entries)</Rimlink.Community.Audit>
+  <Rimlink.Community.Accept>Accept</Rimlink.Community.Accept>
+  <Rimlink.Community.Refuse>Refuse</Rimlink.Community.Refuse>
+  <Rimlink.Community.LastSeen>Last seen: {0}</Rimlink.Community.LastSeen>
+  <Rimlink.Community.Unknown>unknown</Rimlink.Community.Unknown>
+  <Rimlink.Community.InvitationsOpen>Allow social invitations</Rimlink.Community.InvitationsOpen>
+  <Rimlink.Community.InvitationsClosed>Social invitations closed</Rimlink.Community.InvitationsClosed>
+  <Rimlink.Community.Notifications>Show social invitation notifications</Rimlink.Community.Notifications>
+  <Rimlink.Community.Save>Save profile</Rimlink.Community.Save>
+  <Rimlink.Community.MyProfile>My profile</Rimlink.Community.MyProfile>
+  <Rimlink.Community.InvalidNumber>Enter a valid silver amount or daily cap (at most 1000000000).</Rimlink.Community.InvalidNumber>
+  <Rimlink.Community.Audit_create>created</Rimlink.Community.Audit_create>
+  <Rimlink.Community.Audit_join>joined</Rimlink.Community.Audit_join>
+  <Rimlink.Community.Audit_deposit>deposit</Rimlink.Community.Audit_deposit>
+  <Rimlink.Community.Audit_withdraw>withdraw</Rimlink.Community.Audit_withdraw>
+  <Rimlink.Community.Audit_permission>permission</Rimlink.Community.Audit_permission>
+  <Rimlink.Community.Audit_leave>left</Rimlink.Community.Audit_leave>
+  <Rimlink.Community.Audit_transfer>ownership transferred</Rimlink.Community.Audit_transfer>
+  <Rimlink.Community.Audit_disband>disband / refund</Rimlink.Community.Audit_disband>
+  <Rimlink.Community.Audit_block-revoke>permission revoked on block</Rimlink.Community.Audit_block-revoke>
+  <Rimlink.Refusal.Community.AlliedTarget>You cannot attack an ally.</Rimlink.Refusal.Community.AlliedTarget>
+  <Rimlink.Refusal.Community.NoPlayer>No such player.</Rimlink.Refusal.Community.NoPlayer>
+  <Rimlink.Refusal.Community.RequestId>A request ID of 1–64 letters, digits or hyphens is required.</Rimlink.Refusal.Community.RequestId>
+  <Rimlink.Refusal.Community.Size>Text must be at most 500 characters.</Rimlink.Refusal.Community.Size>
+  <Rimlink.Refusal.Community.Intent>This request ID belongs to another operation.</Rimlink.Refusal.Community.Intent>
+  <Rimlink.Refusal.Community.AlreadyMember>The player already has an alliance.</Rimlink.Refusal.Community.AlreadyMember>
+  <Rimlink.Refusal.Community.Name>Alliance name must be 1–32 characters without control characters or markup.</Rimlink.Refusal.Community.Name>
+  <Rimlink.Refusal.Community.Self>Choose another player.</Rimlink.Refusal.Community.Self>
+  <Rimlink.Refusal.Community.Members>An alliance can have at most 16 members.</Rimlink.Refusal.Community.Members>
+  <Rimlink.Refusal.Community.AlreadyFriend>You are already friends.</Rimlink.Refusal.Community.AlreadyFriend>
+  <Rimlink.Refusal.Community.Pending>An invitation is already waiting.</Rimlink.Refusal.Community.Pending>
+  <Rimlink.Refusal.Community.Invites>At most 32 invitations may be pending.</Rimlink.Refusal.Community.Invites>
+  <Rimlink.Refusal.Community.InviteGone>That invitation is no longer open.</Rimlink.Refusal.Community.InviteGone>
+  <Rimlink.Refusal.Community.Permission>You cannot change this invitation.</Rimlink.Refusal.Community.Permission>
+  <Rimlink.Refusal.Community.Bio>Text may not contain control characters or markup.</Rimlink.Refusal.Community.Bio>
+  <Rimlink.Refusal.Community.Muted>You are muted.</Rimlink.Refusal.Community.Muted>
+  <Rimlink.Refusal.Community.Amount>Silver must be 1–1000000000.</Rimlink.Refusal.Community.Amount>
+  <Rimlink.Refusal.Community.Balance>Treasury balance limit reached.</Rimlink.Refusal.Community.Balance>
+  <Rimlink.Refusal.Community.DailyCap>Withdrawal permission or remaining daily limit is insufficient.</Rimlink.Refusal.Community.DailyCap>
+  <Rimlink.Refusal.Community.Insufficient>Not enough silver in the treasury.</Rimlink.Refusal.Community.Insufficient>
+  <Rimlink.Refusal.Community.Cap>Daily cap must be 0–1000000000.</Rimlink.Refusal.Community.Cap>
+  <Rimlink.Refusal.Community.Member>That player is not a member of this alliance.</Rimlink.Refusal.Community.Member>
+  <Rimlink.Refusal.Community.OwnerLeave>Transfer ownership or disband the alliance before leaving.</Rimlink.Refusal.Community.OwnerLeave>
+  <Rimlink.Refusal.Community.Action>Unknown social operation.</Rimlink.Refusal.Community.Action>
+  <Rimlink.Refusal.Community.InvitesClosed>That player has closed social invitations.</Rimlink.Refusal.Community.InvitesClosed>
+  <Rimlink.Refusal.Community.Friends>At most 100 friends are allowed.</Rimlink.Refusal.Community.Friends>
+  <Rimlink.Refusal.Community.Owner>Only the alliance owner may do that.</Rimlink.Refusal.Community.Owner>
+  <Rimlink.Refusal.Community.ActiveHarm>Finish active hostile actions between future members before joining.</Rimlink.Refusal.Community.ActiveHarm>
+</LanguageData>

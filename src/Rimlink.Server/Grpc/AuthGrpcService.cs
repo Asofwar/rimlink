@@ -35,6 +35,7 @@ public sealed class AuthGrpcService(AuthService auth, WorldService worlds, SaveS
     public override Task<Empty> SetAtHome(AtHomeRequest request, ServerCallContext context)
     {
         context.GetSession().AtHome = request.AtHome;
+        context.GetSession().CoopCapable = request.CoopCapable;
         return Task.FromResult(new Empty());
     }
 

@@ -7,7 +7,7 @@ using Role = Rimlink.Server.Storage.Entities.Role;
 namespace Rimlink.Server.Application.Admin;
 
 /// <summary>Text command front-end over <see cref="AdminOperations"/>, shared by the Admin gRPC service and chat "/" lines.</summary>
-public sealed class AdminCommandRunner(AdminOperations ops, ModpackService modpack)
+public sealed class AdminCommandRunner(AdminOperations ops, ModpackService modpack, Auctions.AuctionAdmin auctions)
 {
     public const string Help = """
         Commands: online | kick <player> [reason] | ban <player> [days] [reason] | pardon <banId> | bans |
@@ -18,7 +18,7 @@ public sealed class AdminCommandRunner(AdminOperations ops, ModpackService modpa
         economy freeze [reason] | economy unfreeze | economy stats |
         raids list [player] | raids cancel <id> [--return] [reason] | raids freeze [reason] | raids unfreeze | raids stats |
         live list [player] | live end <id> [reason] | peaceful <player> on|off | shop <player> | removals <player> |
-        trades [player] | trade cancel <id> [reason] |
+        trades [player] | trade cancel <id> [reason] | auctions | auction cancel <id> [reason] |
         freeze <player> [reason] | unfreeze <player> |
         forbid list | forbid add <def...> | forbid remove <def...> |
         archive list | archive <player> | archive restore <id> |
@@ -34,6 +34,11 @@ public sealed class AdminCommandRunner(AdminOperations ops, ModpackService modpa
 
         switch (command.Name)
         {
+            case "auctions":
+                return System.Text.Json.JsonSerializer.Serialize(await auctions.List(actor));
+            case "auction":
+                if (Arg(0) != "cancel") throw new RpcException(new Status(StatusCode.InvalidArgument, "auction cancel <id> [reason]"));
+                return await auctions.Cancel(actor, long.Parse(Arg(1), CultureInfo.InvariantCulture), args.Count > 2 ? Rest(2) : "cancelled by admin") ? "auction cancelled" : "no such open auction";
             case "online":
                 var online = await ops.ListOnline(actor);
                 return online.Count == 0 ? "nobody online" : string.Join('\n', online.Select(p => $"{p.Name} ({p.Role.ToString().ToLowerInvariant()}, since {p.Since:HH:mm} UTC)"));

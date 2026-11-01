@@ -41,7 +41,8 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
         if (validator.Validate(hasItems ? request.Items : null, pawns, checkForbidden: true) is { } reason) throw RpcErrors.Failed(reason.Code, reason.Key, reason.Message, reason.Args);
         await guard.RequireNoThreat(sellerId);
         await guard.RequireNoDebt(sellerId);
-        int open = await db.Lots.CountAsync(l => l.SellerPlayerId == sellerId && l.Status == LotStatusDb.Open);
+        int open = await db.Lots.CountAsync(l => l.SellerPlayerId == sellerId && l.Status == LotStatusDb.Open)
+            + await db.Set<AuctionRow>().CountAsync(a => a.SellerPlayerId == sellerId && a.Status == 0);
         if (open >= options.Value.MaxLotsPerPlayer)
             throw RpcErrors.Failed(ErrorCode.Unspecified, RefusalKeys.EconomyLotLimit, $"you already have {open} open lots (limit {options.Value.MaxLotsPerPlayer})", open, options.Value.MaxLotsPerPlayer);
 

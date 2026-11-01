@@ -103,6 +103,17 @@ public class FormatterTests
         Assert.Contains("300", text);
     }
 
+    [Theory]
+    [InlineData("en", "coop")]
+    [InlineData("ru", "Совместная")]
+    public void SharedColonySessionIsNotAnnouncedAsARaid(string language, string expected)
+    {
+        var formatter = new Formatter(new Strings(language));
+        var data = new { sessionId = 4, kind = "coop", host = P(2, "Bob"), guest = P(1, "Nova"), reason = "normal" };
+        Assert.Contains(expected, formatter.Format(Ev(FeedTypes.LiveStarted, data))!, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(expected, formatter.Format(Ev(FeedTypes.LiveEnded, data))!, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public void LotSoldNamesSellerBuyerPriceAndSummary()
     {

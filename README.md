@@ -17,6 +17,15 @@ being online at the same time; when two players are online, one can walk onto th
 Rimlink is a clean-room project with its own protocol, server and client. It shares no code with other RimWorld multiplayer
 mods and does not work with them.
 
+## 0.7.0 development
+
+This branch adds [buy orders, delivery contracts and cooperative supply goals](docs/procurement.md),
+[auctions](docs/auctions-implementation.md), [alliances, treasury, friends and profiles](docs/community.md),
+[persistent shared-colony access](docs/shared-colony.md), and
+[local diagnostics and confirmed server invitations](docs/client-diagnostics-invites.md).
+The shared colony has one save writer and one active partner; progress waits while its owner is offline.
+In-game acceptance checks are tracked separately in the [manual checklist](docs/manual-checklist.md).
+
 ## What makes it different
 
 - **A world that stays.** The server keeps the planet, every settlement, the chat and everyone's saves. Players come and go,
@@ -62,6 +71,7 @@ server to join. Rimlink has no central server: ask your admin for an address, or
 6. Pick a free tile on the server's planet and start your colony.
 
 The [player guide](docs/player-guide.md) covers trading, raids, live sessions and what to do when something goes wrong.
+The client also provides [local diagnostic ZIPs and confirmed server invitations](docs/client-diagnostics-invites.md).
 
 ## Quick start for server admins
 
@@ -91,6 +101,9 @@ updating, monitoring and the Discord bot.
 Current version: **0.6.0**, see the [release notes](https://github.com/Asofwar/rimlink/releases/latest). Rimlink is young, so
 back up your server's data before you update it. Every player on a server plays the server's mod list, and a host's
 colony can only be visited by players who have the host's mods.
+
+The current development tree also includes [item auctions](docs/player-guide.md#item-auctions), with wallet bid escrow,
+buyout, bounded anti-snipe and offline settlement. The two-player game checks are tracked in [the checklist](docs/manual-checklist.md).
 
 ## Development
 

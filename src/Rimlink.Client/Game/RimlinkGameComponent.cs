@@ -129,7 +129,7 @@ public sealed class RimlinkGameComponent : GameComponent
         atHomeSent = home;
         _ = Task.Run(async () =>
         {
-            try { await connection.Auth.SetAtHomeAsync(new AtHomeRequest { AtHome = home }); }
+            try { await connection.Auth.SetAtHomeAsync(new AtHomeRequest { AtHome = home, CoopCapable = true }); }
             catch (Exception ex) { RimlinkLog.Instance.Warn("presence not reported: " + ex.Message); atHomeSent = null; }
         });
     }
@@ -172,6 +172,7 @@ public sealed class RimlinkGameComponent : GameComponent
         HoldStoryteller();
 
         RimlinkSession.Inbox.DrainTo(RimlinkSession.State.Apply);
+        CommunitySync.Tick();
         HandleConnectionState();
         HandleNotices();
         ReportPresence();

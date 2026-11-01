@@ -17,7 +17,7 @@ namespace Rimlink.Client.UI.Economy;
 /// </summary>
 public sealed class Dialog_Economy : Window
 {
-    private enum Tab { Market, MyLots, Send, Wallet, Mailbox, Trades, Events, Raids, Shops }
+    private enum Tab { Market, MyLots, Send, Wallet, Mailbox, Trades, Events, Raids, Shops, Procurement, Auctions }
 
     private readonly Map? map;
     private readonly Caravan? caravan;
@@ -39,6 +39,9 @@ public sealed class Dialog_Economy : Window
     private ShopList? shopList;
     private readonly TradesTab tradesTab = new();
     private readonly EventsTab eventsTab = new();
+    private readonly ProcurementTab procurementTab = new();
+
+    private readonly AuctionsTab auctionsTab = new();
 
     public Dialog_Economy(Map map)
     {
@@ -73,6 +76,7 @@ public sealed class Dialog_Economy : Window
 
     private void Refresh()
     {
+        auctionsTab.Invalidate();
         var economy = RimlinkSession.Economy;
         if (economy is null) return;
         busy = true;
@@ -124,23 +128,27 @@ public sealed class Dialog_Economy : Window
         Widgets.Label(new Rect(0f, 0f, inRect.width, 32f), "Rimlink.Economy.Title".Translate());
         Text.Font = GameFont.Small;
 
+        float bodyY = 72f;
         if (fixedRecipient is null)
         {
             float x = 0f;
             var tabs = (Tab[])Enum.GetValues(typeof(Tab));
-            // The tabs share the row left of the refresh button.
-            float tabWidth = (inRect.width - 76f) / tabs.Length - 4f;
+            // Keep every tab row above the body as features add tabs.
+            bodyY = 40f + ((tabs.Length + 4) / 5) * 32f;
+            float tabWidth = (inRect.width - 76f) / 5 - 4f;
+            int tabIndex = 0;
             foreach (Tab t in tabs)
             {
-                var r = new Rect(x, 36f, tabWidth, 28f);
+                var r = new Rect(x, 36f + (tabIndex / 5) * 32f, tabWidth, 28f);
                 if (tab == t) Widgets.DrawHighlightSelected(r);
                 if (Widgets.ButtonText(r, ("Rimlink.Economy.Tab." + t).Translate())) tab = t;
                 x += tabWidth + 4f;
+                if (++tabIndex % 5 == 0) x = 0f;
             }
             if (Widgets.ButtonText(new Rect(inRect.width - 70f, 36f, 70f, 28f), "Rimlink.Economy.Refresh".Translate())) Refresh();
         }
 
-        var body = new Rect(0f, 72f, inRect.width, inRect.height - 100f);
+        var body = new Rect(0f, bodyY, inRect.width, inRect.height - bodyY - 28f);
         switch (tab)
         {
             case Tab.Market: DrawMarket(body); break;
@@ -149,9 +157,11 @@ public sealed class Dialog_Economy : Window
             case Tab.Wallet: DrawWallet(body); break;
             case Tab.Mailbox: DrawMailbox(body); break;
             case Tab.Trades: tradesTab.Draw(body, map, KnownPlayers()); break;
+            case Tab.Procurement: procurementTab.Draw(body, map, KnownPlayers()); break;
             case Tab.Events: eventsTab.Draw(body, KnownPlayers()); break;
             case Tab.Raids: DrawRaids(body); break;
             case Tab.Shops: DrawShops(body); break;
+            case Tab.Auctions: auctionsTab.Draw(body, map); break;
         }
 
         GUI.color = status.Length > 0 ? Color.yellow : Color.gray;
@@ -387,7 +397,7 @@ public sealed class Dialog_Economy : Window
         float y = 0f, w = list.width - 16f;
         if (liveState.Current is { } session)
         {
-            string kind = (session.Kind == LiveKind.LiveRaid ? "Rimlink.Live.KindRaid" : "Rimlink.Live.KindVisit").Translate();
+            string kind = (session.Kind == LiveKind.LiveCoop ? "Rimlink.Colonies.Kind" : session.Kind == LiveKind.LiveRaid ? "Rimlink.Live.KindRaid" : "Rimlink.Live.KindVisit").Translate();
             Widgets.Label(new Rect(0f, y, w, 26f), "Rimlink.Live.ListCurrent".Translate(kind, session.Host?.Name ?? "?", session.Guest?.Name ?? "?", ("Rimlink.Live.State." + session.State).Translate()));
             y += 28f;
         }

@@ -13,7 +13,9 @@ public sealed class SharedState
     public Raids.RaidsState Raids { get; } = new();
     public Live.LiveState Live { get; } = new();
     public Incidents.IncidentsState Incidents { get; } = new();
+    public Procurement.ProcurementState Procurement { get; } = new();
     public Social.SocialState Social { get; } = new();
+    public Social.CommunityCache Community { get; } = new();
     public List<Notice> Notices { get; } = [];
     public int? PendingRollbackVersion { get; private set; }
     public ServerShutdown? PendingShutdown { get; private set; }
@@ -25,6 +27,8 @@ public sealed class SharedState
     public event Action<ChatMessageEvent>? ChatReceived;
     /// <summary>A "look here" from another player (live UX spec §2); the game layer shows it only while a game is running.</summary>
     public event Action<PingEvent>? Pinged;
+    public event Action<Auction>? AuctionChanged;
+    public int AuctionRevision { get; private set; }
     public PingEvent? LastPing { get; private set; }
 
     public void LoadSnapshot(WorldObjects objects, ChatHistory history, IEnumerable<PlayerRef> online)
@@ -39,6 +43,15 @@ public sealed class SharedState
     {
         switch (ev.BodyCase)
         {
+            case ServerEvent.BodyOneofCase.AuctionUpdated:
+                AuctionRevision++;
+                Economy.MarkWealthStale();
+                AuctionChanged?.Invoke(ev.AuctionUpdated.Auction);
+                break;
+            case ServerEvent.BodyOneofCase.CommunityChanged:
+                Community.Invalidate();
+                Economy.MarkWealthStale();
+                break;
             case ServerEvent.BodyOneofCase.WorldObjectAdded:
                 if (Objects.Add(ev.WorldObjectAdded.Object)) ObjectAdded?.Invoke(ev.WorldObjectAdded.Object);
                 break;
@@ -81,6 +94,10 @@ public sealed class SharedState
                 Economy.Apply(ev);
                 Social.Apply(ev);
                 break;
+            case ServerEvent.BodyOneofCase.ProcurementChanged:
+                Procurement.Invalidate();
+                Economy.MarkWealthStale();
+                break;
             case ServerEvent.BodyOneofCase.TradeUpdated:
                 Social.Apply(ev);
                 Economy.MarkWealthStale(); // goods moved in or out of escrow without touching the wallet
@@ -116,6 +133,7 @@ public sealed class SharedState
 
     public void Reset()
     {
+        AuctionRevision++;
         Objects.Clear();
         Chat.Clear();
         Players.Clear();
@@ -123,7 +141,9 @@ public sealed class SharedState
         PendingRollbackVersion = null;
         PendingShutdown = null;
         Economy.Reset();
+        Procurement.Reset();
         Social.Reset();
+        Community.Reset();
         Raids.Reset();
         Live.Reset();
         Incidents.Reset();

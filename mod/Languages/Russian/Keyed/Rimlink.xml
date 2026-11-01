@@ -232,6 +232,9 @@
   <Rimlink.Incident.Price>Цена: {0} серебра{1}</Rimlink.Incident.Price>
   <Rimlink.Incident.Warned> — объявляется за полдня</Rimlink.Incident.Warned>
   <Rimlink.Incident.Order>Заказать</Rimlink.Incident.Order>
+  <Rimlink.Incident.Unanswered>Ответ на предыдущий заказ ещё не подтверждён. Повторите его, прежде чем выбирать другой заказ; повторной оплаты не будет.</Rimlink.Incident.Unanswered>
+  <Rimlink.Incident.Retry>Повторить исходный заказ</Rimlink.Incident.Retry>
+  <Rimlink.Incident.PendingOrder>Ожидает подтверждения: {0} против {1}.</Rimlink.Incident.PendingOrder>
   <Rimlink.Incident.Ordered>Заказано: {0} против {1}.</Rimlink.Incident.Ordered>
   <Rimlink.Incident.MyOrders>Мои заказы ({0})</Rimlink.Incident.MyOrders>
   <Rimlink.Incident.State.IncidentQueued>ждёт</Rimlink.Incident.State.IncidentQueued>

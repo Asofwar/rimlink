@@ -1,5 +1,14 @@
 # Ручной чек-лист (то, что автотесты не покрывают)
 
+## Социальный модуль next (прогон в игре ещё не выполнен)
+
+- [ ] Два изолированных клиента EN/RU: Игроки → Общение, приглашение в союз/друзья, принятие/отказ/отзыв, закрытые приглашения, блокировка.
+- [ ] Владелец/участник/посторонний: выход, передача владения, роспуск с единственным возвратом владельцу, зелёная метка союзника.
+- [ ] Казна: пополнение из кошелька, право снятия, изменение/отзыв лимита, сутки UTC, долг/заморозка/угроза, переподключение после потери ответа.
+- [ ] Только текущие участники получают союзный чат; после выхода/повторного входа старой истории нет; в общем, личном, Discord/admin чате союзных строк нет.
+- [ ] Snapshot/real/live-рейд и вредящий инцидент по союзнику запрещены; live-визит и LiveCoop сохраняют свои правила.
+- [ ] Профиль/переименование, длинные имена/биографии, уведомления и раскладка на поддерживаемых разрешениях. Контракт: [community.md](community.md).
+
 Отмечать при каждом релизе. Прогон 2026-10-28 (RimWorld 1.7.4990, локальный сервер, два аккаунта на одном
 клиенте): отмечено `[x]`; `[ ]` — не проверялось в этом прогоне.
 
@@ -882,3 +891,48 @@ failed» и возвращает вещи на карту без запроса 
       после восстановления совпадают побайтово. Это локальная проверка CLI, не прогон на рабочем сервере.
 - [ ] **Живой сервер после обновления.** Размер `saves/` упал (`saves.diskBytes` в `/status`), откат из панели на ужатую версию работает,
       игрок заходит на откатанном сейве, бэкап восстанавливается в отдельный каталог, и сервер на нём стартует.
+
+## Client diagnostics and server invitations (2026-11-01)
+
+Automated core/upload tests and a mod build do not establish these UI scenarios. Run only in an isolated stand.
+
+- [ ] EN and RU: open Diagnostics from the main-menu server list and in-game overlay; long summaries and scrollable preview fit, close/cancel work.
+- [ ] Upload a save successfully, fail the next upload, then recover: time/version preserve the last success, error category changes then clears. Repeat pending-local upload at login; a fresh account/server login starts with no upload history.
+- [ ] Host and guest: open Diagnostics during live play, pause, reconnect, and snapshot refresh; role/state/snapshot/speed/pause source match the game. No player names or IDs enter the preview.
+- [ ] Before Save local ZIP: no diagnostic file exists. Cancel changes nothing. Save creates a unique ZIP in the displayed local folder, shows its filename and sends nothing. Repeated saves preserve previous reports.
+- [ ] Inspect the saved ZIP: only diagnostics.json and events.log; preview content matches both. No raw log text, SteamID/login/IP/endpoint/pin/path/chat/credentials. Third-party mod IDs are anonymous; all caps hold.
+- [ ] Export a verified bookmark: address and SHA-256 shown before Confirm and copy. Cancel leaves clipboard unchanged. An untrusted bookmark cannot export.
+- [ ] Import DNS, IPv4 and bracketed IPv6 invitations: review first, cancel saves nothing; explicit trust adds one bookmark, does not connect, and a later manual connection checks the imported pin. Repeat import adds no duplicate.
+- [ ] A different existing pin (including a change after preview) blocks import and remains unchanged. A damaged pin file blocks import. Verify with the owner before using the normal connection flow to approve a legitimate certificate change.
+- [ ] Invalid/oversized/escaped invitation, bad hash/port, extra field, fragment, file or shell-like text: reject without network, process or filesystem side effects. EN/RU error messages are visible.
+
+## Остаточные проверки, 2026-11-01 (`asofwar/next-verification`)
+
+- [x] **EventsTab, ядро + тестовый сервер.** Воспроизведён старый запрос с тем же ID и новой целью/типом: сервер возвращает исходный заказ. Новый путь сохраняет намерение в outbox до RPC; изменение выбора, закрытие окна и вход его не заменяют. Проверены потеря настоящего HTTP-ответа после commit, повтор без второй оплаты, окончательный отказ без пустой посылки и следующий новый заказ. Это автоматические проверки, не прогон EventsTab в игре.
+- [x] **REST-откат дельты + вход ядра.** Подтверждено наличие дельты, откат через тот же REST endpoint, что панель, повторный вход и загрузка исходного XML. Игровая карта в тесте не загружается.
+- [x] **Разрыв между Pending и Report, ядро + сервер.** Переподключение, старый список Pending и повтор fired/failed: обработанный ID не возвращается в очередь ядра, оплата/возврат однократны. Ванильный worker не запускается.
+- [ ] **Игровые остаточные сценарии.** Steam refusal/autowait, ввод `g`, богатство визита, враг/караван, Infestation, обрыв Pending/Report и откат через экран панели остаются открытыми. Изолированная копия запустилась через CUA Driver; ввод получил UIA timeout и `foreground_unavailable`. Другие средства GUI не использовались; собственные игра и сервер остановлены.
+- [ ] **Coop интеграционного дерева.** Подготовлен двухсторонний сценарий; новая сборка в игру не развёрнута. Старые raid/visit пути не заменяют coop-проверку.
+
+Команды, точные границы доказательства и подготовка стенда: [протокол проверки](verification/2026-11-01-residual-verification.md).
+
+## Аукционы (`asofwar/next-auctions`, 2026-11-01)
+
+Автоматические тесты не заменяют следующие проверки в двух настоящих игровых процессах. Игровой прогон этой ветки
+не выполнялся; сборка DLL сама по себе не подтверждает расположение элементов UI или доставку в игру.
+
+- [ ] В EN и RU открыть аукционы из консоли связи: вкладки в два ряда, цены/срок/подсказки читаются, список листается.
+- [ ] Выбрать часть стака под маяком; выставить лот без выкупа и с выкупом. До приёма сервером дождаться сейва/выгрузки.
+      После отказа (долг/угроза/заморозка/запрещённый def) вещи возвращаются ровно один раз.
+- [ ] Второй игрок делает ставку; первый не может ставить на свой лот. Другой участник перебивает — серебро возвращается
+      немедленно; текущий лидер увеличивает ставку с резервированием только разницы.
+- [ ] Ставка за 10 секунд до срока добавляет 30 секунд. Повторы ограничены максимумом +5 минут. Убедиться в точном сроке
+      на обоих клиентах после обновления доски.
+- [ ] Подтвердить выкуп; победитель получает посылку, продавец — выручку минус комиссию/хранение, дублей нет после reconnect.
+- [ ] Оставить игроков офлайн до срока/перезапустить тестовый сервер: один победитель и одна посылка, без ставок — возврат.
+- [ ] Потерять ответ после posting/bid/cancel; проверить сохранённую запись outbox, кнопку повтора, replay после входа,
+      отсутствие повторного удаления/резерва и отсутствие возврата уже принятого лота при rate limit.
+- [ ] Отменить лот до ставок, проверить запрет отмены после ставки. Администратор отменяет при заморозке через REST/CLI:
+      товар продавцу, ставка участнику, запись аудита. Reset/archive любого участника возвращает обе стороны.
+- [ ] Проверить, что заморозка откладывает settlement; после снятия — единственная выдача. При полном mailbox товар
+      сохраняется; при ошибке распаковки посылка остаётся в почте. Накопленный escrow виден в богатстве/угрозе рассказчика.

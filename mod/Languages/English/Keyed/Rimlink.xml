@@ -233,6 +233,9 @@
   <Rimlink.Incident.Price>Price: {0} silver{1}</Rimlink.Incident.Price>
   <Rimlink.Incident.Warned> — announced half a day ahead</Rimlink.Incident.Warned>
   <Rimlink.Incident.Order>Order</Rimlink.Incident.Order>
+  <Rimlink.Incident.Unanswered>The previous order has no confirmed answer yet. Retry it before choosing a different order; it will not be charged twice.</Rimlink.Incident.Unanswered>
+  <Rimlink.Incident.Retry>Retry original order</Rimlink.Incident.Retry>
+  <Rimlink.Incident.PendingOrder>Awaiting confirmation: {0} against {1}.</Rimlink.Incident.PendingOrder>
   <Rimlink.Incident.Ordered>Ordered: {0} against {1}.</Rimlink.Incident.Ordered>
   <Rimlink.Incident.MyOrders>My orders ({0})</Rimlink.Incident.MyOrders>
   <Rimlink.Incident.State.IncidentQueued>waiting</Rimlink.Incident.State.IncidentQueued>

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <Rimlink.Economy.Tab.Procurement>Supply</Rimlink.Economy.Tab.Procurement>
+  <Rimlink.Procurement.Mine>My participation</Rimlink.Procurement.Mine>
+  <Rimlink.Procurement.Create>New procurement</Rimlink.Procurement.Create>
+  <Rimlink.Procurement.Retry>Retry pending</Rimlink.Procurement.Retry>
+  <Rimlink.Procurement.Pending>An answer is pending. Retry with the same request; goods remain in the outbox until settled.</Rimlink.Procurement.Pending>
+  <Rimlink.Procurement.Rules>Resource supply only. The server checks descriptors and quantities; opaque game blobs rely on the existing client trust model.</Rimlink.Procurement.Rules>
+  <Rimlink.Procurement.Details>Details</Rimlink.Procurement.Details>
+  <Rimlink.Procurement.Kind.BuyOrder>Buy order</Rimlink.Procurement.Kind.BuyOrder>
+  <Rimlink.Procurement.Kind.SupplyContract>Contract</Rimlink.Procurement.Kind.SupplyContract>
+  <Rimlink.Procurement.Kind.CommunityGoal>Supply goal</Rimlink.Procurement.Kind.CommunityGoal>
+  <Rimlink.Procurement.Status.ProcurementOpen>open</Rimlink.Procurement.Status.ProcurementOpen>
+  <Rimlink.Procurement.Status.ProcurementCompleted>completed</Rimlink.Procurement.Status.ProcurementCompleted>
+  <Rimlink.Procurement.Status.ProcurementCancelled>cancelled</Rimlink.Procurement.Status.ProcurementCancelled>
+  <Rimlink.Procurement.Status.ProcurementExpired>expired</Rimlink.Procurement.Status.ProcurementExpired>
+  <Rimlink.Procurement.UnitPrice>{0} silver per unit</Rimlink.Procurement.UnitPrice>
+  <Rimlink.Procurement.Fund>Reward fund: {0} silver</Rimlink.Procurement.Fund>
+  <Rimlink.Procurement.UnitPriceLabel>Silver per unit</Rimlink.Procurement.UnitPriceLabel>
+  <Rimlink.Procurement.FundLabel>Total reward (silver)</Rimlink.Procurement.FundLabel>
+  <Rimlink.Procurement.Resource>Resource defName</Rimlink.Procurement.Resource>
+  <Rimlink.Procurement.Quantity>Resource quantity</Rimlink.Procurement.Quantity>
+  <Rimlink.Procurement.Hours>Deadline in real hours</Rimlink.Procurement.Hours>
+  <Rimlink.Procurement.Supplier>Choose addressed supplier</Rimlink.Procurement.Supplier>
+  <Rimlink.Procurement.Reserve>Reserve: {0}; wallet: {1}</Rimlink.Procurement.Reserve>
+  <Rimlink.Procurement.CreateRules>1–1,000,000 units; 1–720 real hours; at most 1,000,000,000 silver and 20 open procurements (also limited by the server lot cap). The fund leaves your wallet now. Existing market fees apply. Any stuff, quality and condition of the resource are accepted. No pawns or NPC kill claims.</Rimlink.Procurement.CreateRules>
+  <Rimlink.Procurement.ReserveButton>Reserve and publish</Rimlink.Procurement.ReserveButton>
+  <Rimlink.Procurement.Submitted>Procurement request accepted</Rimlink.Procurement.Submitted>
+  <Rimlink.Procurement.OrderRules>Choose only the requested resource under trade beacons. Partial supply is paid immediately, less the market fee. Goods go to the buyer by mailbox. Cancel/expiry returns the unspent reserve. Up to 100 deliveries per procurement; declared value per delivery is capped at 1 billion silver.</Rimlink.Procurement.OrderRules>
+  <Rimlink.Procurement.ContractRules>Only the addressed supplier may supply the full exact remaining quantity before the deadline. Goods arrive by mailbox; the full reward is paid less the market fee. Any stuff, quality and condition are accepted.</Rimlink.Procurement.ContractRules>
+  <Rimlink.Procurement.GoalRules>Goods stay in escrow until the quota is met. On completion the organizer receives goods; suppliers share the fund by unit count (rounding remainder by player ID), less market fees. Cancel/expiry returns all contributions and the fund. Perishable storage fees apply to suppliers while held.</Rimlink.Procurement.GoalRules>
+  <Rimlink.Procurement.Contribution>{0}: {1} units; paid {2} silver before storage fees</Rimlink.Procurement.Contribution>
+  <Rimlink.Procurement.Supply>Supply selected resources</Rimlink.Procurement.Supply>
+  <Rimlink.Procurement.Cancel>Cancel procurement</Rimlink.Procurement.Cancel>
+  <Rimlink.Procurement.CancelConfirm>Cancel? Unspent silver returns to the organizer. An incomplete goal returns every contributor's goods; storage fees may apply. Already paid buy-order deliveries remain completed.</Rimlink.Procurement.CancelConfirm>
+  <Rimlink.Refusal.Procurement.Invalid>Invalid procurement: resource defName, 1–1,000,000 units, fund up to 1,000,000,000 silver, 1–720 hours.</Rimlink.Refusal.Procurement.Invalid>
+  <Rimlink.Refusal.Procurement.Access>This procurement is not available to you.</Rimlink.Refusal.Procurement.Access>
+  <Rimlink.Refusal.Procurement.Gone>This procurement is closed or past its deadline.</Rimlink.Refusal.Procurement.Gone>
+  <Rimlink.Refusal.Procurement.Def>This resource is unavailable in the server modpack or forbidden for transfers.</Rimlink.Refusal.Procurement.Def>
+  <Rimlink.Refusal.Procurement.Limit>Open procurement or delivery limit reached.</Rimlink.Refusal.Procurement.Limit>
+  <Rimlink.Refusal.Procurement.Intent>This request ID belongs to a different operation.</Rimlink.Refusal.Procurement.Intent>
+  <Rimlink.Refusal.Procurement.Goods>Supply only the requested resource, no more than the remaining quota. A contract requires the full exact quantity.</Rimlink.Refusal.Procurement.Goods>
+  <Rimlink.Refusal.Procurement.Value>Declared shipment value exceeds the 1 billion silver accounting limit.</Rimlink.Refusal.Procurement.Value>
+</LanguageData>

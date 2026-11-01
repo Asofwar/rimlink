@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <Rimlink.Diagnostics.Title>Диагностика</Rimlink.Diagnostics.Title>
+  <Rimlink.Diagnostics.NoUpload>нет в текущем подключении</Rimlink.Diagnostics.NoUpload>
+  <Rimlink.Diagnostics.Summary>Rimlink {0} · протокол {1}\nСоединение: {2}\nПоследняя успешная выгрузка: {3} · версия {4}\nПоследняя ошибка выгрузки: {5}\nРоль в live: {6}</Rimlink.Diagnostics.Summary>
+  <Rimlink.Diagnostics.Privacy>Просмотр точного содержимого локального ZIP. Автоматической отправки нет. Адреса, данные аккаунтов, чат, отпечатки, секреты и пути в пакет не входят. Текст журнала исключён; остаются время и уровень записей. Неизвестные идентификаторы модов обезличены. До 128 модов и 128 записей журнала; ZIP до 64 КиБ. Для обновления закройте и откройте окно.</Rimlink.Diagnostics.Privacy>
+  <Rimlink.Diagnostics.Destination>Папка сохранения: {0}</Rimlink.Diagnostics.Destination>
+  <Rimlink.Diagnostics.Save>Сохранить локальный ZIP</Rimlink.Diagnostics.Save>
+  <Rimlink.Diagnostics.Saved>Диагностический ZIP сохранён локально:\n{0}\nНичего не отправлено.</Rimlink.Diagnostics.Saved>
+  <Rimlink.Diagnostics.SaveFailed>Не удалось сохранить диагностический ZIP. Проверьте свободное место и права на папку.</Rimlink.Diagnostics.SaveFailed>
+  <Rimlink.Diagnostics.Connection.Disconnected>Отключено</Rimlink.Diagnostics.Connection.Disconnected>
+  <Rimlink.Diagnostics.Connection.Connecting>Подключение</Rimlink.Diagnostics.Connection.Connecting>
+  <Rimlink.Diagnostics.Connection.Connected>Подключено</Rimlink.Diagnostics.Connection.Connected>
+  <Rimlink.Diagnostics.Connection.Reconnecting>Восстановление соединения</Rimlink.Diagnostics.Connection.Reconnecting>
+  <Rimlink.Diagnostics.Connection.Replaced>Вход с другого места</Rimlink.Diagnostics.Connection.Replaced>
+  <Rimlink.Diagnostics.Connection.Failed>Соединение отклонено</Rimlink.Diagnostics.Connection.Failed>
+  <Rimlink.Diagnostics.Failure.None>Нет</Rimlink.Diagnostics.Failure.None>
+  <Rimlink.Diagnostics.Failure.Cancelled>Отмена или истечение времени ожидания</Rimlink.Diagnostics.Failure.Cancelled>
+  <Rimlink.Diagnostics.Failure.Transport>Соединение недоступно или истекло время ожидания</Rimlink.Diagnostics.Failure.Transport>
+  <Rimlink.Diagnostics.Failure.Refused>Сервер отклонил сейв</Rimlink.Diagnostics.Failure.Refused>
+  <Rimlink.Diagnostics.Failure.LocalIo>Не удалось прочитать локальный файл</Rimlink.Diagnostics.Failure.LocalIo>
+  <Rimlink.Diagnostics.Failure.Unexpected>Непредвиденная ошибка</Rimlink.Diagnostics.Failure.Unexpected>
+  <Rimlink.Diagnostics.Role.None>Нет</Rimlink.Diagnostics.Role.None>
+  <Rimlink.Diagnostics.Role.Host>Хозяин</Rimlink.Diagnostics.Role.Host>
+  <Rimlink.Diagnostics.Role.Guest>Гость</Rimlink.Diagnostics.Role.Guest>
+  <Rimlink.Diagnostics.Role.Visitor>Посетитель копии карты</Rimlink.Diagnostics.Role.Visitor>
+  <Rimlink.Invite.Export>Экспорт приглашения на сервер</Rimlink.Invite.Export>
+  <Rimlink.Invite.ExportShort>Пригласить</Rimlink.Invite.ExportShort>
+  <Rimlink.Invite.Import>Импорт приглашения</Rimlink.Invite.Import>
+  <Rimlink.Invite.NoPin>Для этого адреса нет корректного доверенного сертификата. Сначала подключитесь и проверьте сертификат, затем экспортируйте приглашение.</Rimlink.Invite.NoPin>
+  <Rimlink.Invite.Paste>Вставьте приглашение от человека, которому доверяете. До просмотра и подтверждения соединение не устанавливается и данные не сохраняются.</Rimlink.Invite.Paste>
+  <Rimlink.Invite.Review>Проверить приглашение</Rimlink.Invite.Review>
+  <Rimlink.Invite.Summary>Сервер: {0}\n\nSHA-256 сертификата:\n{1}</Rimlink.Invite.Summary>
+  <Rimlink.Invite.ExportWarning>Подтвердите копирование ссылки в буфер обмена. Она содержит адрес и отпечаток сертификата этого сервера. Данных аккаунта в ней нет.</Rimlink.Invite.ExportWarning>
+  <Rimlink.Invite.TrustWarning>Сверьте адрес и отпечаток с владельцем сервера по доверенному каналу. Подтверждение добавит локальную закладку и доверие этому сертификату. Подключение не выполняется.</Rimlink.Invite.TrustWarning>
+  <Rimlink.Invite.Conflict>Для этого адреса уже сохранён другой доверенный сертификат. Импорт заблокирован; сохранённый отпечаток не изменится. Уточните причину у владельца. Подтвердить законную смену можно через обычное предупреждение о сертификате при подключении.</Rimlink.Invite.Conflict>
+  <Rimlink.Invite.ConfirmCopy>Подтвердить и скопировать приглашение</Rimlink.Invite.ConfirmCopy>
+  <Rimlink.Invite.ConfirmTrust>Добавить закладку и доверять сертификату</Rimlink.Invite.ConfirmTrust>
+  <Rimlink.Invite.Copied>Приглашение скопировано в буфер обмена.</Rimlink.Invite.Copied>
+  <Rimlink.Invite.Imported>Сервер добавлен, доверие сертификату сохранено. Для входа нажмите «Подключиться».</Rimlink.Invite.Imported>
+  <Rimlink.Invite.Back>Изменить приглашение</Rimlink.Invite.Back>
+  <Rimlink.Invite.Invalid>Некорректное приглашение. Формат: rimlink://хост:порт?fp= и ровно 64 шестнадцатеричные цифры. IPv6 указывается в квадратных скобках. Порт по умолчанию: 25560. До 512 символов, без дополнительных параметров, экранирования и пробелов.</Rimlink.Invite.Invalid>
+  <Rimlink.Invite.SaveFailed>Не удалось прочитать или сохранить доверие серверу. Проверьте локальную папку данных Rimlink; конфликтующий сертификат не заменён.</Rimlink.Invite.SaveFailed>
+</LanguageData>

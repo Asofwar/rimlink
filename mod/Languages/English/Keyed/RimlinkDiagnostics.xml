@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <Rimlink.Diagnostics.Title>Diagnostics</Rimlink.Diagnostics.Title>
+  <Rimlink.Diagnostics.NoUpload>none in this connection</Rimlink.Diagnostics.NoUpload>
+  <Rimlink.Diagnostics.Summary>Rimlink {0} · protocol {1}\nConnection: {2}\nLast successful upload: {3} · version {4}\nLast upload error: {5}\nLive role: {6}</Rimlink.Diagnostics.Summary>
+  <Rimlink.Diagnostics.Privacy>Preview of the exact local ZIP contents. No automatic sending. No addresses, account identifiers, chat, pins, credentials or paths are included. Log text is omitted; only times and levels remain. Unknown mod identifiers are anonymous. The list is limited to 128 mods and the log to 128 entries; the ZIP limit is 64 KiB. Close and reopen to refresh.</Rimlink.Diagnostics.Privacy>
+  <Rimlink.Diagnostics.Destination>Save folder: {0}</Rimlink.Diagnostics.Destination>
+  <Rimlink.Diagnostics.Save>Save local ZIP</Rimlink.Diagnostics.Save>
+  <Rimlink.Diagnostics.Saved>Diagnostic ZIP saved locally:\n{0}\nNothing has been sent.</Rimlink.Diagnostics.Saved>
+  <Rimlink.Diagnostics.SaveFailed>Could not save the diagnostic ZIP. Check free space and folder permissions.</Rimlink.Diagnostics.SaveFailed>
+  <Rimlink.Diagnostics.Connection.Disconnected>Disconnected</Rimlink.Diagnostics.Connection.Disconnected>
+  <Rimlink.Diagnostics.Connection.Connecting>Connecting</Rimlink.Diagnostics.Connection.Connecting>
+  <Rimlink.Diagnostics.Connection.Connected>Connected</Rimlink.Diagnostics.Connection.Connected>
+  <Rimlink.Diagnostics.Connection.Reconnecting>Reconnecting</Rimlink.Diagnostics.Connection.Reconnecting>
+  <Rimlink.Diagnostics.Connection.Replaced>Replaced by another login</Rimlink.Diagnostics.Connection.Replaced>
+  <Rimlink.Diagnostics.Connection.Failed>Connection refused</Rimlink.Diagnostics.Connection.Failed>
+  <Rimlink.Diagnostics.Failure.None>None</Rimlink.Diagnostics.Failure.None>
+  <Rimlink.Diagnostics.Failure.Cancelled>Cancelled or timed out</Rimlink.Diagnostics.Failure.Cancelled>
+  <Rimlink.Diagnostics.Failure.Transport>Connection unavailable or deadline exceeded</Rimlink.Diagnostics.Failure.Transport>
+  <Rimlink.Diagnostics.Failure.Refused>Server refused the save</Rimlink.Diagnostics.Failure.Refused>
+  <Rimlink.Diagnostics.Failure.LocalIo>Local file could not be read</Rimlink.Diagnostics.Failure.LocalIo>
+  <Rimlink.Diagnostics.Failure.Unexpected>Unexpected failure</Rimlink.Diagnostics.Failure.Unexpected>
+  <Rimlink.Diagnostics.Role.None>None</Rimlink.Diagnostics.Role.None>
+  <Rimlink.Diagnostics.Role.Host>Host</Rimlink.Diagnostics.Role.Host>
+  <Rimlink.Diagnostics.Role.Guest>Guest</Rimlink.Diagnostics.Role.Guest>
+  <Rimlink.Diagnostics.Role.Visitor>Snapshot visitor</Rimlink.Diagnostics.Role.Visitor>
+  <Rimlink.Invite.Export>Export server invitation</Rimlink.Invite.Export>
+  <Rimlink.Invite.ExportShort>Invite</Rimlink.Invite.ExportShort>
+  <Rimlink.Invite.Import>Import server invitation</Rimlink.Invite.Import>
+  <Rimlink.Invite.NoPin>No valid trusted certificate is saved for this address. Connect and verify its certificate first, then export an invitation.</Rimlink.Invite.NoPin>
+  <Rimlink.Invite.Paste>Paste an invitation received from someone you trust. Nothing is connected or saved until you review and confirm it.</Rimlink.Invite.Paste>
+  <Rimlink.Invite.Review>Review invitation</Rimlink.Invite.Review>
+  <Rimlink.Invite.Summary>Server: {0}\n\nCertificate SHA-256:\n{1}</Rimlink.Invite.Summary>
+  <Rimlink.Invite.ExportWarning>Confirm to copy the invitation link to your clipboard. It shares this address and certificate fingerprint. It contains no account credentials.</Rimlink.Invite.ExportWarning>
+  <Rimlink.Invite.TrustWarning>Verify this address and fingerprint with the server owner through a trusted channel. Confirming adds a local bookmark and trusts this certificate. No connection will be made.</Rimlink.Invite.TrustWarning>
+  <Rimlink.Invite.Conflict>A different certificate is already trusted for this address. Import is blocked and the saved pin will not be replaced. Verify the change with the owner; use the normal connection certificate warning to approve a legitimate change.</Rimlink.Invite.Conflict>
+  <Rimlink.Invite.ConfirmCopy>Confirm and copy invitation</Rimlink.Invite.ConfirmCopy>
+  <Rimlink.Invite.ConfirmTrust>Add bookmark and trust certificate</Rimlink.Invite.ConfirmTrust>
+  <Rimlink.Invite.Copied>Invitation copied to clipboard.</Rimlink.Invite.Copied>
+  <Rimlink.Invite.Imported>Server bookmarked and certificate trusted. Choose Connect when ready.</Rimlink.Invite.Imported>
+  <Rimlink.Invite.Back>Edit invitation</Rimlink.Invite.Back>
+  <Rimlink.Invite.Invalid>Invalid invitation. Expected rimlink://host:port?fp= followed by exactly 64 hexadecimal digits. IPv6 must be in brackets. Default port: 25560. Maximum: 512 characters; no extra parameters, escapes or whitespace.</Rimlink.Invite.Invalid>
+  <Rimlink.Invite.SaveFailed>Could not read or save server trust. Check the local Rimlink data folder; no conflicting certificate has been replaced.</Rimlink.Invite.SaveFailed>
+</LanguageData>

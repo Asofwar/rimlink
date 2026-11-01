@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <Rimlink.Economy.Tab.Auctions>Аукционы</Rimlink.Economy.Tab.Auctions>
+  <Rimlink.Auctions.Board>Доска</Rimlink.Auctions.Board>
+  <Rimlink.Auctions.Create>Новый аукцион</Rimlink.Auctions.Create>
+  <Rimlink.Auctions.All>Все аукционы</Rimlink.Auctions.All>
+  <Rimlink.Auctions.Mine>Мои лоты / ставки</Rimlink.Auctions.Mine>
+  <Rimlink.Auctions.Retry>Повторить ожидающие операции ({0})</Rimlink.Auctions.Retry>
+  <Rimlink.Auctions.Start>Начальная цена</Rimlink.Auctions.Start>
+  <Rimlink.Auctions.Buyout>Выкуп (0 = нет)</Rimlink.Auctions.Buyout>
+  <Rimlink.Auctions.Hours>Срок (часы)</Rimlink.Auctions.Hours>
+  <Rimlink.Auctions.Rules>Вещи уходят после выгрузки сейва. Ставка резервирует серебро кошелька; перебитая возвращается сразу. Последние 30 секунд: +30 секунд, максимум +5 минут. Товар приходит почтой. Действуют комиссия рынка и плата за хранение.</Rimlink.Auctions.Rules>
+  <Rimlink.Auctions.Post>Выставить лот</Rimlink.Auctions.Post>
+  <Rimlink.Auctions.Page>Страница {0}</Rimlink.Auctions.Page>
+  <Rimlink.Auctions.None>На этой странице нет аукционов.</Rimlink.Auctions.None>
+  <Rimlink.Auctions.NoBids>ставок нет</Rimlink.Auctions.NoBids>
+  <Rimlink.Auctions.Current>Старт: {0} | Ставка: {1} ({2}) | До: {3}</Rimlink.Auctions.Current>
+  <Rimlink.Auctions.Cancel>Отменить / вернуть товар</Rimlink.Auctions.Cancel>
+  <Rimlink.Auctions.Bid>Сделать ставку</Rimlink.Auctions.Bid>
+  <Rimlink.Auctions.Buy>Выкупить за {0}</Rimlink.Auctions.Buy>
+  <Rimlink.Auctions.BuyConfirm>Зарезервировать {0} серебра и завершить аукцион сейчас?</Rimlink.Auctions.BuyConfirm>
+  <Rimlink.Auctions.Posted>Аукцион создан.</Rimlink.Auctions.Posted>
+  <Rimlink.Auctions.Applied>Операция аукциона выполнена.</Rimlink.Auctions.Applied>
+  <Rimlink.Auctions.Loading>Загрузка…</Rimlink.Auctions.Loading>
+  <Rimlink.Auctions.Status.AuctionOpen>Открыт</Rimlink.Auctions.Status.AuctionOpen>
+  <Rimlink.Auctions.Status.AuctionSold>Продан — товар в почте победителя</Rimlink.Auctions.Status.AuctionSold>
+  <Rimlink.Auctions.Status.AuctionCancelled>Отменён — товар и ставка возвращены</Rimlink.Auctions.Status.AuctionCancelled>
+  <Rimlink.Auctions.Status.AuctionExpired>Истёк без ставок — товар возвращён</Rimlink.Auctions.Status.AuctionExpired>
+  <Rimlink.Refusal.Auctions.Invalid>Неверные параметры аукциона. Проверьте цены, срок и выбранные вещи.</Rimlink.Refusal.Auctions.Invalid>
+  <Rimlink.Refusal.Auctions.Gone>Аукцион закрыт или его срок уже истёк.</Rimlink.Refusal.Auctions.Gone>
+  <Rimlink.Refusal.Auctions.BidInvalid>Ставка должна превышать текущую. Для выкупа используйте кнопку с точной ценой.</Rimlink.Refusal.Auctions.BidInvalid>
+  <Rimlink.Refusal.Auctions.HasBids>Продавец не может отменить аукцион со ставками.</Rimlink.Refusal.Auctions.HasBids>
+  <Rimlink.Refusal.Auctions.IntentMismatch>Этот идентификатор запроса принадлежит другой операции аукциона.</Rimlink.Refusal.Auctions.IntentMismatch>
+  <Rimlink.Refusal.Auctions.Overflow>Достигнут предел кошелька. Резерв не изменён; потратьте серебро или обратитесь к администратору.</Rimlink.Refusal.Auctions.Overflow>
+  <Rimlink.Refusal.Auctions.Archived>Сначала восстановите колонию из архива.</Rimlink.Refusal.Auctions.Archived>
+</LanguageData>

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <Rimlink.Economy.Tab.Procurement>Закупки</Rimlink.Economy.Tab.Procurement>
+  <Rimlink.Procurement.Mine>Мои заказы и вклады</Rimlink.Procurement.Mine>
+  <Rimlink.Procurement.Create>Новая закупка</Rimlink.Procurement.Create>
+  <Rimlink.Procurement.Retry>Повторить запрос</Rimlink.Procurement.Retry>
+  <Rimlink.Procurement.Pending>Ответ ещё не получен. Повторите запрос: вещи остаются в outbox до подтверждения результата.</Rimlink.Procurement.Pending>
+  <Rimlink.Procurement.Rules>Только поставки ресурсов. Сервер сверяет описания и количества; содержимое игровых блобов зависит от доверия клиенту.</Rimlink.Procurement.Rules>
+  <Rimlink.Procurement.Details>Открыть</Rimlink.Procurement.Details>
+  <Rimlink.Procurement.Kind.BuyOrder>Закупка</Rimlink.Procurement.Kind.BuyOrder>
+  <Rimlink.Procurement.Kind.SupplyContract>Контракт</Rimlink.Procurement.Kind.SupplyContract>
+  <Rimlink.Procurement.Kind.CommunityGoal>Общая цель</Rimlink.Procurement.Kind.CommunityGoal>
+  <Rimlink.Procurement.Status.ProcurementOpen>открыта</Rimlink.Procurement.Status.ProcurementOpen>
+  <Rimlink.Procurement.Status.ProcurementCompleted>завершена</Rimlink.Procurement.Status.ProcurementCompleted>
+  <Rimlink.Procurement.Status.ProcurementCancelled>отменена</Rimlink.Procurement.Status.ProcurementCancelled>
+  <Rimlink.Procurement.Status.ProcurementExpired>истекла</Rimlink.Procurement.Status.ProcurementExpired>
+  <Rimlink.Procurement.UnitPrice>{0} серебра за единицу</Rimlink.Procurement.UnitPrice>
+  <Rimlink.Procurement.Fund>Фонд награды: {0} серебра</Rimlink.Procurement.Fund>
+  <Rimlink.Procurement.UnitPriceLabel>Серебро за единицу</Rimlink.Procurement.UnitPriceLabel>
+  <Rimlink.Procurement.FundLabel>Общая награда (серебро)</Rimlink.Procurement.FundLabel>
+  <Rimlink.Procurement.Resource>defName ресурса</Rimlink.Procurement.Resource>
+  <Rimlink.Procurement.Quantity>Количество ресурса</Rimlink.Procurement.Quantity>
+  <Rimlink.Procurement.Hours>Срок в реальных часах</Rimlink.Procurement.Hours>
+  <Rimlink.Procurement.Supplier>Выбрать поставщика</Rimlink.Procurement.Supplier>
+  <Rimlink.Procurement.Reserve>Резерв: {0}; кошелёк: {1}</Rimlink.Procurement.Reserve>
+  <Rimlink.Procurement.CreateRules>1–1 000 000 единиц; 1–720 реальных часов; до 1 000 000 000 серебра и 20 открытых закупок (также действует лимит лотов сервера). Фонд резервируется сейчас. Действует комиссия рынка. Материал, качество и состояние ресурса — любые. Без пешек и заявлений об убийствах NPC.</Rimlink.Procurement.CreateRules>
+  <Rimlink.Procurement.ReserveButton>Зарезервировать и создать</Rimlink.Procurement.ReserveButton>
+  <Rimlink.Procurement.Submitted>Запрос закупки принят</Rimlink.Procurement.Submitted>
+  <Rimlink.Procurement.OrderRules>Выберите только нужный ресурс под торговыми маяками. Частичная поставка оплачивается сразу за вычетом комиссии. Товар приходит покупателю почтой. Отмена/истечение возвращает остаток резерва. До 100 поставок на закупку; заявленная стоимость поставки — до 1 млрд серебра.</Rimlink.Procurement.OrderRules>
+  <Rimlink.Procurement.ContractRules>Только указанный поставщик может передать весь точный остаток до срока. Товар приходит почтой, награда выплачивается за вычетом комиссии. Материал, качество и состояние — любые.</Rimlink.Procurement.ContractRules>
+  <Rimlink.Procurement.GoalRules>Товары хранятся до выполнения квоты. Затем организатор получает товары, поставщики — фонд пропорционально вкладу (остаток округления по ID), за вычетом комиссии. Отмена/истечение возвращает вклады и фонд. За хранение портящегося платят поставщики.</Rimlink.Procurement.GoalRules>
+  <Rimlink.Procurement.Contribution>{0}: {1} единиц; выплачено {2} серебра до платы за хранение</Rimlink.Procurement.Contribution>
+  <Rimlink.Procurement.Supply>Поставить выбранные ресурсы</Rimlink.Procurement.Supply>
+  <Rimlink.Procurement.Cancel>Отменить закупку</Rimlink.Procurement.Cancel>
+  <Rimlink.Procurement.CancelConfirm>Отменить? Остаток серебра вернётся организатору. Незавершённая цель вернёт товары каждому поставщику; возможна плата за хранение. Оплаченные поставки закупки остаются завершёнными.</Rimlink.Procurement.CancelConfirm>
+  <Rimlink.Refusal.Procurement.Invalid>Неверные параметры закупки: defName ресурса, 1–1 000 000 единиц, фонд до 1 000 000 000 серебра, 1–720 часов.</Rimlink.Refusal.Procurement.Invalid>
+  <Rimlink.Refusal.Procurement.Access>Эта закупка вам недоступна.</Rimlink.Refusal.Procurement.Access>
+  <Rimlink.Refusal.Procurement.Gone>Закупка закрыта или её срок истёк.</Rimlink.Refusal.Procurement.Gone>
+  <Rimlink.Refusal.Procurement.Def>Ресурс отсутствует в модпаке сервера или запрещён для передач.</Rimlink.Refusal.Procurement.Def>
+  <Rimlink.Refusal.Procurement.Limit>Достигнут лимит открытых закупок или поставок.</Rimlink.Refusal.Procurement.Limit>
+  <Rimlink.Refusal.Procurement.Intent>Этот ID запроса уже использован для другой операции.</Rimlink.Refusal.Procurement.Intent>
+  <Rimlink.Refusal.Procurement.Goods>Поставьте только запрошенный ресурс в пределах остатка квоты. Для контракта нужно полное точное количество.</Rimlink.Refusal.Procurement.Goods>
+  <Rimlink.Refusal.Procurement.Value>Заявленная стоимость поставки превышает предел учёта в 1 млрд серебра.</Rimlink.Refusal.Procurement.Value>
+</LanguageData>
