@@ -22,7 +22,7 @@ public sealed class SaveFiles(DataDirectory data)
     private const string DeltaPattern = "*.d*.zst";
 
     /// <summary>Held by anything that changes which files a version has.</summary>
-    public SemaphoreSlim PerStoreLock { get; } = new(1, 1);
+    public SaveStorageLock PerStoreLock { get; } = new(data.Root);
 
     public string FullPath(long playerId, int number) => Path.Combine(data.Saves(playerId), $"{number}.rws.zst");
 
@@ -34,13 +34,24 @@ public sealed class SaveFiles(DataDirectory data)
     {
         string full = FullPath(playerId, number);
         if (File.Exists(full)) return new SaveForm.Full(full);
-        foreach (string delta in Deltas(playerId, number))
-        {
-            int baseNumber = BaseNumberOf(delta);
-            string reference = BasePath(playerId, baseNumber);
-            if (File.Exists(reference)) return new SaveForm.Delta(delta, baseNumber, reference);
-        }
+        foreach (var delta in Deltas(playerId, number))
+            if (File.Exists(delta.BasePath)) return delta;
         return new SaveForm.Missing();
+    }
+
+    /// <summary>A rebuild may have renamed its full file before the process stopped, leaving the row and spare delta unchanged.</summary>
+    public (long Size, byte[] Sha256)? RecoverFullMetadata(long playerId, int number, byte[] expectedHash)
+    {
+        if (Deltas(playerId, number).FirstOrDefault() is not { } delta) return null;
+        string full = FullPath(playerId, number);
+        byte[] packed = File.ReadAllBytes(full);
+        byte[] hash = SHA256.HashData(packed);
+        if (hash.AsSpan().SequenceEqual(expectedHash)) return null;
+        byte[] reference = ReadRaw(delta.BasePath) ?? throw new InvalidDataException("the rebuild base is over the size limit");
+        byte[] content = ReadRaw(full) ?? throw new InvalidDataException("the rebuilt save is over the size limit");
+        if (!SaveDelta.Decompress(reference, File.ReadAllBytes(delta.Path)).AsSpan().SequenceEqual(content))
+            throw new InvalidDataException("the full file does not match its spare delta");
+        return (packed.Length, hash);
     }
 
     public int? NewestBase(long playerId) =>
@@ -103,7 +114,7 @@ public sealed class SaveFiles(DataDirectory data)
 
     public void DeleteDeltas(long playerId, int number)
     {
-        foreach (string delta in Deltas(playerId, number).ToList()) File.Delete(delta);
+        foreach (var delta in Deltas(playerId, number).ToList()) File.Delete(delta.Path);
     }
 
     /// <summary>Every form of the version; its base stays for <see cref="PruneBases"/>.</summary>
@@ -139,7 +150,10 @@ public sealed class SaveFiles(DataDirectory data)
         return total;
     }
 
-    private IEnumerable<string> Deltas(long playerId, int number) => Directory.EnumerateFiles(data.Saves(playerId), $"{number}.d*.zst");
+    /// <summary>Includes deltas with a missing base, so a reset can preserve the remaining data.</summary>
+    public IEnumerable<SaveForm.Delta> Deltas(long playerId, int number) =>
+        Directory.EnumerateFiles(data.Saves(playerId), $"{number}.d*.zst")
+            .Select(path => new SaveForm.Delta(path, BaseNumberOf(path), BasePath(playerId, BaseNumberOf(path))));
 
     /// <summary>The k of &lt;n&gt;.d&lt;k&gt;.zst.</summary>
     private static int BaseNumberOf(string deltaPath) => int.Parse(Path.GetFileName(deltaPath).Split('.')[1][1..]);

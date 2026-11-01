@@ -48,6 +48,7 @@ public sealed class ColonyArchive(
     LiveSessionService live,
     Incidents.IncidentService incidents,
     SaveArchive files,
+    SaveFiles saveFiles,
     WorldService worlds,
     DataDirectory data,
     ColonyLocks locks,
@@ -59,6 +60,7 @@ public sealed class ColonyArchive(
     public async Task<ArchiveOutcome> Archive(long playerId, string reason, Actor actor)
     {
         using var held = await locks.Hold(playerId);
+        using var storage = await saveFiles.PerStoreLock.HoldAsync();
         var settlement = await db.WorldObjects.Include(o => o.Owner).ThenInclude(p => p.Account)
             .FirstOrDefaultAsync(o => o.OwnerPlayerId == playerId && o.Type == WorldObjectTypes.Settlement);
         if (settlement is null) return new ArchiveOutcome.NoColony();
@@ -182,6 +184,7 @@ public sealed class ColonyArchive(
 
     private async Task<RestoreOutcome> RestoreHeld(long archiveId, string restoredBy)
     {
+        using var storage = await saveFiles.PerStoreLock.HoldAsync();
         var row = await db.ArchivedColonies.Include(c => c.Player).FirstOrDefaultAsync(c => c.Id == archiveId);
         if (row is null) return new RestoreOutcome.NotFound();
         if (row.State == ArchiveState.Restored) return new RestoreOutcome.AlreadyRestored();

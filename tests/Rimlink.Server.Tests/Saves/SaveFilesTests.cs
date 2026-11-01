@@ -143,6 +143,19 @@ public class SaveFilesTests : IDisposable
     }
 
     [Fact]
+    public void MetadataRecoveryRefusesAFullFileThatDiffersFromItsDelta()
+    {
+        MakeDelta();
+        byte[] other = MakeSave("seed", "Other", tick: 99, paddingBytes: 100_000);
+        File.WriteAllBytes(files.FullPath(Player, 2), other);
+
+        Assert.Throws<InvalidDataException>(() => files.RecoverFullMetadata(Player, 2, new byte[32]));
+
+        Assert.Equal(other, File.ReadAllBytes(files.FullPath(Player, 2)));
+        Assert.True(File.Exists(files.DeltaPath(Player, 2, 1)));
+    }
+
+    [Fact]
     public void ReadRawOfAnUnreadableFileIsInvalidData()
     {
         string path = Touch("1.rws.zst");

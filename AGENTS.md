@@ -154,10 +154,13 @@ the ef tool rejects it), plus a schema test in `tests/Rimlink.Server.Tests/Stora
 commit a data directory or `*.db`.
 
 **Save files.** A version's form is its file name, not a column: `<n>.rws.zst` is full, `<n>.d<k>.zst` a delta against `base-<k>.rws.zst`,
-and only `SaveFiles` knows these names. `rimlink-tools backup` runs beside a live server and snapshots the database before the files, so
+and only `SaveFiles` knows these names. Older backups took the database snapshot before reading save files without a shared lock, so
 a restored row can be older than the file next to it. Only the current version is sure to be full (`OpenCurrent` rebuilds it if a restore
 says otherwise): nothing may assume `<n>.rws.zst` exists for another one. `Size` and `Sha256` describe the full file, also while only a
 delta is on disk. zstd drops the part of a reference prefix that overlaps its input, so a prefix and its content are never one array.
+`SaveFiles.PerStoreLock` also holds `save-storage.lock`: the CLI takes it before its database snapshot and keeps it while packing saves.
+Never delete this lock file. A full file with a spare delta may be an interrupted rebuild: verify their raw contents and repair its
+metadata before deleting the delta; a full file whose hash differs must never be trusted merely because it exists.
 
 **Server.** Options classes under `Hosting/` (`*Options`, validated, documented in `appsettings.example.json`). Services under
 `Application/<Area>`; gRPC endpoints under `Grpc/`; the REST admin API and the CLI mirror every admin operation. Player-supplied names,

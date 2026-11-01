@@ -30,6 +30,7 @@ certificate, `--insecure`. Once it runs, `https://<host>:25560/` shows the publi
 The data directory layout: `rimlink.db` (SQLite), `saves/<playerId>/` (`<n>.rws.zst` is a full save, `<n>.d<k>.zst` an older
 version kept as a delta against `base-<k>.rws.zst`), `tls/`, `logs/`, `backups/`,
 `archive/` (data of reset players and recreated worlds), `server.lock` while running.
+`save-storage.lock` coordinates save writes with backups, including backups run by the CLI; leave this file in place.
 
 ## 2. TLS
 
@@ -379,6 +380,8 @@ file of that player, so a player's history and every backup shrink several times
 version does not depend on it, and every backup holds a copy.
 
 - `Saves:CompactOldVersions` (default `true`): `false` stops making new deltas; existing ones stay readable.
+- While a backup takes its database snapshot and packs save files, uploads may finish receiving data but wait to commit;
+  rollbacks and colony archive/restore operations also wait. This keeps each backup's save files and metadata together.
 - Going back to a 0.6.1 server keeps the current saves working, but it refuses rollbacks to versions stored as deltas.
 
 ## 7a. Updating

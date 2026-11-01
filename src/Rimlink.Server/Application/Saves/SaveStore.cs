@@ -129,12 +129,16 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
             var version = await db.SaveVersions.AsNoTracking().FirstOrDefaultAsync(v => v.PlayerId == playerId && v.IsCurrent);
             if (version is null) return null;
             // A backup's database can be older than its files: the version it calls current may have become a delta after the snapshot.
-            if (!File.Exists(PathOf(version)))
+            if (!File.Exists(PathOf(version)) || files.Deltas(playerId, version.Number).Any())
             {
                 await files.PerStoreLock.WaitAsync();
                 try
                 {
-                    await EnsureFull(version);
+                    if (!await EnsureFull(version))
+                    {
+                        if (attempt == 0) continue;
+                        return null;
+                    }
                 }
                 finally
                 {
@@ -210,28 +214,31 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
     /// </summary>
     private async Task<bool> EnsureFull(SaveVersion version)
     {
-        switch (files.Locate(version.PlayerId, version.Number))
+        try
         {
-            case SaveForm.Full:
-                return true;
-            case SaveForm.Delta delta:
-                try
-                {
+            switch (files.Locate(version.PlayerId, version.Number))
+            {
+                case SaveForm.Full:
+                    if (files.RecoverFullMetadata(version.PlayerId, version.Number, version.Sha256) is not { } rebuilt) return true;
+                    (version.Size, version.Sha256) = rebuilt;
+                    break;
+                case SaveForm.Delta delta:
                     (version.Size, version.Sha256) = files.Rebuild(delta, PathOf(version));
-                }
-                catch (Exception ex) when (ex is InvalidDataException or IOException)
-                {
-                    log.LogError(ex, "Save v{Version} of player {PlayerId} cannot be rebuilt", version.Number, version.PlayerId);
+                    break;
+                default:
                     return false;
-                }
-                await db.SaveVersions.Where(v => v.Id == version.Id).ExecuteUpdateAsync(s => s.SetProperty(v => v.Size, version.Size).SetProperty(v => v.Sha256, version.Sha256));
-                // Left behind, it is only a spare: the full file wins and the next pass removes it.
-                try { files.DeleteDeltas(version.PlayerId, version.Number); }
-                catch (IOException ex) { log.LogDebug(ex, "A delta of save v{Version} of player {PlayerId} stays until the next pass", version.Number, version.PlayerId); }
-                return true;
-            default:
-                return false;
+            }
         }
+        catch (Exception ex) when (ex is InvalidDataException or IOException)
+        {
+            log.LogError(ex, "Save v{Version} of player {PlayerId} cannot be rebuilt", version.Number, version.PlayerId);
+            return false;
+        }
+        await db.SaveVersions.Where(v => v.Id == version.Id).ExecuteUpdateAsync(s => s.SetProperty(v => v.Size, version.Size).SetProperty(v => v.Sha256, version.Sha256));
+        // Left behind, it is only a spare: the full file wins and the next pass removes it.
+        try { files.DeleteDeltas(version.PlayerId, version.Number); }
+        catch (IOException ex) { log.LogDebug(ex, "A delta of save v{Version} of player {PlayerId} stays until the next pass", version.Number, version.PlayerId); }
+        return true;
     }
 
     /// <summary>Moves every save file of the player into the archive directory, as full files, and forgets the versions.</summary>
@@ -277,6 +284,13 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
                     log.LogError(ex, "Save v{Version} of player {PlayerId} cannot be rebuilt: archiving its delta and base as they are", version.Number, version.PlayerId);
                     File.Copy(delta.Path, Path.Combine(archiveDir, Path.GetFileName(delta.Path)), overwrite: true);
                     File.Copy(delta.BasePath, Path.Combine(archiveDir, Path.GetFileName(delta.BasePath)), overwrite: true);
+                }
+                break;
+            case SaveForm.Missing:
+                foreach (var orphan in files.Deltas(version.PlayerId, version.Number))
+                {
+                    log.LogError("Save v{Version} of player {PlayerId} lost its base: archiving its delta as it is", version.Number, version.PlayerId);
+                    File.Copy(orphan.Path, Path.Combine(archiveDir, Path.GetFileName(orphan.Path)), overwrite: true);
                 }
                 break;
         }

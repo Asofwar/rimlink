@@ -411,6 +411,54 @@ public class SaveCompactionTests
     }
 
     [Fact]
+    public async Task ResetPreservesADeltaWhoseBaseIsMissing()
+    {
+        using var fixture = Server();
+        var nova = await Join(fixture);
+        await nova.Send(1);
+        await nova.Send(2);
+        byte[] delta = File.ReadAllBytes(nova.PathOf("1.d1.zst"));
+        File.Delete(nova.PathOf("base-1.rws.zst"));
+
+        string target = await Reset(fixture, nova.Id);
+
+        Assert.Equal(delta, File.ReadAllBytes(Path.Combine(target, "1.d1.zst")));
+        Assert.True(File.Exists(Path.Combine(target, "2.rws.zst")));
+        Assert.Empty(Directory.GetFiles(nova.Dir));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AnInterruptedRebuildRepairsTheFullFileMetadata(bool sweepFirst)
+    {
+        using var fixture = Server();
+        var nova = await Join(fixture);
+        byte[] original = MakeSave(ServerFixture.WorldSeed, "Nova", tick: 1, paddingBytes: Padding);
+        using var compressed = new MemoryStream();
+        using (var zstd = new ZstdSharp.CompressionStream(compressed, level: 3, leaveOpen: true))
+            zstd.Write(Decompress(original));
+        byte[] uploaded = compressed.ToArray();
+        Assert.NotEqual(SHA256.HashData(original), SHA256.HashData(uploaded));
+        await Upload(nova.Saves, nova.Token, uploaded, HeaderFor(uploaded, ServerFixture.WorldSeed, "Nova", tick: 1));
+        await nova.Send(2);
+        var files = fixture.Services.GetRequiredService<SaveFiles>();
+        files.Rebuild(Assert.IsType<SaveForm.Delta>(nova.Locate(1)), nova.PathOf("1.rws.zst"));
+        // The process stopped after the rename, before updating metadata and removing the spare delta.
+        await Db(fixture, db => db.SaveVersions.Where(v => v.PlayerId == nova.Id).ExecuteUpdateAsync(s => s.SetProperty(v => v.IsCurrent, v => v.Number == 1)));
+
+        if (sweepFirst) await Compact(fixture, nova.Id);
+        var (header, data) = await Download(nova.Saves, nova.Token);
+
+        Assert.Equal(Decompress(uploaded), Decompress(data));
+        Assert.Equal(data.Length, header.TotalSize);
+        Assert.Equal(SHA256.HashData(data), header.Sha256.ToByteArray());
+        var row = await Db(fixture, db => db.SaveVersions.AsNoTracking().SingleAsync(v => v.PlayerId == nova.Id && v.Number == 1));
+        Assert.Equal(data.Length, row.Size);
+        Assert.Equal(SHA256.HashData(data), row.Sha256);
+    }
+
+    [Fact]
     public async Task NumbersStartOverCleanlyAfterAReset()
     {
         using var fixture = Server();

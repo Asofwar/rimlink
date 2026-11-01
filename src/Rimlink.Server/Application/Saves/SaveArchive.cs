@@ -45,9 +45,10 @@ public sealed class SaveArchive(SaveFiles files)
             }
             else
             {
+                if (files.RecoverFullMetadata(v.PlayerId, v.Number, v.Sha256) is { } rebuilt) (size, sha256) = rebuilt;
                 File.Copy(PathOf(v.PlayerId, v.Number), target, overwrite: true);
                 byte[] hash = await HashOf(target);
-                if (!hash.AsSpan().SequenceEqual(v.Sha256)) throw new InvalidDataException($"save v{v.Number} of player {v.PlayerId} does not match its hash");
+                if (!hash.AsSpan().SequenceEqual(sha256)) throw new InvalidDataException($"save v{v.Number} of player {v.PlayerId} does not match its hash");
             }
             manifest.Versions.Add(new ManifestVersion(v.Number, v.GameTick, size, Convert.ToHexString(sha256), v.CreatedAt, v.IsCurrent,
                 v.DevMode, v.WealthTotal, v.WealthItems));

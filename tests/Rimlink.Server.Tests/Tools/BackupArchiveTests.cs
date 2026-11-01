@@ -1,5 +1,7 @@
 using Microsoft.Data.Sqlite;
 using Rimlink.Server.Backup;
+using Rimlink.Server.Application.Saves;
+using Rimlink.Server.Storage;
 using Xunit;
 
 namespace Rimlink.Server.Tests.Tools;
@@ -116,6 +118,35 @@ public class BackupArchiveTests : IDisposable
         });
 
         Assert.Equal("delta", File.ReadAllText(SavePath(target, "5.d1.zst")));
+    }
+
+    [Fact]
+    public async Task ABackupHoldsTheStoreLockUntilItsFilesArePacked()
+    {
+        string source = MakeDataDir("source", "alpha");
+        var files = new SaveFiles(new DataDirectory(source));
+        var packing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var finish = new ManualResetEventSlim();
+        var backup = Task.Run(() => RoundTrip(source, _ =>
+        {
+            packing.TrySetResult();
+            Assert.True(finish.Wait(TimeSpan.FromSeconds(10)));
+        }));
+        try
+        {
+            await packing.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            using var deadline = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            {
+                await files.PerStoreLock.WaitAsync(deadline.Token);
+                files.PerStoreLock.Release();
+            });
+        }
+        finally
+        {
+            finish.Set();
+            await backup;
+        }
     }
 
     [Fact]

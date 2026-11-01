@@ -1,5 +1,6 @@
 using System.Formats.Tar;
 using Microsoft.Data.Sqlite;
+using Rimlink.Server.Application.Saves;
 using ZstdSharp;
 
 namespace Rimlink.Server.Backup;
@@ -18,6 +19,7 @@ public static class BackupArchive
     public static void Create(string dataDir, string outFile, Action<string>? beforeEntry = null)
     {
         dataDir = Path.GetFullPath(dataDir);
+        using var held = SaveStorageLock.Hold(dataDir);
         string snapshot = Path.Combine(dataDir, $"{DatabaseFile}-backup-{Guid.NewGuid():N}");
         try
         {
@@ -49,8 +51,8 @@ public static class BackupArchive
     }
 
     /// <summary>
-    /// A running server replaces save files while this packs, and the CLI is another process, so no lock can hold them still. A version's
-    /// new form is written before its old one goes: a second pass over the tree finds what replaced a file the first one missed.
+    /// Save mutations hold the same file lock as the snapshot, including when the CLI runs in another process.
+    /// The second pass also tolerates files changed by older servers that do not know the lock.
     /// </summary>
     private static void PackSaves(TarWriter tar, string dataDir, string saves, Action<string>? beforeEntry)
     {
@@ -93,6 +95,7 @@ public static class BackupArchive
         }
 
         Directory.CreateDirectory(dataDir);
+        using var held = SaveStorageLock.Hold(dataDir);
         SqliteConnection.ClearAllPools(); // pooled handles of a stopped server in this process would block the delete
         string saves = Path.Combine(dataDir, SavesDir);
         if (Directory.Exists(saves)) Directory.Delete(saves, recursive: true);

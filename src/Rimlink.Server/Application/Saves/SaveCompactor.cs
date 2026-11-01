@@ -35,14 +35,16 @@ public sealed class SaveCompactor(RimlinkDbContext db, SaveFiles files, ColonyLo
     public async Task Run(long playerId)
     {
         if (!options.Value.CompactOldVersions) return;
-        var versions = await db.SaveVersions.AsNoTracking().Where(v => v.PlayerId == playerId).OrderBy(v => v.Number)
-            .Select(v => new { v.Number, v.IsCurrent }).ToListAsync();
+        var versions = await db.SaveVersions.AsNoTracking().Where(v => v.PlayerId == playerId).OrderBy(v => v.Number).ToListAsync();
         Reference? reference = null;
         foreach (var version in versions)
         {
             if (!File.Exists(files.FullPath(playerId, version.Number))) continue;
             try
             {
+                if (files.RecoverFullMetadata(playerId, version.Number, version.Sha256) is { } rebuilt)
+                    await db.SaveVersions.Where(v => v.Id == version.Id).ExecuteUpdateAsync(s => s
+                        .SetProperty(v => v.Size, rebuilt.Size).SetProperty(v => v.Sha256, rebuilt.Sha256));
                 files.DeleteDeltas(playerId, version.Number);
                 if (!version.IsCurrent) reference = Compact(playerId, version.Number, reference);
             }
