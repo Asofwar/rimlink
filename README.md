@@ -10,21 +10,24 @@
   <a href="#support"><img alt="Donate: Gram (TON)" src="https://img.shields.io/badge/donate-Gram%20(TON)-0098EA"></a>
 </p>
 
-Rimlink is persistent multiplayer for RimWorld 1.7. Every player runs their own colony in their own game, on one planet
-shared through a dedicated server. A colony is frozen while its owner is offline, so a group can play together without ever
-being online at the same time; when two players are online, one can walk onto the other's map and play there live.
+Rimlink is persistent multiplayer for RimWorld 1.7. Players run their own colonies on one planet shared through a dedicated
+server, and can also join a friend's colony to control the pawns assigned to them. A colony is frozen while its owner is offline,
+so a group can trade and send raids without being online at the same time; when both players are online, they can visit,
+raid or manage a colony together live.
 
 Rimlink is a clean-room project with its own protocol, server and client. It shares no code with other RimWorld multiplayer
 mods and does not work with them.
 
-## 0.7.0 development
+## What's new in 0.7.0
 
-This branch adds [buy orders, delivery contracts and cooperative supply goals](docs/procurement.md),
-[auctions](docs/auctions-implementation.md), [alliances, treasury, friends and profiles](docs/community.md),
-[persistent shared-colony access](docs/shared-colony.md), and
-[local diagnostics and confirmed server invitations](docs/client-diagnostics-invites.md).
+[Release 0.7.0](https://github.com/Asofwar/rimlink/releases/tag/v0.7.0) adds
+[buy orders, delivery contracts and cooperative supply goals](docs/procurement.md),
+[auctions](docs/player-guide.md#item-auctions), [alliances, treasury, friends and profiles](docs/community.md),
+[shared colonies](docs/shared-colony.md), and [local diagnostics and server invitations](docs/client-diagnostics-invites.md).
 The shared colony has one save writer and one active partner; progress waits while its owner is offline.
-In-game acceptance checks are tracked separately in the [manual checklist](docs/manual-checklist.md).
+The release also fixes stale local saves restoring a colony after an administrative reset, while keeping recovery after
+an ordinary connection drop. See the [release verification](docs/verification/2026-11-02-release-0.7.0.md) for completed
+checks and remaining limits.
 
 ## What makes it different
 
@@ -34,9 +37,14 @@ In-game acceptance checks are tracked separately in the [manual checklist](docs/
   as a normal raid. A visit loads a copy of the host's colony, with a shop the host stocks.
 - **Live when you are.** When both players are online, a raid or a visit happens on the host's running map. The guest gives
   orders to their own pawns through a mirrored copy, with pings, shared pauses and speed marks.
+- **Share a colony.** Invite a partner, assign them pawns and manage the colony together while its owner is online. The
+  owner keeps the authoritative save, and the partner's own colony is saved before joining.
 - **An economy on escrow.** Anything a player sends away waits on the server, and nothing is duplicated or lost on a dropped
-  connection: a market board, silver wallets, gifts that wait for an answer, and two-way trades with double confirmation. For
-  silver you can also order a raid or another event against a colony, priced by its wealth.
+  connection: a market board, silver wallets, gifts that wait for an answer, two-way trades with double confirmation,
+  auctions, buy orders and delivery contracts. Colonies can pool supplies toward a common goal. For silver you can also
+  order a raid or another event against a colony, priced by its wealth.
+- **A community between colonies.** Find friends and player profiles, form alliances, talk in an alliance chat and
+  contribute silver to a shared treasury.
 - **Rules a server can hold.** New and poor colonies are protected, there is a peaceful mode, raids have loot caps and
   cooldowns, and wealth kept on the server still counts. By default dev mode is for admins, sudden jumps in wealth alert them,
   and every colony plays with the world's storyteller.
@@ -98,12 +106,13 @@ updating, monitoring and the Discord bot.
 
 ## Status
 
-Current version: **0.6.0**, see the [release notes](https://github.com/Asofwar/rimlink/releases/latest). Rimlink is young, so
-back up your server's data before you update it. Every player on a server plays the server's mod list, and a host's
-colony can only be visited by players who have the host's mods.
+Current version: **0.7.0**, see the [release notes](https://github.com/Asofwar/rimlink/releases/tag/v0.7.0). Back up the
+server's data before updating, update the server and clients together, then re-import the server modpack from the released
+client. Every player on a server plays the server's mod list, and a host's colony can only be visited by players who have
+the host's mods. Older clients cannot upload saves after an administrative colony reset.
 
-The current development tree also includes [item auctions](docs/player-guide.md#item-auctions), with wallet bid escrow,
-buyout, bounded anti-snipe and offline settlement. The two-player game checks are tracked in [the checklist](docs/manual-checklist.md).
+The [manual checklist](docs/manual-checklist.md) and [release verification](docs/verification/2026-11-02-release-0.7.0.md)
+record which checks were completed. Live Discord and real Steam Web API checks were not part of this release's acceptance run.
 
 ## Development
 
