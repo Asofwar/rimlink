@@ -120,12 +120,7 @@ public static class LiveGuest
     public static void OnEnded(LiveSession session)
     {
         if (Session?.Id != session.Id) return;
-        if (MirrorMode.Active) { Exit(session.EndReason); return; }
-        wait?.Close();
-        wait = null;
-        Session = null;
-        Loading = false;
-        Messages.Message(EndedText(session.Host?.Name ?? "?", session.EndReason), MessageTypeDefOf.NeutralEvent, historical: true);
+        Exit(session.EndReason);
     }
 
     public static void CancelProposal()
@@ -210,7 +205,7 @@ public static class LiveGuest
     }
 
     /// <summary>The stream is over for good (peer End, replaced, or the reconnect budget spent): raised on a background thread.</summary>
-    private static void OnStreamEnded(LiveEndReason reason) => MainThread.Post(() => { if (Session is not null && MirrorMode.Active) Exit(reason); });
+    private static void OnStreamEnded(LiveEndReason reason) => MainThread.Post(() => { if (Session is not null) Exit(reason); });
 
     private static void CountUnknown(int unknown)
     {
@@ -227,17 +222,18 @@ public static class LiveGuest
     /// <summary>Downloads the host's snapshot and loads it as a visit copy in mirror mode (also for a resync).</summary>
     private static void LoadSnapshot(LiveSession session)
     {
+        if (Session?.Id != session.Id) return;
         Loading = true;
         if (MirrorMode.Active) MirrorMode.Exit();
         RimlinkLog.Instance.Info($"live session {session.Id}: loading {session.Host?.Name}'s snapshot v{session.SnapshotVersion}");
-        VisitSession.BeginLive(session, () => { Loading = false; });
+        VisitSession.BeginLive(session, () => { if (Session?.Id == session.Id) Loading = false; });
     }
 
     /// <summary>The copy loaded: enter mirror mode and announce ourselves on the stream (the host unpauses on our Hello).</summary>
     public static void OnMirrorLoaded(LiveSession session)
     {
-        Loading = false;
         if (Session?.Id != session.Id || RimlinkSession.Live is not { } live) return;
+        Loading = false;
         try
         {
             MirrorMode.Enter(session, session.SnapshotVersion);

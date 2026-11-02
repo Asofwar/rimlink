@@ -1,4 +1,4 @@
-# Partial game MCP acceptance — 2026-11-02
+# Game MCP acceptance — 2026-11-02
 
 Initial acceptance used the frozen **0.7.0** build of local implementation
 `e10a77868e159f241f56a95164a329361fe8c675` (`asofwar/next-features`). The final coop and diagnostics
@@ -216,7 +216,7 @@ incorrect cell-info assumptions, and attempted movement while paused. Those atte
 corrected or excluded; they are not classified as product bugs. Neither a dispatched command nor
 stale client `LiveStarting` text alone proves execution: host state and saved data were checked.
 
-## Final cleanup and integrity
+## First-run cleanup and integrity
 
 **E/game-cleanup.json** records both private acceptance games stopped; guest workload PID 78080
 was verified gone. It also preserves the last partner save path and the rebuilt mod/companion
@@ -226,15 +226,146 @@ Rimlink server **PID 65152** (the integration-tree executable) and private GABS 
 SQLite `PRAGMA quick_check` returned **`ok`** after shutdown.
 The post-fix full Windows result is **1457/1457 passed**, as recorded above.
 
-## Explicit untested edges
+## Follow-up: three clients and remaining game scenarios
 
-The completed coop rerun does not cover server restart, host-side connection loss, a concurrent
-second partner, or an assigned pawn's death/capture. Competing auction bids from a third player,
-natural expiry and multi-supplier goal allocation were not exercised by this two-client run.
-Biography editing and actual invitation clipboard copy/paste remain outside the recorded checks.
+The continuation added **Third-07** (id 3), with a separate Russian savedata profile, on the same
+private stand. Artifacts in this section are under **E/round2/** (the directory also contains
+later rebuilds; timestamped raw responses preserve unsuccessful attempts).
 
-No physical-keyboard claim is made for typing `g` in chat: semantic/root key dispatch does not
-establish normal focused text-field input. Real Steam refusal/retry and live Discord acceptance
-remain deferred because they require the user's credentials/environment. Other unexecuted
-residual scenarios in the linked checklist remain unverified; automated tests do not turn them
-into game acceptance passes.
+### Coop: host drop, competing partner and restart
+
+**coop-host-drop-second-partner.json** records a 20-second host transport outage: the same
+session 3 reattached and a new Schedule command reached the host. Two partners held accepted
+grants, but the second join was refused while the first remained in control. After the first
+left, the second joined session 4 and controlled the assigned pawn. This verifies serialization
+of active partners, not just the membership rows.
+
+The refused second join exposed missing `{0}` arguments for the `Live.HostBusy` and
+`Live.HostOffline` strings. The server now supplies the owner's name in both cases. The two
+ColonyAccess tests first failed on missing arguments and then passed. A rebuilt-game rerun
+displayed **Owner-07 is in a live session already**, with no formatting error
+(**busy-refusal-fixed.png**).
+
+After an actual server restart, accepted grants and assigned IDs matched the pre-restart
+snapshot exactly. The partner joined session 5 without another invitation and changed Cooking
+priority at the host: **server-restart-preserved-grants.json**.
+
+### Coop: End during snapshot loading, capture and death
+
+A reproducible race left the guest in the host's copy when End arrived during a snapshot load.
+Late async callbacks could finish after the runtime live session had ended. The fix guards
+callbacks by session ID and schedules the return after the load, on the game main thread. The
+copy remains protected from home saves until the own game has finished loading; stale callbacks
+are also guarded by connection, game instance and a return token.
+
+An intermediate synchronous-return attempt was rejected: nested loading inside FinalizeInit
+caused renderer errors and a wrong-map upload **only in this disposable test account**. Its prior
+own version was restored before continuing. This attempt is not counted as a pass.
+
+On the final rebuilt implementation, session 6 exercised the exact late-load branch:
+snapshot v30 began loading, End arrived, the stale snapshot finished, and the guest returned
+home. A normal UI save contained the original **Human558 / Human561 / Human564**, without the
+host's colonists: **resync-end-fixed.json** and `acceptance-resync-end-fixed.rws`.
+
+Session 7 ended with EndGuestDefeated after the host's normal **Try to arrest Alaska (100%)**
+job made assigned pawn Human282 a prisoner. The pawn remained at the host; the guest returned
+to its own three pawns. Session 8 repeated the end after dev-killing assigned Human285: the
+host kept exactly one corpse containing that pawn, and no compensating pawn parcel appeared.
+Evidence: **coop-assigned-pawn-arrest.json**, **coop-assigned-pawn-death.json**. Final save checks
+found each of the original six pawn records exactly once, counting the intended corpse and
+caravan member in their respective home worlds.
+
+### Three-party economy and natural deadlines
+
+- **three-player-economy.json**: competing auction bids 100 → 150 → 200 returned the previous
+  bidder's money immediately. A Steel ×3 goal funded with 10 silver accepted one unit from the
+  third player and two from the partner; no partial payout occurred, then payouts were 3 and 7.
+  The owner received all three physical units and escrow reached zero.
+- **auction-real-expiry-and-cap.json**: two real one-hour deadlines elapsed without changing
+  clocks or database dates. Auction 4 expired without bids and returned its lot. Auction 5
+  received ten successive 30-second extensions, stopped at the exact five-minute cap, and sold
+  to player 3 for 210. Parcel counts remained unchanged on a later sweep. A watcher initially
+  asserted the wrong enum for Expired; the corrected assertion checks the persisted state 3.
+- **compacted-rollback-loaded-map.json**: third-player v5 existed as `5.d1.zst` against its base,
+  with no full v5 file. After admin rollback and actual login, Steel ×7 remained at (100,100),
+  while Wood ×9 added only in v6 at (102,100) was absent. Loading rebuilt the full old version.
+  This proves the loaded map, not the admin panel's rollback button or a backup restore.
+
+### Paid events and real threat restrictions
+
+The original vanilla Infestation worker returned success on a map with no eligible spawn cell,
+charging for no tunnel. The final client checks the current map with InfestationCellFinder,
+keeps the vanilla insect-faction/hive-count limits and passes the chosen cell to the worker.
+It deliberately avoids CanFireNow: review of the installed game showed that its tick cache
+is shared across maps. The cache edge is established by source inspection, not a second-map
+game reproduction.
+
+**infestation-real-refusal-refund.json** records the final rebuilt negative case: all 125000
+saved roof-grid bytes were zero, incident 5 failed with `Infestation could not start on this map`,
+and the full price returned once. The repeat balance check found no second refund.
+**infestation-real-positive-tunnel.json** records the positive control: after creating a valid
+mountain-roof fixture near a colony building, incident 8 created new **TunnelHiveSpawner54932**
+at (116,111), present in the normal game save. Earlier unsuitable fixtures correctly refunded;
+they were not counted as positive tests.
+
+**incident-real-report-drop.json** captures incident 4 firing while the target's transport was
+down for 60 seconds: an actual pirate appeared, the client held `firedUnreported=[4]`, and the
+server still held Announced with no ResolvedAt. Reconnection changed it to Fired and cleared
+the client marker. Pawn IDs stayed unchanged across two further retry intervals. A normal raid
+letter paused play_for after 834 ticks; its false return did not mean the raid had failed.
+
+With that actual enemy still on the map and no paid incident waiting, deposit, lot posting and
+map sending all refused. Normal before/after saves had equal Steel/Silver counts, and wallet,
+lots and parcel history were unchanged: **real-hostile-outflow-blocked.json**.
+The caravan formed before the threat then handed over Steel ×1 through its actual transfer UI.
+The owner accepted gift 13 and received it once; carrier Human558 remained in the same caravan
+with no Steel inventory: **caravan-real-handover-under-threat.json**.
+
+**visit-real-server-wealth-excluded.json** supplies a positive control for wealth exclusion.
+With the same Rough difficulty, adding one million fixture silver raised home threat points
+from 35 to 2640.40. In the owner's snapshot they remained 35 with both one and two million in
+the visitor's wallet. Returning home restored 2640.40 (the high-wealth curve had saturated).
+Both million-silver fixtures were removed and Peaceful restored.
+
+### Biography, clipboard and Russian screens
+
+The real multiline profile field accepted **Партнёр колонии. Проверка биографии 07.**; the other
+player's public profile displayed the saved text (**biography-public-read.png**).
+The invitation's actual Copy button placed the expected 102-character pinned URI in the system
+clipboard. Its prior plain text was restored; preservation of rich clipboard formats is not
+claimed. Actual Ctrl+V remains unverified because CUA foreground acquisition failed.
+
+The Russian client displayed procurement creation, the populated auction board, community tabs,
+shared colony, diagnostics and server list: **russian-ui-labels.json**, **ru-procurement-create.png**,
+**ru-auction-board.png**, **ru-community-1.png** through **ru-community-4.png**,
+**ru-colonies.png**, **ru-diagnostics.png** and **ru-servers.png**. This is a normal-content screen
+sample, not every long-text, permission or error combination. An older English away-letter title
+was observed; full localization coverage is not claimed.
+
+### Final checks and cleanup after the follow-up
+
+One narrow review of the five acceptance-fix files found the Infestation cache issue described
+above; it was fixed in the same pass. No other P1/P2 finding was reported. The final game mod
+build succeeded with zero errors, and the full Windows suite again passed **1457/1457**
+(1045 server + 285 client + 122 Discord + 5 BridgeTools). The prior two-CPU Linux run remains
+evidence for the earlier feature implementation, not a fresh run of these game fixes.
+
+**round6-game-cleanup.json** records both clients home, zero pending outbox/parcels, no final
+game errors, exact original pawn occurrences, final mod SHA-256 and verified game shutdown.
+Wallet totals reconcile: 10629 + 1222 + 793 = **12644**, equal to 13000 fixture capital minus
+356 charged for the four Fired events. Failed orders refunded. No artificial wealth fixture
+remains in those balances.
+**round6-process-cleanup.json** records stopping only owned server PID 90920 and private GABS
+PID 86204, with no private game remaining. **round6-db-integrity.json** records SQLite
+`quick_check=ok`. The user's main checkout, game installation, Docker and Workshop were not
+updated; the work remains on the local feature branch.
+
+## Explicit remaining limits
+
+Physical `g` input in a focused chat and actual Ctrl+V are not proven by root/synthetic events;
+CUA returned foreground_unavailable and was not bypassed. Real Steam refusal/retry and live
+Discord acceptance remain deferred. The delta rollback used the local admin API, not the
+browser panel. Offline/restarted auction settlement, every lost-response/outbox combination,
+full mailbox/corrupt parcel handling, and all long-text/error layouts remain outside this
+game run; their existing automated coverage is separate. Unchecked compound items in the
+manual checklist remain unchecked.

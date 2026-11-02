@@ -30,6 +30,8 @@ public static class VisitSession
     public static long VisitId { get; private set; }
     public static long HostId { get; private set; }
     public static string HostName { get; private set; } = "";
+    private static object? pendingReturn;
+    private static (object Request, Rimlink.Client.Net.RimlinkConnection? Connection, Verse.Game FromGame)? homeReturn;
     /// <summary>The host's shop at visit start, by thing id; counts shrink with purchases.</summary>
     public static Dictionary<long, ShopItem> HostShop { get; } = [];
 
@@ -78,7 +80,7 @@ public static class VisitSession
     /// <summary>A live session (3b): the host's snapshot is loaded as a visit copy in mirror mode; the session is the ticket. Also used for a resync from inside the copy.</summary>
     public static void BeginLive(LiveSession session, Action onFailure)
     {
-        if (!RimlinkSession.Active || RimlinkSession.Visits is not { } visits || RimlinkSession.Shop is not { } shop || Pending is not null || session.Host is null) { onFailure(); return; }
+        if (!RimlinkSession.Active || !IsCurrentLive(session) || RimlinkSession.Visits is not { } visits || RimlinkSession.Shop is not { } shop || Pending is not null || session.Host is null) { onFailure(); return; }
         var host = session.Host;
         var wait = new Dialog_Wait("Rimlink.Visit.Preparing".Translate(host.Name), new CancellationTokenSource());
         Find.WindowStack.Add(wait);
@@ -87,12 +89,19 @@ public static class VisitSession
             ShopList list;
             try { list = await shop.Of(host.PlayerId, CancellationToken.None); }
             catch (Exception ex) { RimlinkLog.Instance.Warn("live: the host's shop list was not fetched: " + ex.Message); list = new ShopList(); }
-            MainThread.Post(() => SaveAndLoad(new VisitPending(0, host.PlayerId, host.Name, [], list, session), wait, visits, onFailure));
+            MainThread.Post(() =>
+            {
+                if (!IsCurrentLive(session)) { wait.Close(); return; }
+                SaveAndLoad(new VisitPending(0, host.PlayerId, host.Name, [], list, session), wait, visits, onFailure);
+            });
         });
     }
 
+    private static bool IsCurrentLive(LiveSession? session) => session is null || Live.LiveGuest.Session?.Id == session.Id;
+
     private static void Fail(VisitPending pending, Rimlink.Client.Visits.VisitClient visits, string reason, Action? onFailure)
     {
+        if (!IsCurrentLive(pending.Live)) return;
         if (pending.VisitId != 0) _ = visits.End(pending.VisitId, CancellationToken.None);
         Messages.Message("Rimlink.Visit.Failed".Translate(reason), MessageTypeDefOf.RejectInput, historical: false);
         onFailure?.Invoke();
@@ -102,6 +111,7 @@ public static class VisitSession
     /// <summary>The visitor's own colony goes to disk and to the server first; then the host's save comes down and is loaded.</summary>
     private static void SaveAndLoad(VisitPending pending, Dialog_Wait wait, Rimlink.Client.Visits.VisitClient visits, Action? onFailure = null)
     {
+        if (!IsCurrentLive(pending.Live)) { wait.Close(); return; }
         if (pending.Live is not null && Active)
         {
             // A resync from inside the host's copy: nothing of ours to save, straight to the new snapshot (Active stays until it loads).
@@ -117,6 +127,7 @@ public static class VisitSession
         bool uploaded = false;
         LongEventHandler.QueueLongEvent(() => uploaded = SaveSync.WaitForUpload(TimeSpan.FromSeconds(60)), "Rimlink.Flow.Uploading", doAsynchronously: true, null, showExtraUIInfo: false, callback: () =>
         {
+            if (!IsCurrentLive(pending.Live)) { wait.Close(); return; }
             if (!uploaded || SaveSync.LastError is not null)
             {
                 wait.Close();
@@ -129,6 +140,7 @@ public static class VisitSession
 
     private static void Download(VisitPending pending, Dialog_Wait wait, Rimlink.Client.Visits.VisitClient visits, Action? onFailure)
     {
+        if (!IsCurrentLive(pending.Live)) { wait.Close(); return; }
         wait.Text = "Rimlink.Visit.Downloading".Translate(pending.HostName);
         string path = GenFilePaths.FilePathForSavedGame(SaveName(pending.HostId));
         _ = Task.Run(async () =>
@@ -146,6 +158,7 @@ public static class VisitSession
             MainThread.Post(() =>
             {
                 wait.Close();
+                if (!IsCurrentLive(pending.Live)) return;
                 // A mod of the host's that this game lacks: the copy would load with the game's errors and lose that mod's things.
                 if (MissingMods(path) is { } missingMods)
                 {
@@ -166,8 +179,32 @@ public static class VisitSession
     /// <summary>After the host's save finished loading: their colony becomes another faction (friendly, hostile in a live raid), the guests walk in.</summary>
     public static void OnGameLoaded()
     {
+        if (homeReturn is { } returning && !ReferenceEquals(returning.FromGame, Verse.Current.Game))
+        {
+            homeReturn = null;
+            var home = Verse.Current.Game;
+            LongEventHandler.ExecuteWhenFinished(() => MainThread.Post(() =>
+            {
+                if (!ReferenceEquals(pendingReturn, returning.Request) || !ReferenceEquals(returning.Connection, RimlinkSession.Connection)
+                    || home is null || !ReferenceEquals(home, Verse.Current.Game) || Live.LiveGuest.Session is not null) return;
+                pendingReturn = null;
+                Active = false;
+                Pending = null;
+                // Its first FinalizeInit was protected as a visit; now run the home-only reconciliation.
+                home.GetComponent<RimlinkGameComponent>().FinalizeInit();
+            }));
+            return;
+        }
         if (Pending is not { } pending) return;
         Pending = null;
+        // End can arrive after LoadGame queued the host's copy, before its FinalizeInit.
+        if (!IsCurrentLive(pending.Live))
+        {
+            RimlinkLog.Instance.Info($"live session {pending.Live!.Id}: snapshot finished loading after the session ended; returning home");
+            HostName = pending.HostName;
+            Leave(pending.VisitId, pending.HostId);
+            return;
+        }
         try
         {
             if (Find.Maps.Count == 0) throw new InvalidOperationException("the host's save loaded without a map");
@@ -206,14 +243,28 @@ public static class VisitSession
 
     private static void Leave(long visitId, long hostId)
     {
-        Active = false;
+        // FinalizeInit may run inside an async load: keep the copy protected until Root.Update can leave it safely.
+        Active = true;
+        VisitId = visitId;
+        HostId = hostId;
         HostShop.Clear();
-        if (visitId != 0 && RimlinkSession.Visits is { } visits) _ = visits.End(visitId, CancellationToken.None);
-        DeleteVisitFile(hostId);
-        if (!RimlinkSession.Active) { GenScene.GoToMainMenu(); return; }
-        RimlinkLog.Instance.Info("visit over, loading the own colony");
-        ForgetPawnTextures();
-        GameDataSaveLoader.LoadGame(SaveSync.SaveFileName);
+        var game = Verse.Current.Game;
+        var connection = RimlinkSession.Connection;
+        var request = new object();
+        pendingReturn = request;
+        LongEventHandler.ExecuteWhenFinished(() => MainThread.Post(() =>
+        {
+            if (!ReferenceEquals(pendingReturn, request) || !ReferenceEquals(connection, RimlinkSession.Connection)
+                || !ReferenceEquals(game, Verse.Current.Game) || Live.LiveGuest.Session is not null) return;
+            Pending = null;
+            homeReturn = (request, connection, game);
+            if (visitId != 0 && RimlinkSession.Visits is { } visits) _ = visits.End(visitId, CancellationToken.None);
+            DeleteVisitFile(hostId);
+            if (!RimlinkSession.Active) { GenScene.GoToMainMenu(); return; }
+            RimlinkLog.Instance.Info("visit over, loading the own colony");
+            ForgetPawnTextures();
+            GameDataSaveLoader.LoadGame(SaveSync.SaveFileName);
+        }));
     }
 
     /// <summary>
@@ -270,6 +321,8 @@ public static class VisitSession
     /// <summary>Ends the visit with the session; returns the ticket's End call (or null), which the caller lets finish before disconnecting.</summary>
     public static Task? Reset()
     {
+        pendingReturn = null;
+        homeReturn = null;
         long visitId = Active ? VisitId : Pending?.VisitId ?? 0;
         long hostId = Active ? HostId : Pending?.HostId ?? 0;
         Active = false;

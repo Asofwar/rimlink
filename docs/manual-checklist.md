@@ -787,8 +787,9 @@ failed» и возвращает вещи на карту без запроса 
 
 - [x] **Рассказчик видит серверное богатство.** dev «Outputs → Current Threat Points» у Host-s2: 35.00 → `/wallet Host-s2
   +100000` → клиент перечитал `Wallet/Get` по `WalletChanged` → 193.91.
-- [ ] **Визит не добавляет богатство гостя к копии хозяина.** Не прогнано: на стенде мост выполнял dev-выводы гостя вне
-  главного потока. Проверено кодом (`Patch_Map_PlayerWealthForStoryteller` выходит при `VisitSession.InVisit`).
+- [x] **Визит не добавляет богатство гостя к копии хозяина.** На изолированном стенде 0.7.0 (2026-11-02): при Rough
+  дома +1000000 серебра изменили threat points 35 → 2640.40; в визите при +1000000 и +2000000 оставалось 35, дома снова
+  2640.40. Тестовое пополнение убрано. [Доказательства](verification/2026-11-02-game-mcp-acceptance.md).
 - [x] **Лимит лута растёт с кошельком цели.** Рейд 15 (копии, Instant) при кошельке 100020 и `WealthItems` 10802:
   `LootCap` 1250 = min(11082, 5000) × 0.25; до ветки рейд 12 тех же условий — 337.
 - [x] **Предупреждённый рейд закрывает вывод.** Рейд 14 (копии, Warned) Nova-s2 → Host-s2: депозит и отправка серебра с
@@ -796,10 +797,12 @@ failed» и возвращает вещи на карту без запроса 
   `RaidExpired`, депозит прошёл (`Wallet/Deposit` 200).
 - [x] **Высадившийся рейд закрывает вывод.** Рейд 15 высадился → депозит отказан; рейдер ушёл (dev ExitMapBest) →
   `raid 15 resolved: … fled 1` → депозит прошёл.
-- [ ] **Враги на карте закрывают вывод.** Не прогнано: через этот мост инциденты dev выполняются вне главного потока.
-  Проверено кодом (`GenHostility.AnyHostileActiveThreatToPlayer` в `Outgoing.UnderThreat`).
-- [ ] **Передача из каравана под угрозой проходит.** Не прогнано в игре (на стенде нечем поставить под угрозу
-  отправителя); сервер — тест `NothingBlocksTheAttackerOthersOrACaravanHandOver`, клиент — `SendFromCaravan` без проверки угрозы.
+- [x] **Враги на карте закрывают вывод.** Стенд 0.7.0, 2026-11-02: после настоящего платного рейда без ожидающего
+  инцидента депозит, лот и отправка отказаны «Your colony is under threat…». XML-количество стали/серебра, кошелёк,
+  лоты и история посылок до/после совпали.
+- [x] **Передача из каравана под угрозой проходит.** Тот же прогон: сформированный до рейда караван передал Steel ×1
+  через окно передачи, хозяин принял подарок 13 и получил его один раз. Human558 остался в том же караване, его
+  инвентарь больше не содержал стали. [Протокол](verification/2026-11-02-game-mcp-acceptance.md).
 - [x] **Плата за хранение и долг.** Хост офлайн, гость подарил пешку (посылка 15), посылка состарена на 5 дней
   (`sqlite3 … update parcels set CreatedAt=…`), кошелёк хоста обнулён через REST. Вход хоста: `storage fee 1 for parcel 15,
   balance -1`, у банка `+1 storage`; отправка и лот отказаны «You owe 1 silver in storage fees…»; депозит 5 → баланс 4,
@@ -865,11 +868,14 @@ failed» и возвращает вещи на карту без запроса 
   /api/admin/incidents/8/cancel` → `Cancelled`, у хоста очередь пуста сразу (`IncidentResolved` цели), в «My orders» «cancelled,
   refunded: …».
 - [x] **Деньги.** Кошелёк Nova 99746 после 6 заказов и одного возврата: 100000 − 54 − 5 × 50 + 50.
-- [ ] **Infestation на карте без гор → Failed.** Не прогнано: на карте хоста горы есть, `Infestation` сработала (инцидент 6).
-  Отказ воркера с возвратом показан инцидентом 1.
+- [x] **Infestation без подходящей клетки → Failed.** Стенд 0.7.0, 2026-11-02: 125000 байт roof-grid нулевые,
+  инцидент 5 отказал, вся цена вернулась ровно один раз. Исправлен ванильный ложный успех без туннеля; выбор клетки
+  не использует общий для карт кэш CanFireNow. Положительный контроль: инцидент 8 создал TunnelHiveSpawner54932
+  в подготовленной пещере, объект есть в настоящем сейве. [Протокол](verification/2026-11-02-game-mcp-acceptance.md).
 - [ ] **Русские строки на экране.** Не смотрели; ключи и паритет проверены тестами.
-- [ ] **Обрыв, срабатывание, реконнект без выхода из игры.** Не прогнано (нужно попасть между чтением Pending и отчётом): после
-  ревью клиент помнит обработанные в сессии id, тест `AReloadDoesNotBringBackWhatThisSessionHandled`.
+- [x] **Обрыв, срабатывание, реконнект без выхода из игры.** Стенд 0.7.0: net_drop 60 секунд, рейдер появился при
+  `firedUnreported=[4]` и серверном Announced. После реконнекта — Fired, маркер очищен; два интервала повторов без
+  второго рейдера. [Доказательства](verification/2026-11-02-game-mcp-acceptance.md).
 
 ## Правила экономики в сделках (ветка `asofwar/trade-hardening`, спека `2026-10-30-rimlink-economy-hardening-design.md`, §10)
 
@@ -900,7 +906,7 @@ Automated core/upload tests and a mod build do not establish these UI scenarios.
 - [ ] Upload a save successfully, fail the next upload, then recover: time/version preserve the last success, error category changes then clears. Repeat pending-local upload at login; a fresh account/server login starts with no upload history.
 - [ ] Host and guest: open Diagnostics during live play, pause, reconnect, and snapshot refresh; role/state/snapshot/speed/pause source match the game. No player names or IDs enter the preview.
 - [ ] Before Save local ZIP: no diagnostic file exists. Cancel changes nothing. Save creates a unique ZIP in the displayed local folder, shows its filename and sends nothing. Repeated saves preserve previous reports.
-- [ ] Inspect the saved ZIP: only diagnostics.json and events.log; preview content matches both. No raw log text, SteamID/login/IP/endpoint/pin/path/chat/credentials. Third-party mod IDs are anonymous; all caps hold.
+- [x] Inspect the saved ZIP: only diagnostics.json and events.log; preview content matches both. No raw log text, SteamID/login/IP/endpoint/pin/path/chat/credentials. Third-party mod IDs are anonymous; all caps hold. Real ZIP/preview checks: [2026-11-02 report](verification/2026-11-02-game-mcp-acceptance.md).
 - [ ] Export a verified bookmark: address and SHA-256 shown before Confirm and copy. Cancel leaves clipboard unchanged. An untrusted bookmark cannot export.
 - [ ] Import DNS, IPv4 and bracketed IPv6 invitations: review first, cancel saves nothing; explicit trust adds one bookmark, does not connect, and a later manual connection checks the imported pin. Repeat import adds no duplicate.
 - [ ] A different existing pin (including a change after preview) blocks import and remains unchanged. A damaged pin file blocks import. Verify with the owner before using the normal connection flow to approve a legitimate certificate change.
@@ -911,8 +917,14 @@ Automated core/upload tests and a mod build do not establish these UI scenarios.
 - [x] **EventsTab, ядро + тестовый сервер.** Воспроизведён старый запрос с тем же ID и новой целью/типом: сервер возвращает исходный заказ. Новый путь сохраняет намерение в outbox до RPC; изменение выбора, закрытие окна и вход его не заменяют. Проверены потеря настоящего HTTP-ответа после commit, повтор без второй оплаты, окончательный отказ без пустой посылки и следующий новый заказ. Это автоматические проверки, не прогон EventsTab в игре.
 - [x] **REST-откат дельты + вход ядра.** Подтверждено наличие дельты, откат через тот же REST endpoint, что панель, повторный вход и загрузка исходного XML. Игровая карта в тесте не загружается.
 - [x] **Разрыв между Pending и Report, ядро + сервер.** Переподключение, старый список Pending и повтор fired/failed: обработанный ID не возвращается в очередь ядра, оплата/возврат однократны. Ванильный worker не запускается.
-- [ ] **Игровые остаточные сценарии.** Steam refusal/autowait, ввод `g`, богатство визита, враг/караван, Infestation, обрыв Pending/Report и откат через экран панели остаются открытыми. Изолированная копия запустилась через CUA Driver; ввод получил UIA timeout и `foreground_unavailable`. Другие средства GUI не использовались; собственные игра и сервер остановлены.
+- [ ] **Остаточные ручные проверки.** Steam refusal/autowait, физический ввод `g`/Ctrl+V и откат именно через экран
+  панели остаются открытыми. CUA вернул `foreground_unavailable`, обхода не было. Богатство визита, враг/караван,
+  Infestation, Pending/Report и загрузка реально откатанной дельты проверены через профильный игровой MCP и локальный
+  admin API: [прогон 2026-11-02](verification/2026-11-02-game-mcp-acceptance.md).
 - [x] **Coop интеграционного дерева, 2026-11-02.** Два настоящих клиента 0.7.0 через GABS / RimBridge MCP: согласие, назначение пешки, приказы хозяину, выход домой, перезапуск клиентов и повторный join, разрыв сети на 8 секунд и возврат управления, отзыв активного доступа. Проверены XML-сейвы и сохранность исходных ID по три пешки у каждого игрока; loan-ledgers очищены. [Фактический прогон](verification/2026-11-02-game-mcp-acceptance.md).
+- [x] **Расширение coop-приёмки.** Третий клиент, отказ второму активному партнёру, join после выхода первого,
+  перезапуск сервера с прежними назначениями, разрыв хозяина на 20 секунд. Завершение во время загрузки resync
+  возвращает домой; плен и смерть назначенной пешки оставляют её у хозяина без дублирующей посылки.
 
 Команды, точные границы доказательства и подготовка стенда: [протокол проверки](verification/2026-11-01-residual-verification.md).
 
@@ -921,6 +933,8 @@ Automated core/upload tests and a mod build do not establish these UI scenarios.
 Автоматические тесты не заменяют следующие проверки в двух настоящих игровых процессах. Игровой прогон этой ветки
 выполнен 2026-11-02 для основных сценариев: ставки с доплатой разницы, выкуп, отмена до ставок и админом,
 возвраты и сохранность предметов после перезахода. [Подробности](verification/2026-11-02-game-mcp-acceptance.md).
+Дополнительный прогон тремя клиентами проверил конкурирующие ставки, естественный часовой срок без изменения часов,
+возврат лота без ставок, десять продлений по 30 секунд до лимита +5 минут и единственный расчёт с победителем.
 Составные пункты ниже сохраняют незакрытые части; сборка DLL сама по себе не является их подтверждением.
 
 - [ ] В EN и RU открыть аукционы из консоли связи: вкладки в два ряда, цены/срок/подсказки читаются, список листается.

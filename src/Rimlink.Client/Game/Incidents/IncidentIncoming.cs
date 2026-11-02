@@ -103,7 +103,16 @@ public static class IncidentIncoming
         bool ok;
         try
         {
-            ok = def.Worker.TryExecute(Parms(def, incident, map));
+            var parms = Parms(def, incident, map);
+            ok = true;
+            // The worker reports success without a tunnel; CanFireNow caches across maps within a tick.
+            if (def.defName == "Infestation")
+            {
+                ok = InfestationCellFinder.TryFindCell(out var cell, map)
+                    && Faction.OfInsects is not null && HiveUtility.TotalSpawnedHivesCount(map) < 30;
+                parms.infestationLocOverride = cell;
+            }
+            ok = ok && def.Worker.TryExecute(parms);
             if (!ok) reason = $"{def.defName} could not start on this map";
         }
         catch (Exception ex)

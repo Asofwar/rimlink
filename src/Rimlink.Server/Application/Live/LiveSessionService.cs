@@ -119,11 +119,12 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
         if (grant is null) throw RpcErrors.With(StatusCode.PermissionDenied, ErrorCode.Unspecified, RefusalKeys.ColoniesPermission, "accept the owner's invitation first");
         if (ColonyService.ParseIds(grant.PawnIds).Length == 0) throw RpcErrors.Failed(ErrorCode.LiveActive, RefusalKeys.ColoniesNoPawns, "the owner has not assigned any pawns");
         if (await db.PlayerBlocks.AnyAsync(b => b.BlockerPlayerId == memberId && b.BlockedPlayerId == request.OwnerPlayerId || b.BlockerPlayerId == request.OwnerPlayerId && b.BlockedPlayerId == memberId)) throw RpcErrors.With(StatusCode.PermissionDenied, ErrorCode.Unspecified, RefusalKeys.ColoniesPermission, "one of these players blocked the other");
-        if (registry.ByPlayer(request.OwnerPlayerId) is not { AtHome: true }) throw RpcErrors.Failed(ErrorCode.HostOffline, RefusalKeys.LiveHostOffline, "the colony owner is not at home");
+        var hostName = await db.Players.Where(x => x.Id == request.OwnerPlayerId).Select(x => x.Name).FirstAsync();
+        if (registry.ByPlayer(request.OwnerPlayerId) is not { AtHome: true }) throw RpcErrors.Failed(ErrorCode.HostOffline, RefusalKeys.LiveHostOffline, "the colony owner is not at home", hostName);
         if (registry.ByPlayer(memberId) is not { AtHome: true }) throw RpcErrors.Failed(ErrorCode.LiveActive, RefusalKeys.LiveOnVisit, "return to your colony before joining");
         if (registry.ByPlayer(request.OwnerPlayerId) is not { CoopCapable: true } || registry.ByPlayer(memberId) is not { CoopCapable: true }) throw RpcErrors.Failed(ErrorCode.LiveActive, RefusalKeys.ColoniesUpdateClient, "both players must update their client for shared colonies");
         if (await db.LiveSessions.AnyAsync(s => !FinalStates.Contains(s.State) && (s.HostPlayerId == memberId || s.GuestPlayerId == memberId || s.HostPlayerId == request.OwnerPlayerId || s.GuestPlayerId == request.OwnerPlayerId)))
-            throw RpcErrors.Failed(ErrorCode.LiveActive, RefusalKeys.LiveHostBusy, "one participant is already in a live session");
+            throw RpcErrors.Failed(ErrorCode.LiveActive, RefusalKeys.LiveHostBusy, "one participant is already in a live session", hostName);
         var since = DateTime.UtcNow - TimeSpan.FromHours(raidOptions.Value.VisitHours);
         if (await db.Visits.AnyAsync(v => v.VisitorPlayerId == memberId && v.EndedAt == null && v.StartedAt > since)) throw RpcErrors.Failed(ErrorCode.LiveActive, RefusalKeys.LiveOnVisit, "you are on a visit");
         var session = new LiveSessionRow { HostPlayerId = request.OwnerPlayerId, GuestPlayerId = memberId, Kind = (int)LiveKind.LiveCoop, ColonyPawnIds = grant.PawnIds, State = LiveStateDb.Starting, CreatedAt = DateTime.UtcNow, ClientRequestId = request.ClientRequestId };

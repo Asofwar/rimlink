@@ -71,6 +71,10 @@ public sealed class ColonyAccessTests
         await host.AuthApi.SetAtHomeAsync(new AtHomeRequest { AtHome = false }, host.Auth);
         var failure = await Assert.ThrowsAsync<RpcException>(() => api.JoinAsync(new ColonyJoinRequest { OwnerPlayerId = host.PlayerId, ClientRequestId = "one" }, guest.Auth).ResponseAsync);
         Assert.Equal(StatusCode.FailedPrecondition, failure.StatusCode);
+        var detail = Assert.IsType<ErrorDetail>(failure.ErrorDetail());
+        Assert.Equal(ErrorCode.HostOffline, detail.Code);
+        Assert.Equal("Live.HostOffline", detail.Key);
+        Assert.Equal(new[] { host.Login.Player.Name }, detail.Args);
         await Assert.ThrowsAsync<RpcException>(() => guest.Live.ProposeAsync(new LiveProposal { HostPlayerId = host.PlayerId, Kind = LiveKind.LiveCoop, Pawns = EconomyFixtures.Pawns(("Colonist", "Fake")) }, guest.Auth).ResponseAsync);
     }
 
@@ -89,7 +93,12 @@ public sealed class ColonyAccessTests
             await api.AssignAsync(new ColonyAssignment { MemberPlayerId = member.PlayerId, PawnIds = { 42 } }, host.Auth);
         }
         var session = await api.JoinAsync(new ColonyJoinRequest { OwnerPlayerId = host.PlayerId, ClientRequestId = "one" }, guest.Auth);
-        await Assert.ThrowsAsync<RpcException>(() => api.JoinAsync(new ColonyJoinRequest { OwnerPlayerId = host.PlayerId, ClientRequestId = "two" }, other.Auth).ResponseAsync);
+        var busy = await Assert.ThrowsAsync<RpcException>(() => api.JoinAsync(new ColonyJoinRequest { OwnerPlayerId = host.PlayerId, ClientRequestId = "two" }, other.Auth).ResponseAsync);
+        Assert.Equal(StatusCode.FailedPrecondition, busy.StatusCode);
+        var detail = Assert.IsType<ErrorDetail>(busy.ErrorDetail());
+        Assert.Equal(ErrorCode.LiveActive, detail.Code);
+        Assert.Equal("Live.HostBusy", detail.Key);
+        Assert.Equal(new[] { host.Login.Player.Name }, detail.Args);
         var changed = await Assert.ThrowsAsync<RpcException>(() => api.JoinAsync(new ColonyJoinRequest { OwnerPlayerId = other.PlayerId, ClientRequestId = "one" }, guest.Auth).ResponseAsync);
         Assert.Equal(StatusCode.InvalidArgument, changed.StatusCode);
         using var scope = server.Services.CreateScope();
