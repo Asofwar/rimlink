@@ -362,10 +362,12 @@ updated; the work remains on the local feature branch.
 
 ## Explicit remaining limits
 
-Physical `g` input in a focused chat and actual Ctrl+V are not proven by root/synthetic events;
-CUA returned foreground_unavailable and was not bypassed. Real Steam refusal/retry and live
-Discord acceptance remain deferred. The delta rollback used the local admin API, not the
-browser panel. Offline/restarted auction settlement, every lost-response/outbox combination,
-full mailbox/corrupt parcel handling, and all long-text/error layouts remain outside this
-game run; their existing automated coverage is separate. Unchecked compound items in the
-manual checklist remain unchecked.
+The limits above describe rounds 1–6. [Rounds 7–8](2026-11-02-final-edges.md) subsequently verified G,
+user-performed Ctrl+V, browser-button rollback, SteamWait with a controlled verifier, real upload
+failure/recovery, offline/restarted auction delivery, Post/Bid/Cancel reply loss and full/corrupt mailbox.
+Archive/reset escrow returns were tested on a separate copy of the stand.
+
+The overall result is **not PASS**: [admin reset resurrected a local save](2026-11-02-reset-resurrection.md).
+Live Discord still lacks a configured profile; the new Steam test did not verify the real Web API.
+Power-loss recovery, all Scribe failure modes, all rate-limit/game combinations and long/error layouts
+are not covered by these runs. Unchecked compound checklist items remain unchecked.

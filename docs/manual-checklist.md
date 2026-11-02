@@ -27,8 +27,9 @@
       (`login plan: NewColony`).
 - [x] **Повторный вход через Steam после выхода в меню.** 2026-10-30, на своём сервере: выход в меню и новый вход через 2–3 секунды прошли
       дважды подряд без отказа Steam (до исправления `Invalid ticket` держался около 2 минут).
-- [ ] **Ожидание Steam при отказе.** Если Steam отказал (`STEAM_TICKET_REJECTED`), окно показывает «Ждём, пока Steam подтвердит вход», вход
-      проходит сам, без окна пароля. Не проверено: единственный отказ попал на закрытие игры.
+- [x] **Ожидание Steam при typed-отказе.** 2026-11-02 настоящий игровой клиент получил три `STEAM_TICKET_REJECTED`, показал SteamWait
+      и сам вошёл с четвёртой попытки без окна пароля. Verifier отдельного сервера тестовый; это не проверка подлинности билета
+      через Steam Web API. [Границы и доказательства](verification/2026-11-02-steam-retry.md).
 - [x] **Admin CLI против живого сервера.** `rimlink-tools admin online|broadcast|shutdown --server https://127.0.0.1:25560 --token T --insecure`
       отвечает (HTTP/1.1 на основном порту).
 
@@ -588,9 +589,9 @@ Nova-s3, игра на английском.
   гость: «Hosta: Смотри сюда» на (100,110); `rimlink/status` у обоих — `lastPing` с тайлом и клеткой отправителя.
 - [x] **P2. Пинг из визит-копии** (визит 3a) дошёл до хозяина онлайн: сообщение со ссылкой на (110,115).
 - [x] **P3. Пинг на карте мира** выбранному игроку: у гостя «Hosta: Смотри сюда», `lastPing` тайл 182001.
-- [ ] **P4. «g» в поле чата не пингует** — через мост не проверить: синтетическая клавиша не несёт позиции мыши, и контрольное
-  нажатие G без фокуса тоже ничего не открыло (ни меню игроков, ни пинга). Проверить руками: G над картой → меню игроков; G в поле
-  чата → буква в поле, меню нет.
+- [x] **P4. G в поле чата не пингует.** 2026-11-02 физическая клавиша через CUA в активной coop-сессии ввела `п` на RU-раскладке,
+  не изменив `session.lastPing` второго клиента. Та же клавиша вне поля отправила пинг (231,203). Проверены оба контроля:
+  [протокол](verification/2026-11-02-final-edges.md).
 - [x] **Кольцо пинга.** Сначала не было видно (рисовалось на высоте 0, под рельефом); после исправления жёлтое пульсирующее кольцо
   на клетке 8 секунд (`ping-ring-guest.png`).
 - [x] **C1. Карточки места.** «Место» с текущей карты дало `[[tile:182001]]`, с выбранным на карте мира поселением Hosta —
@@ -904,8 +905,10 @@ Automated core/upload tests and a mod build do not establish these UI scenarios.
 
 - [ ] EN and RU: open Diagnostics from the main-menu server list and in-game overlay; long summaries and scrollable preview fit, close/cancel work.
 - [ ] Upload a save successfully, fail the next upload, then recover: time/version preserve the last success, error category changes then clears. Repeat pending-local upload at login; a fresh account/server login starts with no upload history.
+      Success → Transport failure → reconnect/new success is GAME PASS on 2026-11-02; last success v47/time remained unchanged during failure.
+      Pending-at-login/fresh-history variants are not established by that case. [Evidence](verification/2026-11-02-final-edges.md).
 - [ ] Host and guest: open Diagnostics during live play, pause, reconnect, and snapshot refresh; role/state/snapshot/speed/pause source match the game. No player names or IDs enter the preview.
-- [ ] Before Save local ZIP: no diagnostic file exists. Cancel changes nothing. Save creates a unique ZIP in the displayed local folder, shows its filename and sends nothing. Repeated saves preserve previous reports.
+- [x] Opening/closing Diagnostics creates no new file. Save creates a unique local ZIP and shows its filename. Two repeated saves preserve old reports and contain the same frozen snapshot. Real game checks: [2026-11-02](verification/2026-11-02-final-edges.md).
 - [x] Inspect the saved ZIP: only diagnostics.json and events.log; preview content matches both. No raw log text, SteamID/login/IP/endpoint/pin/path/chat/credentials. Third-party mod IDs are anonymous; all caps hold. Real ZIP/preview checks: [2026-11-02 report](verification/2026-11-02-game-mcp-acceptance.md).
 - [ ] Export a verified bookmark: address and SHA-256 shown before Confirm and copy. Cancel leaves clipboard unchanged. An untrusted bookmark cannot export.
 - [ ] Import DNS, IPv4 and bracketed IPv6 invitations: review first, cancel saves nothing; explicit trust adds one bookmark, does not connect, and a later manual connection checks the imported pin. Repeat import adds no duplicate.
@@ -917,10 +920,11 @@ Automated core/upload tests and a mod build do not establish these UI scenarios.
 - [x] **EventsTab, ядро + тестовый сервер.** Воспроизведён старый запрос с тем же ID и новой целью/типом: сервер возвращает исходный заказ. Новый путь сохраняет намерение в outbox до RPC; изменение выбора, закрытие окна и вход его не заменяют. Проверены потеря настоящего HTTP-ответа после commit, повтор без второй оплаты, окончательный отказ без пустой посылки и следующий новый заказ. Это автоматические проверки, не прогон EventsTab в игре.
 - [x] **REST-откат дельты + вход ядра.** Подтверждено наличие дельты, откат через тот же REST endpoint, что панель, повторный вход и загрузка исходного XML. Игровая карта в тесте не загружается.
 - [x] **Разрыв между Pending и Report, ядро + сервер.** Переподключение, старый список Pending и повтор fired/failed: обработанный ID не возвращается в очередь ядра, оплата/возврат однократны. Ванильный worker не запускается.
-- [ ] **Остаточные ручные проверки.** Steam refusal/autowait, физический ввод `g`/Ctrl+V и откат именно через экран
-  панели остаются открытыми. CUA вернул `foreground_unavailable`, обхода не было. Богатство визита, враг/караван,
-  Infestation, Pending/Report и загрузка реально откатанной дельты проверены через профильный игровой MCP и локальный
-  admin API: [прогон 2026-11-02](verification/2026-11-02-game-mcp-acceptance.md).
+- [x] **G, Ctrl+V и откат кнопкой панели.** Продолжение 2026-11-02: G проверена через CUA с положительным контролем;
+  Ctrl+V выполнил пользователь, точное поле считано через игровой MCP. CUA выбрал и подтвердил v5 в Chrome, после чего
+  клиент загрузил старую карту из действительно ужатой дельты. [Фактический протокол](verification/2026-11-02-final-edges.md).
+- [ ] **Внешние интеграции этого продолжения.** Подлинность Steam-билета через настоящий Web API не проверялась;
+  SteamWait пройден с тестовым verifier. Живой Discord невозможен без профиля: пользователь подтвердил, что он не настроен.
 - [x] **Coop интеграционного дерева, 2026-11-02.** Два настоящих клиента 0.7.0 через GABS / RimBridge MCP: согласие, назначение пешки, приказы хозяину, выход домой, перезапуск клиентов и повторный join, разрыв сети на 8 секунд и возврат управления, отзыв активного доступа. Проверены XML-сейвы и сохранность исходных ID по три пешки у каждого игрока; loan-ledgers очищены. [Фактический прогон](verification/2026-11-02-game-mcp-acceptance.md).
 - [x] **Расширение coop-приёмки.** Третий клиент, отказ второму активному партнёру, join после выхода первого,
   перезапуск сервера с прежними назначениями, разрыв хозяина на 20 секунд. Завершение во время загрузки resync
@@ -945,10 +949,18 @@ Automated core/upload tests and a mod build do not establish these UI scenarios.
 - [ ] Ставка за 10 секунд до срока добавляет 30 секунд. Повторы ограничены максимумом +5 минут. Убедиться в точном сроке
       на обоих клиентах после обновления доски.
 - [ ] Подтвердить выкуп; победитель получает посылку, продавец — выручку минус комиссию/хранение, дублей нет после reconnect.
-- [ ] Оставить игроков офлайн до срока/перезапустить тестовый сервер: один победитель и одна посылка, без ставок — возврат.
+- [x] Офлайн-расчёт после перезапуска: до входа участников закрылись один лот со ставкой и один без ставок; реальные карты
+      получили по одному товару/возврату, по одному ack. В этом аварийном случае срок двух fixture-строк сдвинут при остановленном
+      сервере; естественный часовой срок пройден отдельно. [Протокол](verification/2026-11-02-final-edges.md).
 - [ ] Потерять ответ после posting/bid/cancel; проверить сохранённую запись outbox, кнопку повтора, replay после входа,
       отсутствие повторного удаления/резерва и отсутствие возврата уже принятого лота при rate limit.
+      Post/Bid/Cancel после реального server commit проверены в игре через TLS fault proxy: файловый outbox, Retry и relogin,
+      одно изъятие/резерв/возврат. Post replay при freeze прошёл; именно rate-limit-вариант здесь не воспроизводился.
 - [ ] Отменить лот до ставок, проверить запрет отмены после ставки. Администратор отменяет при заморозке через REST/CLI:
       товар продавцу, ставка участнику, запись аудита. Reset/archive любого участника возвращает обе стороны.
+      В игре подтверждены REST cancel при global/player freeze и возвраты escrow после archive/reset продавца и участника.
+      **Reset/login — FAIL:** после освобождения лимита клиент вернул старый локальный сейв. [Воспроизведение](verification/2026-11-02-reset-resurrection.md).
 - [ ] Проверить, что заморозка откладывает settlement; после снятия — единственная выдача. При полном mailbox товар
       сохраняется; при ошибке распаковки посылка остаётся в почте. Накопленный escrow виден в богатстве/угрозе рассказчика.
+      Полный mailbox и отказ настоящего Incoming.Drop на invalid Zstd, повторный вход без ack/дубля — GAME PASS.
+      Остальные части этого составного пункта не закрыты данным случаем. [Границы](verification/2026-11-02-final-edges.md).
