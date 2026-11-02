@@ -40,7 +40,9 @@ public class SaveCompactionTests
         public async Task<byte[]> Put(long tick, int padding = Padding)
         {
             byte[] save = MakeSave(ServerFixture.WorldSeed, "Nova", tick, padding);
-            await Upload(Saves, Token, save, HeaderFor(save, ServerFixture.WorldSeed, "Nova", tick));
+            var header = HeaderFor(save, ServerFixture.WorldSeed, "Nova", tick);
+            header.SaveGeneration = login.SaveGeneration;
+            await Upload(Saves, Token, save, header);
             return save;
         }
 
@@ -466,7 +468,7 @@ public class SaveCompactionTests
         await nova.Send(1);
         await nova.Send(2);
         await Reset(fixture, nova.Id);
-
+        nova = await Join(fixture);
         byte[] save = await nova.Send(10);
 
         Assert.Equal(save, (await Download(nova.Saves, nova.Token)).data);

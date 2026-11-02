@@ -8,7 +8,7 @@ using ZstdSharp;
 namespace Rimlink.Client.Net;
 
 /// <param name="DevMode">Dev mode was on in this game since the previous upload (integrity spec §3).</param>
-public sealed record SaveMeta(string WorldSeed, string FactionName, long GameTick, long WealthTotal = 0, long WealthItems = 0, bool DevMode = false);
+public sealed record SaveMeta(string WorldSeed, string FactionName, long GameTick, long WealthTotal = 0, long WealthItems = 0, bool DevMode = false, long SaveGeneration = 0);
 
 /// <summary>Moves .rws files to and from the server: zstd in 1 MB chunks, hashed, atomically written on download.</summary>
 public sealed class SaveTransfer(RimlinkConnection connection)
@@ -50,6 +50,7 @@ public sealed class SaveTransfer(RimlinkConnection connection)
                 WealthTotal = meta.WealthTotal,
                 WealthItems = meta.WealthItems,
                 DevMode = meta.DevMode,
+                SaveGeneration = meta.SaveGeneration,
                 TotalSize = compressed.Length,
                 Sha256 = ByteString.CopyFrom(SHA256.HashData(compressed)),
             },
@@ -126,5 +127,14 @@ public sealed class PendingUpload(string saveDir)
     public void Clear()
     {
         if (File.Exists(Path_)) File.Delete(Path_);
+    }
+
+    /// <summary>Preserves a refused colony without overwriting an earlier copy; only a successful move clears recovery.</summary>
+    public string KeepLocalSave(string savePath, string reason)
+    {
+        string kept = Path.ChangeExtension(savePath, $".{reason}-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.rws");
+        File.Move(savePath, kept);
+        Clear();
+        return kept;
     }
 }

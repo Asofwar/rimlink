@@ -88,6 +88,7 @@ public sealed class ColonyArchive(
         var row = new ArchivedColony
         {
             PlayerId = playerId,
+            SaveGeneration = player.SaveGeneration,
             Tile = settlement.Tile,
             Name = settlement.Name,
             SettledAt = settlement.CreatedAt,
@@ -145,8 +146,9 @@ public sealed class ColonyArchive(
     {
         using var held = await locks.Hold(playerId); // waits for an archive of this player still in progress
         if (await db.WorldObjects.AnyAsync(o => o.OwnerPlayerId == playerId && o.Type == WorldObjectTypes.Settlement)) return null;
+        var generation = await db.Players.Where(p => p.Id == playerId).Select(p => p.SaveGeneration).SingleAsync();
         var latest = await db.ArchivedColonies.AsNoTracking()
-            .Where(c => c.PlayerId == playerId && c.State == ArchiveState.Archived)
+            .Where(c => c.PlayerId == playerId && c.State == ArchiveState.Archived && c.SaveGeneration == generation)
             .OrderByDescending(c => c.ArchivedAt).ThenByDescending(c => c.Id)
             .FirstOrDefaultAsync();
         if (latest is null) return null;
@@ -193,6 +195,9 @@ public sealed class ColonyArchive(
         using var storage = await saveFiles.PerStoreLock.HoldAsync();
         var row = await db.ArchivedColonies.Include(c => c.Player).FirstOrDefaultAsync(c => c.Id == archiveId);
         if (row is null) return new RestoreOutcome.NotFound();
+        // Auth may already track Player from before a reset; Include must not decide from that cached instance.
+        long generation = await db.Players.Where(p => p.Id == row.PlayerId).Select(p => p.SaveGeneration).SingleAsync();
+        if (row.SaveGeneration != generation) return new RestoreOutcome.NotFound();
         if (row.State == ArchiveState.Restored) return new RestoreOutcome.AlreadyRestored();
         if (await db.WorldObjects.AnyAsync(o => o.OwnerPlayerId == row.PlayerId && o.Type == WorldObjectTypes.Settlement)
             || await db.SaveVersions.AnyAsync(v => v.PlayerId == row.PlayerId))

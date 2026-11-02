@@ -44,6 +44,8 @@
   <Rimlink.ServerPassword.Title>Join password for {0}</Rimlink.ServerPassword.Title>
   <Rimlink.ServerPassword.Hint>This server asks for a join password (not your account password). Get it from the server admin.</Rimlink.ServerPassword.Hint>
   <Rimlink.Save.Rejected>The server refused your local save ({0}). It was kept as {1}; the server copy is used instead.</Rimlink.Save.Rejected>
+  <Rimlink.Save.GenerationMismatch>An admin reset your colony or recreated the world. Your old local save was kept as {0} and will not be uploaded. Continue to load your current colony or create a new one.</Rimlink.Save.GenerationMismatch>
+  <Rimlink.Refusal.Saves.GenerationMismatch>This save belongs to a colony from before the admin reset or world recreation. Return to the menu and log in again; the old local save will be kept separately.</Rimlink.Refusal.Saves.GenerationMismatch>
   <Rimlink.Tile.Taken>Another player's settlement</Rimlink.Tile.Taken>
   <Rimlink.Login.PlayerName>Player name</Rimlink.Login.PlayerName>
   <Rimlink.Login.Ok>Log in</Rimlink.Login.Ok>

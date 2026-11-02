@@ -58,4 +58,25 @@ public class SaveMetaReaderTests : IDisposable
 
         Assert.Equal(new SaveMeta("greengrow", "Nova's", 4321), meta);
     }
+
+    [Theory]
+    [InlineData(0L)]
+    [InlineData(3L)]
+    [InlineData(4_294_967_296L)]
+    public void ReadsTheGenerationWrittenByTheGame(long generation)
+    {
+        var meta = SaveMetaReader.Read(Rws($"""
+            <li Class="Rimlink.Client.Game.RimlinkGameComponent">
+              <rimlinkSaveGeneration>{generation}</rimlinkSaveGeneration>
+            </li>
+            """));
+
+        Assert.Equal(generation, meta.SaveGeneration);
+    }
+
+    [Fact]
+    public void ALocalFileWrittenBeforeGenerationsBelongsToZero()
+    {
+        Assert.Equal(0, SaveMetaReader.Read(Rws("")).SaveGeneration);
+    }
 }

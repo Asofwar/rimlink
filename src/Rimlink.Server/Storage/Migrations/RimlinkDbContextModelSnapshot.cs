@@ -383,6 +383,9 @@ namespace Rimlink.Server.Storage.Migrations
                     b.Property<string>("RestoredBy")
                         .HasColumnType("TEXT");
 
+                    b.Property<long>("SaveGeneration")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTime>("SettledAt")
                         .HasColumnType("TEXT");
 
@@ -1051,6 +1054,9 @@ namespace Rimlink.Server.Storage.Migrations
 
                     b.Property<DateTime?>("PeacefulOffAt")
                         .HasColumnType("TEXT");
+
+                    b.Property<long>("SaveGeneration")
+                        .HasColumnType("INTEGER");
 
                     b.Property<bool>("TradesClosed")
                         .HasColumnType("INTEGER");

@@ -38,6 +38,7 @@ public sealed class ArchivedColony
 {
     public long Id { get; set; }
     public long PlayerId { get; set; }
+    public long SaveGeneration { get; set; }
     public Player Player { get; set; } = null!;
     public int Tile { get; set; }
     public string Name { get; set; } = "";
@@ -67,6 +68,8 @@ public sealed class Player
     public DateTime? MutedUntil { get; set; }
     /// <summary>Tick of the save that accompanied the last outgoing transfer; older saves are refused (they would restore what was given away).</summary>
     public long LastOutgoingTick { get; set; }
+    /// <summary>Changes on reset: old local saves cannot become this colony's first version.</summary>
+    public long SaveGeneration { get; set; }
     // Raids and visits (sub-project 3a).
     public bool Peaceful { get; set; }
     /// <summary>While set and in the future the player still counts as peaceful (switching off is delayed).</summary>

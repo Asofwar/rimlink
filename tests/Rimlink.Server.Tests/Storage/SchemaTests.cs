@@ -23,6 +23,22 @@ public class SchemaTests : IDisposable
     }
 
     [Fact]
+    public void SaveGenerationsStartAtZeroAndArePersistedForPlayersAndArchives()
+    {
+        using var db = CreateContext();
+        using var cmd = connection.CreateCommand();
+        foreach (string table in new[] { "players", "archived_colonies" })
+        {
+            cmd.CommandText = $"SELECT type, [notnull], dflt_value FROM pragma_table_info('{table}') WHERE name = 'SaveGeneration'";
+            using var reader = cmd.ExecuteReader();
+            Assert.True(reader.Read());
+            Assert.Equal("INTEGER", reader.GetString(0));
+            Assert.Equal(1L, reader.GetInt64(1));
+            Assert.Equal("0", reader.GetString(2));
+        }
+    }
+
+    [Fact]
     public void MigrationsCreateAllTables()
     {
         using var db = CreateContext();

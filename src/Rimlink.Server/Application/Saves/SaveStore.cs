@@ -27,7 +27,6 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
         if (header.Sha256.Length != 32) throw new SaveRejected(RefusalKeys.SavesNoHash, "header has no SHA-256");
 
         var world = await db.World.AsNoTracking().FirstOrDefaultAsync(cancellationToken) ?? throw RpcErrors.Failed(ErrorCode.WorldNotCreated, RefusalKeys.WorldNotCreated, "the world has not been created yet");
-        var player = await db.Players.AsNoTracking().FirstAsync(p => p.Id == playerId, cancellationToken);
 
         string dir = data.Saves(playerId);
         string temp = Path.Combine(dir, $"upload-{Guid.NewGuid():N}.tmp");
@@ -49,15 +48,19 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
             }
 
             if (SaveValidator.Validate(temp, world.Seed, out string? factionName) is { } reason) throw reason;
-            // Items given away after this save's tick are already in another player's mailbox: this file would bring them back.
-            if (header.GameTick < player.LastOutgoingTick)
-                throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.SaveStale, RefusalKeys.SavesStale, $"save tick {header.GameTick} is older than your last transfer at tick {player.LastOutgoingTick}", header.GameTick, player.LastOutgoingTick);
-
             // From here on the upload is complete: finish without the call token, so a client that drops right
             // after its last chunk does not leave a file without a row (or a row without a file).
             await files.PerStoreLock.WaitAsync(CancellationToken.None);
             try
             {
+                // Reset may have completed while the chunks arrived: compare a fresh row under the archive/write lock.
+                var player = await db.Players.AsNoTracking().FirstAsync(p => p.Id == playerId);
+                if (header.SaveGeneration != player.SaveGeneration)
+                    throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.SaveGenerationMismatch,
+                        RefusalKeys.SavesGenerationMismatch, "this save belongs to a colony that was reset");
+                // Items given away after this tick are already elsewhere; accepting it would bring them back.
+                if (header.GameTick < player.LastOutgoingTick)
+                    throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.SaveStale, RefusalKeys.SavesStale, $"save tick {header.GameTick} is older than your last transfer at tick {player.LastOutgoingTick}", header.GameTick, player.LastOutgoingTick);
                 var seenBefore = await worlds.DescribeSettlementOf(playerId);
                 int number = (await db.SaveVersions.Where(v => v.PlayerId == playerId).MaxAsync(v => (int?)v.Number) ?? 0) + 1;
                 // The integrity check compares with the version this upload replaces as current.
@@ -257,7 +260,9 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
             }
             files.PruneBases(playerId);
             // A fresh colony starts at tick 0: the transfer stamp and the redelivery marks of the old one must not follow it.
-            await db.Players.Where(p => p.Id == playerId).ExecuteUpdateAsync(s => s.SetProperty(p => p.LastOutgoingTick, 0L));
+            await db.Players.Where(p => p.Id == playerId).ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.LastOutgoingTick, 0L)
+                .SetProperty(p => p.SaveGeneration, p => p.SaveGeneration + 1));
             await db.Parcels.Where(p => p.ToPlayerId == playerId && p.DeliveredAt != null).ExecuteUpdateAsync(s => s.SetProperty(p => p.DeliveredTick, 0L));
             await db.SaveChangesAsync();
         }

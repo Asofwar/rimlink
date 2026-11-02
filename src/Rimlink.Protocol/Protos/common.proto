@@ -78,6 +78,7 @@ enum ErrorCode {
   AUCTION_BID_TOO_LOW = 57;
   AUCTION_HAS_BIDS = 58;
   AUCTION_INTENT_MISMATCH = 59;
+  SAVE_GENERATION_MISMATCH = 60;
 }
 
 // Attached to failed calls as the "rimlink-error-bin" trailer.

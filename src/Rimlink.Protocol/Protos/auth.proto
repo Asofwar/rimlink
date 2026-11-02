@@ -68,6 +68,8 @@ message LoginReply {
   bool dev_mode_allowed = 10;
   // Set when the player had a colony in the archive: brought back with this login, or not (its tile is taken, or its files are damaged).
   ColonyRestore colony_restore = 11;
+  // Changes when the colony is reset; a local save belongs to the generation stored in its XML.
+  int64 save_generation = 12;
 }
 
 message ColonyRestore {

@@ -21,7 +21,16 @@ public sealed class RimlinkGameComponent : GameComponent
     /// <summary>Dev mode was on in this game since the last upload (any session, or none): sent with the next upload, cleared after it.</summary>
     public bool DevModeSinceUpload;
 
+    /// <summary>The colony's generation, read from its save rather than refreshed by login or reconnect.</summary>
+    public long SaveGeneration;
+
     public RimlinkGameComponent(Verse.Game game) { }
+
+    public override void StartedNewGame()
+    {
+        // The constructor and FinalizeInit also run on load: only this callback creates a new colony.
+        if (RimlinkSession.Active) SaveGeneration = RimlinkSession.Connection!.Login!.SaveGeneration;
+    }
 
     public override void ExposeData()
     {
@@ -31,6 +40,7 @@ public sealed class RimlinkGameComponent : GameComponent
         Scribe_Collections.Look(ref FiredIncidents, "rimlinkFiredIncidents", LookMode.Value);
         FiredIncidents ??= [];
         Scribe_Values.Look(ref DevModeSinceUpload, SaveMetaReader.DevModeNode);
+        Scribe_Values.Look(ref SaveGeneration, SaveMetaReader.SaveGenerationNode, 0L);
         // Written for a save uploaded later from disk (the pending upload at login), whose header is read back by SaveMetaReader.
         long wealthTotal = 0, wealthItems = 0;
         if (Scribe.mode == LoadSaveMode.Saving && Find.AnyPlayerHomeMap is { } home)

@@ -294,6 +294,7 @@ the result a moment later.
 | `The server refused to reconnect: …` | The server turned the login down for good (ban, changed password or server password, new server version, the world was deleted to be created anew, an untrusted new certificate): back to the menu, your save is kept locally. A Steam ticket the server could not check (Steam down) is not a refusal: the attempts go on. |
 | `This account logged in from another place` | Someone used your account elsewhere; the colony continues there. This copy is paused and disconnected, nothing from it is uploaded; "Back to main menu" leaves it. |
 | `An admin restored your save to version N` | Return to the menu and log in again to load that version. |
+| `This local save belongs to a colony that was reset` | The administrator reset your colony. The old file is kept separately as `*.reset-*.rws`; it will not be uploaded as a new colony. Log in with the updated mod to load your current server colony or start a new one. Recovery after an ordinary connection loss still uses your local save. |
 | `This save is older than your last transfer` | You loaded a save from before something you sent. Go back to the menu and log in to get the server copy, or keep playing without uploads. The refused file is kept as `*.stale-<date>.rws`. |
 | `Transfer refused: not enough silver` / `lot was already sold` | Wallet too low, or someone bought the lot first; nothing left your colony. |
 | `Transfer refused: def 'X' is not in the server modpack` | That item comes from a mod the server does not allow; it was put back. |

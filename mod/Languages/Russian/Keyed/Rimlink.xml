@@ -44,6 +44,8 @@
   <Rimlink.ServerPassword.Title>Пароль для входа на {0}</Rimlink.ServerPassword.Title>
   <Rimlink.ServerPassword.Hint>Сервер требует пароль для входа (не пароль аккаунта). Узнайте его у администратора сервера.</Rimlink.ServerPassword.Hint>
   <Rimlink.Save.Rejected>Сервер отклонил ваш локальный сейв ({0}). Он сохранён как {1}; будет использована копия с сервера.</Rimlink.Save.Rejected>
+  <Rimlink.Save.GenerationMismatch>Администратор сбросил вашу колонию или пересоздал мир. Старый локальный сейв сохранён как {0} и не будет отправлен на сервер. Продолжите, чтобы загрузить текущую колонию или создать новую.</Rimlink.Save.GenerationMismatch>
+  <Rimlink.Refusal.Saves.GenerationMismatch>Этот сейв относится к колонии до сброса администратором или пересоздания мира. Выйдите в меню и войдите снова; старый локальный сейв будет сохранён отдельно.</Rimlink.Refusal.Saves.GenerationMismatch>
   <Rimlink.Tile.Taken>Поселение другого игрока</Rimlink.Tile.Taken>
   <Rimlink.Login.PlayerName>Имя игрока</Rimlink.Login.PlayerName>
   <Rimlink.Login.Ok>Войти</Rimlink.Login.Ok>

@@ -568,7 +568,8 @@ public sealed class AdminOperations(
             events.SendTo(session.PlayerId, new ServerEvent { Notice = new Notice { Text = "The world is being recreated; please reconnect later" } });
             sessions.End(session.Token);
         }
-        foreach (long playerId in await db.SaveVersions.Select(v => v.PlayerId).Distinct().ToListAsync())
+        // A player can have only a local first save: it also belongs to the world being discarded.
+        foreach (long playerId in await db.Players.Select(p => p.Id).ToListAsync())
         {
             await saves.Archive(playerId, Path.Combine(archive, playerId.ToString()));
             await raids.CancelAllOf(playerId, "world recreated");

@@ -1,4 +1,7 @@
+using Google.Protobuf;
+using Grpc.Core;
 using Rimlink.Client.Net;
+using Rimlink.Protocol.V1;
 using Xunit;
 
 namespace Rimlink.Client.Tests.Net;
@@ -27,5 +30,54 @@ public class LoginPlanTests
     {
         Assert.Equal(LoginAction.DownloadThenLoad, LoginPlan.Decide(pendingFlag: true, localSaveExists: false, serverHasSave: true, serverHasSettlement: true));
         Assert.Equal(LoginAction.NewColony, LoginPlan.Decide(pendingFlag: true, localSaveExists: false, serverHasSave: false, serverHasSettlement: false));
+    }
+
+    [Theory]
+    [InlineData(false, false, false, LoginAction.NewColony)]
+    [InlineData(true, false, false, LoginAction.NewColony)]
+    [InlineData(true, false, true, LoginAction.AbandonThenNewColony)]
+    [InlineData(true, true, true, LoginAction.DownloadThenLoad)]
+    [InlineData(false, true, true, LoginAction.DownloadThenLoad)]
+    public void AFileFromBeforeTheResetIsNeverUploaded(bool pending, bool serverSave, bool settlement, LoginAction expected)
+    {
+        Assert.Equal(expected, LoginPlan.Decide(pending, true, serverSave, settlement, localSaveGeneration: 0, serverSaveGeneration: 1));
+    }
+
+    [Theory]
+    [InlineData(0L, false)]
+    [InlineData(0L, true)]
+    [InlineData(7L, false)]
+    [InlineData(7L, true)]
+    public void RecoveryOfTheSameColonyWorksEvenBeforeThePendingFlag(long generation, bool pending)
+    {
+        Assert.Equal(LoginAction.UploadLocalThenLoad,
+            LoginPlan.Decide(pending, true, false, false, localSaveGeneration: generation, serverSaveGeneration: generation));
+    }
+
+    [Theory]
+    [InlineData(StatusCode.ResourceExhausted)]
+    [InlineData(StatusCode.Unavailable)]
+    [InlineData(StatusCode.Cancelled)]
+    [InlineData(StatusCode.DeadlineExceeded)]
+    [InlineData(StatusCode.Internal)]
+    [InlineData(StatusCode.Unknown)]
+    [InlineData(StatusCode.Unauthenticated)]
+    [InlineData(StatusCode.PermissionDenied)]
+    public void TemporaryUploadRefusalsKeepTheRecoveryCopy(StatusCode status)
+    {
+        Assert.False(LoginPlan.IsPermanentUploadRefusal(new RpcException(new Status(status, "retry later"))));
+    }
+
+    [Theory]
+    [InlineData(ErrorCode.SaveInvalid)]
+    [InlineData(ErrorCode.SaveStale)]
+    [InlineData(ErrorCode.SaveGenerationMismatch)]
+    public void PermanentSaveRefusalsKeepTheFileSeparately(ErrorCode code)
+    {
+        var error = new ErrorDetail { Code = code, Message = "not this colony" };
+        var refused = new RpcException(new Status(StatusCode.FailedPrecondition, error.Message),
+            new Metadata { { RpcErrorDetail.Trailer, error.ToByteArray() } });
+
+        Assert.True(LoginPlan.IsPermanentUploadRefusal(refused));
     }
 }

@@ -65,6 +65,7 @@ public sealed class AuthGrpcService(AuthService auth, WorldService worlds, SaveS
                     WorldExists = await worlds.Exists(),
                     HasSettlement = await worlds.HasSettlement(s.Player.Id),
                     HasSave = await saves.HasSave(s.Player.Id),
+                    SaveGeneration = await db.Players.Where(p => p.Id == s.Player.Id).Select(p => p.SaveGeneration).SingleAsync(),
                     DevModeAllowed = integrity.Value.DevModeAllowed(s.Account.Role),
                     ColonyRestore = s.Session.ColonyRestore,
                 };

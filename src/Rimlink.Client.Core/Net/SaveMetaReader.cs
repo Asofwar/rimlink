@@ -13,11 +13,12 @@ public static class SaveMetaReader
     public const string DevModeNode = "rimlinkDevModeSinceUpload";
     public const string WealthTotalNode = "rimlinkWealthTotal";
     public const string WealthItemsNode = "rimlinkWealthItems";
+    public const string SaveGenerationNode = "rimlinkSaveGeneration";
 
     public static SaveMeta Read(string rwsPath)
     {
         string seed = "", faction = "";
-        long tick = 0, wealthTotal = 0, wealthItems = 0;
+        long tick = 0, wealthTotal = 0, wealthItems = 0, saveGeneration = 0;
         bool devMode = false;
         using var reader = XmlReader.Create(rwsPath, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit });
         string? pendingDef = null;
@@ -36,8 +37,9 @@ public static class SaveMetaReader
                 case DevModeNode: devMode = bool.Parse(reader.ReadElementContentAsString()); advance = false; break;
                 case WealthTotalNode: wealthTotal = long.Parse(reader.ReadElementContentAsString(), CultureInfo.InvariantCulture); advance = false; break;
                 case WealthItemsNode: wealthItems = long.Parse(reader.ReadElementContentAsString(), CultureInfo.InvariantCulture); advance = false; break;
+                case SaveGenerationNode: saveGeneration = long.Parse(reader.ReadElementContentAsString(), CultureInfo.InvariantCulture); advance = false; break;
             }
         }
-        return new SaveMeta(seed, faction, tick, wealthTotal, wealthItems, devMode);
+        return new SaveMeta(seed, faction, tick, wealthTotal, wealthItems, devMode, saveGeneration);
     }
 }

@@ -151,6 +151,7 @@ public static class RefusalKeys
     public const string WorldNotOwned = "World.NotOwned";
 
     public const string SavesStale = "Saves.Stale";
+    public const string SavesGenerationMismatch = "Saves.GenerationMismatch";
     public const string SavesHeaderRequired = "Saves.HeaderRequired";
     public const string SavesNone = "Saves.None";
     public const string SavesSize = "Saves.Size";

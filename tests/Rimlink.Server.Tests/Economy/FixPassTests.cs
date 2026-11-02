@@ -41,7 +41,9 @@ public class FixPassTests
         var again = await fixture.RegisterAndLogin("nova");
         var saves = new Protocol.V1.Saves.SavesClient(fixture.CreateChannel());
         byte[] fresh = MakeSave(ServerFixture.WorldSeed, "Nova", tick: 10);
-        var info = await Upload(saves, again.SessionToken, fresh, HeaderFor(fresh, ServerFixture.WorldSeed, "Nova", tick: 10));
+        var header = HeaderFor(fresh, ServerFixture.WorldSeed, "Nova", tick: 10);
+        header.SaveGeneration = again.SaveGeneration;
+        var info = await Upload(saves, again.SessionToken, fresh, header);
 
         Assert.Equal(1, info.Version);
     }

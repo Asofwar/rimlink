@@ -36,6 +36,8 @@ message SaveHeader {
   int64 wealth_items = 7;
   // Dev mode was on in this game since the previous upload; recorded per version, freezes a player not allowed to use it.
   bool dev_mode = 8;
+  // The saved colony's generation, never taken from a newer login for an older file.
+  int64 save_generation = 9;
 }
 
 message SaveInfo {

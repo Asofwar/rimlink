@@ -55,21 +55,32 @@ public static class LoginFlow
                 var pending = SaveSync.Pending;
                 RimlinkSession.SummaryPending = true;
                 var restore = reply.ColonyRestore;
+                string? resetSave = null;
                 if (restore is { Restored: false })
                 {
                     // The old colony stays in the server's archive: its local copy must not be uploaded as the new colony's save.
-                    if (File.Exists(savePath)) File.Move(savePath, Path.ChangeExtension(savePath, $".archived-{DateTime.Now:yyyyMMdd-HHmm}.rws"), overwrite: true);
+                    if (File.Exists(savePath)) pending.KeepLocalSave(savePath, "archived");
                     pending.Clear();
                     RimlinkLog.Instance.Warn($"archived colony '{restore.Name}' not restored ({restore.Reason}): starting a new colony");
                 }
-                var action = LoginPlan.Decide(pending.IsSet, File.Exists(savePath), reply.HasSave, reply.HasSettlement);
+                // Only recovery candidates need parsing: an unused (possibly damaged) cache is replaced by the server copy.
+                var localMeta = File.Exists(savePath) && (pending.IsSet || !reply.HasSave) ? SaveMetaReader.Read(savePath) : null;
+                if (localMeta is not null && localMeta.SaveGeneration != reply.SaveGeneration)
+                {
+                    resetSave = Path.GetFileName(pending.KeepLocalSave(savePath, "reset"));
+                    RimlinkLog.Instance.Warn($"local save generation {localMeta.SaveGeneration} differs from server generation {reply.SaveGeneration}; kept as {resetSave}");
+                }
+                var action = LoginPlan.Decide(pending.IsSet, File.Exists(savePath), reply.HasSave, reply.HasSettlement,
+                    localMeta?.SaveGeneration ?? 0, reply.SaveGeneration);
                 RimlinkLog.Instance.Info($"login plan: {action} (pending={pending.IsSet}, local={File.Exists(savePath)}, server save={reply.HasSave}, settlement={reply.HasSettlement})");
 
                 switch (action)
                 {
                     case LoginAction.UploadLocalThenLoad:
                         MainThread.Post(() => wait.Text = "Rimlink.Flow.Uploading".Translate());
-                        if (await UploadLocal(connection, savePath, pending, cts.Token))
+                        var recovered = await UploadLocal(connection, savePath, pending, cts.Token);
+                        resetSave ??= recovered.GenerationSave;
+                        if (recovered.Uploaded)
                         {
                             MainThread.Post(() => { wait.Close(); GameDataSaveLoader.LoadGame(SaveSync.SaveFileName); });
                             return new LoginOutcome(LoginOutcomeKind.Loading);
@@ -83,7 +94,11 @@ public static class LoginFlow
                         MainThread.Post(() => wait.Text = "Rimlink.Flow.Downloading".Translate());
                         await new SaveTransfer(connection).DownloadAsync(savePath, cts.Token);
                         pending.Clear();
-                        MainThread.Post(() => { wait.Close(); GameDataSaveLoader.LoadGame(SaveSync.SaveFileName); });
+                        MainThread.Post(() =>
+                        {
+                            wait.Close();
+                            ContinueAfterReset(resetSave, () => GameDataSaveLoader.LoadGame(SaveSync.SaveFileName));
+                        });
                         return new LoginOutcome(LoginOutcomeKind.Loading);
 
                     case LoginAction.AbandonThenNewColony:
@@ -101,12 +116,15 @@ public static class LoginFlow
                         MainThread.Post(() =>
                         {
                             wait.Close();
-                            if (restore is { Restored: false })
-                                Find.WindowStack.Add(new Dialog_MessageBox(
-                                    (restore.Reason == "damaged" ? "Rimlink.Archive.Damaged" : "Rimlink.Archive.TileTaken").Translate(restore.Name),
-                                    buttonAAction: () => Find.WindowStack.Add(new Page_SelectScenario())));
-                            else
-                                Find.WindowStack.Add(new Page_SelectScenario());
+                            ContinueAfterReset(resetSave, () =>
+                            {
+                                if (restore is { Restored: false })
+                                    Find.WindowStack.Add(new Dialog_MessageBox(
+                                        (restore.Reason == "damaged" ? "Rimlink.Archive.Damaged" : "Rimlink.Archive.TileTaken").Translate(restore.Name),
+                                        buttonAAction: () => Find.WindowStack.Add(new Page_SelectScenario())));
+                                else
+                                    Find.WindowStack.Add(new Page_SelectScenario());
+                            });
                         });
                         return new LoginOutcome(LoginOutcomeKind.NewColony);
                 }
@@ -186,10 +204,9 @@ public static class LoginFlow
     }
 
     /// <summary>
-    /// Sends the local file the server never got. A refusal (another world after a recreate, a damaged file) keeps the
-    /// file under a dated name so nothing is lost, clears the marker and returns false.
+    /// Sends the local file the server never got. A permanent refusal keeps it separately; temporary failures retain recovery.
     /// </summary>
-    private static async Task<bool> UploadLocal(RimlinkConnection connection, string savePath, PendingUpload pending, CancellationToken ct)
+    private static async Task<(bool Uploaded, string? GenerationSave)> UploadLocal(RimlinkConnection connection, string savePath, PendingUpload pending, CancellationToken ct)
     {
         try
         {
@@ -197,19 +214,31 @@ public static class LoginFlow
             await new SaveTransfer(connection).UploadAsync(savePath, meta, ct);
             pending.Clear();
             RimlinkLog.Instance.Info("pending local save uploaded");
-            return true;
+            return (true, null);
         }
-        catch (RpcException ex) when (ex.StatusCode != StatusCode.Cancelled && ex.StatusCode != StatusCode.Unavailable)
+        catch (RpcException ex) when (LoginPlan.IsPermanentUploadRefusal(ex))
         {
             bool stale = Rimlink.Client.Economy.EconomyClient.CodeOf(ex) == ErrorCode.SaveStale;
-            string kept = Path.ChangeExtension(savePath, $".{(stale ? "stale" : "rejected")}-{DateTime.Now:yyyyMMdd-HHmm}.rws");
-            File.Move(savePath, kept, overwrite: true);
-            pending.Clear();
+            bool reset = Rimlink.Client.Economy.EconomyClient.CodeOf(ex) == ErrorCode.SaveGenerationMismatch;
+            string kept = pending.KeepLocalSave(savePath, reset ? "reset" : stale ? "stale" : "rejected");
             string reason = await ErrorMessage(ex);
             RimlinkLog.Instance.Warn($"pending local save refused ({reason}); kept as {kept}");
-            MainThread.Post(() => Find.WindowStack.Add(new Dialog_MessageBox("Rimlink.Save.Rejected".Translate(reason, Path.GetFileName(kept)))));
-            return false;
+            if (!reset)
+                MainThread.Post(() => Find.WindowStack.Add(new Dialog_MessageBox("Rimlink.Save.Rejected".Translate(reason, Path.GetFileName(kept)))));
+            return (false, reset ? Path.GetFileName(kept) : null);
         }
+        catch
+        {
+            // Includes the first save whose process crashed before it wrote pending.flag.
+            pending.Set();
+            throw;
+        }
+    }
+
+    private static void ContinueAfterReset(string? kept, Action next)
+    {
+        if (kept is null) next();
+        else Find.WindowStack.Add(new Dialog_MessageBox("Rimlink.Save.GenerationMismatch".Translate(kept), buttonAAction: next));
     }
 
     private static async Task Fail(RimlinkConnection? connection, Dialog_Wait wait, string? error)

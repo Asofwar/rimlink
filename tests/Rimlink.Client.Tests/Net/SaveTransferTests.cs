@@ -1,4 +1,5 @@
 using Grpc.Core;
+using Microsoft.Extensions.DependencyInjection;
 using Rimlink.Client.Net;
 using Rimlink.Protocol.V1;
 using Rimlink.Server.Tests.Support;
@@ -79,6 +80,29 @@ public class SaveTransferTests : IDisposable
     }
 
     [Fact]
+    public async Task UploadUsesTheFileGenerationInsteadOfTheLoginGeneration()
+    {
+        using var fixture = new ServerFixture().WithSetting("Auth:AllowPassword", "true");
+        await using var connection = await Connected(fixture);
+        Assert.Equal(0, connection.Login!.SaveGeneration);
+        using (var scope = fixture.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Rimlink.Server.Storage.RimlinkDbContext>();
+            Assert.Single(db.Players).SaveGeneration = 7;
+            await db.SaveChangesAsync();
+        }
+        string rws = WriteRws("current.rws", ServerFixture.WorldSeed, "Nova", 777);
+
+        var info = await new SaveTransfer(connection).UploadAsync(rws,
+            new SaveMeta(ServerFixture.WorldSeed, "Nova", 777, SaveGeneration: 7), CancellationToken.None);
+
+        Assert.Equal(1, info.Version);
+        var refused = await Assert.ThrowsAsync<RpcException>(() => new SaveTransfer(connection).UploadAsync(rws,
+            new SaveMeta(ServerFixture.WorldSeed, "Nova", 777), CancellationToken.None));
+        Assert.Equal(ErrorCode.SaveGenerationMismatch, refused.ErrorDetail()?.Code);
+    }
+
+    [Fact]
     public async Task UploadFailureLeavesLocalFileAndThrowsSaveRejected()
     {
         using var fixture = new ServerFixture().WithSetting("Auth:AllowPassword", "true");
@@ -134,5 +158,37 @@ public class SaveTransferTests : IDisposable
         Assert.True(new PendingUpload(dir).IsSet);
         pending.Clear();
         Assert.False(new PendingUpload(dir).IsSet);
+    }
+
+    [Fact]
+    public void KeepingOldColonyFilesNeverOverwritesAnEarlierCopyAndClearsPending()
+    {
+        var pending = new PendingUpload(dir);
+        string path = Path.Combine(dir, "current.rws");
+        File.WriteAllText(path, "old colony one");
+        pending.Set();
+        string first = pending.KeepLocalSave(path, "reset");
+        Assert.False(pending.IsSet);
+        Assert.False(File.Exists(path));
+        Assert.Equal("old colony one", File.ReadAllText(first));
+
+        File.WriteAllText(path, "old colony two");
+        pending.Set();
+        string second = pending.KeepLocalSave(path, "reset");
+        Assert.NotEqual(first, second);
+        Assert.Equal("old colony one", File.ReadAllText(first));
+        Assert.Equal("old colony two", File.ReadAllText(second));
+        Assert.False(pending.IsSet);
+    }
+
+    [Fact]
+    public void FailingToKeepAFileDoesNotClearItsRecoveryFlag()
+    {
+        var pending = new PendingUpload(dir);
+        pending.Set();
+
+        Assert.Throws<FileNotFoundException>(() => pending.KeepLocalSave(Path.Combine(dir, "missing.rws"), "reset"));
+
+        Assert.True(pending.IsSet);
     }
 }

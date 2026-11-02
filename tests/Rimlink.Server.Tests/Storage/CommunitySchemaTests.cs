@@ -18,11 +18,17 @@ public sealed class CommunitySchemaTests
         const string before = "20261030085555_IncidentRequestIdPerBuyer"; // 0.6.2, before the combined next-feature tables
         var migrator = db.GetService<Microsoft.EntityFrameworkCore.Migrations.IMigrator>();
         await migrator.MigrateAsync(before);
-        var account = new Account { Login = "alice", CreatedAt = DateTime.UtcNow };
-        var player = new Player { Account = account, Name = "Alice", WealthTotal = 321 };
-        db.Add(player); await db.SaveChangesAsync();
+        // Seed only columns present in 0.6.2, independently of the current EF Player model.
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO accounts (Id, Login, Role, CreatedAt) VALUES (1, 'alice', 0, {DateTime.UtcNow});
+            INSERT INTO players (Id, AccountId, Name, FactionName, ColorArgb, WealthTotal) VALUES (1, 1, 'Alice', '', {0xFF4A90D9L}, 321);
+            """);
+        Assert.Equal(0L, await db.Database.SqlQueryRaw<long>("SELECT COUNT(*) AS Value FROM pragma_table_info('players') WHERE name = 'SaveGeneration'").SingleAsync());
         await db.Database.MigrateAsync();
-        Assert.Equal(321, (await db.Players.AsNoTracking().SingleAsync()).WealthTotal);
+        var player = await db.Players.AsNoTracking().SingleAsync();
+        Assert.Equal("Alice", player.Name);
+        Assert.Equal(321, player.WealthTotal);
+        Assert.Equal(0L, player.SaveGeneration);
         using var cmd = connection.CreateCommand();
         cmd.CommandText = "SELECT name FROM sqlite_master WHERE type = 'table'";
         var tables = new List<string>();

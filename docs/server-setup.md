@@ -32,6 +32,12 @@ certificate, `--insecure`. Once it runs, `https://<host>:25560/` shows the publi
 The data directory layout: `rimlink.db` (SQLite), `saves/<playerId>/` (`<n>.rws.zst` is a full save, `<n>.d<k>.zst` an older
 version kept as a delta against `base-<k>.rws.zst`), `tls/`, `logs/`, `backups/`,
 `archive/` (data of reset players and recreated worlds), `server.lock` while running.
+
+A reset increments the player's save generation: an older local save cannot recreate the deleted colony, even when an upload
+was already in flight. The client keeps that local file separately and opens a new colony (or downloads the current server save).
+Normal reconnect recovery, rollback and an ordinary colony archive/restore keep their generation. Archives from before a reset
+remain on disk for manual recovery, but are not eligible for automatic or API restore. Existing saves start at generation 0;
+clients older than 0.7.0 cannot upload to a player after that player has been reset and must update.
 `save-storage.lock` coordinates save writes with backups, including backups run by the CLI; leave this file in place.
 
 ## 2. TLS

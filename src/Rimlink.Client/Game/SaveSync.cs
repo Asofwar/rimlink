@@ -78,7 +78,8 @@ public static class SaveSync
         var game = Current.Game;
         var component = game.GetComponent<RimlinkGameComponent>();
         var meta = new SaveMeta(Find.World.info.seedString, Faction.OfPlayer.Name, Find.TickManager.TicksGame,
-            (long)(home?.wealthWatcher.WealthTotal ?? 0f), (long)(home?.wealthWatcher.WealthItems ?? 0f), component?.DevModeSinceUpload ?? false);
+            (long)(home?.wealthWatcher.WealthTotal ?? 0f), (long)(home?.wealthWatcher.WealthItems ?? 0f), component?.DevModeSinceUpload ?? false,
+            component?.SaveGeneration ?? 0);
         var shopList = Shop.ShopSync.Build(meta.GameTick);
         var connection = RimlinkSession.Connection!;
         // Captured now: the session (and with it Endpoint/MyPlayerId) may be over by the time the upload finishes.
@@ -100,6 +101,21 @@ public static class SaveSync
                 // The server has the flag; the next upload reports only what happens from now on.
                 if (meta.DevMode) UI.MainThread.Post(() => { if (Current.Game == game && component is not null) component.DevModeSinceUpload = false; });
                 if (shopList is not null) await Shop.ShopSync.Publish(shopList, connection);
+            }
+            catch (Grpc.Core.RpcException ex) when (Rimlink.Client.Economy.EconomyClient.CodeOf(ex) == Rimlink.Protocol.V1.ErrorCode.SaveGenerationMismatch)
+            {
+                // Keep the old file with its original generation; the next login sets it aside instead of retrying it.
+                pending.Set();
+                var refusal = RpcErrorDetail.Read(ex);
+                lastFailure = null;
+                lastRefusal = refusal;
+                RimlinkLog.Instance.Warn($"save belongs to a reset colony: {refusal.Message}");
+                UI.MainThread.Post(() =>
+                {
+                    if (Current.Game != game || RimlinkSession.Connection != connection) return;
+                    Find.TickManager.Pause();
+                    Find.WindowStack.Add(new Dialog_MessageBox(UI.RefusalText.Of(refusal)));
+                });
             }
             catch (Grpc.Core.RpcException ex) when (Rimlink.Client.Economy.EconomyClient.CodeOf(ex) == Rimlink.Protocol.V1.ErrorCode.SaveStale)
             {
