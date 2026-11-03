@@ -4,12 +4,13 @@ using Microsoft.EntityFrameworkCore;
 using Rimlink.Protocol;
 using Rimlink.Protocol.V1;
 using Rimlink.Server.Grpc;
+using Rimlink.Server.Application.Saves;
 using Rimlink.Server.Storage;
 using Rimlink.Server.Storage.Entities;
 
 namespace Rimlink.Server.Application.Modpack;
 
-public sealed class ModpackService(RimlinkDbContext db, ILogger<ModpackService> log, DeliveryRuntime delivery)
+public sealed class ModpackService(RimlinkDbContext db, ILogger<ModpackService> log, DeliveryRuntime delivery, SaveFiles files)
 {
     public async Task<List<Protocol.V1.ModpackEntry>> Get() =>
         (await db.ModpackEntries.AsNoTracking().OrderBy(e => e.Position).ToListAsync()).Select(ToProto).ToList();
@@ -32,6 +33,7 @@ public sealed class ModpackService(RimlinkDbContext db, ILogger<ModpackService> 
             .DistinctBy(r => r.PackageId)
             .ToList();
 
+        using var storage = await files.PerStoreLock.HoldAsync();
         await delivery.CatalogLock.WaitAsync();
         try
         {
@@ -75,6 +77,7 @@ public sealed class ModpackService(RimlinkDbContext db, ILogger<ModpackService> 
         long total = configs.Sum(c => (long)c.Content.Length);
         if (total > Limits.MaxModConfigsTotalBytes) throw Invalid($"{total} bytes in all, at most {Limits.MaxModConfigsTotalBytes}");
 
+        using var storage = await files.PerStoreLock.HoldAsync();
         await delivery.CatalogLock.WaitAsync();
         try
         {
@@ -115,13 +118,19 @@ public sealed class ModpackService(RimlinkDbContext db, ILogger<ModpackService> 
     {
         if (actorRole < Storage.Entities.Role.Admin) throw Grpc.RpcErrors.PermissionDenied("admin only");
         var clean = defNames.Select(d => d.Trim()).Where(d => d.Length > 0 && d.Length <= 200).Distinct(StringComparer.Ordinal).ToList();
-        await using var tx = await db.Database.BeginTransactionAsync();
-        await db.ModpackDefs.ExecuteDeleteAsync();
-        db.ModpackDefs.AddRange(clean.Select(d => new Storage.Entities.ModpackDef { DefName = d }));
-        await db.SaveChangesAsync();
-        await tx.CommitAsync();
-        defs.Replace(clean);
-        log.LogInformation("Modpack defs set by {Actor}: {Count} names{Off}", actorName, clean.Count, clean.Count == 0 ? " (blob def check off)" : "");
+        using var storage = await files.PerStoreLock.HoldAsync();
+        await delivery.CatalogLock.WaitAsync();
+        try
+        {
+            await using var tx = await db.Database.BeginTransactionAsync();
+            await db.ModpackDefs.ExecuteDeleteAsync();
+            db.ModpackDefs.AddRange(clean.Select(d => new Storage.Entities.ModpackDef { DefName = d }));
+            await db.SaveChangesAsync();
+            await tx.CommitAsync();
+            defs.Replace(clean);
+            log.LogInformation("Modpack defs set by {Actor}: {Count} names{Off}", actorName, clean.Count, clean.Count == 0 ? " (blob def check off)" : "");
+        }
+        finally { delivery.CatalogLock.Release(); }
     }
 
     /// <summary>Startup: the in-memory set mirrors the table.</summary>

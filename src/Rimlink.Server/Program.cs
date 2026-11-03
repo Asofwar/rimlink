@@ -30,7 +30,8 @@ builder.Host.UseSerilog((context, services, config) => config
     .ReadFrom.Configuration(context.Configuration)
     .Enrich.FromLogContext()
     .WriteTo.Console()
-    .WriteTo.File(Path.Combine(serverOptions.DataDir, "logs", "server-.log"), rollingInterval: RollingInterval.Day, retainedFileCountLimit: 14));
+    .WriteTo.File(Path.Combine(serverOptions.DataDir, "logs", "server-.log"), rollingInterval: RollingInterval.Day, retainedFileCountLimit: 14),
+    preserveStaticLogger: true);
 
 builder.Services.Configure<ServerOptions>(builder.Configuration.GetSection(ServerOptions.Section));
 builder.Services.Configure<TlsOptions>(builder.Configuration.GetSection(TlsOptions.Section));
@@ -178,7 +179,7 @@ catch
     throw;
 }
 
-app.UseSerilogRequestLogging();
+app.UseSerilogRequestLogging(options => options.Logger = app.Services.GetRequiredService<Serilog.ILogger>());
 app.UseHttpMetrics();
 app.UsePanelStaticFiles();
 app.MapHealthChecks("/health");
@@ -208,6 +209,7 @@ app.MapGrpcService<AwayGrpcService>();
 app.MapProcurement();
 Rimlink.Server.Application.Influence.InfluenceFeature.MapInfluence(app);
 app.MapAdminApi();
+app.MapOutpostAdmin();
 app.MapModpackDelivery();
 app.MapAdminDirectoryApi();
 app.MapColonyApi();

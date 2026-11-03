@@ -13,6 +13,10 @@ service World {
   rpc ListObjects (Empty) returns (WorldObjects);
   rpc Settle (SettleRequest) returns (WorldObject);
   rpc Abandon (AbandonRequest) returns (Empty);
+  rpc GetOutpostManifestBinding (Empty) returns (OutpostManifestBinding);
+  rpc StageOutpostManifest (OutpostManifestChunk) returns (ManifestPreview);
+  rpc ReadOutpostManifest (OutpostManifestPageRequest) returns (OutpostManifestPage);
+  rpc ConfirmOutpostManifest (OutpostManifestConfirmation) returns (ManifestRevision);
 }
 
 message WorldParams {
@@ -82,3 +86,57 @@ message WorldObjectAdded { WorldObject object = 1; }
 message WorldObjectRemoved { int64 object_id = 1; }
 // The owner's wealth tier or colony age changed (a save upload); sent to everyone but the owner.
 message WorldObjectUpdated { WorldObject object = 1; }
+
+// Trusted administrator export, not an independent simulation/anti-cheat proof.
+message OutpostManifestBinding {
+  string world_instance_id = 1;
+  bytes world_params_sha256 = 2;
+  bytes server_catalog_sha256 = 3;
+}
+message OutpostManifestDocument {
+  uint32 schema_version = 1;
+  OutpostManifestBinding binding = 2;
+  string game_version = 3;
+  repeated string active_dlc = 4;
+  bytes game_defs_sha256 = 5;
+  string main_surface_id = 6;
+  int32 tile_count = 7;
+  repeated OutpostManifestTile tiles = 8;
+  string valuation_version = 9;
+  repeated OutpostResourceValuation resources = 10;
+}
+message OutpostManifestTile {
+  int32 tile = 1;
+  string surface_id = 2;
+  string biome_def = 3;
+  bool land = 4;
+  bool caravan_passable = 5;
+  bool natural_trees = 6;
+}
+message OutpostResourceValuation { string def_name = 1; int64 unit_value_x100 = 2; }
+// At most 256 KiB per chunk, 24 MiB per export; upload state is bounded and ephemeral.
+message OutpostManifestChunk {
+  string upload_id = 1;
+  bytes sha256 = 2;
+  int32 total_bytes = 3;
+  int32 offset = 4;
+  bytes data = 5;
+}
+message ManifestPreview {
+  string manifest_id = 1;
+  string digest = 2;
+  int64 revision = 3;
+  bool complete = 4;
+  int32 received_bytes = 5;
+  OutpostManifestBinding binding = 6;
+  string main_surface_id = 7;
+  int32 tile_count = 8;
+  bytes game_defs_sha256 = 9;
+  repeated string active_dlc = 10;
+  string valuation_version = 11;
+  repeated OutpostResourceValuation resources = 12;
+}
+message OutpostManifestPageRequest { string manifest_id = 1; string expected_digest = 2; int32 offset = 3; }
+message OutpostManifestPage { bytes data = 1; int32 total_bytes = 2; string digest = 3; }
+message OutpostManifestConfirmation { string manifest_id = 1; string expected_digest = 2; }
+message ManifestRevision { string manifest_id = 1; string digest = 2; int64 revision = 3; }

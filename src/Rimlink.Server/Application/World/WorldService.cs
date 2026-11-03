@@ -14,10 +14,12 @@ using Rimlink.Server.Storage.Entities;
 using WorldEntity = Rimlink.Server.Storage.Entities.World;
 using Rimlink.Server.Application.Feed;
 using Rimlink.Server.Application.Influence;
+using Rimlink.Server.Application.Saves;
+using Rimlink.Server.Application.Outposts;
 
 namespace Rimlink.Server.Application.World;
 
-public sealed class WorldService(RimlinkDbContext db, EventBus events, AdminFeed feed, IOptions<ServerOptions> server, IOptions<HygieneOptions> hygiene, ILogger<WorldService> log, InfluenceService influence)
+public sealed class WorldService(RimlinkDbContext db, EventBus events, AdminFeed feed, IOptions<ServerOptions> server, IOptions<HygieneOptions> hygiene, ILogger<WorldService> log, InfluenceService influence, SaveFiles files, OutpostTileClaims outpostTiles)
 {
     private const int SqliteConstraint = 19;
 
@@ -95,6 +97,9 @@ public sealed class WorldService(RimlinkDbContext db, EventBus events, AdminFeed
 
     public async Task<Protocol.V1.WorldObject> Settle(Session actor, int tile, string name)
     {
+        using var storage = await files.PerStoreLock.HoldAsync();
+        if (await outpostTiles.IsOutpostOccupiedHeldAsync(tile))
+            throw RpcErrors.Failed(ErrorCode.TileTaken, RefusalKeys.WorldTileTaken, "an outpost reserves this tile");
         var world = await db.World.AsNoTracking().FirstOrDefaultAsync() ?? throw RpcErrors.Failed(ErrorCode.WorldNotCreated, RefusalKeys.WorldNotCreated, "the world has not been created yet");
         if (!Names.IsValid(name)) throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.NameInvalid, RefusalKeys.WorldSettlementNameInvalid, "settlement name is not a valid name");
         if (ParseTiles(world.NpcTiles).Contains(tile)) throw RpcErrors.Failed(ErrorCode.TileTaken, RefusalKeys.WorldNpcTile, "an NPC settlement occupies this tile");

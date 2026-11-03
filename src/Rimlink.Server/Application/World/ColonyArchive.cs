@@ -59,7 +59,8 @@ public sealed class ColonyArchive(
     ColonyLocks locks,
     TimeProvider time,
     ILogger<ColonyArchive> log,
-    InfluenceService influence)
+    InfluenceService influence,
+    Outposts.OutpostTileClaims outpostTiles)
 {
     private const int SqliteConstraint = 19;
 
@@ -280,7 +281,8 @@ public sealed class ColonyArchive(
 
     private async Task<bool> TileTaken(int tile)
     {
-        if (await db.WorldObjects.AnyAsync(o => o.Tile == tile && o.Type == WorldObjectTypes.Settlement)) return true;
+        if (await outpostTiles.IsOutpostOccupiedHeldAsync(tile) ||
+            await db.WorldObjects.AnyAsync(o => o.Tile == tile && o.Type == WorldObjectTypes.Settlement)) return true;
         var world = await db.World.AsNoTracking().FirstOrDefaultAsync();
         return world is null || WorldService.NpcTilesOf(world).Contains(tile);
     }
