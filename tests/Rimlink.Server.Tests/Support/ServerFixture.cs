@@ -81,6 +81,8 @@ public class ServerFixture : WebApplicationFactory<Program>
 
     protected override IHost CreateHost(IHostBuilder builder)
     {
+        // Startup may throw before a host exists; still clear this exact owned pool on disposal.
+        connectionString = $"Data Source={Path.Combine(DataDir, "rimlink.db")};Pooling=True";
         var host = base.CreateHost(builder);
         using (var scope = host.Services.CreateScope())
             connectionString = scope.ServiceProvider.GetRequiredService<RimlinkDbContext>().Database.GetConnectionString();

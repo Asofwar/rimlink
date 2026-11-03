@@ -78,7 +78,8 @@ builder.Services.AddGrpc(options =>
 });
 builder.Services.AddHealthChecks();
 builder.Services.AddHostedService<TlsStartupCheck>();
-builder.Services.AddHostedService<ServerLock>();
+builder.Services.AddSingleton<ServerLock>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<ServerLock>());
 builder.Services.AddSingleton<BackupService>();
 builder.Services.AddHostedService<BackupScheduler>();
 
@@ -156,14 +157,26 @@ builder.Services.AddHttpClient<ISteamTicketVerifier, SteamWebApiTicketVerifier>(
 builder.Services.AddProcurement();
 Rimlink.Server.Application.Influence.InfluenceFeature.AddInfluence(builder.Services);
 
+Rimlink.Server.Application.Outposts.OutpostFeature.Register(builder.Services, builder.Configuration);
+
 var app = builder.Build();
-app.Services.GetRequiredService<ApiTokens>(); // validates Admin:Tokens: a bad entry stops the start
-app.Services.MigrateRimlinkStorage();
-ModpackService.LoadDefs(app.Services);
-ForbiddenDefsService.Load(app.Services);
-app.Services.GetRequiredService<PresenceNotifier>(); // subscribes to session events
-app.Services.GetRequiredService<SessionEndRecorder>(); // subscribes to session ends
-app.Services.GetRequiredService<Rimlink.Server.Application.Feed.AdminFeed>(); // server.started is the feed's first event
+try
+{
+    app.Services.GetRequiredService<ServerLock>().Acquire();
+    app.Services.GetRequiredService<ApiTokens>(); // validates Admin:Tokens: a bad entry stops the start
+    app.Services.MigrateRimlinkStorage();
+    await Rimlink.Server.Application.Outposts.OutpostFeature.CheckStartupAsync(app.Services, CancellationToken.None);
+    ModpackService.LoadDefs(app.Services);
+    ForbiddenDefsService.Load(app.Services);
+    app.Services.GetRequiredService<PresenceNotifier>(); // subscribes to session events
+    app.Services.GetRequiredService<SessionEndRecorder>(); // subscribes to session ends
+    app.Services.GetRequiredService<Rimlink.Server.Application.Feed.AdminFeed>(); // server.started is the feed's first event
+}
+catch
+{
+    await app.DisposeAsync();
+    throw;
+}
 
 app.UseSerilogRequestLogging();
 app.UseHttpMetrics();

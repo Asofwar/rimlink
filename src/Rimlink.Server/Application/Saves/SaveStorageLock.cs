@@ -28,9 +28,9 @@ public sealed class SaveStorageLock(string dataDir)
         gate.Release();
     }
 
-    public async Task<IDisposable> HoldAsync()
+    public async Task<IDisposable> HoldAsync(CancellationToken cancellationToken = default)
     {
-        await WaitAsync();
+        await WaitAsync(cancellationToken);
         return new Held(this);
     }
 
@@ -57,6 +57,8 @@ public sealed class SaveStorageLock(string dataDir)
 
     private sealed class Held(SaveStorageLock owner) : IDisposable
     {
-        public void Dispose() => owner.Release();
+        private SaveStorageLock? heldOwner = owner;
+
+        public void Dispose() => Interlocked.Exchange(ref heldOwner, null)?.Release();
     }
 }

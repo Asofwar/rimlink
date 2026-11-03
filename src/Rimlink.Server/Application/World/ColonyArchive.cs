@@ -316,10 +316,10 @@ public sealed class ColonyLocks
 {
     private readonly System.Collections.Concurrent.ConcurrentDictionary<long, SemaphoreSlim> locks = new();
 
-    public async Task<IDisposable> Hold(long playerId)
+    public async Task<IDisposable> Hold(long playerId, CancellationToken cancellationToken = default)
     {
         var gate = locks.GetOrAdd(playerId, _ => new SemaphoreSlim(1, 1));
-        await gate.WaitAsync();
+        await gate.WaitAsync(cancellationToken);
         return new Release(gate);
     }
 
