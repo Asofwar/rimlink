@@ -7,5 +7,15 @@ public sealed class ManualTimeProvider : TimeProvider
 
     public override DateTimeOffset GetUtcNow() => Now;
 
-    public void Advance(TimeSpan by) => Now += by;
+    public long Timestamp { get; set; }
+    public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+    public override long GetTimestamp() => Timestamp;
+
+    public void Advance(TimeSpan by)
+    {
+        Now += by;
+        AdvanceMonotonic(by);
+    }
+
+    public void AdvanceMonotonic(TimeSpan by) => Timestamp += by.Ticks;
 }
