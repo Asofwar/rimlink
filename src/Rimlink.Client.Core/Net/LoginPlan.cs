@@ -27,5 +27,5 @@ public static class LoginPlan
     /// <summary>A rate limit, lost session or transport failure must leave the local file available for another attempt.</summary>
     public static bool IsPermanentUploadRefusal(RpcException ex) =>
         ex.StatusCode == StatusCode.InvalidArgument ||
-        RpcErrorDetail.Read(ex).Code is ErrorCode.SaveInvalid or ErrorCode.SaveStale or ErrorCode.SaveGenerationMismatch;
+        RpcErrorDetail.Read(ex).Code is ErrorCode.SaveInvalid or ErrorCode.SaveStale or ErrorCode.SaveGenerationMismatch or ErrorCode.SaveWriteEpochMismatch;
 }

@@ -9,6 +9,7 @@ using Rimlink.Server.Grpc;
 using Rimlink.Server.Hosting;
 using Rimlink.Server.Storage;
 using Rimlink.Server.Storage.Entities;
+using Rimlink.Server.Application.Saves;
 using Transfer = Rimlink.Server.Storage.Entities.Transfer;
 using Parcel = Rimlink.Server.Storage.Entities.Parcel;
 
@@ -42,6 +43,8 @@ public sealed class MailboxService(RimlinkDbContext db, EventBus events, WalletS
             SizeBytes = ParcelValidator.SizeOf(items, pawns),
             CreatedAt = DateTime.UtcNow,
             ClientRequestId = clientRequestId,
+            RequestActorId = string.IsNullOrEmpty(clientRequestId) ? null : kind == ParcelKindDb.Gift ? fromPlayerId : kind is ParcelKindDb.Withdraw or ParcelKindDb.Purchase ? toPlayerId : null,
+            RequestKind = string.IsNullOrEmpty(clientRequestId) ? null : kind switch { ParcelKindDb.Gift when fromPlayerId is not null => "transfer.send", ParcelKindDb.Withdraw => "wallet.withdraw", ParcelKindDb.Purchase => "shop.buy", _ => null },
             // A player's gift waits for the recipient's decision unless they take gifts without asking.
             Decision = kind == ParcelKindDb.Gift && fromPlayerId is not null
                 ? recipient.AcceptGifts ? ParcelDecisionDb.Accepted : ParcelDecisionDb.Awaiting
@@ -66,20 +69,45 @@ public sealed class MailboxService(RimlinkDbContext db, EventBus events, WalletS
     /// <summary>Undelivered parcels, plus delivered ones the player's current save predates (flagged for redelivery).</summary>
     public async Task<List<(Parcel Parcel, bool Redeliver)>> Pending(long playerId)
     {
-        long saveTick = await db.SaveVersions.AsNoTracking().Where(v => v.PlayerId == playerId && v.IsCurrent).Select(v => v.GameTick).FirstOrDefaultAsync();
+        var current = await db.SaveVersions.AsNoTracking().FirstOrDefaultAsync(v => v.PlayerId == playerId && v.IsCurrent);
+        long saveTick = current?.GameTick ?? 0;
+        long generation = await db.Players.Where(p => p.Id == playerId).Select(p => p.SaveGeneration).SingleAsync();
+        var receipts = SaveStore.RecoveryOf(current).ParcelIds.ToHashSet();
         var parcels = await db.Parcels.AsNoTracking()
-            .Where(p => p.ToPlayerId == playerId && (p.DeliveredAt == null || p.DeliveredTick > saveTick))
+            .Where(p => p.ToPlayerId == playerId && (p.DeliveredAt == null
+                || p.DeliveryRecoveryVersion > 0 && p.DeliveredGeneration == generation
+                || p.DeliveryRecoveryVersion == 0 && p.DeliveredTick > saveTick))
             .OrderBy(p => p.Id).ToListAsync();
-        return parcels.Select(p => (p, p.DeliveredAt != null)).ToList();
+        return parcels.Where(p => p.DeliveredAt is null || p.DeliveryRecoveryVersion == 0 || !receipts.Contains(p.Id))
+            .Select(p => (p, p.DeliveredAt != null)).ToList();
     }
 
     /// <summary>Idempotent: the first call credits the parcel's silver (except withdrawals, which become physical silver in the game).</summary>
-    public async Task Deliver(long playerId, long parcelId, long gameTick)
+    public Task Deliver(long playerId, long parcelId, long gameTick) => Deliver(playerId, new DeliverRequest { ParcelId = parcelId, GameTick = gameTick });
+
+    public async Task Deliver(long playerId, DeliverRequest request)
     {
+        long parcelId = request.ParcelId, gameTick = request.GameTick;
         await using var tx = await db.Database.BeginTransactionAsync();
         var parcel = await db.Parcels.FirstOrDefaultAsync(p => p.Id == parcelId && p.ToPlayerId == playerId)
             ?? throw RpcErrors.With(StatusCode.NotFound, ErrorCode.Unspecified, RefusalKeys.EconomyParcelUnknown, "no such parcel in your mailbox");
         if (parcel.Decision == ParcelDecisionDb.Awaiting) throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.Unspecified, RefusalKeys.GiftsAwaiting, "the gift awaits a decision");
+        var player = await db.Players.AsNoTracking().SingleAsync(p => p.Id == playerId);
+        if (request.SnapshotId.Length > 0)
+        {
+            var proof = await db.SaveVersions.AsNoTracking().FirstOrDefaultAsync(v => v.PlayerId == playerId && v.SnapshotId == request.SnapshotId);
+            var current = await db.SaveVersions.AsNoTracking().FirstOrDefaultAsync(v => v.PlayerId == playerId && v.IsCurrent);
+            if (proof is null || proof.RecoveryVersion != Rimlink.Protocol.SaveRecoveryData.CurrentVersion
+                || request.SaveGeneration != player.SaveGeneration || request.SaveWriteEpoch != player.SaveWriteEpoch
+                || proof.SaveGeneration != player.SaveGeneration || proof.SaveWriteEpoch != player.SaveWriteEpoch
+                || !SaveStore.RecoveryOf(proof).ParcelIds.Contains(parcelId) || !SaveStore.RecoveryOf(current).ParcelIds.Contains(parcelId)
+                || parcel.DeliveryRecoveryVersion > 0 && parcel.DeliveredGeneration != player.SaveGeneration)
+                throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.RecoveryRequired, RefusalKeys.RecoveryRequired, "delivery requires a stored snapshot containing its receipt");
+            parcel.DeliveryRecoveryVersion = Rimlink.Protocol.SaveRecoveryData.CurrentVersion;
+            parcel.DeliveredGeneration = player.SaveGeneration;
+        }
+        else if (player.RecoveryVersion > 0 || player.SaveWriteEpoch > 0)
+            throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.RecoveryRequired, RefusalKeys.RecoveryRequired, "delivery requires a snapshot receipt");
         if (parcel.DeliveredAt is null)
         {
             parcel.DeliveredAt = DateTime.UtcNow;

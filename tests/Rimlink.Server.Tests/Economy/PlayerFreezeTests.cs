@@ -135,14 +135,15 @@ public class PlayerFreezeTests
         var (nova, kai, n, _, _) = await Players(fixture);
         var sent = await n.Transfer.SendAsync(Send(kai.Player.PlayerId, silver: 10, requestId: "send-1"), n.Auth);
         var withdrawn = await n.Wallet.WithdrawAsync(new WithdrawRequest { ClientRequestId = "wd-1", Silver = 10 }, n.Auth);
-        var lot = await n.Market.PostAsync(new PostRequest { ClientRequestId = "post-1", Items = Items(("Gold", 1)), Price = 50, GameTick = 100 }, n.Auth);
+        var post = new PostRequest { ClientRequestId = "post-1", Items = Items(("Gold", 1)), Price = 50, GameTick = 100 };
+        var lot = await n.Market.PostAsync(post, n.Auth);
         await n.Wallet.DepositAsync(new DepositRequest { ClientRequestId = "dep-1", Silver = 5, GameTick = 100 }, n.Auth);
         await Freeze(fixture, nova.Player.PlayerId, true);
 
         // An outbox replays a request whose answer was lost: it was applied, so a refusal now would make the game put the things back.
         Assert.Equal(sent.Id, (await n.Transfer.SendAsync(Send(kai.Player.PlayerId, silver: 10, requestId: "send-1"), n.Auth)).Id);
         Assert.Equal(withdrawn.Id, (await n.Wallet.WithdrawAsync(new WithdrawRequest { ClientRequestId = "wd-1", Silver = 10 }, n.Auth)).Id);
-        Assert.Equal(lot.Id, (await n.Market.PostAsync(new PostRequest { ClientRequestId = "post-1", Items = Items(("Gold", 1)), Price = 50, GameTick = 100 }, n.Auth)).Id);
+        Assert.Equal(lot.Id, (await n.Market.PostAsync(post.Clone(), n.Auth)).Id);
         await n.Wallet.DepositAsync(new DepositRequest { ClientRequestId = "dep-1", Silver = 5, GameTick = 100 }, n.Auth);
     }
 

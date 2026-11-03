@@ -1,6 +1,10 @@
 using Google.Protobuf;
+using Grpc.Core;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Rimlink.Protocol;
 using Rimlink.Protocol.V1;
+using Rimlink.Server.Hosting;
 using Rimlink.Server.Tests.Support;
 using Xunit;
 using static Rimlink.Server.Tests.Support.GrpcTestExtensions;
@@ -47,6 +51,21 @@ public class ModpackJoinLoginTests
     }
 
     private static readonly string[] Order = ["ludeon.rimworld", ModContent.RimlinkPackageId, "a.one", "b.two"];
+
+    [Fact]
+    public async Task WrongServerPasswordNeverReturnsSharedSettings()
+    {
+        using var fixture = Server();
+        await Prepare(fixture);
+        fixture.Services.GetRequiredService<IOptions<ServerOptions>>().Value.ServerPassword = "closed-server";
+        var request = NewClient(Order, settingsHash: ModContent.NoSettings);
+        request.ServerPassword = "wrong";
+
+        var error = await Assert.ThrowsAsync<RpcException>(() =>
+            new Protocol.V1.Auth.AuthClient(fixture.CreateChannel()).LoginAsync(request).ResponseAsync);
+
+        Assert.Equal(ErrorCode.WrongPassword, error.ErrorDetail()?.Code);
+    }
 
     [Fact]
     public async Task OldClientLogsInDespiteHashesOrderAndSettings()

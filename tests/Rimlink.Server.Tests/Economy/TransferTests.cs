@@ -14,6 +14,24 @@ namespace Rimlink.Server.Tests.Economy;
 public class TransferTests
 {
     [Fact]
+    public async Task DifferentPlayersMayUseTheSameRequestIdWithoutSharingTheResult()
+    {
+        using var fixture = EconomyServer();
+        var nova = await fixture.RegisterAndLogin("nova");
+        var bob = await fixture.RegisterAndLogin("bob");
+        var carl = await fixture.RegisterAndLogin("carl");
+        var n = Clients(fixture, nova.SessionToken);
+        var b = Clients(fixture, bob.SessionToken);
+
+        var first = await n.Transfer.SendAsync(Send(carl.Player.PlayerId, Items(("Steel", 5)), requestId: "shared-key"), n.Auth);
+        var second = await b.Transfer.SendAsync(Send(carl.Player.PlayerId, Items(("Steel", 2)), requestId: "shared-key"), b.Auth);
+
+        Assert.NotEqual(first.Id, second.Id);
+        Assert.Equal(bob.Player.PlayerId, second.From.PlayerId);
+        Assert.Equal(2, (await Clients(fixture, carl.SessionToken).Mailbox.ListAsync(new Empty(), Bearer(carl.SessionToken))).Parcels.Count);
+    }
+
+    [Fact]
     public async Task SendCreatesAParcelTheRecipientSeesAndAnEvent()
     {
         using var fixture = EconomyServer();
@@ -83,8 +101,9 @@ public class TransferTests
         var bob = await fixture.RegisterAndLogin("bob");
         var c = Clients(fixture, nova.SessionToken);
 
-        var first = await c.Transfer.SendAsync(Send(bob.Player.PlayerId, Items(("Steel", 5)), requestId: "req-1"), c.Auth);
-        var second = await c.Transfer.SendAsync(Send(bob.Player.PlayerId, Items(("Steel", 5)), requestId: "req-1"), c.Auth);
+        var request = Send(bob.Player.PlayerId, Items(("Steel", 5)), requestId: "req-1");
+        var first = await c.Transfer.SendAsync(request, c.Auth);
+        var second = await c.Transfer.SendAsync(request.Clone(), c.Auth);
 
         Assert.Equal(first.Id, second.Id);
         Assert.Single((await Clients(fixture, bob.SessionToken).Mailbox.ListAsync(new Empty(), Bearer(bob.SessionToken))).Parcels);

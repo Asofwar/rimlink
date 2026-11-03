@@ -233,6 +233,70 @@ public class LiveSessionTests
         Assert.Equal(3, parcel.Pawns.Pawns.Count);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task VisitReturnFailureKeepsTheSessionRecoverable(bool guestCancels)
+    {
+        var p = await NovaAndBob();
+        using var fixture = p.Fixture;
+        var session = await p.Nova.Live.ProposeAsync(Propose(p.Bob.PlayerId, LiveKind.LiveVisit), p.Nova.Auth);
+        await Db(fixture, db => db.Database.ExecuteSqlRawAsync("""
+            CREATE TRIGGER fail_live_return BEFORE INSERT ON parcels
+            BEGIN SELECT RAISE(ABORT, 'injected return failure'); END;
+            """));
+
+        await Assert.ThrowsAsync<RpcException>(async () =>
+        {
+            if (guestCancels) await p.Nova.Live.CancelAsync(new LiveRef { SessionId = session.Id }, p.Nova.Auth);
+            else await p.Bob.Live.RespondAsync(new LiveAnswer { SessionId = session.Id, Accept = false }, p.Bob.Auth);
+        });
+
+        var stored = await Db(fixture, db => db.LiveSessions.AsNoTracking().SingleAsync(s => s.Id == session.Id));
+        Assert.Equal(LiveStateDb.Proposed, stored.State);
+        Assert.NotEmpty(stored.Pawns!);
+        await Db(fixture, db => db.Database.ExecuteSqlRawAsync("DROP TRIGGER fail_live_return"));
+        if (guestCancels) await p.Nova.Live.CancelAsync(new LiveRef { SessionId = session.Id }, p.Nova.Auth);
+        else await p.Bob.Live.RespondAsync(new LiveAnswer { SessionId = session.Id, Accept = false }, p.Bob.Auth);
+        Assert.Single((await p.Nova.Mailbox.ListAsync(new Empty(), p.Nova.Auth)).Parcels);
+        Assert.Null((await Db(fixture, db => db.LiveSessions.AsNoTracking().SingleAsync(s => s.Id == session.Id))).Pawns);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task VisitCloseFailureDoesNotCommitOnlyThePawnReturn(bool adminCloses)
+    {
+        var p = await NovaAndBob();
+        using var fixture = p.Fixture;
+        var session = await p.Nova.Live.ProposeAsync(Propose(p.Bob.PlayerId, LiveKind.LiveVisit), p.Nova.Auth);
+        await p.Bob.Live.RespondAsync(new LiveAnswer { SessionId = session.Id, Accept = true }, p.Bob.Auth);
+        await p.Bob.Live.CancelAsync(new LiveRef { SessionId = session.Id }, p.Bob.Auth);
+        await Db(fixture, db => db.Database.ExecuteSqlRawAsync($"""
+            CREATE TRIGGER fail_live_close BEFORE UPDATE OF State ON live_sessions
+            WHEN NEW.State={(int)LiveStateDb.Ended}
+            BEGIN SELECT RAISE(ABORT, 'injected terminal failure'); END;
+            """));
+        async Task Close()
+        {
+            using var scope = fixture.Services.CreateScope();
+            var service = scope.ServiceProvider.GetRequiredService<LiveSessionService>();
+            if (adminCloses) await service.CloseEnding(session.Id);
+            else await service.ReportVisit(p.Bob.PlayerId, AllAlive(0, session.Id, 2));
+        }
+
+        await Assert.ThrowsAsync<DbUpdateException>(Close);
+
+        var stored = await Db(fixture, db => db.LiveSessions.AsNoTracking().SingleAsync(s => s.Id == session.Id));
+        Assert.Equal(LiveStateDb.Ending, stored.State);
+        Assert.NotEmpty(stored.Pawns!);
+        Assert.Empty((await p.Nova.Mailbox.ListAsync(new Empty(), p.Nova.Auth)).Parcels);
+        await Db(fixture, db => db.Database.ExecuteSqlRawAsync("DROP TRIGGER fail_live_close"));
+        await Close();
+        Assert.Single((await p.Nova.Mailbox.ListAsync(new Empty(), p.Nova.Auth)).Parcels);
+        Assert.Equal(LiveStateDb.Ended, (await Db(fixture, db => db.LiveSessions.AsNoTracking().SingleAsync(s => s.Id == session.Id))).State);
+    }
+
     [Fact]
     public async Task GuestCancelBeforeStartReturnsThePawns()
     {

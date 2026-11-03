@@ -139,6 +139,9 @@ message ParcelAnswer { int64 parcel_id = 1; bool accept = 2; }
 message DeliverRequest {
   int64 parcel_id = 1;
   int64 game_tick = 2;
+  string snapshot_id = 3;
+  int64 save_generation = 4;
+  int64 save_write_epoch = 5;
 }
 
 message MarketQuery {

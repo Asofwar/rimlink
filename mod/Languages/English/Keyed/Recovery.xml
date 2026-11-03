@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <Rimlink.Refusal.Saves.WriteEpochMismatch>This save belongs to the colony before an administrative rollback. Return to the menu and log in again; this state will not be uploaded.</Rimlink.Refusal.Saves.WriteEpochMismatch>
+  <Rimlink.Refusal.Recovery.ClientRequired>This colony requires snapshot recovery support. Update both the Rimlink client and server to 0.8.1 or newer.</Rimlink.Refusal.Recovery.ClientRequired>
+  <Rimlink.Refusal.Recovery.Required>This transfer cannot be safely recovered automatically. Its journal and local saves were preserved. Do not clear recovery files; contact an administrator.</Rimlink.Refusal.Recovery.Required>
+  <Rimlink.Refusal.Recovery.IntentMismatch>This request key was already used for a different action. The request was kept for recovery.</Rimlink.Refusal.Recovery.IntentMismatch>
+  <Rimlink.Save.RollbackLocalKept>An administrator rolled back this colony. Your newer local copy was kept separately as {0}; it will not replace the selected server save.</Rimlink.Save.RollbackLocalKept>
+</LanguageData>

@@ -80,6 +80,26 @@ public class SaveTransferTests : IDisposable
     }
 
     [Fact]
+    public async Task ADownloadWithAWrongHashNeverReplacesTheLocalFile()
+    {
+        using var fixture = new ServerFixture().WithSetting("Auth:AllowPassword", "true");
+        await using var connection = await Connected(fixture);
+        string source = WriteRws("source.rws", ServerFixture.WorldSeed, "Nova", 100);
+        var transfer = new SaveTransfer(connection);
+        await transfer.UploadAsync(source, new SaveMeta(ServerFixture.WorldSeed, "Nova", 100), CancellationToken.None);
+        using (var scope = fixture.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Rimlink.Server.Storage.RimlinkDbContext>();
+            db.SaveVersions.Single().Sha256 = new byte[32]; await db.SaveChangesAsync();
+        }
+        string target = Path.Combine(dir, "keep.rws"); await File.WriteAllTextAsync(target, "keep-original");
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => transfer.DownloadAsync(target, CancellationToken.None));
+
+        Assert.Equal("keep-original", await File.ReadAllTextAsync(target));
+    }
+
+    [Fact]
     public async Task UploadUsesTheFileGenerationInsteadOfTheLoginGeneration()
     {
         using var fixture = new ServerFixture().WithSetting("Auth:AllowPassword", "true");

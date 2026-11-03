@@ -44,6 +44,19 @@ remain on disk for manual recovery, but are not eligible for automatic or API re
 clients older than 0.7.0 cannot upload to a player after that player has been reset and must update.
 `save-storage.lock` coordinates save writes with backups, including backups run by the CLI; leave this file in place.
 
+From 0.8.1 a successful rollback also increments a separate save-write epoch, without changing the colony generation.
+Already admitted uploads and outgoing map transactions from the old session are refused. The client must download and
+verify its authoritative save before it can write in the new epoch; reconnecting cannot authorize the old loaded game.
+Once a colony stores snapshot recovery metadata, or has been rolled back under this version, its players must use 0.8.1
+or later. Legacy colonies with neither remain readable by older clients until upgraded. Update the server and clients
+together; 0.8.1 clients require a server advertising snapshot recovery support.
+
+`RecoveryCorrectness` preserves legacy files and request keys while adding snapshot receipts and actor/operation-scoped
+request indexes. Reusing a key for changed contents is refused without returning the goods speculatively. Back up the data
+directory before updating; downgrading after accepting cross-account duplicate keys requires restoring that backup rather
+than dropping the new schema in place. If recovery asks for manual intervention, preserve the player's local recovery
+directory and the server database/save versions together; do not clear journals to make login proceed.
+
 ## 2. TLS
 
 The server refuses to start without an HTTPS endpoint. Two options:

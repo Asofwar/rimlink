@@ -10,7 +10,7 @@ using Rimlink.Server.Storage.Entities;
 
 namespace Rimlink.Server.Application.Auth;
 
-/// <summary>Checks that apply after the credential is proven, in spec order: ban, modpack, world exists, player limit, server password.</summary>
+/// <summary>Checks after credentials: ban, server password, then modpack and admission; shared settings require both credentials.</summary>
 public sealed class LoginGate(BanService bans, SessionRegistry sessions, WorldService worlds, ModpackService modpack, IOptions<ServerOptions> server)
 {
     public async Task<LoginResult?> Check(Account account, SteamIdentity? steam, LoginContext ctx)
@@ -23,6 +23,10 @@ public sealed class LoginGate(BanService bans, SessionRegistry sessions, WorldSe
             return new LoginResult.Failure(StatusCode.FailedPrecondition, ErrorCode.Banned, RefusalKeys.AuthBannedPermanently, $"banned permanently: {ban.Reason}", ban.Reason);
         }
 
+        string? required = server.Value.ServerPassword;
+        if (!string.IsNullOrEmpty(required) && ctx.ServerPassword != required)
+            return new LoginResult.Failure(StatusCode.FailedPrecondition, ErrorCode.WrongPassword, RefusalKeys.AuthWrongPassword, "wrong server password");
+
         if (account.Role != Storage.Entities.Role.Admin && ModpackComparer.Compare(await modpack.Get(), ctx.Mods, await modpack.GetConfigs(), ctx.ModSettings) is { } diff)
             return new LoginResult.ModpackMismatch(diff);
 
@@ -34,10 +38,6 @@ public sealed class LoginGate(BanService bans, SessionRegistry sessions, WorldSe
         int online = sessions.All.Count(s => s.AccountId != account.Id);
         if (online >= server.Value.MaxPlayers)
             return new LoginResult.Failure(StatusCode.FailedPrecondition, ErrorCode.ServerFull, RefusalKeys.AuthServerFull, $"server is full ({server.Value.MaxPlayers} players)", server.Value.MaxPlayers);
-
-        string? required = server.Value.ServerPassword;
-        if (!string.IsNullOrEmpty(required) && ctx.ServerPassword != required)
-            return new LoginResult.Failure(StatusCode.FailedPrecondition, ErrorCode.WrongPassword, RefusalKeys.AuthWrongPassword, "wrong server password");
 
         return null;
     }

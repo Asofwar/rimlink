@@ -85,6 +85,10 @@ enum ErrorCode {
   INFLUENCE_INVALID = 64;
   INFLUENCE_INTENT = 65;
   INFLUENCE_UNAVAILABLE = 66;
+  SAVE_WRITE_EPOCH_MISMATCH = 67;
+  RECOVERY_CLIENT_REQUIRED = 68;
+  REQUEST_INTENT_MISMATCH = 69;
+  RECOVERY_REQUIRED = 70;
 }
 
 // Attached to failed calls as the "rimlink-error-bin" trailer.

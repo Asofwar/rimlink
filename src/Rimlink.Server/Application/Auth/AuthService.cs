@@ -117,6 +117,10 @@ public sealed class AuthService(
         if (await gate.Check(account, steamIdentity, ctx) is { } refused) return refused;
 
         var player = account.Player ?? await db.Players.FirstAsync(p => p.AccountId == account.Id);
+        if (ctx.RecoveryVersion > SaveRecoveryData.CurrentVersion ||
+            (player.RecoveryVersion > 0 || player.SaveWriteEpoch > 0) && ctx.RecoveryVersion != SaveRecoveryData.CurrentVersion)
+            return LoginResult.Failed(StatusCode.FailedPrecondition, ErrorCode.RecoveryClientRequired, RefusalKeys.RecoveryClientRequired,
+                "this colony requires a client with snapshot recovery support");
         var session = sessions.Start(account, player, ctx.Ip, out var replaced);
         if (replaced is not null) log.LogInformation("Session of {Player} replaced by a new login from {Ip}", player.Name, ctx.Ip);
 

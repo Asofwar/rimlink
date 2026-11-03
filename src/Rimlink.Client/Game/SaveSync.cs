@@ -1,6 +1,9 @@
 using RimWorld;
 using Rimlink.Client.Net;
 using Verse;
+using Rimlink.Client.UI;
+using Rimlink.Protocol;
+using Rimlink.Protocol.V1;
 
 namespace Rimlink.Client.Game;
 
@@ -25,7 +28,57 @@ public static class SaveSync
     /// <summary>Set when the server refused the last upload as older than a transfer; the game component shows the choice once.</summary>
     public static bool StaleSaveDetected { get; set; }
 
-    private static Task? upload;
+    public sealed record UploadResult(SaveSnapshot? Snapshot, SaveInfo? Info, Exception? Error)
+    {
+        public bool Uploaded => Info is not null && Error is null;
+    }
+    private static Task<UploadResult>? upload;
+    private static SaveUploadQueue uploads = new();
+    private static CancellationTokenSource uploadLifetime = new();
+    private static RimlinkConnection? owner;
+    private static bool writesBlocked;
+    public static bool WritesBlocked => writesBlocked;
+    public static bool UploadInFlight => upload is { IsCompleted: false };
+    public static SaveSnapshot? LastSavedSnapshot { get; private set; }
+
+    public static void Attach(RimlinkConnection connection)
+    {
+        uploadLifetime.Cancel(); uploadLifetime = new(); uploads = new(); owner = connection; writesBlocked = false;
+        upload = null; LastSavedSnapshot = null; LastUploadUtc = null; LastVersion = 0; lastRefusal = null; lastFailure = null; StaleSaveDetected = false;
+    }
+    public static void Detach() { writesBlocked = true; owner = null; uploadLifetime.Cancel(); }
+    public static void BlockWrites() { writesBlocked = true; uploadLifetime.Cancel(); }
+
+    /// <summary>The durable intent must exist before vanilla can replace the own-colony file.</summary>
+    public static bool BeforeSave(string fileName)
+    {
+        if (!IsOurs(fileName) || Visits.VisitSession.Active) return true;
+        if (writesBlocked) return false;
+        try
+        {
+            var component = Current.Game.GetComponent<RimlinkGameComponent>();
+            string id = Guid.NewGuid().ToString("N");
+            Pending.RecoverSnapshot(SaveFilePath); // resolve a previous failed write without trusting its older cache
+            Pending.BeginSnapshot(id, component.SaveGeneration, component.SaveWriteEpoch);
+            component.SnapshotId = id; component.RecoveryVersion = SaveRecoveryData.CurrentVersion;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            lastFailure = ex.Message; lastRefusal = null; LastSavedSnapshot = null;
+            upload = Task.FromResult(new UploadResult(null, null, ex));
+            RimlinkLog.Instance.Warn("save recovery intent could not be written: " + ex.Message);
+            return false;
+        }
+    }
+
+    public static UploadResult WaitForSnapshot(TimeSpan timeout)
+    {
+        var waiting = upload;
+        if (waiting is null) return new(null, null, new IOException("the game did not write a snapshot"));
+        try { return waiting.Wait(timeout) ? waiting.GetAwaiter().GetResult() : new(LastSavedSnapshot, null, new TimeoutException("snapshot upload timed out")); }
+        catch (Exception ex) { return new(LastSavedSnapshot, null, ex); }
+    }
 
     public static bool IsOurs(string fileName) => RimlinkSession.Active && fileName == SaveFileName;
 
@@ -59,7 +112,6 @@ public static class SaveSync
                 RimlinkLog.Instance.Warn($"local save failed ({reason}): the file was not written");
                 return false;
             }
-            pending.Set();
             RimlinkLog.Instance.Info($"saved locally for a later upload ({reason})");
             return true;
         }
@@ -73,67 +125,78 @@ public static class SaveSync
     /// <summary>Called from the SaveGame postfix on the main thread; the upload runs in the background.</summary>
     public static void OnSaved(string fileName)
     {
-        if (!IsOurs(fileName) || Find.World == null || Visits.VisitSession.Active) return;
-        var home = Find.AnyPlayerHomeMap;
+        if (!IsOurs(fileName) || Find.World == null || Visits.VisitSession.Active || writesBlocked) return;
         var game = Current.Game;
         var component = game.GetComponent<RimlinkGameComponent>();
-        var meta = new SaveMeta(Find.World.info.seedString, Faction.OfPlayer.Name, Find.TickManager.TicksGame,
-            (long)(home?.wealthWatcher.WealthTotal ?? 0f), (long)(home?.wealthWatcher.WealthItems ?? 0f), component?.DevModeSinceUpload ?? false,
-            component?.SaveGeneration ?? 0);
-        var shopList = Shop.ShopSync.Build(meta.GameTick);
         var connection = RimlinkSession.Connection!;
-        // Captured now: the session (and with it Endpoint/MyPlayerId) may be over by the time the upload finishes.
-        string path = SaveFilePath;
+        var authentication = connection.Login;
         var pending = Pending;
-        upload = Task.Run(async () =>
+        SaveSnapshot snapshot;
+        try { snapshot = pending.CaptureSnapshot(SaveFilePath); LastSavedSnapshot = snapshot; }
+        catch (Exception ex)
         {
-            // Bounded: a stream the server already refused can leave a write hanging, and callers wait on this task.
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+            try { pending.RecoverSnapshot(SaveFilePath); } catch { }
+            lastFailure = ex.Message; lastRefusal = null; LastSavedSnapshot = null;
+            upload = Task.FromResult(new UploadResult(null, null, ex));
+            RimlinkLog.Instance.Warn("the prepared game snapshot was not written: " + ex.Message);
+            return;
+        }
+        var shopList = Shop.ShopSync.Build(snapshot.Meta.GameTick);
+        var outbox = RimlinkSession.Outbox;
+        var task = uploads.Enqueue(snapshot, async (copy, cancellation) =>
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
+            timeout.CancelAfter(TimeSpan.FromSeconds(90));
+            return await connection.ForAuthentication(authentication!, () => new SaveTransfer(connection).UploadAsync(copy.Path, copy.Meta, timeout.Token));
+        }, uploadLifetime.Token);
+        upload = Complete();
+        async Task<UploadResult> Complete()
+        {
             try
             {
-                var info = await new SaveTransfer(connection).UploadAsync(path, meta, timeout.Token);
-                pending.Clear();
-                LastUploadUtc = DateTime.UtcNow;
-                lastRefusal = null;
-                lastFailure = null;
-                LastVersion = info.Version;
-                RimlinkLog.Instance.Info($"save uploaded as v{info.Version}{(meta.DevMode ? " (dev mode flagged)" : "")}");
-                // The server has the flag; the next upload reports only what happens from now on.
-                if (meta.DevMode) UI.MainThread.Post(() => { if (Current.Game == game && component is not null) component.DevModeSinceUpload = false; });
-                if (shopList is not null) await Shop.ShopSync.Publish(shopList, connection);
-            }
-            catch (Grpc.Core.RpcException ex) when (Rimlink.Client.Economy.EconomyClient.CodeOf(ex) == Rimlink.Protocol.V1.ErrorCode.SaveGenerationMismatch)
-            {
-                // Keep the old file with its original generation; the next login sets it aside instead of retrying it.
-                pending.Set();
-                var refusal = RpcErrorDetail.Read(ex);
-                lastFailure = null;
-                lastRefusal = refusal;
-                RimlinkLog.Instance.Warn($"save belongs to a reset colony: {refusal.Message}");
-                UI.MainThread.Post(() =>
+                var info = await task;
+                if (owner != connection || RimlinkSession.Connection != connection || !ReferenceEquals(connection.Login, authentication) || writesBlocked)
+                    return new(snapshot, info, new OperationCanceledException("snapshot accepted under a previous login; recovery evidence retained"));
+                outbox?.ReconcileSnapshot(snapshot.Meta.Recovery!, accepted: true, snapshot.Meta.GameTick);
+                pending.CompleteSnapshot(snapshot);
+                try { uploads.PruneSnapshots(pending, outbox?.Entries.Select(e => e.SnapshotId) ?? []); }
+                catch (IOException ex) { RimlinkLog.Instance.Warn("stored snapshot; obsolete local copies retained: " + ex.Message); }
+                if (LastSavedSnapshot?.Id == snapshot.Id)
                 {
-                    if (Current.Game != game || RimlinkSession.Connection != connection) return;
-                    Find.TickManager.Pause();
-                    Find.WindowStack.Add(new Dialog_MessageBox(UI.RefusalText.Of(refusal)));
+                    LastUploadUtc = DateTime.UtcNow; lastRefusal = null; lastFailure = null; LastVersion = info.Version;
+                }
+                RimlinkLog.Instance.Info($"snapshot {snapshot.Id} uploaded as v{info.Version}");
+                if (snapshot.Meta.DevMode) MainThread.Post(() => { if (Current.Game == game && component is not null) component.DevModeSinceUpload = false; });
+                MainThread.Post(() =>
+                {
+                    if (RimlinkSession.Connection == connection && ReferenceEquals(connection.Login, authentication))
+                    { RimlinkSession.RecoveryNeedsSave = false; RimlinkSession.RecoveryNeeded = true; }
                 });
-            }
-            catch (Grpc.Core.RpcException ex) when (Rimlink.Client.Economy.EconomyClient.CodeOf(ex) == Rimlink.Protocol.V1.ErrorCode.SaveStale)
-            {
-                // Not a retry case: this file would bring back what was given away. The player decides in game.
-                var refusal = RpcErrorDetail.Read(ex);
-                lastFailure = null;
-                lastRefusal = refusal;
-                StaleSaveDetected = true;
-                RimlinkLog.Instance.Warn($"save refused as stale: {refusal.Message}");
+                if (shopList is not null)
+                    try { await Shop.ShopSync.Publish(shopList, connection); }
+                    catch (Exception ex) { RimlinkLog.Instance.Warn("snapshot stored; shop publication will be refreshed: " + ex.Message); }
+                return new(snapshot, info, null);
             }
             catch (Exception ex)
             {
-                pending.Set();
-                lastRefusal = null;
-                lastFailure = ex.Message;
-                RimlinkLog.Instance.Warn($"save upload failed, will retry at next login: {ex.Message}");
+                if (owner != connection || RimlinkSession.Connection != connection || !ReferenceEquals(connection.Login, authentication)) return new(snapshot, null, ex);
+                var refusal = ex is Grpc.Core.RpcException rpc ? RpcErrorDetail.Read(rpc) : null;
+                if (LastSavedSnapshot?.Id == snapshot.Id) { lastFailure = refusal is null ? ex.Message : null; lastRefusal = refusal; }
+                if (refusal?.Code is ErrorCode.SaveGenerationMismatch or ErrorCode.SaveWriteEpochMismatch)
+                {
+                    BlockWrites();
+                    MainThread.Post(() =>
+                    {
+                        if (Current.Game != game || RimlinkSession.Connection != connection) return;
+                        Find.TickManager.Pause();
+                        Find.WindowStack.Add(new Dialog_MessageBox(RefusalText.Of(refusal), "Rimlink.Net.ToMenu".Translate(), RimlinkGameComponent.AbortToMenu));
+                    });
+                }
+                else if (refusal?.Code == ErrorCode.SaveStale) StaleSaveDetected = true;
+                RimlinkLog.Instance.Warn($"snapshot {snapshot.Id} upload failed; immutable recovery retained: {ex.Message}");
+                return new(snapshot, null, ex);
             }
-        });
+        }
     }
 
     private static Action? leaveThen;
@@ -165,7 +228,6 @@ public static class SaveSync
             doAsynchronously: true, null, showExtraUIInfo: false, callback: () =>
             {
                 // An upload that did not finish in time is not trusted: the local file is flagged and sent at the next login.
-                if (!uploaded) pending.Set();
                 FinishLeaving();
             });
     }
@@ -181,7 +243,7 @@ public static class SaveSync
     /// <summary>Saves the multiplayer file (triggers the upload via the patch). False when nothing was queued.</summary>
     public static bool TriggerSave(string reason)
     {
-        if (!RimlinkSession.Active || Current.Game == null || IsSaving || Visits.VisitSession.InVisit) return false;
+        if (!RimlinkSession.Active || Current.Game == null || IsSaving || Visits.VisitSession.InVisit || writesBlocked) return false;
         IsSaving = true;
         upload = null; // a save that fails leaves nothing to wait for
         LongEventHandler.QueueLongEvent(() =>

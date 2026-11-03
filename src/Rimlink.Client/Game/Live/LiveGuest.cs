@@ -53,21 +53,21 @@ public static class LiveGuest
             return;
         }
         if (caravan.PawnsListForReading.Count == pawns.Count) Raids.RaidOutgoing.DisbandForLive(caravan);
-        else { Outgoing.RunWithCaravanPawns(caravan, pawns, "Rimlink.Live.Proposed".Translate(host.Name), (list, tick) => Build(host, kind, list, timing, RaidArrival.ArrivalEdge, tick), Call); return; }
-        Outgoing.RunWithPodPawns(pawns, "Rimlink.Live.Proposed".Translate(host.Name), (list, tick) => Build(host, kind, list, timing, RaidArrival.ArrivalEdge, tick), Call);
+        else { Outgoing.RunWithCaravanPawns(caravan, pawns, "Rimlink.Live.Proposed".Translate(host.Name), (list, tick) => Build(host, kind, list, timing, RaidArrival.ArrivalEdge, tick), BoundCall()); return; }
+        Outgoing.RunWithPodPawns(pawns, "Rimlink.Live.Proposed".Translate(host.Name), (list, tick) => Build(host, kind, list, timing, RaidArrival.ArrivalEdge, tick), BoundCall());
     }
 
     /// <summary>Dev shortcut and pod arrivals: pawns straight off the map or out of pods.</summary>
     public static void ProposeFromMap(Map map, PlayerRef host, LiveKind kind, IReadOnlyList<Pawn> pawns, RaidTiming timing)
     {
         if (!Ready(host, pawns.Count)) return;
-        Outgoing.RunWithMapPawns(map, pawns, "Rimlink.Live.Proposed".Translate(host.Name), (list, tick) => Build(host, kind, list, timing, RaidArrival.ArrivalEdge, tick), Call);
+        Outgoing.RunWithMapPawns(map, pawns, "Rimlink.Live.Proposed".Translate(host.Name), (list, tick) => Build(host, kind, list, timing, RaidArrival.ArrivalEdge, tick), BoundCall());
     }
 
     public static void ProposeFromPods(List<Pawn> pawns, PlayerRef host, LiveKind kind, RaidTiming timing)
     {
         if (!Ready(host, pawns.Count)) { Raids.RaidOutgoing.ReturnPodPawnsHome(pawns); return; }
-        Outgoing.RunWithPodPawns(pawns, "Rimlink.Live.Proposed".Translate(host.Name), (list, tick) => Build(host, kind, list, timing, RaidArrival.ArrivalPods, tick), Call);
+        Outgoing.RunWithPodPawns(pawns, "Rimlink.Live.Proposed".Translate(host.Name), (list, tick) => Build(host, kind, list, timing, RaidArrival.ArrivalPods, tick), BoundCall());
     }
 
     private static bool Ready(PlayerRef host, int pawns)
@@ -78,10 +78,16 @@ public static class LiveGuest
         return true;
     }
 
-    private static async Task Call(Google.Protobuf.IMessage request)
+    private static Func<Google.Protobuf.IMessage, Task> BoundCall()
     {
-        var session = await RimlinkSession.Live!.Propose((LiveProposal)request, CancellationToken.None);
-        MainThread.Post(() => OnProposed(session));
+        var live = RimlinkSession.Live!;
+        var connection = RimlinkSession.Connection;
+        var authentication = connection!.Login;
+        return async request =>
+        {
+            var session = await connection.ForAuthentication(authentication!, () => live.Propose((LiveProposal)request, CancellationToken.None));
+            MainThread.Post(() => { if (RimlinkSession.Connection == connection && ReferenceEquals(connection.Login, authentication)) OnProposed(session); });
+        };
     }
 
     private static void OnProposed(LiveSession session)

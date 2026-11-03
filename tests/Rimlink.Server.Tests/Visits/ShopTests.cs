@@ -142,8 +142,9 @@ public class ShopTests
         var s = await Visiting();
         using var fixture = s.Fixture;
 
-        var first = await s.N.Shop.BuyAsync(Buy(s.Bob.Player.PlayerId, 501, 1, requestId: "b1"), s.N.Auth);
-        var second = await s.N.Shop.BuyAsync(Buy(s.Bob.Player.PlayerId, 501, 1, requestId: "b1"), s.N.Auth);
+        var request = Buy(s.Bob.Player.PlayerId, 501, 1, requestId: "b1");
+        var first = await s.N.Shop.BuyAsync(request, s.N.Auth);
+        var second = await s.N.Shop.BuyAsync(request.Clone(), s.N.Auth);
 
         Assert.Equal(first.Id, second.Id);
         Assert.Equal(900, (await s.N.Wallet.GetAsync(new Empty(), s.N.Auth)).Balance);

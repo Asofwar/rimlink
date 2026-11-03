@@ -12,6 +12,12 @@ public static class RimlinkSession
     public static RimlinkConnection? Connection { get; private set; }
     public static ServerEndpoint? Endpoint { get; private set; }
     public static LoginReply? Login { get; private set; }
+    public static DownloadedSave? PendingDownload { get; set; }
+    public static bool RecoveryNeeded { get; set; }
+    public static bool RecoveryNeedsSave { get; set; }
+    public static RecoveryCoordinator? Recovery { get; private set; }
+    private static CancellationTokenSource recoveryLifetime = new();
+    public static CancellationToken RecoveryToken => recoveryLifetime.Token;
     public static WorldInfo? World { get; set; }
     public static SharedState State { get; } = new();
     public static EventInbox Inbox { get; } = new();
@@ -51,7 +57,12 @@ public static class RimlinkSession
         Endpoint = endpoint;
         Connection = connection;
         Login = login;
-        Outbox = new(OutboxPath(endpoint, login.Player.PlayerId), RimlinkLog.Instance);
+        Outbox = new(OutboxPath(endpoint, login.Player.PlayerId), RimlinkLog.Instance, login.SaveGeneration, login.SaveWriteEpoch);
+        PendingDownload = null; RecoveryNeeded = false; RecoveryNeedsSave = false;
+        SaveSync.Attach(connection);
+        recoveryLifetime.Cancel(); recoveryLifetime = new();
+        Recovery = new(connection, State, Outbox, RimlinkLog.Instance,
+            action => MainThread.Get(() => { action(); return true; }), () => Connection == connection);
         Live = new Rimlink.Client.Live.LiveClient(connection, RimlinkLog.Instance);
         State.Reset();
         Inbox.Clear();
@@ -63,6 +74,8 @@ public static class RimlinkSession
     /// <summary>Forgets the session; the connection is disposed by the caller.</summary>
     public static void End()
     {
+        SaveSync.Detach(); PendingDownload = null; RecoveryNeeded = false; RecoveryNeedsSave = false;
+        recoveryLifetime.Cancel(); Recovery = null;
         var ending = Connection;
         MainThread.Post(() => { if (Connection is null || ReferenceEquals(Connection, ending)) Game.Influence.InfluenceSync.Reset(); });
         if (Connection is { } c) c.EventReceived -= Inbox.Enqueue;

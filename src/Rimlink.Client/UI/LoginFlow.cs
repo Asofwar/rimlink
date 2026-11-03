@@ -4,6 +4,7 @@ using Rimlink.Client.Game;
 using Rimlink.Client.Net;
 using Rimlink.Protocol.V1;
 using Rimlink.Client.Mods.Delivery;
+using Rimlink.Protocol;
 using Verse;
 
 namespace Rimlink.Client.UI;
@@ -47,26 +48,34 @@ public static class LoginFlow
                     return new LoginOutcome(LoginOutcomeKind.ModpackDiff);
                 }
 
+                if (reply.RecoveryVersion != SaveRecoveryData.CurrentVersion)
+                    throw new IOException(await MainThread.Get(() => "Rimlink.Refusal.Recovery.ClientRequired".Translate().ToString()));
+
                 bool deliveryVerified = await ModpackDownloadFlow.VerifyLogin(endpoint);
                 if (!ModpackJoinReadiness.MayContinue(deliveryVerified, reply.Role, fromRestart))
                     throw new IOException(await MainThread.Get(() => "Rimlink.Delivery.Error.InstalledMismatch".Translate().ToString()));
                 if (!deliveryVerified) RimlinkLog.Instance.Warn("manual admin login: modpack delivery remains unverified; backups retained");
-                RimlinkSession.Begin(endpoint, connection, reply);
+                await MainThread.Get(() => { RimlinkSession.Begin(endpoint, connection, reply); return true; });
+                RimlinkSession.Outbox!.QuarantineOutsideScope(reply.SaveGeneration, reply.SaveWriteEpoch);
+                if (RimlinkSession.Outbox.HasUnresolved) throw new IOException(await MainThread.Get(() => "Rimlink.Refusal.Recovery.Required".Translate().ToString()));
                 MainThread.Post(DevModeGuard.OnSessionBegan);
                 MainThread.Post(() => wait.Text = "Rimlink.Flow.LoadingWorld".Translate());
                 var world = await connection.World.GetAsync(new Empty(), cancellationToken: cts.Token);
                 var objects = await connection.World.ListObjectsAsync(new Empty(), cancellationToken: cts.Token);
                 var history = await connection.Chat.HistoryAsync(new Empty(), cancellationToken: cts.Token);
-                RimlinkSession.World = world;
-                RimlinkSession.State.LoadSnapshot(objects, history, reply.Online.Count > 0 ? reply.Online : [reply.Player]);
-                ForeignSettlements.Subscribe();
-                await LoadEconomy(connection, RimlinkSession.Outbox, reply.Player.PlayerId, cts.Token);
+                await MainThread.Get(() =>
+                {
+                    RimlinkSession.World = world;
+                    RimlinkSession.State.LoadSnapshot(objects, history, reply.Online.Count > 0 ? reply.Online : [reply.Player]);
+                    ForeignSettlements.Subscribe(); return true;
+                });
 
                 string savePath = SaveSync.SaveFilePath;
                 var pending = SaveSync.Pending;
                 RimlinkSession.SummaryPending = true;
                 var restore = reply.ColonyRestore;
                 string? resetSave = null;
+                bool keptForRollback = false;
                 if (restore is { Restored: false })
                 {
                     // The old colony stays in the server's archive: its local copy must not be uploaded as the new colony's save.
@@ -75,13 +84,17 @@ public static class LoginFlow
                     RimlinkLog.Instance.Warn($"archived colony '{restore.Name}' not restored ({restore.Reason}): starting a new colony");
                 }
                 // Only recovery candidates need parsing: an unused (possibly damaged) cache is replaced by the server copy.
-                var localMeta = File.Exists(savePath) && (pending.IsSet || !reply.HasSave) ? SaveMetaReader.Read(savePath) : null;
-                if (localMeta is not null && localMeta.SaveGeneration != reply.SaveGeneration)
+                var localSnapshot = pending.RecoverSnapshot(savePath);
+                string candidate = localSnapshot?.Path ?? savePath;
+                var localMeta = File.Exists(candidate) && (pending.IsSet || !reply.HasSave) ? SaveMetaReader.Read(candidate) : null;
+                if (localMeta is not null && (localMeta.SaveGeneration != reply.SaveGeneration || (localMeta.Recovery?.WriteEpoch ?? 0) != reply.SaveWriteEpoch))
                 {
-                    resetSave = Path.GetFileName(pending.KeepLocalSave(savePath, "reset"));
+                    keptForRollback = localMeta.SaveGeneration == reply.SaveGeneration;
+                    resetSave = Path.GetFileName(pending.KeepLocalSave(candidate, localMeta.SaveGeneration != reply.SaveGeneration ? "reset" : "rollback"));
                     RimlinkLog.Instance.Warn($"local save generation {localMeta.SaveGeneration} differs from server generation {reply.SaveGeneration}; kept as {resetSave}");
+                    localSnapshot = null; localMeta = null; candidate = savePath;
                 }
-                var action = LoginPlan.Decide(pending.IsSet, File.Exists(savePath), reply.HasSave, reply.HasSettlement,
+                var action = LoginPlan.Decide(pending.IsSet, localMeta is not null && File.Exists(candidate), reply.HasSave, reply.HasSettlement,
                     localMeta?.SaveGeneration ?? 0, reply.SaveGeneration);
                 RimlinkLog.Instance.Info($"login plan: {action} (pending={pending.IsSet}, local={File.Exists(savePath)}, server save={reply.HasSave}, settlement={reply.HasSettlement})");
 
@@ -89,10 +102,15 @@ public static class LoginFlow
                 {
                     case LoginAction.UploadLocalThenLoad:
                         MainThread.Post(() => wait.Text = "Rimlink.Flow.Uploading".Translate());
-                        var recovered = await UploadLocal(connection, savePath, pending, cts.Token);
+                        if (localSnapshot is null) { pending.Set(); localSnapshot = pending.RecoverSnapshot(savePath)!; }
+                        RimlinkSession.Outbox.ReconcileSnapshot(localSnapshot.Meta.Recovery ?? new SaveRecoveryData { Generation = localSnapshot.Meta.SaveGeneration },
+                            accepted: false, selected: true);
+                        if (RimlinkSession.Outbox.HasUnresolved) throw new IOException(await MainThread.Get(() => "Rimlink.Refusal.Recovery.Required".Translate().ToString()));
+                        var recovered = await UploadLocal(connection, savePath, pending, localSnapshot, cts.Token);
                         resetSave ??= recovered.GenerationSave;
                         if (recovered.Uploaded)
                         {
+                            await RecoverSelection(connection, savePath, cts.Token);
                             MainThread.Post(() => { wait.Close(); GameDataSaveLoader.LoadGame(SaveSync.SaveFileName); });
                             return new LoginOutcome(LoginOutcomeKind.Loading);
                         }
@@ -103,12 +121,18 @@ public static class LoginFlow
 
                     case LoginAction.DownloadThenLoad:
                         MainThread.Post(() => wait.Text = "Rimlink.Flow.Downloading".Translate());
-                        await new SaveTransfer(connection).DownloadAsync(savePath, cts.Token);
+                        // A held operation may still need this cache as evidence; downloading must not erase it.
+                        if (File.Exists(savePath) && RimlinkSession.Outbox.Entries.Any(e => e.SnapshotId is not null || e.Phase is Rimlink.Client.Economy.OutboxPhase.Prepared or Rimlink.Client.Economy.OutboxPhase.Returning))
+                            RimlinkLog.Instance.Warn("recovery cache kept as " + pending.KeepLocalSave(savePath, "recovery"));
+                        var downloaded = await new SaveTransfer(connection).DownloadSnapshotAsync(savePath, cts.Token)
+                            ?? throw new IOException("the authoritative save is no longer available");
+                        await MainThread.Get(() => { RimlinkSession.PendingDownload = downloaded; return true; });
                         pending.Clear();
+                        await RecoverSelection(connection, savePath, cts.Token);
                         MainThread.Post(() =>
                         {
                             wait.Close();
-                            ContinueAfterReset(resetSave, () => GameDataSaveLoader.LoadGame(SaveSync.SaveFileName));
+                            ContinueAfterReset(resetSave, () => GameDataSaveLoader.LoadGame(SaveSync.SaveFileName), keptForRollback);
                         });
                         return new LoginOutcome(LoginOutcomeKind.Loading);
 
@@ -123,6 +147,10 @@ public static class LoginFlow
                         goto case LoginAction.NewColony;
 
                     case LoginAction.NewColony:
+                        if (RimlinkSession.Outbox.Entries.Any(e => e.Phase is Rimlink.Client.Economy.OutboxPhase.Prepared or Rimlink.Client.Economy.OutboxPhase.Returning))
+                            throw new IOException(await MainThread.Get(() => "Rimlink.Refusal.Recovery.Required".Translate().ToString()));
+                        await RimlinkSession.Recovery!.ReplayReadyAsync(cts.Token);
+                        await LoadEconomy(connection, RimlinkSession.Outbox, reply.Player.PlayerId, cts.Token);
                         // The vanilla new-colony pages, with the world page locked to the server's planet.
                         MainThread.Post(() =>
                         {
@@ -135,7 +163,7 @@ public static class LoginFlow
                                         buttonAAction: () => Find.WindowStack.Add(new Page_SelectScenario())));
                                 else
                                     Find.WindowStack.Add(new Page_SelectScenario());
-                            });
+                            }, keptForRollback);
                         });
                         return new LoginOutcome(LoginOutcomeKind.NewColony);
                 }
@@ -217,13 +245,21 @@ public static class LoginFlow
     /// <summary>
     /// Sends the local file the server never got. A permanent refusal keeps it separately; temporary failures retain recovery.
     /// </summary>
-    private static async Task<(bool Uploaded, string? GenerationSave)> UploadLocal(RimlinkConnection connection, string savePath, PendingUpload pending, CancellationToken ct)
+    private static async Task<(bool Uploaded, string? GenerationSave)> UploadLocal(RimlinkConnection connection, string savePath, PendingUpload pending, SaveSnapshot snapshot, CancellationToken ct)
     {
         try
         {
-            var meta = SaveMetaReader.Read(savePath);
-            await new SaveTransfer(connection).UploadAsync(savePath, meta, ct);
-            pending.Clear();
+            var info = await new SaveTransfer(connection).UploadAsync(snapshot.Path, snapshot.Meta, ct);
+            if (!info.IsCurrent)
+            {
+                pending.KeepLocalSave(snapshot.Path, "superseded");
+                return (false, null);
+            }
+            string temp = savePath + ".recover-" + Guid.NewGuid().ToString("N");
+            try { File.Copy(snapshot.Path, temp); File.Move(temp, savePath, true); }
+            finally { if (File.Exists(temp)) File.Delete(temp); }
+            RimlinkSession.Outbox!.ReconcileSnapshot(snapshot.Meta.Recovery ?? new SaveRecoveryData { Generation = snapshot.Meta.SaveGeneration }, accepted: true, snapshot.Meta.GameTick, selected: true);
+            pending.CompleteSnapshot(snapshot);
             RimlinkLog.Instance.Info("pending local save uploaded");
             return (true, null);
         }
@@ -231,30 +267,41 @@ public static class LoginFlow
         {
             bool stale = Rimlink.Client.Economy.EconomyClient.CodeOf(ex) == ErrorCode.SaveStale;
             bool reset = Rimlink.Client.Economy.EconomyClient.CodeOf(ex) == ErrorCode.SaveGenerationMismatch;
-            string kept = pending.KeepLocalSave(savePath, reset ? "reset" : stale ? "stale" : "rejected");
+            string kept = pending.KeepLocalSave(snapshot.Path, reset ? "reset" : stale ? "stale" : "rejected");
             string reason = await ErrorMessage(ex);
             RimlinkLog.Instance.Warn($"pending local save refused ({reason}); kept as {kept}");
             if (!reset)
                 MainThread.Post(() => Find.WindowStack.Add(new Dialog_MessageBox("Rimlink.Save.Rejected".Translate(reason, Path.GetFileName(kept)))));
             return (false, reset ? Path.GetFileName(kept) : null);
         }
-        catch
-        {
-            // Includes the first save whose process crashed before it wrote pending.flag.
-            pending.Set();
-            throw;
-        }
     }
 
-    private static void ContinueAfterReset(string? kept, Action next)
+    private static async Task RecoverSelection(RimlinkConnection connection, string path, CancellationToken ct)
+    {
+        var meta = SaveMetaReader.Read(path);
+        var data = meta.Recovery ?? new SaveRecoveryData { Generation = meta.SaveGeneration };
+        bool accepted = true;
+        if (RimlinkSession.PendingDownload is { } proof)
+        {
+            accepted = data.WriteEpoch == proof.Header.SaveWriteEpoch && data.Generation == proof.Header.SaveGeneration;
+            data = data with { Generation = proof.Header.SaveGeneration, WriteEpoch = proof.Header.SaveWriteEpoch };
+        }
+        RimlinkSession.Outbox!.ReconcileSnapshot(data, accepted, meta.GameTick, selected: true);
+        if (RimlinkSession.Outbox.HasUnresolved) throw new IOException(await MainThread.Get(() => "Rimlink.Refusal.Recovery.Required".Translate().ToString()));
+        var replay = await RimlinkSession.Recovery!.ReplayReadyAsync(ct);
+        await LoadEconomy(connection, RimlinkSession.Outbox, connection.Login!.Player.PlayerId, ct);
+        await MainThread.Get(() => { RimlinkSession.RecoveryNeeded |= replay.Pending > 0; return true; });
+    }
+
+    private static void ContinueAfterReset(string? kept, Action next, bool rollback = false)
     {
         if (kept is null) next();
-        else Find.WindowStack.Add(new Dialog_MessageBox("Rimlink.Save.GenerationMismatch".Translate(kept), buttonAAction: next));
+        else Find.WindowStack.Add(new Dialog_MessageBox((rollback ? "Rimlink.Save.RollbackLocalKept" : "Rimlink.Save.GenerationMismatch").Translate(kept), buttonAAction: next));
     }
 
     private static async Task Fail(RimlinkConnection? connection, Dialog_Wait wait, string? error)
     {
-        RimlinkSession.End();
+        await MainThread.Get(() => { if (RimlinkSession.Connection == connection) RimlinkSession.End(); return true; });
         if (connection is not null) await connection.DisposeAsync();
         MainThread.Post(() =>
         {
@@ -264,39 +311,14 @@ public static class LoginFlow
     }
 
     /// <summary>
-    /// Unanswered requests first (the server settles them with the same keys), then wallet, mailbox and own lots.
-    /// A server with the economy off or frozen, or any other refusal, leaves the state empty; the login goes on.
+    /// Refreshes independent recovery states after the selected snapshot has been reconciled and ready requests replayed.
+    /// A frozen wallet cannot prevent mailbox, raids or terminal live sessions from being recovered.
     /// </summary>
     public static async Task LoadEconomy(RimlinkConnection connection, Rimlink.Client.Economy.TransferOutbox? outbox, long me, CancellationToken ct)
     {
-        var economy = new Rimlink.Client.Economy.EconomyClient(connection);
-        var raids = new Rimlink.Client.Raids.RaidClient(connection);
-        try
-        {
-            var live = RimlinkSession.Live ?? new Rimlink.Client.Live.LiveClient(connection, RimlinkLog.Instance);
-            var trades = new Rimlink.Client.Social.TradesClient(connection);
-            var incidents = new Rimlink.Client.Incidents.IncidentClient(connection);
-            if (outbox is not null) await outbox.Replay(new Rimlink.Client.Economy.OutboxClients(economy, raids, new Rimlink.Client.Visits.ShopClient(connection), live, trades, Incidents: incidents, Procurement: new Rimlink.Client.Procurement.ProcurementClient(connection), Community: new Rimlink.Client.Social.CommunityClient(connection), Influence: new Rimlink.Client.Influence.InfluenceClient(connection)), ct);
-            Rimlink.Protocol.V1.EconomyRules? rules = null;
-            try { rules = await economy.Rules(ct); }
-            catch (RpcException ex) { RimlinkLog.Instance.Warn("economy rules not loaded: " + Rimlink.Client.Economy.EconomyClient.MessageOf(ex)); }
-            RimlinkSession.State.Economy.Load(await economy.Wallet(ct), await economy.Pending(ct), await economy.Lots(new MarketQuery { SellerPlayerId = me }, ct), rules);
-            RimlinkSession.State.Raids.Load(await raids.Pending(ct), await raids.Mine(ct), await raids.Flags(ct));
-            try
-            {
-                RimlinkSession.State.Incidents.Load(await incidents.Pending(ct), await incidents.Mine(ct), await incidents.Catalog(ct));
-            }
-            catch (RpcException ex) { RimlinkLog.Instance.Warn("paid incidents not loaded: " + Rimlink.Client.Economy.EconomyClient.MessageOf(ex)); }
-            RimlinkSession.State.Social.Load(await trades.List(ct), await new Rimlink.Client.Social.SocialClient(connection).ListBlocks(ct));
-            LiveSession? current = null;
-            try { current = await live.Current(ct); }
-            catch (RpcException) { }
-            RimlinkSession.State.Live.Load(connection.Login?.PendingLiveEnds ?? [], current);
-        }
-        catch (RpcException ex)
-        {
-            RimlinkLog.Instance.Warn("economy not loaded, it stays empty until the next reconnect: " + Rimlink.Client.Economy.EconomyClient.MessageOf(ex));
-        }
+        if (RimlinkSession.Connection != connection || RimlinkSession.Recovery is not { } recovery) return;
+        bool complete = await recovery.LoadStatesAsync(ct);
+        await MainThread.Get(() => { if (RimlinkSession.Connection == connection) RimlinkSession.RecoveryNeeded |= !complete; return true; });
     }
 
     private static ErrorCode? ErrorCodeOf(RpcException ex) => Rimlink.Client.Economy.EconomyClient.CodeOf(ex);

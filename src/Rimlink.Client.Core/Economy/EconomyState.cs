@@ -31,10 +31,20 @@ public sealed class EconomyState
     public void Load(WalletState wallet, ParcelList parcels, LotList myLots, EconomyRules? rules = null)
     {
         SetWallet(wallet);
-        Rules = rules ?? new EconomyRules();
+        SetRules(rules ?? new EconomyRules());
+        LoadParcels(parcels);
+        LoadLots(myLots);
+    }
+
+    public void SetRules(EconomyRules rules) => Rules = rules;
+    public void LoadParcels(ParcelList parcels)
+    {
         pending.Clear();
         pendingIds.Clear();
         foreach (var p in parcels.Parcels) AddPending(p);
+    }
+    public void LoadLots(LotList myLots)
+    {
         MyLots.Clear();
         MyLots.AddRange(myLots.Lots);
     }

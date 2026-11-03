@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Xml;
+using Rimlink.Protocol;
 
 namespace Rimlink.Client.Net;
 
@@ -40,6 +41,9 @@ public static class SaveMetaReader
                 case SaveGenerationNode: saveGeneration = long.Parse(reader.ReadElementContentAsString(), CultureInfo.InvariantCulture); advance = false; break;
             }
         }
-        return new SaveMeta(seed, faction, tick, wealthTotal, wealthItems, devMode, saveGeneration);
+        using var source = File.OpenRead(rwsPath);
+        var recovery = SaveRecoveryData.ReadXml(source, out _);
+        return new SaveMeta(seed, faction, tick, wealthTotal, wealthItems, devMode,
+            recovery.Version > 0 ? recovery.Generation : saveGeneration, recovery.Version > 0 ? recovery : null);
     }
 }

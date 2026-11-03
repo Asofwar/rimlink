@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <Rimlink.Refusal.Saves.WriteEpochMismatch>Это сохранение относится к колонии до административного отката. Выйдите в меню и войдите снова: это состояние отправлено не будет.</Rimlink.Refusal.Saves.WriteEpochMismatch>
+  <Rimlink.Refusal.Recovery.ClientRequired>Для этой колонии нужна поддержка восстановления снимков. Обновите клиент и сервер Rimlink до версии 0.8.1 или новее.</Rimlink.Refusal.Recovery.ClientRequired>
+  <Rimlink.Refusal.Recovery.Required>Эту передачу нельзя безопасно восстановить автоматически. Журнал и локальные сохранения оставлены для проверки. Не удаляйте файлы восстановления; обратитесь к администратору.</Rimlink.Refusal.Recovery.Required>
+  <Rimlink.Refusal.Recovery.IntentMismatch>Этот ключ запроса уже использован для другого действия. Запрос сохранён для восстановления.</Rimlink.Refusal.Recovery.IntentMismatch>
+  <Rimlink.Save.RollbackLocalKept>Администратор откатил эту колонию. Ваша более новая локальная копия сохранена отдельно как {0}: она не заменит выбранное сохранение сервера.</Rimlink.Save.RollbackLocalKept>
+</LanguageData>

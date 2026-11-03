@@ -8,6 +8,7 @@ namespace Rimlink.Client.Game.Patches;
 [HarmonyPatch(typeof(GameDataSaveLoader), nameof(GameDataSaveLoader.SaveGame))]
 public static class Patch_GameDataSaveLoader_SaveGame
 {
+    public static bool Prefix(string fileName) => SaveSync.BeforeSave(fileName);
     public static void Postfix(string fileName) => SaveSync.OnSaved(fileName);
 }
 

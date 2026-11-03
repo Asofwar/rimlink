@@ -68,6 +68,7 @@ builder.Services.AddSingleton(sp => new ServerCertificate(
 builder.WebHost.ConfigureKestrel(kestrel => KestrelSetup.Configure(kestrel, serverOptions, tlsOptions));
 
 builder.Services.AddRimlinkStorage(new DataDirectory(serverOptions.DataDir));
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddGrpc(options =>
 {
     // A 1 MB save chunk plus its protobuf framing must still fit.

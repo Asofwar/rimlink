@@ -27,6 +27,7 @@ public static class RaidOutgoing
     /// <summary>From a caravan on the target's tile. A colonist must stay to lead what remains of the caravan (Real mode).</summary>
     public static void LaunchFromCaravan(Caravan caravan, PlayerRef target, IReadOnlyList<Pawn> pawns, PawnMode mode, RaidTiming timing)
     {
+        var raids = RimlinkSession.Raids!;
         if (CheckLimits(pawns.Count) is { } limit) { Messages.Message(limit, MessageTypeDefOf.RejectInput, historical: false); return; }
         if (mode == PawnMode.PawnSnapshot)
         {
@@ -40,22 +41,24 @@ public static class RaidOutgoing
         }
         Outgoing.RunWithCaravanPawns(caravan, pawns, "Rimlink.Raid.Launched".Translate(target.Name),
             (pawnList, tick) => Build(target, PawnMode.PawnReal, timing, RaidArrival.ArrivalEdge, pawnList, tick),
-            request => RimlinkSession.Raids!.Launch((LaunchRequest)request, CancellationToken.None));
+            request => raids.Launch((LaunchRequest)request, CancellationToken.None));
     }
 
     /// <summary>Dev harness: raid straight from the home map (no caravan). Real pawns leave the map and come back where they stood on a refusal.</summary>
     public static void LaunchFromCaravanless(Map map, PlayerRef target, IReadOnlyList<Pawn> pawns, PawnMode mode, RaidTiming timing)
     {
+        var raids = RimlinkSession.Raids!;
         if (CheckLimits(pawns.Count) is { } limit) { Messages.Message(limit, MessageTypeDefOf.RejectInput, historical: false); return; }
         if (mode == PawnMode.PawnSnapshot) { LaunchSnapshot(target, pawns, timing, RaidArrival.ArrivalEdge); return; }
         Outgoing.RunWithMapPawns(map, pawns, "Rimlink.Raid.Launched".Translate(target.Name),
             (pawnList, tick) => Build(target, PawnMode.PawnReal, timing, RaidArrival.ArrivalEdge, pawnList, tick),
-            request => RimlinkSession.Raids!.Launch((LaunchRequest)request, CancellationToken.None));
+            request => raids.Launch((LaunchRequest)request, CancellationToken.None));
     }
 
     /// <summary>From transport pods that landed on the target's tile: everyone in the holding caravan goes, by pod, Real mode only.</summary>
     public static void LaunchFromPods(Caravan caravan, PlayerRef target, RaidTiming timing)
     {
+        var raids = RimlinkSession.Raids!;
         var pawns = caravan.PawnsListForReading.ToList();
         if (CheckLimits(pawns.Count) is { } limit)
         {
@@ -65,7 +68,7 @@ public static class RaidOutgoing
         }
         Outgoing.RunWithPodPawns(Disband(caravan), "Rimlink.Raid.Launched".Translate(target.Name),
             (pawnList, tick) => Build(target, PawnMode.PawnReal, timing, RaidArrival.ArrivalPods, pawnList, tick),
-            request => RimlinkSession.Raids!.Launch((LaunchRequest)request, CancellationToken.None));
+            request => raids.Launch((LaunchRequest)request, CancellationToken.None));
     }
 
     /// <summary>The holding caravan of a pod raid that will not happen after all: everyone flies back home.</summary>
@@ -117,14 +120,18 @@ public static class RaidOutgoing
         var request = Build(target, PawnMode.PawnSnapshot, timing, arrival, list, Find.TickManager.TicksGame);
         var outbox = RimlinkSession.Outbox;
         var entry = outbox?.Add(request);
+        var connection = RimlinkSession.Connection!;
+        var authentication = connection.Login!;
+        var game = Current.Game;
         _ = Task.Run(async () =>
         {
             try
             {
-                var raid = await raids.Launch(request, CancellationToken.None);
+                var raid = await connection.ForAuthentication(authentication, () => raids.Launch(request, CancellationToken.None));
                 if (entry is not null) outbox!.Remove(entry.Id);
                 MainThread.Post(() =>
                 {
+                    if (RimlinkSession.Connection != connection || !ReferenceEquals(connection.Login, authentication) || Current.Game != game) return;
                     RimlinkSession.State.Raids.Mine.Insert(0, raid);
                     Messages.Message("Rimlink.Raid.Launched".Translate(target.Name), MessageTypeDefOf.PositiveEvent, historical: false);
                 });

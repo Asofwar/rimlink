@@ -81,17 +81,20 @@ public sealed class WalletService(RimlinkDbContext db, EventBus events)
     /// <summary>Silver taken off the map goes into the wallet; the save tick is stamped like any outgoing transfer.</summary>
     public async Task<long> Deposit(long playerId, DepositRequest request, TransferService transfers, EconomyGate gate, EconomyGuard guard)
     {
+        await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+        if (!string.IsNullOrEmpty(request.ClientRequestId) && await db.Transfers.AsNoTracking().FirstOrDefaultAsync(t => t.FromPlayerId == playerId && t.Kind == "deposit" && t.ClientRequestId == request.ClientRequestId) is { } deposited)
+        {
+            RequestIdentity.Verify(deposited.RequestIntent, request);
+            return await Balance(playerId);
+        }
         gate.RequireOpen();
         if (request.Silver < 1) throw RpcErrors.Failed(ErrorCode.Unspecified, RefusalKeys.EconomySilverTooLow, "silver must be at least 1");
-        await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
-        if (!string.IsNullOrEmpty(request.ClientRequestId) && await db.Transfers.AnyAsync(t => t.ClientRequestId == request.ClientRequestId))
-            return await Balance(playerId);
         await gate.RequireNotFrozen(playerId);
         // After the replay check: a deposit the server already took must not be refused (the client would return the silver).
         await guard.RequireNoThreat(playerId);
         await Apply(playerId, request.Silver, "deposit", 0);
         await transfers.StampOutgoing(playerId, request.GameTick);
-        db.Transfers.Add(new Transfer { FromPlayerId = playerId, Kind = "deposit", GameTick = request.GameTick, Summary = $"{request.Silver} silver", At = DateTime.UtcNow, ClientRequestId = string.IsNullOrEmpty(request.ClientRequestId) ? null : request.ClientRequestId });
+        db.Transfers.Add(new Transfer { FromPlayerId = playerId, Kind = "deposit", GameTick = request.GameTick, Summary = $"{request.Silver} silver", At = DateTime.UtcNow, ClientRequestId = string.IsNullOrEmpty(request.ClientRequestId) ? null : request.ClientRequestId, RequestIntent = RequestIdentity.Hash(request) });
         await db.SaveChangesAsync();
         await tx.CommitAsync();
         FlushEvents();
@@ -102,19 +105,16 @@ public sealed class WalletService(RimlinkDbContext db, EventBus events)
     /// <summary>Silver leaves the wallet now and arrives as a physical stack in a parcel; delivery credits nothing.</summary>
     public async Task<Parcel> Withdraw(long playerId, WithdrawRequest request, MailboxService mailbox, EconomyGate gate)
     {
+        await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+        if (await RequestIdentity.Parcel(db, playerId, "wallet.withdraw", request.ClientRequestId, request) is { } existing) return existing;
         gate.RequireOpen();
         if (request.Silver < 1) throw RpcErrors.Failed(ErrorCode.Unspecified, RefusalKeys.EconomySilverTooLow, "silver must be at least 1");
-        await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
-        if (!string.IsNullOrEmpty(request.ClientRequestId))
-        {
-            var existing = await db.Parcels.AsNoTracking().FirstOrDefaultAsync(p => p.ClientRequestId == request.ClientRequestId);
-            if (existing is not null) return existing;
-        }
         await gate.RequireNotFrozen(playerId);
         long balance = await Balance(playerId);
         if (balance < request.Silver)
             throw RpcErrors.Failed(ErrorCode.WalletInsufficient, RefusalKeys.EconomyWalletInsufficient, $"not enough silver: balance {balance}, needed {request.Silver}", balance, request.Silver);
         var parcel = await mailbox.Create(playerId, null, ParcelKindDb.Withdraw, null, null, request.Silver, string.IsNullOrEmpty(request.ClientRequestId) ? null : request.ClientRequestId);
+        parcel.RequestIntent = RequestIdentity.Hash(request);
         await Apply(playerId, -request.Silver, "withdraw", parcel.Id);
         db.Transfers.Add(new Transfer { FromPlayerId = playerId, Kind = "withdraw", GameTick = 0, Summary = $"{request.Silver} silver", At = DateTime.UtcNow });
         await db.SaveChangesAsync();

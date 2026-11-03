@@ -28,7 +28,7 @@ public sealed class AuthGrpcService(AuthService auth, WorldService worlds, SaveS
 
     public override async Task<LoginReply> Register(RegisterRequest request, ServerCallContext context)
     {
-        var ctx = new LoginContext(Protocol.ProtocolVersion.Current, null, request.Mods, context.ClientIp()) { ModSettings = request.ModSettings };
+        var ctx = new LoginContext(Protocol.ProtocolVersion.Current, request.ServerPassword, request.Mods, context.ClientIp()) { ModSettings = request.ModSettings, RecoveryVersion = request.RecoveryVersion };
         return await ToReply(await auth.Register(request.Login, request.Password, request.PlayerName, ctx), context);
     }
 
@@ -66,6 +66,8 @@ public sealed class AuthGrpcService(AuthService auth, WorldService worlds, SaveS
                     HasSettlement = await worlds.HasSettlement(s.Player.Id),
                     HasSave = await saves.HasSave(s.Player.Id),
                     SaveGeneration = await db.Players.Where(p => p.Id == s.Player.Id).Select(p => p.SaveGeneration).SingleAsync(),
+                    SaveWriteEpoch = await db.Players.Where(p => p.Id == s.Player.Id).Select(p => p.SaveWriteEpoch).SingleAsync(),
+                    RecoveryVersion = Protocol.SaveRecoveryData.CurrentVersion,
                     DevModeAllowed = integrity.Value.DevModeAllowed(s.Account.Role),
                     ColonyRestore = s.Session.ColonyRestore,
                 };

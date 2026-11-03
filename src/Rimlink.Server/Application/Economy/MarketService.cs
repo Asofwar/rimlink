@@ -24,18 +24,16 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
 
     public async Task<Lot> Post(long sellerId, PostRequest request)
     {
+        await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+        if (!string.IsNullOrEmpty(request.ClientRequestId) && await db.Lots.AsNoTracking()
+            .FirstOrDefaultAsync(l => l.SellerPlayerId == sellerId && l.ClientRequestId == request.ClientRequestId) is { } existing)
+        { RequestIdentity.Verify(existing.RequestIntent, request); return existing; }
         gate.RequireOpen();
         bool hasItems = request.Items is { Items.Count: > 0 }, hasPawn = request.Pawn is { KindDef.Length: > 0 };
         if (hasItems == hasPawn) throw RpcErrors.Failed(ErrorCode.Unspecified, RefusalKeys.EconomyLotContents, "a lot holds either items or one pawn");
         if (request.Price < 1) throw RpcErrors.Failed(ErrorCode.Unspecified, RefusalKeys.EconomyPriceTooLow, "price must be at least 1 silver");
         var pawns = hasPawn ? new PawnList { Pawns = { request.Pawn } } : null;
 
-        await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
-        if (!string.IsNullOrEmpty(request.ClientRequestId))
-        {
-            var existing = await db.Lots.AsNoTracking().FirstOrDefaultAsync(l => l.ClientRequestId == request.ClientRequestId);
-            if (existing is not null) return existing;
-        }
         await gate.RequireNotFrozen(sellerId);
         // After the replay check, as in Transfer.Send: an applied post is never refused on its replay.
         if (validator.Validate(hasItems ? request.Items : null, pawns, checkForbidden: true) is { } reason) throw RpcErrors.Failed(reason.Code, reason.Key, reason.Message, reason.Args);
@@ -57,6 +55,7 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
             ExpiresAt = now.AddDays(options.Value.LotLifetimeDays),
             Status = LotStatusDb.Open,
             ClientRequestId = string.IsNullOrEmpty(request.ClientRequestId) ? null : request.ClientRequestId,
+            RequestIntent = RequestIdentity.Hash(request),
         };
         db.Lots.Add(lot);
         await transfers.StampOutgoing(sellerId, request.GameTick);

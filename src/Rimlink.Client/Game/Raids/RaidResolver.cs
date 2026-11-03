@@ -121,6 +121,8 @@ public static class RaidResolver
     private static void Resolve(ActiveRaid raid, Map map, RimlinkGameComponent component)
     {
         if (!RimlinkSession.Active || RimlinkSession.Raids is not { } raids) return;
+        var connection = RimlinkSession.Connection!;
+        var authentication = connection.Login!;
         var report = new RaidReport { RaidId = raid.RaidId, LiveSessionId = raid.LiveSessionId, Loot = new ItemList(), Captives = new PawnList() };
         var loot = new List<LootStack>();
         var kept = new List<LootStack>();
@@ -207,7 +209,9 @@ public static class RaidResolver
 
         report.GameTick = Find.TickManager.TicksGame;
         var outbox = RimlinkSession.Outbox;
-        var entry = outbox?.Add(report); // journaled before anything leaves the map
+        var entry = outbox?.Prepare(report); // cannot replay before this map's removal snapshot is accepted
+        if (entry is null) return;
+        component.RemovedOperations.Add(entry.Id);
         raid.Reported = true;
         component.ActiveRaids.Remove(raid); // no-op for a live end resolved on the spot
 
@@ -237,6 +241,8 @@ public static class RaidResolver
         catch (Exception ex)
         {
             Log.Error($"[Rimlink] raid {raid.RaidId} was reported but the map could not be cleaned up fully: {ex}");
+            SaveSync.BlockWrites(); RimlinkGameComponent.AbortToMenu();
+            return;
         }
         Messages.Message("Rimlink.Raid.Resolved".Translate(raid.AttackerName, summary.Dead, summary.Captured, summary.Fled + summary.Alive, summary.LootValue), MessageTypeDefOf.NeutralEvent, historical: true);
         RimlinkLog.Instance.Info($"raid {raid.RaidId} resolved: dead {summary.Dead}, captured {summary.Captured}, fled {summary.Fled}, alive {summary.Alive}, loot {summary.LootValue}, captives {summary.Captives}");
@@ -247,15 +253,17 @@ public static class RaidResolver
             RimlinkLog.Instance.Warn("raid report waits in the outbox: no save could be made now");
             return;
         }
-        bool uploaded = false;
-        LongEventHandler.QueueLongEvent(() => uploaded = SaveSync.WaitForUpload(TimeSpan.FromSeconds(60)), "Rimlink.Flow.Uploading", doAsynchronously: true, null, showExtraUIInfo: false, callback: () =>
+        SaveSync.UploadResult? uploaded = null;
+        LongEventHandler.QueueLongEvent(() => uploaded = SaveSync.WaitForSnapshot(TimeSpan.FromSeconds(60)), "Rimlink.Flow.Uploading", doAsynchronously: true, null, showExtraUIInfo: false, callback: () =>
         {
-            if (!uploaded || SaveSync.LastError is not null)
+            if (RimlinkSession.Connection != connection || !ReferenceEquals(connection.Login, authentication)
+                || uploaded is not { Uploaded: true } || uploaded.Snapshot?.Meta.Recovery?.Removed.Contains(entry.Id) != true
+                || SaveSync.WritesBlocked || !TransferOutbox.ReadyFor(entry, authentication))
             {
                 RimlinkLog.Instance.Warn("raid report waits in the outbox: the save was not uploaded");
                 return;
             }
-            _ = Task.Run(() => Send(raids, outbox, entry, report));
+            _ = Task.Run(() => Send(connection, authentication, raids, outbox, entry, (RaidReport)TransferOutbox.Decode(entry)));
         });
     }
 
@@ -265,16 +273,19 @@ public static class RaidResolver
     /// </summary>
     public static void ReportOnly(RaidReport report)
     {
-        if (RimlinkSession.Raids is not { } raids) return;
+        if (RimlinkSession.Raids is not { } raids || SaveSync.WritesBlocked) return;
         var outbox = RimlinkSession.Outbox;
-        _ = Send(raids, outbox, outbox?.Add(report), report);
+        var connection = RimlinkSession.Connection!;
+        _ = Send(connection, connection.Login!, raids, outbox, outbox?.Add(report), report);
     }
 
-    private static async Task Send(Rimlink.Client.Raids.RaidClient raids, TransferOutbox? outbox, OutboxEntry? entry, RaidReport report)
+    private static async Task Send(Rimlink.Client.Net.RimlinkConnection connection, LoginReply authentication,
+        Rimlink.Client.Raids.RaidClient raids, TransferOutbox? outbox, OutboxEntry? entry, RaidReport report)
     {
+        if (RimlinkSession.Connection != connection || SaveSync.WritesBlocked || entry is null || !TransferOutbox.ReadyFor(entry, authentication)) return;
         try
         {
-            await raids.Report(report, CancellationToken.None);
+            await connection.ForAuthentication(authentication, () => raids.Report(report, CancellationToken.None));
             if (entry is not null) outbox!.Remove(entry.Id);
             return;
         }
@@ -294,10 +305,11 @@ public static class RaidResolver
 
         var retry = report.Clone();
         retry.Loot.Items.Clear();
+        retry.Captives.Pawns.Clear(); // the refused entry returns them locally; the retry must not send them too
         var again = outbox?.Add(retry);
         try
         {
-            await raids.Report(retry, CancellationToken.None);
+            await connection.ForAuthentication(authentication, () => raids.Report(retry, CancellationToken.None));
             if (again is not null) outbox!.Remove(again.Id);
             RimlinkLog.Instance.Info($"raid {report.RaidId} reported without its loot");
         }

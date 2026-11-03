@@ -63,7 +63,7 @@ public sealed class MailboxGrpcService(MailboxService mailbox, GiftService gifts
 
     public override async Task<Empty> Deliver(DeliverRequest request, ServerCallContext context)
     {
-        await mailbox.Deliver(context.GetSession().PlayerId, request.ParcelId, request.GameTick);
+        await mailbox.Deliver(context.GetSession().PlayerId, request);
         return new Empty();
     }
 

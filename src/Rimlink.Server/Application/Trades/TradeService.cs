@@ -34,8 +34,8 @@ public sealed class TradeService(
     {
         string? requestId = string.IsNullOrEmpty(r.ClientRequestId) ? null : r.ClientRequestId;
         // A repeat first: the things already left the client's game, a refusal now would put them back a second time.
-        if (requestId is not null && await db.Trades.AsNoTracking().FirstOrDefaultAsync(t => t.ClientRequestId == requestId) is { } done)
-            return await ToProto(done);
+        if (requestId is not null && await db.Trades.AsNoTracking().FirstOrDefaultAsync(t => t.InitiatorPlayerId == playerId && t.ClientRequestId == requestId) is { } done)
+        { RequestIdentity.Verify(done.RequestIntent, r); return await ToProto(done); }
         gate.RequireOpen();
         if (r.PartnerId == playerId) throw RpcErrors.Failed(ErrorCode.SelfTrade, RefusalKeys.TradesSelf, "you cannot trade with yourself");
         string note = CleanNote(r.Note);
@@ -44,8 +44,8 @@ public sealed class TradeService(
         Trade trade;
         await using (var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable))
         {
-            if (requestId is not null && await db.Trades.AsNoTracking().FirstOrDefaultAsync(t => t.ClientRequestId == requestId) is { } raced)
-                return await ToProto(raced);
+            if (requestId is not null && await db.Trades.AsNoTracking().FirstOrDefaultAsync(t => t.InitiatorPlayerId == playerId && t.ClientRequestId == requestId) is { } raced)
+            { RequestIdentity.Verify(raced.RequestIntent, r); return await ToProto(raced); }
             var partner = await db.Players.AsNoTracking().FirstOrDefaultAsync(p => p.Id == r.PartnerId)
                 ?? throw RpcErrors.With(StatusCode.NotFound, ErrorCode.RecipientUnknown, RefusalKeys.EconomyRecipientUnknown, $"no player with id {r.PartnerId}", r.PartnerId);
             await BlockRules.RequireNotBlocked(db, playerId, partner.Id);
@@ -67,6 +67,7 @@ public sealed class TradeService(
                 CreatedAt = now,
                 ExpiresAt = now + TimeSpan.FromDays(options.Value.TradeLifetimeDays),
                 ClientRequestId = requestId,
+                RequestIntent = RequestIdentity.Hash(r),
                 InitiatorItems = (r.Items ?? new ItemList()).ToByteArray(),
                 InitiatorPawns = (r.Pawns ?? new PawnList()).ToByteArray(),
                 InitiatorSilver = r.Silver,
@@ -94,8 +95,7 @@ public sealed class TradeService(
     {
         string? requestId = string.IsNullOrEmpty(r.ClientRequestId) ? null : r.ClientRequestId;
         // A repeat first, whatever became of the trade since: it was applied, and its goods are accounted for.
-        if (requestId is not null && await db.Transfers.AsNoTracking().AnyAsync(t => t.ClientRequestId == requestId))
-            return await ToProto(await Party(playerId, r.TradeId));
+        if (await FindSideReplay(playerId, r) is { } done) return await ToProto(done);
         gate.RequireOpen();
         string note = CleanNote(r.Note);
         CheckGoods(r.Items, r.Pawns, r.Silver);
@@ -104,8 +104,7 @@ public sealed class TradeService(
         Parcel? back = null;
         await using (var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable))
         {
-            if (requestId is not null && await db.Transfers.AsNoTracking().AnyAsync(t => t.ClientRequestId == requestId))
-                return await ToProto(await Party(playerId, r.TradeId));
+            if (await FindSideReplay(playerId, r) is { } raced) return await ToProto(raced);
             trade = await Party(playerId, r.TradeId, tracked: true);
             if (trade.Status != TradeStatusDb.Open) throw Gone();
             await gate.RequireNotFrozen(playerId); // a frozen player can only cancel: the goods go back to their owners
@@ -152,6 +151,7 @@ public sealed class TradeService(
                 Summary = $"trade {trade.Id} r{trade.Revision}: {TransferService.Summary(items, pawns, r.Silver)}",
                 At = DateTime.UtcNow,
                 ClientRequestId = requestId,
+                RequestIntent = RequestIdentity.Hash(r), RequestTargetId = trade.Id,
             });
             await db.SaveChangesAsync();
             await tx.CommitAsync();
@@ -159,6 +159,16 @@ public sealed class TradeService(
         wallet.FlushEvents();
         if (back is not null) await mailbox.Announce(back);
         return await Publish(trade);
+    }
+
+    private async Task<Trade?> FindSideReplay(long playerId, TradeSideRequest request)
+    {
+        if (string.IsNullOrEmpty(request.ClientRequestId)) return null;
+        var receipt = await db.Transfers.AsNoTracking().FirstOrDefaultAsync(t => t.FromPlayerId == playerId && t.Kind == "trade-side" && t.ClientRequestId == request.ClientRequestId);
+        if (receipt is null) return null;
+        RequestIdentity.Verify(receipt.RequestIntent, request);
+        if (RequestIdentity.TradeTarget(receipt) != request.TradeId) throw RequestIdentity.Mismatch();
+        return await Party(playerId, request.TradeId);
     }
 
     public async Task<Protocol.V1.Trade> Confirm(long playerId, long tradeId, int revision)

@@ -35,11 +35,12 @@ public static class GrpcTestExtensions
         var auth = new Protocol.V1.Auth.AuthClient(fixture.CreateChannel());
         try
         {
-            await auth.RegisterAsync(new RegisterRequest { Login = login, Password = password, PlayerName = playerName ?? login });
+            await auth.RegisterAsync(new RegisterRequest { Login = login, Password = password, PlayerName = playerName ?? login, RecoveryVersion = SaveRecoveryData.CurrentVersion });
         }
         catch (RpcException ex) when (ex.StatusCode == StatusCode.AlreadyExists)
         {
         }
-        return await auth.LoginAsync(PasswordLogin(login, password));
+        var request = PasswordLogin(login, password); request.RecoveryVersion = SaveRecoveryData.CurrentVersion;
+        return await auth.LoginAsync(request);
     }
 }

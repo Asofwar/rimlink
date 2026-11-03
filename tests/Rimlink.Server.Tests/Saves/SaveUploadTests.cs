@@ -17,6 +17,45 @@ public class SaveUploadTests
     private static ServerFixture Server() => new ServerFixture().WithSetting("Auth:AllowPassword", "true");
 
     [Fact]
+    public async Task RollbackRejectsAnUploadThatWasAlreadyStreaming()
+    {
+        using var fixture = Server();
+        var nova = await fixture.RegisterAndLogin("nova", playerName: "Nova");
+        var saves = new Protocol.V1.Saves.SavesClient(fixture.CreateChannel());
+        foreach (long tick in new[] { 100L, 200L })
+        {
+            var bytes = MakeSave(ServerFixture.WorldSeed, "Nova", tick);
+            await Upload(saves, nova.SessionToken, bytes, HeaderFor(bytes, ServerFixture.WorldSeed, "Nova", tick));
+        }
+        byte[] stale = MakeSave(ServerFixture.WorldSeed, "Nova", tick: 300);
+        var reached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        async IAsyncEnumerable<ReadOnlyMemory<byte>> Chunks()
+        {
+            yield return stale.AsMemory(0, stale.Length / 2);
+            reached.SetResult();
+            await release.Task;
+            yield return stale.AsMemory(stale.Length / 2);
+        }
+        using var request = fixture.Services.CreateScope();
+        var upload = request.ServiceProvider.GetRequiredService<SaveStore>().Store(nova.Player.PlayerId,
+            HeaderFor(stale, ServerFixture.WorldSeed, "Nova", tick: 300), Chunks(), CancellationToken.None);
+        await reached.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        try
+        {
+            using var admin = fixture.Services.CreateScope();
+            Assert.True(await admin.ServiceProvider.GetRequiredService<SaveStore>().Rollback(nova.Player.PlayerId, 1));
+        }
+        finally { release.SetResult(); }
+
+        var error = await Assert.ThrowsAsync<RpcException>(() => upload);
+        Assert.Equal(StatusCode.FailedPrecondition, error.StatusCode);
+        using var check = fixture.Services.CreateScope();
+        Assert.Equal(1, await check.ServiceProvider.GetRequiredService<Server.Storage.RimlinkDbContext>().SaveVersions
+            .Where(v => v.PlayerId == nova.Player.PlayerId && v.IsCurrent).Select(v => v.Number).SingleAsync());
+    }
+
+    [Fact]
     public async Task UploadThenDownloadRoundTrips()
     {
         using var fixture = Server();

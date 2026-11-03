@@ -27,7 +27,7 @@ namespace Rimlink.Server.Application.Live;
 /// The host's report ends either kind through <see cref="RaidService.Report"/> or <see cref="ReportVisit"/>.
 /// </summary>
 public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, RaidRules rules, ParcelValidator validator, MailboxService mailbox,
-    SessionRegistry registry, EventBus events, AdminFeed feed, LiveRelay relay, LiveStateLock stateLock, IOptions<LiveOptions> options, IOptions<RaidOptions> raidOptions, ILogger<LiveSessionService> log)
+    SessionRegistry registry, EventBus events, AdminFeed feed, LiveRelay relay, LiveStateLock stateLock, IOptions<LiveOptions> options, IOptions<RaidOptions> raidOptions, ILogger<LiveSessionService> log, TransferService transfers)
 {
     public static readonly LiveStateDb[] FinalStates = [LiveStateDb.Ended, LiveStateDb.Fallback];
 
@@ -74,6 +74,7 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
 
         var session = new LiveSessionRow { Kind = (int)p.Kind, HostPlayerId = host.Id, GuestPlayerId = guestId, State = LiveStateDb.Proposed, CreatedAt = DateTime.UtcNow,
             ClientRequestId = string.IsNullOrEmpty(p.ClientRequestId) ? null : p.ClientRequestId };
+        await using var visitTx = p.Kind == LiveKind.LiveVisit ? await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable) : null;
         if (p.Kind == LiveKind.LiveRaid)
         {
             // The raid row carries the escrow, the rules and the attacker's active-raid slot; Launch stamps LastOutgoingTick.
@@ -92,10 +93,11 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
         else
         {
             session.Pawns = p.Pawns.ToByteArray();
-            if (p.GameTick > guest.LastOutgoingTick) guest.LastOutgoingTick = p.GameTick; // the pawns left the guest's game
+            await transfers.StampOutgoing(guestId, p.GameTick);
         }
         db.LiveSessions.Add(session);
         await db.SaveChangesAsync();
+        if (visitTx is not null) await visitTx.CommitAsync();
         LiveMetrics.Proposed.WithLabels(p.Kind.ToString()).Inc();
         log.LogInformation("Player {Guest} proposed a {Kind} to player {Host} (live session {Id})", guestId, p.Kind, host.Id, session.Id);
 
@@ -163,7 +165,6 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
             session.State = LiveStateDb.Ended;
             session.EndReason = (int)LiveEndReason.EndGuestCancelled;
             session.EndedAt = DateTime.UtcNow;
-            await db.SaveChangesAsync();
             await ReturnEscrow(session, "live session cancelled");
             LiveMetrics.Ended(session);
             events.SendTo(session.HostPlayerId, new ServerEvent { LiveEnded = new LiveEnded { Session = await ToProto(session) } });
@@ -190,9 +191,9 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
     {
         session.State = LiveStateDb.Fallback;
         session.EndedAt = DateTime.UtcNow;
-        await db.SaveChangesAsync();
         if (session.RaidId is { } raidId) await raids.HandOverToAi(raidId);
         else await ReturnEscrow(session, "live visit declined");
+        await db.SaveChangesAsync();
         LiveMetrics.Ended(session);
         events.SendTo(session.GuestPlayerId, new ServerEvent { LiveFallback = new LiveFallback { Session = await ToProto(session) } });
         log.LogInformation("Live session {Id} fell back to 3a", session.Id);
@@ -202,14 +203,28 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
     {
         if (session.RaidId is { } raidId)
         {
+            // The raid transaction saves this tracked terminal live state with its own escrow return.
             await raids.Cancel(raidId, reason, returnPawns: true);
+            await db.SaveChangesAsync();
             return;
         }
-        if (session.Pawns is not { Length: > 0 }) return;
-        var parcel = await mailbox.Create(session.GuestPlayerId, null, ParcelKindDb.RaidReturn, null, PawnList.Parser.ParseFrom(session.Pawns), 0, null, ignoreMailboxLimit: true);
+        Parcel? parcel = null;
+        await using (var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable))
+        {
+            parcel = await StageVisitReturn(session);
+            await db.SaveChangesAsync();
+            await tx.CommitAsync();
+        }
+        if (parcel is not null) await mailbox.Announce(parcel);
+    }
+
+    private async Task<Parcel?> StageVisitReturn(LiveSessionRow session)
+    {
+        Parcel? parcel = session.Pawns is { Length: > 0 }
+            ? await mailbox.Create(session.GuestPlayerId, null, ParcelKindDb.RaidReturn, null, PawnList.Parser.ParseFrom(session.Pawns), 0, null, ignoreMailboxLimit: true)
+            : null;
         session.Pawns = null;
-        await db.SaveChangesAsync();
-        await mailbox.Announce(parcel);
+        return parcel;
     }
 
     /// <summary>The session a stream may attach to, or LIVE_GONE: the player must be its host or guest and it must be open.</summary>
@@ -316,6 +331,20 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
         using var held = await stateLock.Hold();
         var session = await db.LiveSessions.FirstOrDefaultAsync(s => s.Id == sessionId);
         if (session is null || session.State != LiveStateDb.Ending) return;
+        if (session.RaidId is null)
+        {
+            Parcel? parcel;
+            await using (var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable))
+            {
+                parcel = await StageVisitReturn(session);
+                SetClosed(session);
+                await db.SaveChangesAsync();
+                await tx.CommitAsync();
+            }
+            if (parcel is not null) await mailbox.Announce(parcel);
+            await AnnounceClosed(session, announced: true);
+            return;
+        }
         await ReturnEscrow(session, "live session closed by an admin");
         await Close(session);
     }
@@ -360,30 +389,42 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
         for (int i = 0; i < count; i++) if (!seen.Contains(i)) survivors.Pawns.Add(escrow.Pawns[i]);
 
         Parcel? parcel = null;
+        bool announced = session.State == LiveStateDb.Ending;
         await using (var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable))
         {
             await db.Entry(session).ReloadAsync();
             if (FinalStates.Contains(session.State)) return;
+            await transfers.RequireCurrentSession(hostId);
             if (survivors.Pawns.Count > 0)
                 parcel = await mailbox.Create(session.GuestPlayerId, hostId, ParcelKindDb.RaidReturn, null, survivors, 0, null, ignoreMailboxLimit: true);
             session.Pawns = null;
-            var host = await db.Players.FirstAsync(x => x.Id == hostId);
-            if (r.GameTick > host.LastOutgoingTick) host.LastOutgoingTick = r.GameTick; // the visitors left the host's save
+            SetClosed(session);
+            await transfers.StampOutgoing(hostId, r.GameTick);
             db.Transfers.Add(new Transfer { FromPlayerId = hostId, ToPlayerId = session.GuestPlayerId, Kind = "live-visit", GameTick = r.GameTick, Summary = $"live visit {session.Id}: {survivors.Pawns.Count} pawns home", At = DateTime.UtcNow });
             await db.SaveChangesAsync();
             await tx.CommitAsync();
         }
         if (parcel is not null) await mailbox.Announce(parcel);
-        await Close(session);
+        await AnnounceClosed(session, announced);
+    }
+
+    private static void SetClosed(LiveSessionRow session)
+    {
+        session.State = LiveStateDb.Ended;
+        session.EndReason ??= (int)LiveEndReason.EndNormal;
+        session.EndedAt = DateTime.UtcNow;
     }
 
     private async Task Close(LiveSessionRow session)
     {
         bool announced = session.State == LiveStateDb.Ending;
-        session.State = LiveStateDb.Ended;
-        session.EndReason ??= (int)LiveEndReason.EndNormal;
-        session.EndedAt = DateTime.UtcNow;
+        SetClosed(session);
         await db.SaveChangesAsync();
+        await AnnounceClosed(session, announced);
+    }
+
+    private async Task AnnounceClosed(LiveSessionRow session, bool announced)
+    {
         LiveMetrics.Ended(session);
         var proto = await ToProto(session);
         events.SendTo(session.GuestPlayerId, new ServerEvent { LiveEnded = new LiveEnded { Session = proto } });

@@ -18,6 +18,13 @@ raid or manage a colony together live.
 Rimlink is a clean-room project with its own protocol, server and client. It shares no code with other RimWorld multiplayer
 mods and does not work with them.
 
+## Upcoming 0.8.1
+
+Snapshot recovery keeps transfers and deliveries tied to the exact saved colony, including two saves on the same game
+tick. Uploads use immutable files in order; restoring a server backup fences off the previously loaded colony. Mailbox,
+raids and live-session recovery continue independently when trading is frozen. Ambiguous interrupted transfers are
+preserved for manual recovery instead of being replayed or returned speculatively.
+
 ## What's new in 0.8.0
 
 [Release 0.8.0](https://github.com/Asofwar/rimlink/releases/tag/v0.8.0) adds

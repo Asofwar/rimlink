@@ -79,6 +79,8 @@ public sealed class Player
     /// <summary>Changes on reset: old local saves cannot become this colony's first version.</summary>
     public long SaveGeneration { get; set; }
     // Raids and visits (sub-project 3a).
+    public long SaveWriteEpoch { get; set; }
+    public uint RecoveryVersion { get; set; }
     public bool Peaceful { get; set; }
     /// <summary>While set and in the future the player still counts as peaceful (switching off is delayed).</summary>
     public DateTime? PeacefulOffAt { get; set; }
@@ -201,6 +203,12 @@ public sealed class SaveVersion
     /// <summary>Colony wealth reported with this save; 0 for versions stored before it was kept per version.</summary>
     public long WealthTotal { get; set; }
     public long WealthItems { get; set; }
+    public string? SnapshotId { get; set; }
+    public long SaveGeneration { get; set; }
+    public long SaveWriteEpoch { get; set; }
+    public uint RecoveryVersion { get; set; }
+    public byte[]? RawSha256 { get; set; }
+    public string? RecoveryJson { get; set; }
 }
 
 public enum ParcelKindDb { Gift = 0, Purchase = 1, LotReturn = 2, Withdraw = 3, Admin = 4, Loot = 5, RaidReturn = 6, Captive = 7, GiftReturn = 8, Trade = 9, TradeReturn = 10 }
@@ -245,6 +253,11 @@ public sealed class Parcel
     public DateTime? DeliveredAt { get; set; }
     public long? DeliveredTick { get; set; }
     public string? ClientRequestId { get; set; }
+    public long? RequestActorId { get; set; }
+    public string? RequestKind { get; set; }
+    public byte[]? RequestIntent { get; set; }
+    public uint DeliveryRecoveryVersion { get; set; }
+    public long? DeliveredGeneration { get; set; }
     public ParcelDecisionDb Decision { get; set; }
 }
 
@@ -265,6 +278,7 @@ public sealed class Trade
     public string? CloseReason { get; set; }
     /// <summary>The initiator's <c>Open</c> request, to make its repeat a no-op.</summary>
     public string? ClientRequestId { get; set; }
+    public byte[]? RequestIntent { get; set; }
     public byte[] InitiatorItems { get; set; } = [];
     public byte[] InitiatorPawns { get; set; } = [];
     public long InitiatorSilver { get; set; }
@@ -299,6 +313,7 @@ public sealed class Lot
     public long? BuyerPlayerId { get; set; }
     public DateTime? ClosedAt { get; set; }
     public string? ClientRequestId { get; set; }
+    public byte[]? RequestIntent { get; set; }
 }
 
 /// <summary>Ledger of everything that moved between players, with the sender's save tick.</summary>
@@ -313,6 +328,8 @@ public sealed class Transfer
     public DateTime At { get; set; }
     /// <summary>Set for client-initiated operations without a parcel or lot of their own (deposits), to make repeats no-ops.</summary>
     public string? ClientRequestId { get; set; }
+    public byte[]? RequestIntent { get; set; }
+    public long? RequestTargetId { get; set; }
 }
 
 /// <summary>ThingDef/PawnKindDef names of the server modpack; empty table = blob def check off.</summary>

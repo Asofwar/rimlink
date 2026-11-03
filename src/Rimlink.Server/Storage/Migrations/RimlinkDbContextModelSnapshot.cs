@@ -876,6 +876,9 @@ namespace Rimlink.Server.Storage.Migrations
                     b.Property<long>("Price")
                         .HasColumnType("INTEGER");
 
+                    b.Property<byte[]>("RequestIntent")
+                        .HasColumnType("BLOB");
+
                     b.Property<long>("SellerPlayerId")
                         .HasColumnType("INTEGER");
 
@@ -884,11 +887,11 @@ namespace Rimlink.Server.Storage.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ClientRequestId")
+                    b.HasIndex("SellerPlayerId");
+
+                    b.HasIndex("SellerPlayerId", "ClientRequestId")
                         .IsUnique()
                         .HasFilter("\"ClientRequestId\" IS NOT NULL");
-
-                    b.HasIndex("SellerPlayerId");
 
                     b.HasIndex("Status", "ExpiresAt");
 
@@ -1046,7 +1049,13 @@ namespace Rimlink.Server.Storage.Migrations
                     b.Property<DateTime?>("DeliveredAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<long?>("DeliveredGeneration")
+                        .HasColumnType("INTEGER");
+
                     b.Property<long?>("DeliveredTick")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<uint>("DeliveryRecoveryVersion")
                         .HasColumnType("INTEGER");
 
                     b.Property<long?>("FromPlayerId")
@@ -1063,6 +1072,15 @@ namespace Rimlink.Server.Storage.Migrations
                         .IsRequired()
                         .HasColumnType("BLOB");
 
+                    b.Property<long?>("RequestActorId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<byte[]>("RequestIntent")
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("RequestKind")
+                        .HasColumnType("TEXT");
+
                     b.Property<long>("Silver")
                         .HasColumnType("INTEGER");
 
@@ -1074,11 +1092,11 @@ namespace Rimlink.Server.Storage.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ClientRequestId")
+                    b.HasIndex("ToPlayerId", "DeliveredAt");
+
+                    b.HasIndex("RequestActorId", "RequestKind", "ClientRequestId")
                         .IsUnique()
                         .HasFilter("\"ClientRequestId\" IS NOT NULL");
-
-                    b.HasIndex("ToPlayerId", "DeliveredAt");
 
                     b.ToTable("parcels", (string)null);
                 });
@@ -1162,7 +1180,13 @@ namespace Rimlink.Server.Storage.Migrations
                     b.Property<DateTime?>("PeacefulOffAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<uint>("RecoveryVersion")
+                        .HasColumnType("INTEGER");
+
                     b.Property<long>("SaveGeneration")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("SaveWriteEpoch")
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("TradesClosed")
@@ -1351,12 +1375,30 @@ namespace Rimlink.Server.Storage.Migrations
                     b.Property<long>("PlayerId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<byte[]>("RawSha256")
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("RecoveryJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<uint>("RecoveryVersion")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("SaveGeneration")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("SaveWriteEpoch")
+                        .HasColumnType("INTEGER");
+
                     b.Property<byte[]>("Sha256")
                         .IsRequired()
                         .HasColumnType("BLOB");
 
                     b.Property<long>("Size")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("SnapshotId")
+                        .HasColumnType("TEXT");
 
                     b.Property<long>("WealthItems")
                         .HasColumnType("INTEGER");
@@ -1368,6 +1410,10 @@ namespace Rimlink.Server.Storage.Migrations
 
                     b.HasIndex("PlayerId", "Number")
                         .IsUnique();
+
+                    b.HasIndex("PlayerId", "SnapshotId")
+                        .IsUnique()
+                        .HasFilter("\"SnapshotId\" IS NOT NULL");
 
                     b.ToTable("save_versions", (string)null);
                 });
@@ -1512,6 +1558,9 @@ namespace Rimlink.Server.Storage.Migrations
                     b.Property<long>("PartnerSilver")
                         .HasColumnType("INTEGER");
 
+                    b.Property<byte[]>("RequestIntent")
+                        .HasColumnType("BLOB");
+
                     b.Property<int>("Revision")
                         .HasColumnType("INTEGER");
 
@@ -1520,15 +1569,15 @@ namespace Rimlink.Server.Storage.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ClientRequestId")
-                        .IsUnique()
-                        .HasFilter("\"ClientRequestId\" IS NOT NULL");
-
                     b.HasIndex("InitiatorPlayerId");
 
                     b.HasIndex("PartnerPlayerId");
 
                     b.HasIndex("Status");
+
+                    b.HasIndex("InitiatorPlayerId", "ClientRequestId")
+                        .IsUnique()
+                        .HasFilter("\"ClientRequestId\" IS NOT NULL");
 
                     b.ToTable("trades", (string)null);
                 });
@@ -1555,6 +1604,12 @@ namespace Rimlink.Server.Storage.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<byte[]>("RequestIntent")
+                        .HasColumnType("BLOB");
+
+                    b.Property<long?>("RequestTargetId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Summary")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -1564,11 +1619,11 @@ namespace Rimlink.Server.Storage.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ClientRequestId")
+                    b.HasIndex("FromPlayerId");
+
+                    b.HasIndex("FromPlayerId", "Kind", "ClientRequestId")
                         .IsUnique()
                         .HasFilter("\"ClientRequestId\" IS NOT NULL");
-
-                    b.HasIndex("FromPlayerId");
 
                     b.ToTable("transfers", (string)null);
                 });

@@ -58,7 +58,7 @@ public sealed class ModpackDeliveryFlowTests
         Assert.False(installer.VerifyAfterRestart(loaded, sharedHashes, roots, false));
         Assert.False(installer.VerifyAfterRestart(loaded, [], roots, true)); // A previously unknown handle is mandatory, not filtered out.
         using var channel = fixture.Server.CreateChannel(); var auth = new Auth.AuthClient(channel);
-        var mismatch = await auth.RegisterAsync(new RegisterRequest { Login = "nova", Password = "pw", PlayerName = "Nova" });
+        var mismatch = await auth.RegisterAsync(new RegisterRequest { Login = "nova", Password = "pw", PlayerName = "Nova", ServerPassword = "test-password" });
         Assert.Empty(mismatch.SessionToken);
         var request = new LoginRequest { ProtocolVersion = ProtocolVersion.Current, Password = new() { Login = "nova", Password = "pw" }, ServerPassword = "test-password" }; request.Mods.AddRange(loaded); request.ModSettings.AddRange(sharedHashes);
         var login = await auth.LoginAsync(request); Assert.NotEmpty(login.SessionToken);

@@ -38,6 +38,7 @@ public sealed class SessionRegistry
                 Role = account.Role,
                 Ip = ip,
                 PlayerName = player.Name,
+                SaveWriteEpoch = player.SaveWriteEpoch,
             };
             byToken[session.Token] = session;
             if (replaced is null) SessionStarted?.Invoke(session);

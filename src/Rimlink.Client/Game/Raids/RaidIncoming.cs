@@ -34,7 +34,10 @@ public static class RaidIncoming
     {
         if (DateTime.UtcNow - lastAttempt < TimeSpan.FromSeconds(5)) return;
         lastAttempt = DateTime.UtcNow;
-        if (!RimlinkSession.Active || Visits.VisitSession.InVisit || RimlinkSession.Raids is not { } raids || Current.ProgramState != ProgramState.Playing) return;
+        if (!RimlinkSession.Active || Visits.VisitSession.InVisit || RimlinkSession.Raids is not { } raids || Current.ProgramState != ProgramState.Playing || SaveSync.WritesBlocked || SaveSync.IsSaving) return;
+        var connection = RimlinkSession.Connection!;
+        var authentication = connection.Login;
+        var game = Current.Game;
         var map = Find.CurrentMap;
         if (map is null || !map.IsPlayerHome) return;
         var component = Current.Game.GetComponent<RimlinkGameComponent>();
@@ -57,17 +60,22 @@ public static class RaidIncoming
                     try
                     {
                         var full = await raids.Get(id, CancellationToken.None);
-                        MainThread.Post(() => Land(full, map, raids));
+                        MainThread.Post(() =>
+                        {
+                            if (RimlinkSession.Connection == connection && ReferenceEquals(connection.Login, authentication) && Current.Game == game)
+                                Land(full, map, raids);
+                        });
                     }
                     catch (RpcException ex) when (EconomyClient.CodeOf(ex) == ErrorCode.RaidGone || ex.StatusCode == StatusCode.NotFound)
                     {
                         RimlinkLog.Instance.Warn($"raid {id} is gone before landing: {EconomyClient.MessageOf(ex)}");
-                        MainThread.Post(() => { busy.Remove(id); RimlinkSession.State.Raids.MarkLanded(id); });
+                        MainThread.Post(() => { if (RimlinkSession.Connection == connection && Current.Game == game)
+                            { busy.Remove(id); RimlinkSession.State.Raids.MarkLanded(id); } });
                     }
                     catch (Exception ex)
                     {
                         RimlinkLog.Instance.Warn($"raid {id} could not be fetched, retrying: {ex.Message}");
-                        MainThread.Post(() => busy.Remove(id));
+                        MainThread.Post(() => { if (RimlinkSession.Connection == connection && Current.Game == game) busy.Remove(id); });
                     }
                 });
             }
@@ -76,15 +84,19 @@ public static class RaidIncoming
 
     private static void Announce(Rimlink.Client.Raids.RaidClient raids, Raid raid)
     {
+        var connection = RimlinkSession.Connection!;
+        var authentication = connection.Login!;
+        var game = Current.Game;
         long id = raid.Id;
         long tick = Find.TickManager.TicksGame;
         _ = Task.Run(async () =>
         {
             try
             {
-                var updated = await raids.Announce(id, tick, CancellationToken.None);
+                var updated = await connection.ForAuthentication(authentication, () => raids.Announce(id, tick, CancellationToken.None));
                 MainThread.Post(() =>
                 {
+                    if (RimlinkSession.Connection != connection || !ReferenceEquals(connection.Login, authentication) || Current.Game != game) return;
                     RimlinkSession.State.Raids.Update(updated);
                     if (updated.Timing == RaidTiming.TimingWarned)
                     {
@@ -112,7 +124,7 @@ public static class RaidIncoming
     {
         long id = raid.Id;
         busy.Remove(id);
-        if (!RimlinkSession.Active || Visits.VisitSession.InVisit || Current.ProgramState != ProgramState.Playing || !Find.Maps.Contains(map) || landedThisSession.Contains(id)) return;
+        if (!RimlinkSession.Active || Visits.VisitSession.InVisit || Current.ProgramState != ProgramState.Playing || !Find.Maps.Contains(map) || landedThisSession.Contains(id) || SaveSync.WritesBlocked) return;
         var component = Current.Game.GetComponent<RimlinkGameComponent>();
         if (component.ActiveRaids.Any(a => a.RaidId == id)) return;
         if (raid.State is not (RaidState.RaidAnnounced or RaidState.RaidQueued))
@@ -140,59 +152,46 @@ public static class RaidIncoming
             return;
         }
 
-        var lord = LordMaker.MakeNewLord(faction, new LordJob_AssaultColony(faction, canKidnap: raid.AllowKidnap, canTimeoutOrFlee: true, sappers: false, useAvoidGridSmart: true, canSteal: true), map, pawns);
-        IntVec3 center;
-        if (raid.Arrival == RaidArrival.ArrivalPods)
-        {
-            center = DropCellFinder.FindRaidDropCenterDistant(map);
-            DropPodUtility.DropThingsNear(center, map, pawns, openDelay: 110, canInstaDropDuringInit: false, leaveSlag: true, canRoofPunch: true, forbid: false);
-        }
-        else
-        {
-            if (!RCellFinder.TryFindRandomPawnEntryCell(out center, map, CellFinder.EdgeRoadChance_Hostile)) center = CellFinder.RandomEdgeCell(map);
-            foreach (var pawn in pawns) GenSpawn.Spawn(pawn, CellFinder.RandomClosewalkCellNear(center, map, 6), map);
-        }
-        landedThisSession.Add(id);
-        string from = raid.Attacker?.Name ?? "?";
-        Find.LetterStack.ReceiveLetter("Rimlink.Raid.LandedLabel".Translate(from), "Rimlink.Raid.Landed".Translate(from, pawns.Count), LetterDefOf.ThreatBig, new LookTargets(center, map));
-        RimlinkLog.Instance.Info($"raid {id} landed: {pawns.Count} raiders ({raid.Arrival})");
-
         long tick = Find.TickManager.TicksGame;
-        component.ActiveRaids.Add(new ActiveRaid
+        var entry = RimlinkSession.Outbox!.Prepare(new RaidTick { RaidId = id, GameTick = tick });
+        try
         {
-            RaidId = id,
-            AttackerPlayerId = raid.Attacker?.PlayerId ?? 0,
-            AttackerName = from,
-            Lord = lord,
-            LandedTick = tick,
-            PawnIds = pawns.Select(p => p.thingIDNumber).ToList(),
-            ArrivedThingIds = pawns.SelectMany(RaidResolver.ArrivalLoadIds).ToList(),
-            PawnMode = (int)raid.PawnMode,
-            LootCap = raid.LootCap,
-            AllowKidnap = raid.AllowKidnap,
-        });
-        RimlinkSession.State.Raids.MarkLanded(id);
+            var lord = LordMaker.MakeNewLord(faction, new LordJob_AssaultColony(faction, canKidnap: raid.AllowKidnap, canTimeoutOrFlee: true, sappers: false, useAvoidGridSmart: true, canSteal: true), map, pawns);
+            IntVec3 center;
+            if (raid.Arrival == RaidArrival.ArrivalPods)
+            {
+                center = DropCellFinder.FindRaidDropCenterDistant(map);
+                DropPodUtility.DropThingsNear(center, map, pawns, openDelay: 110, canInstaDropDuringInit: false, leaveSlag: true, canRoofPunch: true, forbid: false);
+            }
+            else
+            {
+                if (!RCellFinder.TryFindRandomPawnEntryCell(out center, map, CellFinder.EdgeRoadChance_Hostile)) center = CellFinder.RandomEdgeCell(map);
+                foreach (var pawn in pawns) GenSpawn.Spawn(pawn, CellFinder.RandomClosewalkCellNear(center, map, 6), map);
+            }
+            landedThisSession.Add(id);
+            string from = raid.Attacker?.Name ?? "?";
+            Find.LetterStack.ReceiveLetter("Rimlink.Raid.LandedLabel".Translate(from), "Rimlink.Raid.Landed".Translate(from, pawns.Count), LetterDefOf.ThreatBig, new LookTargets(center, map));
+            RimlinkLog.Instance.Info($"raid {id} landed: {pawns.Count} raiders ({raid.Arrival})");
 
-        var outbox = RimlinkSession.Outbox;
-        var entry = outbox?.Add(new RaidTick { RaidId = id, GameTick = tick });
-        _ = Task.Run(async () =>
-        {
-            try
+            component.ActiveRaids.Add(new ActiveRaid
             {
-                await raids.Land(id, tick, CancellationToken.None);
-                if (entry is not null) outbox!.Remove(entry.Id);
-            }
-            catch (RpcException ex) when (TransferOutbox.IsDefinitive(ex))
-            {
-                RimlinkLog.Instance.Warn($"landing of raid {id} refused ({EconomyClient.MessageOf(ex)}); the raiders stay");
-                if (entry is not null) outbox!.Remove(entry.Id);
-            }
-            catch (Exception ex)
-            {
-                RimlinkLog.Instance.Warn($"landing of raid {id} unconfirmed, kept in the outbox: {ex.Message}");
-            }
-            MainThread.Post(() => SaveSync.TriggerSave("raid-landed"));
-        });
+                RaidId = id,
+                AttackerPlayerId = raid.Attacker?.PlayerId ?? 0,
+                AttackerName = from,
+                Lord = lord,
+                LandedTick = tick,
+                PawnIds = pawns.Select(p => p.thingIDNumber).ToList(),
+                ArrivedThingIds = pawns.SelectMany(RaidResolver.ArrivalLoadIds).ToList(),
+                PawnMode = (int)raid.PawnMode,
+                LootCap = raid.LootCap,
+                AllowKidnap = raid.AllowKidnap,
+            });
+            component.RemovedOperations.Add(entry.Id); // the persisted raid is the proof needed before acknowledging its landing
+            RimlinkSession.State.Raids.MarkLanded(id);
+            SaveSync.TriggerSave("raid-landed");
+            RimlinkSession.RecoveryNeeded = true;
+        }
+        catch { SaveSync.BlockWrites(); RimlinkGameComponent.AbortToMenu(); throw; }
     }
 }
 

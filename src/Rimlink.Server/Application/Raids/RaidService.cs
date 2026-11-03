@@ -22,7 +22,7 @@ namespace Rimlink.Server.Application.Raids;
 /// became of them; the server only validates and moves parcels.
 /// </summary>
 public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, RaidReportValidator reports, MailboxService mailbox, RaidGate gate, RaidRules rules,
-    Economy.PlayerFreeze freezes, EventBus events, AdminFeed feed, IOptions<RaidOptions> options, ILogger<RaidService> log, ServerWealth wealth)
+    Economy.PlayerFreeze freezes, EventBus events, AdminFeed feed, IOptions<RaidOptions> options, ILogger<RaidService> log, ServerWealth wealth, TransferService transfers)
 {
     private static readonly RaidStateDb[] FinalStates = [RaidStateDb.Resolved, RaidStateDb.Expired, RaidStateDb.Cancelled];
     private static readonly RaidStateDb[] PendingStates = [RaidStateDb.Queued, RaidStateDb.Announced];
@@ -44,6 +44,7 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
             if (existing is not null) return existing;
         }
         await freezes.Require(attackerId); // raiders carry loot home: a frozen player starts none (after the replay lookup, as in EconomyGate)
+        await transfers.RequireCurrentSession(attackerId);
         var attacker = await db.Players.FirstAsync(p => p.Id == attackerId);
         var target = await db.Players.FirstOrDefaultAsync(p => p.Id == r.TargetPlayerId)
             ?? throw RpcErrors.Failed(ErrorCode.RecipientUnknown, RefusalKeys.NoSuchPlayer, "no such player");
@@ -67,7 +68,7 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
         };
         db.Raids.Add(raid);
         // Real pawns left the attacker's game: a save older than this one would bring them back.
-        if (r.PawnMode == PawnMode.PawnReal && r.GameTick > attacker.LastOutgoingTick) attacker.LastOutgoingTick = r.GameTick;
+        if (r.PawnMode == PawnMode.PawnReal) await transfers.StampOutgoing(attackerId, r.GameTick);
         db.Transfers.Add(new Transfer { FromPlayerId = attackerId, ToPlayerId = target.Id, Kind = "raid", GameTick = r.GameTick, Summary = TransferService.Summary(null, r.Pawns, 0), At = now });
         await db.SaveChangesAsync();
         await tx.CommitAsync();
@@ -112,6 +113,7 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
         if (raid.Controller == (int)RaidController.ControllerLive) throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.Unspecified, RefusalKeys.RaidsLiveNotAnnounced, "a live raid is not announced");
         if (raid.State == RaidStateDb.Queued)
         {
+            await transfers.RequireCurrentSession(targetId);
             gate.RequireOpen();
             raid.State = RaidStateDb.Announced;
             raid.AnnouncedTick = gameTick;
@@ -129,6 +131,7 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
         await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
         var raid = await TargetRaid(targetId, raidId);
         if (raid.State == RaidStateDb.Landed) return;
+        await transfers.RequireCurrentSession(targetId);
         if (raid.Controller == (int)RaidController.ControllerLive) throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.Unspecified, RefusalKeys.RaidsLiveDoesNotLand, "a live raid does not land");
         if (raid.State != RaidStateDb.Announced) throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.Unspecified, RefusalKeys.RaidsNotAnnounced, "the raid has not been announced");
         raid.State = RaidStateDb.Landed;
@@ -136,7 +139,7 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
         // The defender now has the full window to report; a landed raid nobody reports expires like a queued one.
         raid.ExpiresAt = DateTime.UtcNow + TimeSpan.FromDays(options.Value.ExpireRealDays);
         var target = await db.Players.FirstAsync(p => p.Id == targetId);
-        if (gameTick > target.LastOutgoingTick) target.LastOutgoingTick = gameTick;
+        await transfers.StampOutgoing(targetId, gameTick);
         await db.SaveChangesAsync();
         await tx.CommitAsync();
 
@@ -168,6 +171,7 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
         {
             var raid = await TargetRaid(targetId, r.RaidId, allowResolved: true);
             if (raid.State == RaidStateDb.Resolved) return null;
+            await transfers.RequireCurrentSession(targetId);
             // A live raid never lands through the 3a pipeline: its guests were spawned by the host's game straight from Queued.
             bool live = raid.Controller == (int)RaidController.ControllerLive && raid.State == RaidStateDb.Queued;
             if (raid.State != RaidStateDb.Landed && !live) throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.Unspecified, RefusalKeys.RaidsNotLanded, "the raid has not landed");
@@ -209,8 +213,7 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
                 parcels.Add(await mailbox.Create(attackerId, targetId, ParcelKindDb.Captive, null, r.Captives, 0, null, ignoreMailboxLimit: true));
 
             // Loot and survivors left the defender's game: a save older than this one would bring them back.
-            var target = await db.Players.FirstAsync(p => p.Id == targetId);
-            if (r.GameTick > target.LastOutgoingTick) target.LastOutgoingTick = r.GameTick;
+            await transfers.StampOutgoing(targetId, r.GameTick);
             db.Transfers.Add(new Transfer { FromPlayerId = targetId, ToPlayerId = attackerId, Kind = "raid-report", GameTick = r.GameTick, Summary = $"raid {raid.Id}: {summary}", At = DateTime.UtcNow });
             await db.SaveChangesAsync();
             await tx.CommitAsync();

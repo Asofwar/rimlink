@@ -38,6 +38,7 @@ message LoginRequest {
   repeated ModRef mods = 5;
   // Every Mod class of the running mods; the server compares the ones whose settings it shares.
   repeated ModSettingsHash mod_settings = 6;
+  uint32 recovery_version = 7;
 }
 
 message RegisterRequest {
@@ -47,6 +48,8 @@ message RegisterRequest {
   // Registration logs the new account in, so it is checked against the modpack like a login.
   repeated ModRef mods = 4;
   repeated ModSettingsHash mod_settings = 5;
+  uint32 recovery_version = 6;
+  string server_password = 7;
 }
 
 message AtHomeRequest { bool at_home = 1; bool coop_capable = 2; }
@@ -70,6 +73,8 @@ message LoginReply {
   ColonyRestore colony_restore = 11;
   // Changes when the colony is reset; a local save belongs to the generation stored in its XML.
   int64 save_generation = 12;
+  int64 save_write_epoch = 13;
+  uint32 recovery_version = 14;
 }
 
 message ColonyRestore {

@@ -22,7 +22,7 @@ namespace Rimlink.Server.Application.Visits;
 /// the visitor (checked against the host's descriptor); the host's game removes the sold thing at its next login.
 /// </summary>
 public sealed class ShopService(RimlinkDbContext db, WalletService wallet, MailboxService mailbox, VisitService visits, EconomyGate gate,
-    EventBus events, AdminFeed feed, IOptions<EconomyOptions> options, ILogger<ShopService> log)
+    EventBus events, AdminFeed feed, IOptions<EconomyOptions> options, ILogger<ShopService> log, TransferService transfers)
 {
     /// <summary>Replaces the host's unsold list. Sold rows and rows with an unacknowledged removal stay as they are, so a list from an older save cannot resurrect them.</summary>
     public async Task Publish(long hostId, ShopList list)
@@ -34,6 +34,7 @@ public sealed class ShopService(RimlinkDbContext db, WalletService wallet, Mailb
             return;
         }
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+        await transfers.RequireCurrentSession(hostId);
         var rows = await db.ShopItems.Where(s => s.HostPlayerId == hostId).ToDictionaryAsync(s => s.ThingId);
         var frozen = (await db.PendingRemovals.Where(r => r.HostPlayerId == hostId && r.AckedAt == null).Select(r => r.ThingId).ToListAsync()).ToHashSet();
         var incoming = new HashSet<long>();
@@ -73,6 +74,7 @@ public sealed class ShopService(RimlinkDbContext db, WalletService wallet, Mailb
 
     public async Task<Parcel> Buy(long buyerId, BuyRequest r)
     {
+        if (await RequestIdentity.Parcel(db, buyerId, "shop.buy", r.ClientRequestId, r) is { } done) return done;
         gate.RequireOpen();
         if (r.HostPlayerId == buyerId) throw RpcErrors.Failed(ErrorCode.SelfTrade, RefusalKeys.ShopSelf, "you cannot buy from yourself");
         if (r.Count < 1) throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.ShopCountTooLow, "count must be at least 1");
@@ -84,11 +86,7 @@ public sealed class ShopService(RimlinkDbContext db, WalletService wallet, Mailb
         string itemLabel;
         await using (var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable))
         {
-            if (!string.IsNullOrEmpty(r.ClientRequestId))
-            {
-                var existing = await db.Parcels.AsNoTracking().FirstOrDefaultAsync(p => p.ClientRequestId == r.ClientRequestId);
-                if (existing is not null) return existing;
-            }
+            if (await RequestIdentity.Parcel(db, buyerId, "shop.buy", r.ClientRequestId, r) is { } existing) return existing;
             await gate.RequireNotFrozen(buyerId);
             await gate.RequireSellerOpen(r.HostPlayerId);
             var row = await db.ShopItems.FirstOrDefaultAsync(s => s.HostPlayerId == r.HostPlayerId && s.ThingId == r.ThingId);
@@ -108,6 +106,7 @@ public sealed class ShopService(RimlinkDbContext db, WalletService wallet, Mailb
             db.PendingRemovals.Add(new PendingRemoval { HostPlayerId = r.HostPlayerId, ThingId = r.ThingId, Count = r.Count, CreatedAt = DateTime.UtcNow });
             parcel = await mailbox.Create(buyerId, r.HostPlayerId, ParcelKindDb.Purchase, new ItemList { Items = { r.Blob } }, null, 0,
                 string.IsNullOrEmpty(r.ClientRequestId) ? null : r.ClientRequestId);
+            parcel.RequestIntent = RequestIdentity.Hash(r);
             db.Transfers.Add(new Transfer { FromPlayerId = buyerId, ToPlayerId = r.HostPlayerId, Kind = "buy", GameTick = 0, Summary = $"{r.Count}x {row.DefName} @ {row.Price} (shop)", At = DateTime.UtcNow });
             await db.SaveChangesAsync();
             await tx.CommitAsync();
@@ -134,10 +133,12 @@ public sealed class ShopService(RimlinkDbContext db, WalletService wallet, Mailb
     public async Task Ack(long hostId, IEnumerable<long> ids, long gameTick)
     {
         var list = ids.ToList();
+        await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+        if (!await db.PendingRemovals.AnyAsync(p => p.HostPlayerId == hostId && list.Contains(p.Id) && p.AckedAt == null)) return;
+        await transfers.StampOutgoing(hostId, gameTick);
         await db.PendingRemovals.Where(p => p.HostPlayerId == hostId && list.Contains(p.Id) && p.AckedAt == null).ExecuteUpdateAsync(s => s.SetProperty(p => p.AckedAt, DateTime.UtcNow));
-        var host = await db.Players.FirstAsync(p => p.Id == hostId);
-        if (gameTick > host.LastOutgoingTick) host.LastOutgoingTick = gameTick;
         await db.SaveChangesAsync();
+        await tx.CommitAsync();
     }
 
     public async Task ClearOf(long hostId)

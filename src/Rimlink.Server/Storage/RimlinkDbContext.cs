@@ -83,6 +83,7 @@ public sealed class RimlinkDbContext(DbContextOptions<RimlinkDbContext> options)
         {
             e.ToTable("save_versions");
             e.HasIndex(s => new { s.PlayerId, s.Number }).IsUnique();
+            e.HasIndex(s => new { s.PlayerId, s.SnapshotId }).IsUnique().HasFilter("\"SnapshotId\" IS NOT NULL");
         });
         model.Entity<AdminAction>(e =>
         {
@@ -111,14 +112,14 @@ public sealed class RimlinkDbContext(DbContextOptions<RimlinkDbContext> options)
         {
             e.ToTable("parcels");
             e.HasIndex(p => new { p.ToPlayerId, p.DeliveredAt });
-            e.HasIndex(p => p.ClientRequestId).IsUnique().HasFilter("\"ClientRequestId\" IS NOT NULL");
+            e.HasIndex(p => new { p.RequestActorId, p.RequestKind, p.ClientRequestId }).IsUnique().HasFilter("\"ClientRequestId\" IS NOT NULL");
         });
         model.Entity<Lot>(e =>
         {
             e.ToTable("lots");
             e.HasIndex(l => new { l.Status, l.ExpiresAt });
             e.HasIndex(l => l.SellerPlayerId);
-            e.HasIndex(l => l.ClientRequestId).IsUnique().HasFilter("\"ClientRequestId\" IS NOT NULL");
+            e.HasIndex(l => new { l.SellerPlayerId, l.ClientRequestId }).IsUnique().HasFilter("\"ClientRequestId\" IS NOT NULL");
         });
         model.Entity<Trade>(e =>
         {
@@ -126,7 +127,7 @@ public sealed class RimlinkDbContext(DbContextOptions<RimlinkDbContext> options)
             e.HasIndex(t => t.Status);
             e.HasIndex(t => t.InitiatorPlayerId);
             e.HasIndex(t => t.PartnerPlayerId);
-            e.HasIndex(t => t.ClientRequestId).IsUnique().HasFilter("\"ClientRequestId\" IS NOT NULL");
+            e.HasIndex(t => new { t.InitiatorPlayerId, t.ClientRequestId }).IsUnique().HasFilter("\"ClientRequestId\" IS NOT NULL");
         });
         model.Entity<PlayerBlock>(e =>
         {
@@ -138,7 +139,7 @@ public sealed class RimlinkDbContext(DbContextOptions<RimlinkDbContext> options)
         {
             e.ToTable("transfers");
             e.HasIndex(t => t.FromPlayerId);
-            e.HasIndex(t => t.ClientRequestId).IsUnique().HasFilter("\"ClientRequestId\" IS NOT NULL");
+            e.HasIndex(t => new { t.FromPlayerId, t.Kind, t.ClientRequestId }).IsUnique().HasFilter("\"ClientRequestId\" IS NOT NULL");
         });
         model.Entity<ModpackDef>(e =>
         {

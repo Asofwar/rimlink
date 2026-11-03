@@ -2,6 +2,7 @@ using RimWorld;
 using Rimlink.Client.Net;
 using Rimlink.Protocol.V1;
 using Verse;
+using Rimlink.Protocol;
 
 namespace Rimlink.Client.Game;
 
@@ -23,13 +24,23 @@ public sealed class RimlinkGameComponent : GameComponent
 
     /// <summary>The colony's generation, read from its save rather than refreshed by login or reconnect.</summary>
     public long SaveGeneration;
+    public long SaveWriteEpoch;
+    public uint RecoveryVersion;
+    public string SnapshotId = "";
+    public List<long> ParcelReceipts = [];
+    public List<string> RemovedOperations = [];
+    public List<string> ReturnedOperations = [];
 
     public RimlinkGameComponent(Verse.Game game) { }
 
     public override void StartedNewGame()
     {
         // The constructor and FinalizeInit also run on load: only this callback creates a new colony.
-        if (RimlinkSession.Active) SaveGeneration = RimlinkSession.Connection!.Login!.SaveGeneration;
+        if (RimlinkSession.Active)
+        {
+            SaveGeneration = RimlinkSession.Connection!.Login!.SaveGeneration;
+            SaveWriteEpoch = RimlinkSession.Connection.Login.SaveWriteEpoch;
+        }
     }
 
     public override void ExposeData()
@@ -41,6 +52,13 @@ public sealed class RimlinkGameComponent : GameComponent
         FiredIncidents ??= [];
         Scribe_Values.Look(ref DevModeSinceUpload, SaveMetaReader.DevModeNode);
         Scribe_Values.Look(ref SaveGeneration, SaveMetaReader.SaveGenerationNode, 0L);
+        Scribe_Values.Look(ref SaveWriteEpoch, SaveRecoveryData.EpochNode, 0L);
+        Scribe_Values.Look(ref RecoveryVersion, SaveRecoveryData.VersionNode, 0u);
+        Scribe_Values.Look(ref SnapshotId, SaveRecoveryData.SnapshotNode, "");
+        Scribe_Collections.Look(ref ParcelReceipts, SaveRecoveryData.ParcelsNode, LookMode.Value);
+        Scribe_Collections.Look(ref RemovedOperations, SaveRecoveryData.RemovedNode, LookMode.Value);
+        Scribe_Collections.Look(ref ReturnedOperations, SaveRecoveryData.ReturnedNode, LookMode.Value);
+        ParcelReceipts ??= []; RemovedOperations ??= []; ReturnedOperations ??= [];
         // Written for a save uploaded later from disk (the pending upload at login), whose header is read back by SaveMetaReader.
         long wealthTotal = 0, wealthItems = 0;
         if (Scribe.mode == LoadSaveMode.Saving && Find.AnyPlayerHomeMap is { } home)
@@ -59,6 +77,16 @@ public sealed class RimlinkGameComponent : GameComponent
     public override void FinalizeInit()
     {
         if (!RimlinkSession.Active) return;
+        if (!Visits.VisitSession.InVisit && RimlinkSession.PendingDownload is { } downloaded)
+        {
+            if (!downloaded.MatchesFile(SaveSync.SaveFilePath)) throw new InvalidDataException("the verified downloaded snapshot changed before loading");
+            SaveWriteEpoch = downloaded.Header.SaveWriteEpoch;
+            SaveGeneration = downloaded.Header.SaveGeneration;
+            RimlinkSession.PendingDownload = null;
+            RimlinkSession.RecoveryNeedsSave = RecoveryVersion != SaveRecoveryData.CurrentVersion ||
+                SaveRecoveryData.CurrentVersion > 0 && downloaded.Header.SaveWriteEpoch != SaveMetaReader.Read(SaveSync.SaveFilePath).Recovery?.WriteEpoch;
+            RimlinkSession.RecoveryNeeded |= RimlinkSession.RecoveryNeedsSave;
+        }
         // A colony loaded in a session is the server's current version (downloaded, or uploaded just before): whatever its file
         // says about dev mode was reported with it. Without this a re-download would flag (and freeze) the player again.
         if (!Visits.VisitSession.InVisit) DevModeSinceUpload = false;
@@ -188,7 +216,9 @@ public sealed class RimlinkGameComponent : GameComponent
         Influence.InfluenceSync.Tick();
         HandleConnectionState();
         HandleNotices();
+        if (SaveSync.WritesBlocked) return;
         ReportPresence();
+        RetryRecovery();
         Economy.Incoming.Tick();
         Economy.GiftLetters.Tick();
         Economy.WealthRefresh.Tick();
@@ -198,6 +228,54 @@ public sealed class RimlinkGameComponent : GameComponent
         Live.LiveHost.Tick();
         Live.LiveGuest.Tick();
         HandleStaleSave();
+    }
+
+    private static RimlinkConnection? recoveryOwner;
+    private static DateTime nextRecovery;
+    private static void RetryRecovery()
+    {
+        if (!RimlinkSession.RecoveryNeeded || RimlinkSession.Connection is not { State: ConnectionState.Connected } connection
+            || Visits.VisitSession.InVisit || Live.MirrorMode.Active || Current.ProgramState != ProgramState.Playing
+            || DateTime.UtcNow < nextRecovery || ReferenceEquals(recoveryOwner, connection) || SaveSync.WritesBlocked) return;
+        if (RimlinkSession.RecoveryNeedsSave || RimlinkSession.Outbox?.Entries.Any(e => e.Phase == Rimlink.Client.Economy.OutboxPhase.Prepared) == true)
+        {
+            if (!SaveSync.IsSaving && !SaveSync.UploadInFlight) SaveSync.TriggerSave("recovery barrier");
+            nextRecovery = DateTime.UtcNow.AddSeconds(5);
+            return;
+        }
+        if (RimlinkSession.Recovery is not { } recovery) return;
+        recoveryOwner = connection;
+        var token = RimlinkSession.RecoveryToken;
+        _ = Task.Run(async () =>
+        {
+            bool retry = true;
+            try
+            {
+                var replay = await recovery.ReplayReadyAsync(token);
+                retry = !await recovery.LoadStatesAsync(token) || replay.Pending > 0;
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+            catch (Exception ex) { RimlinkLog.Instance.Warn("recovery will retry: " + ex.Message); }
+            finally
+            {
+                UI.MainThread.Post(() =>
+                {
+                    if (ReferenceEquals(recoveryOwner, connection)) recoveryOwner = null;
+                    if (RimlinkSession.Connection != connection) return;
+                    RimlinkSession.RecoveryNeeded = retry; nextRecovery = DateTime.UtcNow.AddSeconds(5);
+                    SettleRecoveredEnds();
+                });
+            }
+        });
+    }
+
+    private static void SettleRecoveredEnds()
+    {
+        if (Current.ProgramState != ProgramState.Playing || Visits.VisitSession.InVisit || Live.MirrorMode.Active) return;
+        var pending = RimlinkSession.State.Live.PendingEnds.ToList();
+        if (pending.Count == 0) return;
+        RimlinkSession.State.Live.PendingEnds.Clear();
+        Live.LiveHost.ResolvePendingEnds(pending);
     }
 
     private void HandleConnectionState()
@@ -266,11 +344,22 @@ public sealed class RimlinkGameComponent : GameComponent
                 UI.MainThread.Post(() =>
                 {
                     if (RimlinkSession.Connection != connection) return;
+                    var fresh = connection.Login;
+                    if (!Visits.VisitSession.InVisit && !Live.MirrorMode.Active && Current.ProgramState == ProgramState.Playing
+                        && Current.Game.GetComponent<RimlinkGameComponent>() is { } component
+                        && (component.SaveGeneration != fresh?.SaveGeneration || component.SaveWriteEpoch != fresh?.SaveWriteEpoch))
+                    {
+                        SaveSync.BlockWrites(); Find.TickManager.Pause();
+                        Find.WindowStack.Add(new Dialog_MessageBox("Rimlink.Refusal.Saves.WriteEpochMismatch".Translate(), "Rimlink.Net.ToMenu".Translate(), AbortToMenu));
+                        return;
+                    }
+                    RimlinkSession.RecoveryNeeded = true;
+                    RimlinkSession.RecoveryNeedsSave = Current.ProgramState == ProgramState.Playing && !Visits.VisitSession.InVisit && !Live.MirrorMode.Active;
                     RimlinkSession.State.LoadSnapshot(objects, history, online);
                     ForeignSettlements.RebuildFromState();
                     RimlinkLog.Instance.Info($"resynced after reconnect: {objects.Objects.Count} world objects, {online.Count} online");
                 });
-                await UI.LoginFlow.LoadEconomy(connection, RimlinkSession.Outbox, login.Player.PlayerId, CancellationToken.None);
+                await UI.LoginFlow.LoadEconomy(connection, RimlinkSession.Outbox, login.Player.PlayerId, RimlinkSession.RecoveryToken);
             }
             catch (Exception ex)
             {
@@ -294,9 +383,10 @@ public sealed class RimlinkGameComponent : GameComponent
 
         if (state.PendingRollbackVersion is { } version)
         {
+            SaveSync.BlockWrites();
             state.ClearPendingRollback();
             Find.TickManager.Pause();
-            Find.WindowStack.Add(new Dialog_MessageBox("Rimlink.Save.RolledBack".Translate(version), "Rimlink.Net.ToMenu".Translate(), LeaveToMenu));
+            Find.WindowStack.Add(new Dialog_MessageBox("Rimlink.Save.RolledBack".Translate(version), "Rimlink.Net.ToMenu".Translate(), AbortToMenu));
         }
     }
 

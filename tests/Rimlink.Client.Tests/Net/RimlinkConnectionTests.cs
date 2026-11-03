@@ -91,12 +91,12 @@ public class RimlinkConnectionTests
         Assert.Equal(1, (await connection.World.GetAsync(new Empty())).NpcTiles.Count + 1); // authenticated call works
     }
 
-    private sealed class RegisteringCredentials(string login, string password, string playerName) : ICredentialProvider
+    private sealed class RegisteringCredentials(string login, string password, string playerName, string serverPassword = "") : ICredentialProvider
     {
         private RegisterRequest? pending = new() { Login = login, Password = password, PlayerName = playerName };
 
         public Task<LoginRequest> BuildLogin(CancellationToken cancellationToken) =>
-            Task.FromResult(new LoginRequest { Password = new PasswordCredential { Login = login, Password = password } });
+            Task.FromResult(new LoginRequest { Password = new PasswordCredential { Login = login, Password = password }, ServerPassword = serverPassword });
 
         public RegisterRequest? TakeRegistration()
         {
@@ -147,6 +147,16 @@ public class RimlinkConnectionTests
 
         Assert.Empty(reply.SessionToken);
         Assert.Single(reply.ModpackDiff.Configs);
+    }
+
+    [Fact]
+    public async Task RegistrationCarriesTheServerPasswordFromLoginCredentials()
+    {
+        using var fixture = Server().WithSetting("Server:ServerPassword", "join-password");
+        await using var connection = Connect(fixture, new RegisteringCredentials("nova", "pw", "Nova", "join-password"));
+        var reply = await connection.ConnectAsync(CancellationToken.None);
+        Assert.Equal("Nova", reply.Player.Name);
+        Assert.Equal(ConnectionState.Connected, connection.State);
     }
 
     [Fact]

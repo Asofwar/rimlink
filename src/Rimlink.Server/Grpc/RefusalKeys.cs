@@ -152,6 +152,10 @@ public static class RefusalKeys
 
     public const string SavesStale = "Saves.Stale";
     public const string SavesGenerationMismatch = "Saves.GenerationMismatch";
+    public const string SavesWriteEpochMismatch = "Saves.WriteEpochMismatch";
+    public const string RecoveryClientRequired = "Recovery.ClientRequired";
+    public const string RecoveryRequired = "Recovery.Required";
+    public const string RequestIntentMismatch = "Recovery.IntentMismatch";
     public const string SavesHeaderRequired = "Saves.HeaderRequired";
     public const string SavesNone = "Saves.None";
     public const string SavesSize = "Saves.Size";

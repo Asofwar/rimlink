@@ -6,7 +6,8 @@ using Rimlink.Server.Application.Saves;
 
 namespace Rimlink.Server.Grpc;
 
-public sealed class SavesGrpcService(SaveStore store, Rimlink.Server.Application.Visits.VisitService visits) : Protocol.V1.Saves.SavesBase
+public sealed class SavesGrpcService(SaveStore store, Rimlink.Server.Application.Visits.VisitService visits,
+    Rimlink.Server.Application.Sessions.SessionRegistry sessions) : Protocol.V1.Saves.SavesBase
 {
     public override async Task<SaveInfo> Upload(IAsyncStreamReader<SaveChunk> requestStream, ServerCallContext context)
     {
@@ -17,7 +18,8 @@ public sealed class SavesGrpcService(SaveStore store, Rimlink.Server.Application
 
         try
         {
-            var version = await store.Store(session.PlayerId, header, DataChunks(requestStream, context.CancellationToken), context.CancellationToken);
+            var version = await store.Store(session.PlayerId, header, DataChunks(requestStream, context.CancellationToken), context.CancellationToken,
+                session.SaveWriteEpoch, () => sessions.TryGet(session.Token, out var active) && ReferenceEquals(active, session));
             return SaveStore.ToInfo(version);
         }
         catch (SaveRejected ex)
@@ -40,13 +42,14 @@ public sealed class SavesGrpcService(SaveStore store, Rimlink.Server.Application
     private async Task Stream(long playerId, IServerStreamWriter<SaveChunk> responseStream, ServerCallContext context)
     {
         var current = await store.OpenCurrent(playerId) ?? throw RpcErrors.With(StatusCode.NotFound, ErrorCode.Unspecified, RefusalKeys.SavesNone, "no save stored for this player");
-        var (version, content) = current;
+        var (version, content, generation, writeEpoch) = current;
 
         await using (content)
         {
             await responseStream.WriteAsync(new SaveChunk
             {
-                Header = new SaveHeader { GameTick = version.GameTick, TotalSize = version.Size, Sha256 = ByteString.CopyFrom(version.Sha256) },
+                Header = new SaveHeader { GameTick = version.GameTick, TotalSize = version.Size, Sha256 = ByteString.CopyFrom(version.Sha256),
+                    SnapshotId = version.SnapshotId ?? "", SaveWriteEpoch = writeEpoch, RecoveryVersion = version.RecoveryVersion, SaveGeneration = generation },
             }, context.CancellationToken);
 
             byte[] buffer = new byte[Limits.SaveChunkBytes];

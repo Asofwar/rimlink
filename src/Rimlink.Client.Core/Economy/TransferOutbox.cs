@@ -4,10 +4,12 @@ using Google.Protobuf;
 using Grpc.Core;
 using Rimlink.Client.Net;
 using Rimlink.Protocol.V1;
+using Rimlink.Protocol;
 
 namespace Rimlink.Client.Economy;
 
 public enum OutboxKind { Send, Post, Deposit, Deliver, Launch, Land, Report, Buy, AckRemoval, Propose, TradeOpen, TradeSetSide, IncidentOrder, ProcurementCreate, ProcurementSupply, ProcurementCancel, AuctionPost, AuctionBid, AuctionCancel, Community, Influence }
+public enum OutboxPhase { Legacy, Prepared, Ready, Returning, RecoveryRequired }
 
 /// <summary>The typed clients a replay needs; a null client leaves entries of its kinds waiting.</summary>
 public sealed record OutboxClients(EconomyClient Economy, Raids.RaidClient? Raids, Visits.ShopClient? Shop, Live.LiveClient? Live = null, Social.TradesClient? Trades = null, Incidents.IncidentClient? Incidents = null, Procurement.ProcurementClient? Procurement = null, Social.CommunityClient? Community = null, Influence.InfluenceClient? Influence = null);
@@ -24,6 +26,10 @@ public sealed class OutboxEntry
     public string? RefusalKey { get; set; }
     public List<string>? RefusalArgs { get; set; }
     public DateTime CreatedUtc { get; set; }
+    public OutboxPhase Phase { get; set; }
+    public long SaveGeneration { get; set; }
+    public long SaveWriteEpoch { get; set; }
+    public string? SnapshotId { get; set; }
 }
 
 public sealed record ReplayReport(int Completed, int Refused, int Pending);
@@ -41,11 +47,14 @@ public sealed class TransferOutbox
     private readonly ILog log;
     private readonly List<OutboxEntry> entries;
     private readonly object gate = new();
+    private readonly SemaphoreSlim replayGate = new(1, 1);
+    private readonly long generation, epoch;
 
-    public TransferOutbox(string path, ILog log)
+    public TransferOutbox(string path, ILog log, long saveGeneration = 0, long saveWriteEpoch = 0)
     {
         this.path = path;
         this.log = log;
+        generation = saveGeneration; epoch = saveWriteEpoch;
         entries = Load();
     }
 
@@ -53,45 +62,104 @@ public sealed class TransferOutbox
     {
         get { lock (gate) return entries.ToList(); }
     }
-
-    public OutboxEntry Add(IMessage request) => request switch
+    public bool HasUnresolved { get { lock (gate) return entries.Any(e => e.Phase == OutboxPhase.RecoveryRequired || e.Phase == OutboxPhase.Legacy && NeedsSnapshot(e)); } }
+    public string? QuarantineOutsideScope(long saveGeneration, long saveWriteEpoch)
     {
-        TransferRequest => Add(OutboxKind.Send, request),
-        PostRequest => Add(OutboxKind.Post, request),
-        DepositRequest => Add(OutboxKind.Deposit, request),
-        DeliverRequest => Add(OutboxKind.Deliver, request),
-        LaunchRequest => Add(OutboxKind.Launch, request),
-        RaidTick => Add(OutboxKind.Land, request),
-        RaidReport => Add(OutboxKind.Report, request),
-        BuyRequest => Add(OutboxKind.Buy, request),
-        RemovalAck => Add(OutboxKind.AckRemoval, request),
-        LiveProposal => Add(OutboxKind.Propose, request),
-        ProcurementCreate => Add(OutboxKind.ProcurementCreate, request),
-        ProcurementSupply => Add(OutboxKind.ProcurementSupply, request),
-        ProcurementCancel => Add(OutboxKind.ProcurementCancel, request),
-        TradeOpenRequest => Add(OutboxKind.TradeOpen, request),
-        TradeSideRequest => Add(OutboxKind.TradeSetSide, request),
-        OrderIncidentRequest => Add(OutboxKind.IncidentOrder, request),
+        lock (gate)
+        {
+            var old = entries.Where(e => e.SaveGeneration != saveGeneration || e.SaveWriteEpoch != saveWriteEpoch).ToArray();
+            if (old.Length == 0) return null;
+            string kept = path + $".before-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}.json";
+            WriteDocument(kept, JsonSerializer.SerializeToUtf8Bytes(old, Json));
+            foreach (var entry in old) entries.Remove(entry);
+            Save();
+            return kept;
+        }
+    }
 
-        AuctionPostRequest => Add(OutboxKind.AuctionPost, request),
-        AuctionBidRequest => Add(OutboxKind.AuctionBid, request),
-        AuctionCancelRequest => Add(OutboxKind.AuctionCancel, request),
-
-        CommunityRequest => Add(OutboxKind.Community, request),
-        InfluenceMutation => Add(OutboxKind.Influence, request),
+    public OutboxEntry Add(IMessage request) => Create(request, OutboxPhase.Ready);
+    public OutboxEntry Prepare(IMessage request) => Create(request, OutboxPhase.Prepared);
+    private OutboxEntry Create(IMessage request, OutboxPhase phase) => request switch
+    {
+        TransferRequest => Add(OutboxKind.Send, request, phase), PostRequest => Add(OutboxKind.Post, request, phase),
+        DepositRequest => Add(OutboxKind.Deposit, request, phase), DeliverRequest => Add(OutboxKind.Deliver, request, phase),
+        LaunchRequest => Add(OutboxKind.Launch, request, phase), RaidTick => Add(OutboxKind.Land, request, phase),
+        RaidReport => Add(OutboxKind.Report, request, phase), BuyRequest => Add(OutboxKind.Buy, request, phase),
+        RemovalAck => Add(OutboxKind.AckRemoval, request, phase), LiveProposal => Add(OutboxKind.Propose, request, phase),
+        ProcurementCreate => Add(OutboxKind.ProcurementCreate, request, phase), ProcurementSupply => Add(OutboxKind.ProcurementSupply, request, phase),
+        ProcurementCancel => Add(OutboxKind.ProcurementCancel, request, phase), TradeOpenRequest => Add(OutboxKind.TradeOpen, request, phase),
+        TradeSideRequest => Add(OutboxKind.TradeSetSide, request, phase), OrderIncidentRequest => Add(OutboxKind.IncidentOrder, request, phase),
+        AuctionPostRequest => Add(OutboxKind.AuctionPost, request, phase), AuctionBidRequest => Add(OutboxKind.AuctionBid, request, phase),
+        AuctionCancelRequest => Add(OutboxKind.AuctionCancel, request, phase), CommunityRequest => Add(OutboxKind.Community, request, phase),
+        InfluenceMutation => Add(OutboxKind.Influence, request, phase),
         _ => throw new ArgumentException("not an outbox request: " + request.GetType().Name),
     };
 
-    private OutboxEntry Add(OutboxKind kind, IMessage request)
+    private OutboxEntry Add(OutboxKind kind, IMessage request, OutboxPhase phase)
     {
-        var entry = new OutboxEntry { Id = Guid.NewGuid().ToString("N"), Kind = kind, Payload = request.ToByteArray(), CreatedUtc = DateTime.UtcNow };
+        var entry = new OutboxEntry { Id = Guid.NewGuid().ToString("N"), Kind = kind, Payload = request.ToByteArray(), CreatedUtc = DateTime.UtcNow,
+            Phase = phase, SaveGeneration = generation, SaveWriteEpoch = epoch };
         lock (gate)
         {
             entries.Add(entry);
-            Save();
+            try { Save(); } catch { entries.Remove(entry); throw; }
         }
         return entry;
     }
+
+    public void ReconcileSnapshot(SaveRecoveryData snapshot, bool accepted, long? gameTick = null, bool selected = false)
+    {
+        snapshot.Validate();
+        var removed = snapshot.Removed.ToHashSet(StringComparer.Ordinal);
+        var returned = snapshot.Returned.ToHashSet(StringComparer.Ordinal);
+        var parcels = snapshot.ParcelIds.ToHashSet();
+        lock (gate)
+        {
+            foreach (var entry in entries.ToArray())
+            {
+                if (entry.Phase == OutboxPhase.RecoveryRequired) continue;
+                if (entry.Phase == OutboxPhase.Legacy)
+                {
+                    if (NeedsSnapshot(entry)) { if (selected) entry.Phase = OutboxPhase.RecoveryRequired; continue; }
+                    entry.Phase = OutboxPhase.Ready;
+                }
+                if (entry.SaveGeneration != snapshot.Generation || entry.SaveWriteEpoch != snapshot.WriteEpoch)
+                { if (selected) entry.Phase = OutboxPhase.RecoveryRequired; continue; }
+                if (returned.Contains(entry.Id))
+                {
+                    if (accepted) entries.Remove(entry); else entry.Phase = OutboxPhase.Returning;
+                    continue;
+                }
+                bool present = entry.Kind == OutboxKind.Deliver ? parcels.Contains(((DeliverRequest)Decode(entry)).ParcelId) : removed.Contains(entry.Id);
+                if (entry.Phase == OutboxPhase.Prepared)
+                {
+                    if (!present) { if (selected) entry.Phase = OutboxPhase.RecoveryRequired; continue; }
+                    if (!accepted) continue;
+                    entry.Phase = OutboxPhase.Ready;
+                    var request = Decode(entry);
+                    if (gameTick is { } tick) request.Descriptor.FindFieldByName("game_tick")?.Accessor.SetValue(request, tick);
+                    entry.Payload = request.ToByteArray();
+                    entry.SnapshotId = snapshot.SnapshotId;
+                }
+                if (entry.Phase == OutboxPhase.Ready && NeedsSnapshot(entry) && snapshot.Version > 0)
+                {
+                    if (!present) { if (selected) entry.Phase = OutboxPhase.RecoveryRequired; continue; }
+                    if (accepted) entry.SnapshotId = snapshot.SnapshotId;
+                    if (accepted && entry.Kind == OutboxKind.Deliver)
+                    {
+                        var deliver = (DeliverRequest)Decode(entry);
+                        deliver.SnapshotId = snapshot.SnapshotId; deliver.SaveGeneration = snapshot.Generation; deliver.SaveWriteEpoch = snapshot.WriteEpoch;
+                        entry.Payload = deliver.ToByteArray(); entry.SnapshotId = snapshot.SnapshotId;
+                    }
+                }
+            }
+            Save();
+        }
+    }
+
+    private static bool NeedsSnapshot(OutboxEntry entry) => entry.SnapshotId is not null || !NothingToReturn(entry)
+        || entry.Kind is OutboxKind.Deliver or OutboxKind.AckRemoval or OutboxKind.Land
+        || entry.Kind == OutboxKind.Report && ((RaidReport)Decode(entry)).Outcomes.Any(o => o.Blob is not null);
 
     public void Remove(string id)
     {
@@ -114,10 +182,13 @@ public sealed class TransferOutbox
             if (entries.FirstOrDefault(e => e.Id == id) is not { } entry) return false;
             if (!NothingToReturn(entry))
             {
+                var previous = (entry.Phase, entry.Refusal, entry.RefusalKey, entry.RefusalArgs);
+                entry.Phase = OutboxPhase.Returning;
                 entry.Refusal = refusal.Message;
                 entry.RefusalKey = refusal.Key;
                 entry.RefusalArgs = refusal.Key is null ? null : [.. refusal.Args];
-                Save();
+                try { Save(); }
+                catch { (entry.Phase, entry.Refusal, entry.RefusalKey, entry.RefusalArgs) = previous; throw; }
                 return true;
             }
             entries.Remove(entry);
@@ -129,6 +200,15 @@ public sealed class TransferOutbox
     public bool Contains(OutboxKind kind, Func<IMessage, bool> match)
     {
         lock (gate) return entries.Any(e => e.Kind == kind && match(Decode(e)));
+    }
+    public void HoldForRecovery(string id, Refusal refusal)
+    {
+        lock (gate)
+        {
+            if (entries.FirstOrDefault(e => e.Id == id) is not { } entry) return;
+            entry.Phase = OutboxPhase.RecoveryRequired; entry.Refusal = refusal.Message; entry.RefusalKey = refusal.Key;
+            entry.RefusalArgs = refusal.Key is null ? null : [.. refusal.Args]; Save();
+        }
     }
 
     public static IMessage Decode(OutboxEntry entry) => entry.Kind switch
@@ -168,7 +248,8 @@ public sealed class TransferOutbox
         // A frozen economy or a rate limit says "not now", not "no". PLAYER_FROZEN is a "no": the server checks it after the
         // replay lookup, so a request applied before the freeze still returns its result and a refused one was never applied.
         if (ex.StatusCode == StatusCode.ResourceExhausted) return false;
-        if (EconomyClient.CodeOf(ex) is { } code) return code is not (ErrorCode.EconomyFrozen or ErrorCode.InfluenceUnavailable);
+        if (EconomyClient.CodeOf(ex) is { } code) return code is not (ErrorCode.EconomyFrozen or ErrorCode.InfluenceUnavailable or ErrorCode.RecoveryRequired
+            or ErrorCode.RequestIntentMismatch or ErrorCode.SaveWriteEpochMismatch or ErrorCode.RecoveryClientRequired);
         return ex.StatusCode is StatusCode.InvalidArgument or StatusCode.FailedPrecondition or StatusCode.NotFound
             or StatusCode.PermissionDenied or StatusCode.AlreadyExists or StatusCode.OutOfRange or StatusCode.Unimplemented;
     }
@@ -181,16 +262,27 @@ public sealed class TransferOutbox
 
     public async Task<ReplayReport> Replay(OutboxClients clients, CancellationToken ct)
     {
+        await replayGate.WaitAsync(ct);
+        try { return await ReplayCore(clients, ct); }
+        finally { replayGate.Release(); }
+    }
+
+    private async Task<ReplayReport> ReplayCore(OutboxClients clients, CancellationToken ct)
+    {
+        var authentication = clients.Economy.Connection.Login;
         int completed = 0, refused = 0, pending = 0;
         foreach (var entry in Entries)
         {
+            if (entry.Phase == OutboxPhase.Legacy && NeedsSnapshot(entry)) { pending++; continue; }
+            if (entry.Phase is OutboxPhase.Prepared or OutboxPhase.RecoveryRequired) { pending++; continue; }
             if (entry.Refusal is not null) { refused++; continue; }
+            if (!ReadyFor(entry, authentication)) { pending++; continue; }
             if (!CanReplay(clients, entry.Kind)) { pending++; continue; }
-            var outcome = await Attempt(clients, entry, ct);
+            var outcome = await Attempt(clients, entry, authentication!, ct);
             if (outcome is null)
             {
                 await Task.Delay(TimeSpan.FromSeconds(2), ct);
-                outcome = await Attempt(clients, entry, ct);
+                outcome = await Attempt(clients, entry, authentication!, ct);
             }
             switch (outcome)
             {
@@ -211,6 +303,10 @@ public sealed class TransferOutbox
     }
 
     /// <summary>True: answered. False: refused for good (entry marked, or removed for a deliver). Null: still unknown.</summary>
+    public static bool ReadyFor(OutboxEntry entry, LoginReply? login) => login is not null
+        && entry.SaveGeneration == login.SaveGeneration && entry.SaveWriteEpoch == login.SaveWriteEpoch
+        && (entry.Phase == OutboxPhase.Ready || entry.Phase == OutboxPhase.Legacy && !NeedsSnapshot(entry));
+
     private static bool CanReplay(OutboxClients clients, OutboxKind kind) => kind switch
     {
         OutboxKind.Launch or OutboxKind.Land or OutboxKind.Report => clients.Raids is not null,
@@ -253,47 +349,56 @@ public sealed class TransferOutbox
         };
     }
 
-    private async Task<bool?> Attempt(OutboxClients clients, OutboxEntry entry, CancellationToken ct)
+    private async Task<bool?> Attempt(OutboxClients clients, OutboxEntry entry, LoginReply authentication, CancellationToken ct)
     {
         var economy = clients.Economy;
+        if (!ReferenceEquals(economy.Connection.Login, authentication) || !ReadyFor(entry, authentication)) return null;
         try
         {
-            switch (entry.Kind)
+            await economy.Connection.ForAuthentication(authentication, async () =>
             {
-                case OutboxKind.Send: await economy.Send(TransferRequest.Parser.ParseFrom(entry.Payload), ct); break;
-                case OutboxKind.Post: await economy.Post(PostRequest.Parser.ParseFrom(entry.Payload), ct); break;
-                case OutboxKind.Deposit: await economy.Deposit(DepositRequest.Parser.ParseFrom(entry.Payload), ct); break;
-                case OutboxKind.Deliver:
-                    var deliver = DeliverRequest.Parser.ParseFrom(entry.Payload);
-                    await economy.Deliver(deliver.ParcelId, deliver.GameTick, ct);
-                    break;
-                case OutboxKind.Launch: await clients.Raids!.Launch(LaunchRequest.Parser.ParseFrom(entry.Payload), ct); break;
-                case OutboxKind.Land:
-                    var land = RaidTick.Parser.ParseFrom(entry.Payload);
-                    await clients.Raids!.Land(land.RaidId, land.GameTick, ct);
-                    break;
-                case OutboxKind.Report: await clients.Raids!.Report(RaidReport.Parser.ParseFrom(entry.Payload), ct); break;
-                case OutboxKind.Buy: await clients.Shop!.Buy(BuyRequest.Parser.ParseFrom(entry.Payload), ct); break;
-                case OutboxKind.AckRemoval: await clients.Shop!.AckRemoval(RemovalAck.Parser.ParseFrom(entry.Payload), ct); break;
-                case OutboxKind.Propose: await clients.Live!.Propose(LiveProposal.Parser.ParseFrom(entry.Payload), ct); break;
-                case OutboxKind.ProcurementCreate: await clients.Procurement!.Create(ProcurementCreate.Parser.ParseFrom(entry.Payload), ct); break;
-                case OutboxKind.ProcurementSupply: await clients.Procurement!.Supply(ProcurementSupply.Parser.ParseFrom(entry.Payload), ct); break;
-                case OutboxKind.ProcurementCancel: await clients.Procurement!.Cancel(ProcurementCancel.Parser.ParseFrom(entry.Payload), ct); break;
-                case OutboxKind.TradeOpen: await clients.Trades!.Open(TradeOpenRequest.Parser.ParseFrom(entry.Payload), ct); break;
-                case OutboxKind.TradeSetSide: await clients.Trades!.SetSide(TradeSideRequest.Parser.ParseFrom(entry.Payload), ct); break;
-                case OutboxKind.IncidentOrder: await clients.Incidents!.Order(OrderIncidentRequest.Parser.ParseFrom(entry.Payload), ct); break;
+                switch (entry.Kind)
+                {
+                    case OutboxKind.Send: await economy.Send(TransferRequest.Parser.ParseFrom(entry.Payload), ct); break;
+                    case OutboxKind.Post: await economy.Post(PostRequest.Parser.ParseFrom(entry.Payload), ct); break;
+                    case OutboxKind.Deposit: await economy.Deposit(DepositRequest.Parser.ParseFrom(entry.Payload), ct); break;
+                    case OutboxKind.Deliver:
+                        var deliver = DeliverRequest.Parser.ParseFrom(entry.Payload);
+                        await economy.Deliver(deliver, ct);
+                        break;
+                    case OutboxKind.Launch: await clients.Raids!.Launch(LaunchRequest.Parser.ParseFrom(entry.Payload), ct); break;
+                    case OutboxKind.Land:
+                        var land = RaidTick.Parser.ParseFrom(entry.Payload);
+                        await clients.Raids!.Land(land.RaidId, land.GameTick, ct);
+                        break;
+                    case OutboxKind.Report: await clients.Raids!.Report(RaidReport.Parser.ParseFrom(entry.Payload), ct); break;
+                    case OutboxKind.Buy: await clients.Shop!.Buy(BuyRequest.Parser.ParseFrom(entry.Payload), ct); break;
+                    case OutboxKind.AckRemoval: await clients.Shop!.AckRemoval(RemovalAck.Parser.ParseFrom(entry.Payload), ct); break;
+                    case OutboxKind.Propose: await clients.Live!.Propose(LiveProposal.Parser.ParseFrom(entry.Payload), ct); break;
+                    case OutboxKind.ProcurementCreate: await clients.Procurement!.Create(ProcurementCreate.Parser.ParseFrom(entry.Payload), ct); break;
+                    case OutboxKind.ProcurementSupply: await clients.Procurement!.Supply(ProcurementSupply.Parser.ParseFrom(entry.Payload), ct); break;
+                    case OutboxKind.ProcurementCancel: await clients.Procurement!.Cancel(ProcurementCancel.Parser.ParseFrom(entry.Payload), ct); break;
+                    case OutboxKind.TradeOpen: await clients.Trades!.Open(TradeOpenRequest.Parser.ParseFrom(entry.Payload), ct); break;
+                    case OutboxKind.TradeSetSide: await clients.Trades!.SetSide(TradeSideRequest.Parser.ParseFrom(entry.Payload), ct); break;
+                    case OutboxKind.IncidentOrder: await clients.Incidents!.Order(OrderIncidentRequest.Parser.ParseFrom(entry.Payload), ct); break;
 
-                case OutboxKind.AuctionPost: await economy.PostAuction(AuctionPostRequest.Parser.ParseFrom(entry.Payload), ct); break;
-                case OutboxKind.AuctionBid: await economy.BidAuction(AuctionBidRequest.Parser.ParseFrom(entry.Payload), ct); break;
-                case OutboxKind.AuctionCancel: await economy.CancelAuction(AuctionCancelRequest.Parser.ParseFrom(entry.Payload), ct); break;
+                    case OutboxKind.AuctionPost: await economy.PostAuction(AuctionPostRequest.Parser.ParseFrom(entry.Payload), ct); break;
+                    case OutboxKind.AuctionBid: await economy.BidAuction(AuctionBidRequest.Parser.ParseFrom(entry.Payload), ct); break;
+                    case OutboxKind.AuctionCancel: await economy.CancelAuction(AuctionCancelRequest.Parser.ParseFrom(entry.Payload), ct); break;
 
-                case OutboxKind.Community: await clients.Community!.Mutate(CommunityRequest.Parser.ParseFrom(entry.Payload), ct); break;
-                case OutboxKind.Influence: await clients.Influence!.Mutate(InfluenceMutation.Parser.ParseFrom(entry.Payload), ct); break;
-            }
+                    case OutboxKind.Community: await clients.Community!.Mutate(CommunityRequest.Parser.ParseFrom(entry.Payload), ct); break;
+                    case OutboxKind.Influence: await clients.Influence!.Mutate(InfluenceMutation.Parser.ParseFrom(entry.Payload), ct); break;
+                }
+            });
             log.Info($"outbox: {entry.Kind} {entry.Id} answered on replay");
             return true;
         }
-        catch (RpcException ex) when (IsDefinitive(ex))
+        catch (RpcException ex) when (EconomyClient.CodeOf(ex) is ErrorCode.RequestIntentMismatch or ErrorCode.SaveWriteEpochMismatch or ErrorCode.RecoveryClientRequired)
+        {
+            HoldForRecovery(entry.Id, RpcErrorDetail.Read(ex));
+            return null;
+        }
+        catch (RpcException ex) when (ReferenceEquals(economy.Connection.Login, authentication) && IsDefinitive(ex))
         {
             var refusal = RpcErrorDetail.Read(ex);
             string reason = refusal.Message;
@@ -317,20 +422,30 @@ public sealed class TransferOutbox
     {
         try
         {
-            if (File.Exists(path)) return JsonSerializer.Deserialize<List<OutboxEntry>>(File.ReadAllText(path), Json) ?? [];
+            if (File.Exists(path)) return JsonSerializer.Deserialize<List<OutboxEntry>>(File.ReadAllText(path), Json) ?? throw new InvalidDataException("empty outbox document");
         }
         catch (Exception ex)
         {
-            log.Error($"outbox file {path} is unreadable and will be rewritten: {ex.Message}");
+            log.Error($"outbox file {path} is unreadable and was preserved: {ex.Message}");
+            throw new IOException("the outbox journal is unreadable; it was preserved", ex);
         }
         return [];
     }
 
     private void Save()
     {
+        WriteDocument(path, JsonSerializer.SerializeToUtf8Bytes(entries, Json));
+    }
+    private static void WriteDocument(string path, byte[] content)
+    {
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
-        string temp = path + ".tmp";
-        File.WriteAllText(temp, JsonSerializer.Serialize(entries, Json));
-        File.Move(temp, path, overwrite: true);
+        string temp = path + ".tmp-" + Guid.NewGuid().ToString("N");
+        try
+        {
+            using (var file = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            { file.Write(content); file.Flush(true); }
+            File.Move(temp, path, overwrite: true);
+        }
+        finally { if (File.Exists(temp)) File.Delete(temp); }
     }
 }

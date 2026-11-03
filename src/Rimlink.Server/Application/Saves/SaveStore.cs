@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text.Json;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
@@ -9,6 +10,7 @@ using Rimlink.Server.Application.Influence;
 using Rimlink.Server.Grpc;
 using Rimlink.Server.Storage;
 using Rimlink.Server.Storage.Entities;
+using ZstdSharp;
 
 namespace Rimlink.Server.Application.Saves;
 
@@ -21,13 +23,15 @@ public sealed class SaveRejected(string key, string reason, params object[] args
 /// <summary>Versioned save storage: blobs under &lt;data&gt;/saves/&lt;playerId&gt; (see <see cref="SaveFiles"/>), metadata in save_versions.</summary>
 public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles files, SaveCompactor compactor, EventBus events, Integrity.IntegrityService integrity, World.WorldService worlds, ILogger<SaveStore> log, InfluenceService influence)
 {
-    public async Task<SaveVersion> Store(long playerId, SaveHeader header, IAsyncEnumerable<ReadOnlyMemory<byte>> chunks, CancellationToken cancellationToken)
+    public async Task<SaveVersion> Store(long playerId, SaveHeader header, IAsyncEnumerable<ReadOnlyMemory<byte>> chunks, CancellationToken cancellationToken,
+        long? sessionEpoch = null, Func<bool>? sessionIsCurrent = null)
     {
         if (header.TotalSize <= 0 || header.TotalSize > Limits.MaxSaveBytes)
             throw new SaveRejected(RefusalKeys.SavesSize, $"save size {header.TotalSize} is outside 1..{Limits.MaxSaveBytes} bytes", header.TotalSize, Limits.MaxSaveBytes);
         if (header.Sha256.Length != 32) throw new SaveRejected(RefusalKeys.SavesNoHash, "header has no SHA-256");
 
         var world = await db.World.AsNoTracking().FirstOrDefaultAsync(cancellationToken) ?? throw RpcErrors.Failed(ErrorCode.WorldNotCreated, RefusalKeys.WorldNotCreated, "the world has not been created yet");
+        long startedEpoch = sessionEpoch ?? await db.Players.Where(p => p.Id == playerId).Select(p => p.SaveWriteEpoch).SingleAsync(cancellationToken);
 
         string dir = data.Saves(playerId);
         string temp = Path.Combine(dir, $"upload-{Guid.NewGuid():N}.tmp");
@@ -49,6 +53,19 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
             }
 
             if (SaveValidator.Validate(temp, world.Seed, out string? factionName) is { } reason) throw reason;
+            SaveRecoveryData recovery;
+            byte[] rawHash;
+            try
+            {
+                using var file = File.OpenRead(temp);
+                using var raw = new DecompressionStream(file);
+                recovery = SaveRecoveryData.ReadXml(raw, out rawHash);
+                if (recovery.Version != header.RecoveryVersion || recovery.SnapshotId != header.SnapshotId ||
+                    recovery.Version > 0 && (recovery.Generation != header.SaveGeneration || recovery.WriteEpoch != header.SaveWriteEpoch))
+                    throw new InvalidDataException("upload header does not describe its snapshot");
+            }
+            catch (Exception ex) when (ex is System.Xml.XmlException or IOException or InvalidDataException or ZstdException)
+            { throw new SaveRejected(RefusalKeys.SavesUnreadable, "invalid recovery metadata: " + ex.Message, ex.Message); }
             // From here on the upload is complete: finish without the call token, so a client that drops right
             // after its last chunk does not leave a file without a row (or a row without a file).
             await files.PerStoreLock.WaitAsync(CancellationToken.None);
@@ -56,9 +73,22 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
             {
                 // Reset may have completed while the chunks arrived: compare a fresh row under the archive/write lock.
                 var player = await db.Players.AsNoTracking().FirstAsync(p => p.Id == playerId);
+                if (sessionIsCurrent is not null && !sessionIsCurrent()) throw RpcErrors.Unauthenticated("the upload session ended");
                 if (header.SaveGeneration != player.SaveGeneration)
                     throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.SaveGenerationMismatch,
                         RefusalKeys.SavesGenerationMismatch, "this save belongs to a colony that was reset");
+                if (header.SaveWriteEpoch != player.SaveWriteEpoch || startedEpoch != player.SaveWriteEpoch)
+                    throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.SaveWriteEpochMismatch,
+                        RefusalKeys.SavesWriteEpochMismatch, "this save predates an administrative rollback");
+                if (player.RecoveryVersion > header.RecoveryVersion)
+                    throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.RecoveryClientRequired,
+                        RefusalKeys.RecoveryClientRequired, "the colony requires snapshot recovery support");
+                if (recovery.Version > 0 && await db.SaveVersions.AsNoTracking().FirstOrDefaultAsync(v => v.PlayerId == playerId && v.SnapshotId == recovery.SnapshotId) is { } repeated)
+                {
+                    if (repeated.RawSha256 is null || !repeated.RawSha256.AsSpan().SequenceEqual(rawHash))
+                        throw new SaveRejected(RefusalKeys.SavesHashMismatch, "snapshot identity was reused for different contents");
+                    return repeated;
+                }
                 // Items given away after this tick are already elsewhere; accepting it would bring them back.
                 if (header.GameTick < player.LastOutgoingTick)
                     throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.SaveStale, RefusalKeys.SavesStale, $"save tick {header.GameTick} is older than your last transfer at tick {player.LastOutgoingTick}", header.GameTick, player.LastOutgoingTick);
@@ -66,6 +96,9 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
                 int number = (await db.SaveVersions.Where(v => v.PlayerId == playerId).MaxAsync(v => (int?)v.Number) ?? 0) + 1;
                 // The integrity check compares with the version this upload replaces as current.
                 var baseVersion = await db.SaveVersions.AsNoTracking().FirstOrDefaultAsync(v => v.PlayerId == playerId && v.IsCurrent);
+                if (baseVersion is not null && header.GameTick < baseVersion.GameTick)
+                    throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.SaveStale, RefusalKeys.SavesStale,
+                        "this save is older than the current snapshot", header.GameTick, baseVersion.GameTick);
                 string final = files.FullPath(playerId, number);
 
                 await using var tx = await db.Database.BeginTransactionAsync();
@@ -82,8 +115,13 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
                     DevMode = header.DevMode,
                     WealthTotal = header.WealthTotal,
                     WealthItems = header.WealthItems,
+                    SnapshotId = recovery.Version == 0 ? null : recovery.SnapshotId,
+                    RecoveryVersion = recovery.Version, SaveGeneration = header.SaveGeneration, SaveWriteEpoch = header.SaveWriteEpoch,
+                    RawSha256 = rawHash, RecoveryJson = recovery.Version == 0 ? null : JsonSerializer.Serialize(recovery),
                 };
                 db.SaveVersions.Add(version);
+                if (recovery.Version > player.RecoveryVersion)
+                    await db.Players.Where(p => p.Id == playerId).ExecuteUpdateAsync(s => s.SetProperty(p => p.RecoveryVersion, recovery.Version));
                 // The faction name the player chose in game is the one others should see on the map.
                 if (factionName is not null && factionName != player.FactionName && Names.IsValid(factionName))
                     await db.Players.Where(p => p.Id == playerId).ExecuteUpdateAsync(s => s.SetProperty(p => p.FactionName, factionName));
@@ -126,39 +164,23 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
         }
     }
 
-    public async Task<(SaveVersion Version, Stream Content)?> OpenCurrent(long playerId)
+    public async Task<(SaveVersion Version, Stream Content, long Generation, long WriteEpoch)?> OpenCurrent(long playerId)
     {
-        for (int attempt = 0; ; attempt++)
+        await files.PerStoreLock.WaitAsync();
+        try
         {
             var version = await db.SaveVersions.AsNoTracking().FirstOrDefaultAsync(v => v.PlayerId == playerId && v.IsCurrent);
             if (version is null) return null;
             // A backup's database can be older than its files: the version it calls current may have become a delta after the snapshot.
             if (!File.Exists(PathOf(version)) || files.Deltas(playerId, version.Number).Any())
             {
-                await files.PerStoreLock.WaitAsync();
-                try
-                {
-                    if (!await EnsureFull(version))
-                    {
-                        if (attempt == 0) continue;
-                        return null;
-                    }
-                }
-                finally
-                {
-                    files.PerStoreLock.Release();
-                }
+                if (!await EnsureFull(version)) return null;
             }
-            try
-            {
-                var stream = new FileStream(PathOf(version), FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 16, FileOptions.Asynchronous | FileOptions.SequentialScan);
-                return (version, stream);
-            }
-            catch (FileNotFoundException) when (attempt == 0)
-            {
-                // An upload made this version a delta between the read and the open: the row now names the new one.
-            }
+            var authority = await db.Players.AsNoTracking().Where(p => p.Id == playerId).Select(p => new { p.SaveWriteEpoch, p.SaveGeneration }).SingleAsync();
+            var stream = new FileStream(PathOf(version), FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 16, FileOptions.Asynchronous | FileOptions.SequentialScan);
+            return (version, stream, authority.SaveGeneration, authority.SaveWriteEpoch);
         }
+        finally { files.PerStoreLock.Release(); }
     }
 
     public Task<List<SaveVersion>> List(long playerId) =>
@@ -191,6 +213,8 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
         await db.Set<ColonyMember>().Where(x => x.OwnerPlayerId == playerId).ExecuteUpdateAsync(s => s.SetProperty(x => x.PawnIds, ""));
         // An admin rolling back behind a transfer knowingly returns what was given away; the stale-save guard moves with it.
         var player = await db.Players.FirstAsync(p => p.Id == playerId);
+        await db.Entry(player).ReloadAsync(); // an admin scope may have tracked the player before waiting for another rollback
+        player.SaveWriteEpoch++;
         if (player.LastOutgoingTick > target.GameTick) player.LastOutgoingTick = target.GameTick;
         // Raid protection and loot caps read the player's wealth: it is the current version's (older versions did not keep it).
         if (target.WealthTotal > 0)
@@ -201,7 +225,7 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
         await db.SaveChangesAsync();
         await tx.CommitAsync();
 
-        events.SendTo(playerId, new ServerEvent { SaveRolledBack = new SaveRolledBack { Version = number } });
+        events.SendTo(playerId, new ServerEvent { SaveRolledBack = new SaveRolledBack { Version = number, SaveWriteEpoch = player.SaveWriteEpoch } });
         log.LogInformation("Save of player {PlayerId} rolled back to v{Version}", playerId, number);
         await TryCompact(playerId);
         return true;
@@ -317,7 +341,23 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
         CreatedAt = Timestamp.FromDateTime(DateTime.SpecifyKind(v.CreatedAt, DateTimeKind.Utc)),
         IsCurrent = v.IsCurrent,
         GameTick = v.GameTick,
+        SnapshotId = v.SnapshotId ?? "", SaveWriteEpoch = v.SaveWriteEpoch, RecoveryVersion = v.RecoveryVersion,
     };
+
+    public static SaveRecoveryData RecoveryOf(SaveVersion? version)
+    {
+        if (version is null || version.RecoveryVersion == 0) return new();
+        try
+        {
+            var result = JsonSerializer.Deserialize<SaveRecoveryData>(version.RecoveryJson ?? "") ?? throw new InvalidDataException("missing snapshot metadata");
+            result.Validate();
+            if (result.Version != version.RecoveryVersion || result.SnapshotId != version.SnapshotId || result.Generation != version.SaveGeneration || result.WriteEpoch != version.SaveWriteEpoch)
+                throw new InvalidDataException("snapshot metadata disagrees with the version");
+            return result;
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidDataException)
+        { throw new RpcException(new Status(StatusCode.Unavailable, "snapshot recovery metadata is unavailable")); }
+    }
 
     private string PathOf(SaveVersion v) => files.FullPath(v.PlayerId, v.Number);
 

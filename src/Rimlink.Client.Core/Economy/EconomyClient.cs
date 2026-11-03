@@ -7,6 +7,7 @@ namespace Rimlink.Client.Economy;
 /// <summary>Typed economy calls over a connection; every call carries the session token through the channel credentials and a 30 s deadline.</summary>
 public sealed class EconomyClient(RimlinkConnection connection)
 {
+    public RimlinkConnection Connection => connection;
     public static readonly TimeSpan Deadline = TimeSpan.FromSeconds(30);
 
     private static DateTime Until => DateTime.UtcNow + Deadline;
@@ -25,6 +26,7 @@ public sealed class EconomyClient(RimlinkConnection connection)
         connection.MailboxApi.AnswerAsync(new ParcelAnswer { ParcelId = parcelId, Accept = accept }, deadline: Until, cancellationToken: ct).ResponseAsync;
     public Task Deliver(long parcelId, long gameTick, CancellationToken ct) =>
         connection.MailboxApi.DeliverAsync(new DeliverRequest { ParcelId = parcelId, GameTick = gameTick }, deadline: Until, cancellationToken: ct).ResponseAsync;
+    public Task Deliver(DeliverRequest request, CancellationToken ct) => connection.MailboxApi.DeliverAsync(request, deadline: Until, cancellationToken: ct).ResponseAsync;
 
     public Task<LotList> Lots(MarketQuery query, CancellationToken ct) => connection.MarketApi.ListAsync(query, deadline: Until, cancellationToken: ct).ResponseAsync;
     public Task<Lot> Post(PostRequest request, CancellationToken ct) => connection.MarketApi.PostAsync(request, deadline: Until, cancellationToken: ct).ResponseAsync;

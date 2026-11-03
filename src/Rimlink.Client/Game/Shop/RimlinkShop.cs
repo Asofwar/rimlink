@@ -122,55 +122,59 @@ public static class ShopSync
     public static void ApplyRemovals()
     {
         if (!RimlinkSession.Active || VisitSession.InVisit || RimlinkSession.Shop is not { } shop) return;
+        var connection = RimlinkSession.Connection!;
+        var authentication = connection.Login;
+        var game = Current.Game;
+        var component = game?.GetComponent<RimlinkGameComponent>();
+        if (component is null) return;
         _ = Task.Run(async () =>
         {
             RemovalList removals;
             try { removals = await shop.PendingRemovals(CancellationToken.None); }
             catch (Exception ex) { RimlinkLog.Instance.Warn("pending shop removals not fetched: " + ex.Message); return; }
             if (removals.Removals.Count == 0) return;
-            MainThread.Post(() => Remove(removals, shop));
+            MainThread.Post(() =>
+            {
+                if (Current.Game != game || RimlinkSession.Connection != connection || !ReferenceEquals(connection.Login, authentication)
+                    || component.SaveGeneration != authentication?.SaveGeneration || component.SaveWriteEpoch != authentication.SaveWriteEpoch) return;
+                Remove(removals, shop);
+            });
         });
     }
 
     private static void Remove(RemovalList removals, Rimlink.Client.Visits.ShopClient shop)
     {
-        if (!RimlinkSession.Active || VisitSession.InVisit || Current.ProgramState != ProgramState.Playing || Find.AnyPlayerHomeMap is null) return;
+        if (!RimlinkSession.Active || VisitSession.InVisit || Current.ProgramState != ProgramState.Playing || Find.AnyPlayerHomeMap is null || SaveSync.WritesBlocked) return;
+        var component = Current.Game.GetComponent<RimlinkGameComponent>();
+        var outbox = RimlinkSession.Outbox!;
+        var accounted = outbox.Entries.Where(e => e.Kind == OutboxKind.AckRemoval && component.RemovedOperations.Contains(e.Id))
+            .SelectMany(e => ((RemovalAck)TransferOutbox.Decode(e)).Ids).ToHashSet();
         var ack = new RemovalAck();
-        foreach (var removal in removals.Removals)
-        {
-            foreach (var map in Find.Maps.Where(m => m.IsPlayerHome))
-            {
-                var thing = map.listerThings.AllThings.FirstOrDefault(t => t.thingIDNumber == (int)removal.ThingId && t.Spawned);
-                if (thing is null) continue;
-                int count = Math.Min(removal.Count, thing.stackCount);
-                if (count >= thing.stackCount) thing.Destroy(DestroyMode.Vanish);
-                else thing.SplitOff(count).Destroy(DestroyMode.Vanish);
-                map.GetComponent<MapComponent_RimlinkShop>()?.Forget((int)removal.ThingId);
-                break;
-            }
-            ack.Ids.Add(removal.Id); // a thing that is already gone needs no further removal
-        }
+        ack.Ids.AddRange(removals.Removals.Where(r => !accounted.Contains(r.Id)).Select(r => r.Id));
+        if (ack.Ids.Count == 0) { RimlinkSession.RecoveryNeeded = true; return; }
         ack.GameTick = Find.TickManager.TicksGame;
-        Messages.Message("Rimlink.Shop.Removed".Translate(removals.Removals.Count), MessageTypeDefOf.NeutralEvent, historical: false);
-        var outbox = RimlinkSession.Outbox;
-        var entry = outbox?.Add(ack);
-        SaveSync.TriggerSave("shop-removal");
-        _ = Task.Run(async () =>
+        var entry = outbox.Prepare(ack);
+        try
         {
-            try
+            foreach (var removal in removals.Removals)
             {
-                await shop.AckRemoval(ack, CancellationToken.None);
-                if (entry is not null) outbox!.Remove(entry.Id);
+                if (accounted.Contains(removal.Id)) continue;
+                foreach (var map in Find.Maps.Where(m => m.IsPlayerHome))
+                {
+                    var thing = map.listerThings.AllThings.FirstOrDefault(t => t.thingIDNumber == (int)removal.ThingId && t.Spawned);
+                    if (thing is null) continue;
+                    int count = Math.Min(removal.Count, thing.stackCount);
+                    if (count >= thing.stackCount) thing.Destroy(DestroyMode.Vanish);
+                    else thing.SplitOff(count).Destroy(DestroyMode.Vanish);
+                    map.GetComponent<MapComponent_RimlinkShop>()?.Forget((int)removal.ThingId);
+                    break;
+                }
             }
-            catch (RpcException ex) when (TransferOutbox.IsDefinitive(ex))
-            {
-                if (entry is not null) outbox!.Remove(entry.Id);
-                RimlinkLog.Instance.Warn("shop removal ack refused: " + EconomyClient.MessageOf(ex));
-            }
-            catch (Exception ex)
-            {
-                RimlinkLog.Instance.Warn("shop removal ack unanswered, kept in the outbox: " + ex.Message);
-            }
-        });
+        }
+        catch { SaveSync.BlockWrites(); RimlinkGameComponent.AbortToMenu(); throw; }
+        component.RemovedOperations.Add(entry.Id);
+        Messages.Message("Rimlink.Shop.Removed".Translate(removals.Removals.Count), MessageTypeDefOf.NeutralEvent, historical: false);
+        SaveSync.TriggerSave("shop-removal");
+        RimlinkSession.RecoveryNeeded = true;
     }
 }

@@ -39,8 +39,13 @@ public class SaveCompactionTests
 
         public async Task<byte[]> Put(long tick, int padding = Padding)
         {
-            byte[] save = MakeSave(ServerFixture.WorldSeed, "Nova", tick, padding);
-            var header = HeaderFor(save, ServerFixture.WorldSeed, "Nova", tick);
+            using var scope = fixture.Services.CreateScope();
+            var authority = await scope.ServiceProvider.GetRequiredService<Rimlink.Server.Storage.RimlinkDbContext>().Players.AsNoTracking().SingleAsync(p => p.Id == Id);
+            if (authority.SaveWriteEpoch != login.SaveWriteEpoch || authority.SaveGeneration != login.SaveGeneration)
+                login = await RecoveryFixtures.Login(fixture);
+            byte[] save = authority.SaveWriteEpoch == 0 ? MakeSave(ServerFixture.WorldSeed, "Nova", tick, padding)
+                : RecoveryFixtures.Save(tick, epoch: authority.SaveWriteEpoch, generation: authority.SaveGeneration, padding: padding);
+            var header = authority.SaveWriteEpoch == 0 ? HeaderFor(save, ServerFixture.WorldSeed, "Nova", tick) : RecoveryFixtures.Header(save, tick);
             header.SaveGeneration = login.SaveGeneration;
             await Upload(Saves, Token, save, header);
             return save;
@@ -145,7 +150,7 @@ public class SaveCompactionTests
     }
 
     [Fact]
-    public async Task AVersionOverTheRawLimitStaysFull()
+    public async Task APreexistingLegacyVersionOverTheRawLimitStaysFull()
     {
         using var fixture = Server();
         var nova = await Join(fixture);
@@ -156,7 +161,16 @@ public class SaveCompactionTests
         huge.AsSpan(at, (int)SaveDelta.MaxRawBytes + 1).Fill((byte)' ');
         raw.AsSpan(at).CopyTo(huge.AsSpan(at + (int)SaveDelta.MaxRawBytes + 1));
         byte[] save = Compress(huge);
-        await Upload(nova.Saves, nova.Token, save, HeaderFor(save, ServerFixture.WorldSeed, "Nova", tick: 1));
+        // Older validators stopped before EOF and accepted these historical files. New uploads reject them.
+        Directory.CreateDirectory(nova.Dir);
+        File.WriteAllBytes(nova.PathOf("1.rws.zst"), save);
+        using (var scope = fixture.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Rimlink.Server.Storage.RimlinkDbContext>();
+            db.SaveVersions.Add(new Rimlink.Server.Storage.Entities.SaveVersion { PlayerId = nova.Id, Number = 1, GameTick = 1,
+                Size = save.Length, Sha256 = SHA256.HashData(save), IsCurrent = true, CreatedAt = DateTime.UtcNow });
+            await db.SaveChangesAsync();
+        }
 
         await nova.Send(2, padding: 0);
 
@@ -243,7 +257,7 @@ public class SaveCompactionTests
         var nova = await Join(fixture);
         byte[] first = await nova.Send(1);
         using var scope = fixture.Services.CreateScope();
-        var (_, content) = (await scope.ServiceProvider.GetRequiredService<SaveStore>().OpenCurrent(nova.Id))!.Value;
+        var (_, content, _, _) = (await scope.ServiceProvider.GetRequiredService<SaveStore>().OpenCurrent(nova.Id))!.Value;
 
         await using (content)
         {

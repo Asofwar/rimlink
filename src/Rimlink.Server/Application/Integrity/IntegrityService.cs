@@ -7,6 +7,8 @@ using Rimlink.Server.Application.Feed;
 using Rimlink.Server.Hosting;
 using Rimlink.Server.Storage;
 using Rimlink.Server.Storage.Entities;
+using Rimlink.Server.Application.Saves;
+using Parcel = Rimlink.Server.Storage.Entities.Parcel;
 
 namespace Rimlink.Server.Application.Integrity;
 
@@ -35,7 +37,9 @@ public sealed class IntegrityService(RimlinkDbContext db, PlayerFreeze freeze, A
         }
 
         if (baseVersion is null) return;
-        long imported = await ImportedBetween(playerId, baseVersion.GameTick, stored.GameTick);
+        long imported = stored.RecoveryVersion == 0
+            ? await ImportedBetween(playerId, baseVersion.GameTick, stored.GameTick)
+            : await ImportedReceipts(playerId, baseVersion, stored);
         var result = WealthCheck.Evaluate(baseVersion.WealthTotal, baseVersion.GameTick, stored.WealthTotal, stored.GameTick, imported, o, role == Storage.Entities.Role.Admin);
         if (result is null || result.Verdict == WealthVerdict.None) return;
 
@@ -58,8 +62,22 @@ public sealed class IntegrityService(RimlinkDbContext db, PlayerFreeze freeze, A
     {
         var parcels = await db.Parcels.AsNoTracking()
             .Where(p => p.ToPlayerId == playerId && p.DeliveredAt != null && p.DeliveredTick > fromTickExclusive && p.DeliveredTick <= toTickInclusive)
-            .Select(p => new { p.Kind, p.Silver, p.Items, p.Pawns })
             .ToListAsync();
+        return PhysicalValue(parcels);
+    }
+
+    private async Task<long> ImportedReceipts(long playerId, SaveVersion before, SaveVersion after)
+    {
+        var old = SaveStore.RecoveryOf(before).ParcelIds.ToHashSet();
+        var added = SaveStore.RecoveryOf(after).ParcelIds.Where(id => !old.Contains(id)).ToArray();
+        if (added.Length == 0) return 0;
+        var parcels = await db.Parcels.AsNoTracking().Where(p => p.ToPlayerId == playerId && added.Contains(p.Id)
+            && (p.DeliveryRecoveryVersion == 0 || p.DeliveredAt == null || p.DeliveredGeneration == after.SaveGeneration)).ToListAsync();
+        return PhysicalValue(parcels);
+    }
+
+    private static long PhysicalValue(IEnumerable<Parcel> parcels)
+    {
         long x100 = 0, silver = 0;
         foreach (var p in parcels)
         {

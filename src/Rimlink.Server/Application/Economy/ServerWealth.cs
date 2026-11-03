@@ -5,6 +5,7 @@ using Rimlink.Server.Hosting;
 using Rimlink.Server.Storage;
 using Rimlink.Server.Storage.Entities;
 using Lot = Rimlink.Server.Storage.Entities.Lot;
+using Rimlink.Server.Application.Saves;
 
 namespace Rimlink.Server.Application.Economy;
 
@@ -39,10 +40,13 @@ public sealed class ServerWealth(RimlinkDbContext db, IOptions<EconomyOptions> o
             sum += (decimal)ValueOf(ItemList.Parser.ParseFrom(initiator ? trade.InitiatorItems : trade.PartnerItems))
                 + ValueOf(PawnList.Parser.ParseFrom(initiator ? trade.InitiatorPawns : trade.PartnerPawns));
         }
+        var current = await db.SaveVersions.AsNoTracking().FirstOrDefaultAsync(v => v.PlayerId == playerId && v.IsCurrent);
+        var received = SaveStore.RecoveryOf(current).ParcelIds.ToHashSet();
         foreach (var parcel in await db.Parcels.AsNoTracking().Where(p => p.ToPlayerId == playerId && p.DeliveredAt == null).ToListAsync())
         {
-            sum += parcel.Silver;
-            if (!DeclaredByAnother(parcel.Kind))
+            bool onMap = received.Contains(parcel.Id);
+            if (!onMap || parcel.Kind != ParcelKindDb.Withdraw) sum += parcel.Silver;
+            if (!onMap && !DeclaredByAnother(parcel.Kind))
                 sum += (decimal)ValueOf(ItemList.Parser.ParseFrom(parcel.Items)) + ValueOf(PawnList.Parser.ParseFrom(parcel.Pawns));
         }
 

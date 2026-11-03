@@ -28,6 +28,7 @@ public static class Incoming
     /// <summary>Called every frame by the game component; throttled, and only while on the colony map.</summary>
     public static void Tick()
     {
+        if (SaveSync.WritesBlocked) return;
         if (DateTime.UtcNow - lastAttempt < TimeSpan.FromSeconds(5)) return;
         if (Visits.VisitSession.InVisit) { lastAttempt = DateTime.UtcNow; return; } // the loaded game is the host's colony, not ours
         if (RimlinkSession.State.Economy.Pending.Count > 0) DeliverPending();
@@ -45,36 +46,40 @@ public static class Incoming
         var map = Find.CurrentMap;
         if (map is null || !map.IsPlayerHome) return;
         var outbox = RimlinkSession.Outbox;
+        var connection = RimlinkSession.Connection;
+        var game = Current.Game;
 
         foreach (var parcel in RimlinkSession.State.Economy.Pending.ToList())
         {
             long id = parcel.Id;
+            var component = Current.Game.GetComponent<RimlinkGameComponent>();
+            if (component.ParcelReceipts.Contains(id))
+            {
+                PrepareConfirmation(id, outbox);
+                RimlinkSession.State.Economy.MarkDelivered(id);
+                continue;
+            }
             // Once per session: a redelivery flag from the server refers to saves, and this session has not saved the drop yet.
             if (spawnedThisSession.Contains(id) || fetching.Contains(id)) continue;
             if (parcel.AwaitingDecision) continue; // a gift waiting for accept or refuse (the letter, the mailbox tab)
-            if (outbox is not null && outbox.Contains(OutboxKind.Deliver, m => ((DeliverRequest)m).ParcelId == id))
-            {
-                // Dropped in an earlier session; its confirmation is still on its way to the server.
-                spawnedThisSession.Add(id);
-                continue;
-            }
             fetching.Add(id);
             _ = Task.Run(async () =>
             {
                 try
                 {
                     var full = await economy.Get(id, CancellationToken.None);
-                    MainThread.Post(() => Drop(full, map, economy, outbox));
+                    MainThread.Post(() => { if (RimlinkSession.Connection == connection && Current.Game == game) Drop(full, map, economy, outbox); });
                 }
                 catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound)
                 {
                     RimlinkLog.Instance.Warn($"parcel {id} is no longer in the mailbox");
-                    MainThread.Post(() => { fetching.Remove(id); RimlinkSession.State.Economy.MarkDelivered(id); });
+                    MainThread.Post(() => { if (RimlinkSession.Connection == connection && Current.Game == game)
+                        { fetching.Remove(id); RimlinkSession.State.Economy.MarkDelivered(id); } });
                 }
                 catch (Exception ex)
                 {
                     RimlinkLog.Instance.Warn($"parcel {id} could not be fetched, retrying: {ex.Message}");
-                    MainThread.Post(() => fetching.Remove(id));
+                    MainThread.Post(() => { if (RimlinkSession.Connection == connection && Current.Game == game) fetching.Remove(id); });
                 }
             });
         }
@@ -85,6 +90,8 @@ public static class Incoming
         long id = parcel.Id;
         fetching.Remove(id);
         if (!RimlinkSession.Active || Current.ProgramState != ProgramState.Playing || !Find.Maps.Contains(map) || spawnedThisSession.Contains(id)) return;
+        var component = Current.Game.GetComponent<RimlinkGameComponent>();
+        if (component.ParcelReceipts.Contains(id)) { PrepareConfirmation(id, outbox); RimlinkSession.State.Economy.MarkDelivered(id); return; }
         List<Thing> things;
         try
         {
@@ -99,34 +106,25 @@ public static class Incoming
         }
 
         var center = DropCenter(map);
-        DropPodUtility.DropThingsNear(center, map, things, openDelay: 110, canInstaDropDuringInit: false, leaveSlag: false, canRoofPunch: true, forbid: false);
+        // Prepared is durable before the map changes; it cannot acknowledge a pod not yet saved.
+        PrepareConfirmation(id, outbox);
+        try { DropPodUtility.DropThingsNear(center, map, things, openDelay: 110, canInstaDropDuringInit: false, leaveSlag: false, canRoofPunch: true, forbid: false); }
+        catch { SaveSync.BlockWrites(); RimlinkGameComponent.AbortToMenu(); throw; }
+        component.ParcelReceipts.Add(id);
         spawnedThisSession.Add(id);
         Messages.Message("Rimlink.Economy.ParcelDropped".Translate(parcel.From?.Name ?? ("Rimlink.Economy.Kind." + parcel.Kind).Translate().ToString()), new LookTargets(center, map), MessageTypeDefOf.PositiveEvent, historical: false);
         RimlinkLog.Instance.Info($"parcel {id} dropped: {things.Count} things");
 
-        long tick = Find.TickManager.TicksGame;
-        var entry = outbox?.Add(new DeliverRequest { ParcelId = id, GameTick = tick });
         RimlinkSession.State.Economy.MarkDelivered(id);
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await economy.Deliver(id, tick, CancellationToken.None);
-                if (entry is not null) outbox!.Remove(entry.Id);
-                MainThread.Post(() => RimlinkSession.State.Economy.MarkWealthStale());
-            }
-            catch (RpcException ex) when (TransferOutbox.IsDefinitive(ex))
-            {
-                RimlinkLog.Instance.Warn($"delivery of parcel {id} refused ({EconomyClient.MessageOf(ex)}); the pod stays");
-                if (entry is not null) outbox!.Remove(entry.Id);
-            }
-            catch (Exception ex)
-            {
-                RimlinkLog.Instance.Warn($"delivery of parcel {id} unconfirmed, kept in the outbox: {ex.Message}");
-            }
-            // Saved either way: the things exist in the colony now; the confirmation follows from the outbox if it did not get through.
-            MainThread.Post(() => SaveSync.TriggerSave("delivery"));
-        });
+        SaveSync.TriggerSave("delivery");
+    }
+
+    private static void PrepareConfirmation(long id, TransferOutbox? outbox)
+    {
+        if (outbox is null) throw new IOException("delivery has no recovery journal");
+        if (!outbox.Contains(OutboxKind.Deliver, message => ((DeliverRequest)message).ParcelId == id))
+            outbox.Prepare(new DeliverRequest { ParcelId = id, GameTick = Find.TickManager.TicksGame });
+        RimlinkSession.RecoveryNeeded = true;
     }
 
     private static List<Thing> Unpack(Parcel parcel)

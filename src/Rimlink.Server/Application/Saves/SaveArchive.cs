@@ -13,7 +13,8 @@ public sealed class SaveArchive(SaveFiles files)
 
     /// <summary>One save version; the integrity marks default for manifests written before they existed.</summary>
     public sealed record ManifestVersion(int Number, long GameTick, long Size, string Sha256, DateTime CreatedAt, bool IsCurrent,
-        bool DevMode = false, long WealthTotal = 0, long WealthItems = 0);
+        bool DevMode = false, long WealthTotal = 0, long WealthItems = 0, string? SnapshotId = null, long SaveGeneration = 0,
+        long SaveWriteEpoch = 0, uint RecoveryVersion = 0, byte[]? RawSha256 = null, string? RecoveryJson = null);
 
     public sealed record Manifest(long PlayerId, List<ManifestVersion> Versions);
 
@@ -51,7 +52,7 @@ public sealed class SaveArchive(SaveFiles files)
                 if (!hash.AsSpan().SequenceEqual(sha256)) throw new InvalidDataException($"save v{v.Number} of player {v.PlayerId} does not match its hash");
             }
             manifest.Versions.Add(new ManifestVersion(v.Number, v.GameTick, size, Convert.ToHexString(sha256), v.CreatedAt, v.IsCurrent,
-                v.DevMode, v.WealthTotal, v.WealthItems));
+                v.DevMode, v.WealthTotal, v.WealthItems, v.SnapshotId, v.SaveGeneration, v.SaveWriteEpoch, v.RecoveryVersion, v.RawSha256, v.RecoveryJson));
         }
         await File.WriteAllTextAsync(Path.Combine(dir, ManifestFile), JsonSerializer.Serialize(manifest, Json));
     }
@@ -110,6 +111,8 @@ public sealed class SaveArchive(SaveFiles files)
                 DevMode = v.DevMode,
                 WealthTotal = v.WealthTotal,
                 WealthItems = v.WealthItems,
+                SnapshotId = v.SnapshotId, SaveGeneration = v.SaveGeneration, SaveWriteEpoch = v.SaveWriteEpoch,
+                RecoveryVersion = v.RecoveryVersion, RawSha256 = v.RawSha256, RecoveryJson = v.RecoveryJson,
             });
         }
         return restored;

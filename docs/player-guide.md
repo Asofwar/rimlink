@@ -159,9 +159,18 @@ pawns back, on its side and on theirs, also when several of them left together o
 your colonists do not show it in their Social tab. Relatives living outside your colony may be forgotten while it is
 away; relations it started in another colony, and what your colonists remembered about it, do not come home.
 
-Every transfer first saves your game and uploads the save (a short "Sending your last save…" pause). If the upload
-fails, nothing is sent and the goods are put back. After a transfer the server refuses any **older** save from you:
+Every transfer journals the removed goods, saves your game and uploads that exact snapshot (a short "Sending your last save…"
+pause). A lost connection leaves the operation pending until that snapshot is accepted; it does not immediately put the goods
+back. A definitive server refusal returns them once and keeps the recovery journal until the return itself is saved.
+After a transfer the server refuses any **older** save from you:
 the goods are already in someone else's mailbox, so an older file would duplicate them.
+
+Deliveries are confirmed only after the save contains their receipt, even if the game is paused and two saves have the same
+tick. On login the game recovers the pending local snapshot before reading the mailbox. A frozen wallet does not block mail
+or recovery of a finished live visit. Do not delete `pending-snapshot.json`, `upload-*.rws` or `outbox.json`: if a crash leaves
+an operation without enough evidence to replay safely, the game preserves the files and asks for manual recovery.
+An administrator's rollback pauses the old colony and blocks further saves. Choose **Back to main menu**, then log in again
+to load the restored version; leaving through that button does not save the cancelled state.
 
 ### Gifts
 

@@ -37,6 +37,7 @@ public sealed class RimlinkConnection : IAsyncDisposable
     private readonly ReconnectPolicy reconnect;
     private readonly CancellationTokenSource lifetime = new();
     private volatile string? token;
+    private readonly AsyncLocal<LoginReply?> callAuthentication = new();
     private Task? eventLoop;
     private ConnectionState state = ConnectionState.Disconnected;
     private long reconnectingSinceTicks;
@@ -54,7 +55,9 @@ public sealed class RimlinkConnection : IAsyncDisposable
 
         var callCredentials = CallCredentials.FromInterceptor((_, metadata) =>
         {
-            if (token is { } t) metadata.Add("authorization", $"Bearer {t}");
+            var bound = callAuthentication.Value;
+            if (bound is not null && !ReferenceEquals(bound, Login)) throw new OperationCanceledException("the request belongs to a previous login");
+            if ((bound?.SessionToken ?? token) is { } t) metadata.Add("authorization", $"Bearer {t}");
             return Task.CompletedTask;
         });
         bool insecure = this.transport.Address.Scheme == Uri.UriSchemeHttp;
@@ -146,6 +149,18 @@ public sealed class RimlinkConnection : IAsyncDisposable
     public Protocol.V1.Incidents.IncidentsClient IncidentsApi { get; }
     public Protocol.V1.Colonies.ColoniesClient ColoniesApi { get; }
 
+    /// <summary>A queued map operation must keep the authorization of its snapshot, even if this connection reconnects.</summary>
+    public async Task<T> ForAuthentication<T>(LoginReply authentication, Func<Task<T>> call)
+    {
+        if (!ReferenceEquals(Login, authentication)) throw new OperationCanceledException("the request belongs to a previous login");
+        var previous = callAuthentication.Value;
+        callAuthentication.Value = authentication;
+        try { return await call(); }
+        finally { callAuthentication.Value = previous; }
+    }
+    public Task ForAuthentication(LoginReply authentication, Func<Task> call) =>
+        ForAuthentication(authentication, async () => { await call(); return true; });
+
     /// <summary>Logs in and starts the event stream. A modpack mismatch returns the reply (no token) and leaves the connection down.</summary>
     public async Task<LoginReply> ConnectAsync(CancellationToken cancellationToken)
     {
@@ -186,8 +201,14 @@ public sealed class RimlinkConnection : IAsyncDisposable
     {
         var request = await credentials.BuildLogin(cancellationToken);
         request.ProtocolVersion = ClientInfo.ProtocolVersion;
+        request.RecoveryVersion = Rimlink.Protocol.SaveRecoveryData.CurrentVersion;
         steamLogin = request.CredentialCase == LoginRequest.CredentialOneofCase.SteamTicket;
         var registration = credentials.TakeRegistration();
+        if (registration is not null)
+        {
+            registration.RecoveryVersion = Rimlink.Protocol.SaveRecoveryData.CurrentVersion;
+            registration.ServerPassword = request.ServerPassword;
+        }
         if (registration is not null && registration.Mods.Count == 0) registration.Mods.AddRange(request.Mods);
         if (registration is not null && registration.ModSettings.Count == 0) registration.ModSettings.AddRange(request.ModSettings);
 
