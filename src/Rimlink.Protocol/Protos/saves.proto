@@ -5,6 +5,7 @@ option csharp_namespace = "Rimlink.Protocol.V1";
 
 import "google/protobuf/timestamp.proto";
 import "common.proto";
+import "outposts.proto";
 
 // Save games are zstd-compressed .rws files, streamed in chunks of at most 1 MB (Limits.SaveChunkBytes).
 service Saves {
@@ -41,6 +42,10 @@ message SaveHeader {
   string snapshot_id = 10;
   int64 save_write_epoch = 11;
   uint32 recovery_version = 12;
+  uint32 outpost_version = 13;
+  string outpost_restore_boundary = 14;
+  bytes raw_sha256 = 15;
+  OutpostSaveMetadata outpost_metadata = 16;
 }
 
 message SaveInfo {
@@ -52,6 +57,9 @@ message SaveInfo {
   string snapshot_id = 6;
   int64 save_write_epoch = 7;
   uint32 recovery_version = 8;
+  uint32 outpost_version = 9;
+  string outpost_restore_boundary = 10;
+  bytes raw_sha256 = 11;
 }
 
 message SaveVersions {

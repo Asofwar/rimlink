@@ -1031,6 +1031,695 @@ namespace Rimlink.Server.Storage.Migrations
                     b.ToTable("modpack_publication", (string)null);
                 });
 
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.OutpostAssignment", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<byte[]>("Blob")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<byte[]>("BlobDigest")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("EndedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FactsJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OutpostId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PawnCustodyId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PreparedOperationId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ReturnBatchId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PawnCustodyId")
+                        .IsUnique()
+                        .HasFilter("Active = 1");
+
+                    b.HasIndex("PreparedOperationId");
+
+                    b.HasIndex("OutpostId", "Active");
+
+                    b.ToTable("outpost_assignments", (string)null);
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.OutpostAuthority", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<uint>("FormatVersion")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<byte[]>("HeadDigest")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("HeadId")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("InstallationId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Phase")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RestoreBoundary")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TransitionId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("WorldId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("outpost_authority", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_outpost_authority_singleton", "Id = 1");
+                        });
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.OutpostDeliveryAttempt", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<byte[]>("CanonicalSnapshotHash")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("CanonicalSnapshotId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("IntentDigest")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<long>("ParcelId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<byte[]>("PayloadDigest")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<long>("PlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RequestId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RestoreBoundary")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("SaveGeneration")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("SaveWriteEpoch")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TransitionId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("WorldId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RestoreBoundary", "ParcelId")
+                        .IsUnique()
+                        .HasFilter("Active = 1");
+
+                    b.HasIndex("WorldId", "PlayerId", "SaveGeneration", "RestoreBoundary", "RequestId")
+                        .IsUnique();
+
+                    b.ToTable("outpost_delivery_attempts", (string)null);
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.OutpostLifecycleOperation", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Actor")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("Intent")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<byte[]>("IntentDigest")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Phase")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("Progress")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("RequestId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RestoreBoundary")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("Result")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("WorldId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RestoreBoundary", "Actor", "RequestId")
+                        .IsUnique();
+
+                    b.ToTable("outpost_lifecycle_operations", (string)null);
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.OutpostManifest", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Actor")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Confirmed")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("ConfirmedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("Digest")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<byte[]>("Document")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<long>("Revision")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("WorldId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorldId")
+                        .IsUnique()
+                        .HasFilter("Active = 1");
+
+                    b.HasIndex("WorldId", "Revision")
+                        .IsUnique();
+
+                    b.ToTable("outpost_manifests", (string)null);
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.OutpostOperation", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("Intent")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<byte[]>("IntentDigest")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OutpostId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("PlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RequestId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("ReservedSilver")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RestoreBoundary")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("Result")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<long>("SaveGeneration")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("SaveWriteEpoch")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TransitionId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("WorldId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OutpostId", "State");
+
+                    b.HasIndex("WorldId", "PlayerId", "SaveGeneration", "RestoreBoundary", "RequestId")
+                        .IsUnique();
+
+                    b.ToTable("outpost_operations", (string)null);
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.OutpostParcelLink", b =>
+                {
+                    b.Property<long>("ParcelId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("AcceptedSnapshotId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BatchId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("Payload")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<byte[]>("PayloadDigest")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<long>("PlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RestoreBoundary")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("SaveGeneration")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TransitionId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("ValueX100")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("WorldId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("ParcelId");
+
+                    b.HasIndex("BatchId")
+                        .IsUnique();
+
+                    b.HasIndex("WorldId", "PlayerId", "SaveGeneration");
+
+                    b.ToTable("outpost_parcel_links", (string)null);
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.OutpostReservation", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("OperationId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("PlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("SaveGeneration")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Tile")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("WorldId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OperationId")
+                        .IsUnique();
+
+                    b.HasIndex("WorldId", "Tile")
+                        .IsUnique()
+                        .HasFilter("Active = 1");
+
+                    b.HasIndex("WorldId", "PlayerId", "SaveGeneration")
+                        .IsUnique()
+                        .HasFilter("Active = 1");
+
+                    b.ToTable("outpost_reservations", (string)null);
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.OutpostRestoreAuthorization", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("CanonicalSnapshotHash")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("CanonicalSnapshotId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("ParcelId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<byte[]>("PayloadDigest")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("RestoreBoundary")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TransitionId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RestoreBoundary", "ParcelId")
+                        .IsUnique();
+
+                    b.ToTable("outpost_restore_authorizations", (string)null);
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.OutpostRow", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CheckpointUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("ClockFrequency")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ClockProcessId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("ClockTimestamp")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FractionDenominator")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FractionNumerator")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LastTransitionId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("ManifestDigest")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("ManifestId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("OccupiesSlot")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("PlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Profile")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RestoreBoundary")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("SaveGeneration")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Stock")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Tile")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("WorldId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorldId", "Tile")
+                        .IsUnique()
+                        .HasFilter("OccupiesSlot = 1");
+
+                    b.HasIndex("WorldId", "PlayerId", "SaveGeneration")
+                        .IsUnique()
+                        .HasFilter("OccupiesSlot = 1");
+
+                    b.ToTable("outposts", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_outpost_fraction_denominator", "length(FractionDenominator) BETWEEN 1 AND 256 AND FractionDenominator NOT GLOB '*[^0-9]*' AND substr(FractionDenominator,1,1) BETWEEN '1' AND '9'");
+
+                            t.HasCheckConstraint("CK_outpost_fraction_numerator", "length(FractionNumerator) BETWEEN 1 AND 256 AND FractionNumerator NOT GLOB '*[^0-9]*' AND (FractionNumerator = '0' OR substr(FractionNumerator,1,1) BETWEEN '1' AND '9')");
+
+                            t.HasCheckConstraint("CK_outpost_stock", "Stock >= 0 AND Stock <= 1000");
+                        });
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.OutpostSnapshotLink", b =>
+                {
+                    b.Property<string>("WorldId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("PlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("SaveGeneration")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("SnapshotId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("FrontierDigest")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<byte[]>("Metadata")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<uint>("MetadataVersion")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<byte[]>("RawSha256")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("RestoreBoundary")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("SaveWriteEpoch")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TransitionId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("WorldId", "PlayerId", "SaveGeneration", "SnapshotId");
+
+                    b.HasIndex("TransitionId");
+
+                    b.ToTable("outpost_snapshot_links", (string)null);
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.OutpostTransition", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Actor")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("Digest")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<byte[]>("Effects")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<byte[]>("Intent")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NextHeadId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OldHeadId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OutpostId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PawnCustodyId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("PlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("PredecessorId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RestoreBoundary")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("SaveGeneration")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("WorldId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NextHeadId")
+                        .IsUnique();
+
+                    b.HasIndex("PawnCustodyId");
+
+                    b.HasIndex("PredecessorId");
+
+                    b.HasIndex("WorldId", "PlayerId", "SaveGeneration");
+
+                    b.ToTable("outpost_transitions", (string)null);
+                });
+
             modelBuilder.Entity("Rimlink.Server.Storage.Entities.Parcel", b =>
                 {
                     b.Property<long>("Id")
@@ -1099,6 +1788,54 @@ namespace Rimlink.Server.Storage.Migrations
                         .HasFilter("\"ClientRequestId\" IS NOT NULL");
 
                     b.ToTable("parcels", (string)null);
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.PawnCustodyRecord", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AssignmentId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FrontierTransitionId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LocationId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LocationKind")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("PlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RestoreBoundary")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("SaveGeneration")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("Tombstone")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("WorldId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorldId", "PlayerId", "SaveGeneration");
+
+                    b.ToTable("pawn_custody", (string)null);
                 });
 
             modelBuilder.Entity("Rimlink.Server.Storage.Entities.PendingRemoval", b =>
@@ -1936,6 +2673,14 @@ namespace Rimlink.Server.Storage.Migrations
                         .HasForeignKey("SecondId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.OutpostTransition", b =>
+                {
+                    b.HasOne("Rimlink.Server.Storage.Entities.OutpostTransition", null)
+                        .WithMany()
+                        .HasForeignKey("PredecessorId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("Rimlink.Server.Storage.Entities.Player", b =>

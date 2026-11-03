@@ -33,6 +33,19 @@ public sealed class RimlinkDbContext(DbContextOptions<RimlinkDbContext> options)
     public DbSet<Trade> Trades => Set<Trade>();
     public DbSet<PlayerBlock> PlayerBlocks => Set<PlayerBlock>();
     public DbSet<ArchivedColony> ArchivedColonies => Set<ArchivedColony>();
+    public DbSet<OutpostRow> Outposts => Set<OutpostRow>();
+    public DbSet<OutpostAssignment> OutpostAssignments => Set<OutpostAssignment>();
+    public DbSet<PawnCustodyRecord> PawnCustody => Set<PawnCustodyRecord>();
+    public DbSet<OutpostTransition> OutpostTransitions => Set<OutpostTransition>();
+    public DbSet<OutpostOperation> OutpostOperations => Set<OutpostOperation>();
+    public DbSet<OutpostReservation> OutpostReservations => Set<OutpostReservation>();
+    public DbSet<OutpostParcelLink> OutpostParcelLinks => Set<OutpostParcelLink>();
+    public DbSet<OutpostSnapshotLink> OutpostSnapshotLinks => Set<OutpostSnapshotLink>();
+    public DbSet<OutpostManifest> OutpostManifests => Set<OutpostManifest>();
+    public DbSet<OutpostAuthority> OutpostAuthority => Set<OutpostAuthority>();
+    public DbSet<OutpostRestoreAuthorization> OutpostRestoreAuthorizations => Set<OutpostRestoreAuthorization>();
+    public DbSet<OutpostDeliveryAttempt> OutpostDeliveryAttempts => Set<OutpostDeliveryAttempt>();
+    public DbSet<OutpostLifecycleOperation> OutpostLifecycleOperations => Set<OutpostLifecycleOperation>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {

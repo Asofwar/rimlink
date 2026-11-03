@@ -41,6 +41,7 @@ public sealed class RecoveryMigrationTests
         Assert.Equal(1234, db.Wallets.Single().Balance);
         var save = db.SaveVersions.Single();
         Assert.Null(save.SnapshotId); Assert.Equal(0u, save.RecoveryVersion); Assert.Null(save.RecoveryJson);
+        Assert.Empty(db.Outposts); Assert.Empty(db.PawnCustody); Assert.Empty(db.OutpostAuthority);
         Assert.False(db.Database.HasPendingModelChanges());
     }
 }

@@ -1,0 +1,206 @@
+syntax = "proto3";
+
+package rimlink.v1;
+option csharp_namespace = "Rimlink.Protocol.V1";
+
+import "common.proto";
+import "economy.proto";
+
+// Definitions alone do not register a handler or advertise feature readiness.
+service Outposts {
+  rpc State (OutpostStateQuery) returns (OutpostStateReply);
+  rpc Prepare (OutpostPrepareRequest) returns (OutpostOperationReply);
+  rpc Commit (OutpostProofRequest) returns (OutpostOperationReply);
+  rpc Cancel (OutpostCancelRequest) returns (OutpostOperationReply);
+  rpc Mutate (OutpostMutationRequest) returns (OutpostOperationReply);
+  rpc Operation (OutpostOperationQuery) returns (OutpostOperationReply);
+  rpc BeginDelivery (OutpostDeliveryRequest) returns (OutpostDeliveryReply);
+}
+
+enum OutpostProfile {
+  OUTPOST_PROFILE_UNSPECIFIED = 0;
+  OUTPOST_PROFILE_WOOD = 1;
+  OUTPOST_PROFILE_STEEL = 2;
+}
+enum OutpostPrepareKind {
+  OUTPOST_PREPARE_KIND_UNSPECIFIED = 0;
+  OUTPOST_PREPARE_KIND_FOUND = 1;
+  OUTPOST_PREPARE_KIND_ASSIGN = 2;
+}
+enum OutpostMutationKind {
+  OUTPOST_MUTATION_KIND_UNSPECIFIED = 0;
+  OUTPOST_MUTATION_KIND_CLAIM = 1;
+  OUTPOST_MUTATION_KIND_RECALL = 2;
+  OUTPOST_MUTATION_KIND_CLOSE = 3;
+  OUTPOST_MUTATION_KIND_SWITCH = 4;
+}
+enum OutpostOperationStatus {
+  OUTPOST_OPERATION_STATUS_UNSPECIFIED = 0;
+  OUTPOST_OPERATION_STATUS_PREPARED = 1;
+  OUTPOST_OPERATION_STATUS_COMMITTED = 2;
+  OUTPOST_OPERATION_STATUS_CANCELLED = 3;
+  OUTPOST_OPERATION_STATUS_RECOVERY_REQUIRED = 4;
+}
+enum OutpostCancelKind {
+  OUTPOST_CANCEL_KIND_UNSPECIFIED = 0;
+  OUTPOST_CANCEL_KIND_ABORT_NO_REMOVAL = 1;
+  OUTPOST_CANCEL_KIND_RETURN_AFTER_REMOVAL = 2;
+}
+
+// Both skills/flags and exact binary32 capacities are frozen with the immutable blob.
+message OutpostWorkerCapture {
+  string pawn_custody_id = 1;
+  string assignment_id = 2;
+  PawnBlob pawn = 3;
+  bytes blob_sha256 = 4;
+  int32 plants = 5;
+  int32 mining = 6;
+  float consciousness = 7;
+  float manipulation = 8;
+  float moving = 9;
+  bool plants_capable = 10;
+  bool mining_capable = 11;
+}
+message OutpostCaravanAttestation {
+  string caravan_id = 1;
+  string surface_id = 2;
+  int32 tile = 3;
+  repeated string roster_reference_tokens = 4;
+  repeated string selected_custody_ids = 5;
+  repeated string remaining_reference_tokens = 6;
+  bool remaining_mobile = 7;
+  bool selected_cargo_empty = 8;
+  bytes manifest_digest = 9;
+  string client_request_id = 10;
+}
+message OutpostPrepareRequest {
+  OutpostScopeMessage scope = 1;
+  string client_request_id = 2;
+  OutpostPrepareKind kind = 3;
+  int64 expected_revision = 4;
+  string manifest_id = 5;
+  bytes manifest_digest = 6;
+  string outpost_id = 7;
+  OutpostProfile profile = 8;
+  int32 tile = 9;
+  string surface_id = 10;
+  repeated OutpostWorkerCapture workers = 11;
+  OutpostSnapshotProof pre_removal = 12;
+  bytes intent_digest = 13;
+  OutpostCaravanAttestation caravan = 14;
+}
+message OutpostProofRequest {
+  OutpostScopeMessage scope = 1;
+  string client_request_id = 2;
+  bytes intent_digest = 3;
+  OutpostSnapshotProof post_removal = 4;
+  int64 expected_revision = 5;
+}
+message OutpostCancelRequest {
+  OutpostScopeMessage scope = 1;
+  string client_request_id = 2;
+  bytes intent_digest = 3;
+  OutpostCancelKind kind = 4;
+  OutpostSnapshotProof cancellation_proof = 5;
+  int64 expected_revision = 6;
+}
+message OutpostMutationRequest {
+  OutpostScopeMessage scope = 1;
+  string client_request_id = 2;
+  OutpostMutationKind kind = 3;
+  int64 expected_revision = 4;
+  string manifest_id = 5;
+  bytes manifest_digest = 6;
+  string outpost_id = 7;
+  OutpostProfile profile = 8;
+  int32 tile = 9;
+  string surface_id = 10;
+  repeated string pawn_custody_ids = 11;
+  repeated string assignment_ids = 12;
+  OutpostSnapshotProof canonical_snapshot = 13;
+  bytes intent_digest = 14;
+}
+message OutpostOperationQuery {
+  OutpostScopeMessage scope = 1;
+  string client_request_id = 2;
+  bytes intent_digest = 3;
+}
+message OutpostOperationReply {
+  OutpostScopeMessage scope = 1;
+  string client_request_id = 2;
+  OutpostOperationStatus status = 3;
+  int64 authoritative_revision = 4;
+  repeated int64 parcel_ids = 5;
+  bytes intent_digest = 6;
+  string transition_id = 7;
+  bytes transition_digest = 8;
+  ErrorDetail refusal = 9;
+  OutpostPrepareRequest prepared_intent = 10;
+}
+message OutpostStateQuery { OutpostScopeMessage scope = 1; }
+message OutpostStateReply {
+  OutpostScopeMessage scope = 1;
+  int64 authoritative_revision = 2;
+  repeated OutpostSummary outposts = 3;
+  repeated OutpostOperationReply pending_operations = 4;
+  string manifest_id = 5;
+  bytes manifest_digest = 6;
+}
+message OutpostSummary {
+  string outpost_id = 1;
+  OutpostProfile profile = 2;
+  string surface_id = 3;
+  int32 tile = 4;
+  int64 revision = 5;
+  repeated string pawn_custody_ids = 6;
+  repeated string assignment_ids = 7;
+  int64 stock = 8;
+  bool archived = 9;
+  bool recovery_required = 10;
+}
+message OutpostDeliveryRequest {
+  OutpostScopeMessage scope = 1;
+  string client_request_id = 2;
+  int64 parcel_id = 3;
+  bytes payload_digest = 4;
+  OutpostSnapshotProof canonical_snapshot = 5;
+}
+message OutpostDeliveryReply {
+  string attempt_id = 1;
+  OutpostDeliveryRequest authorization = 2;
+  int64 authoritative_revision = 3;
+  bool ack_only = 4; // Receipt already in canonical snapshot: never spawn again.
+}
+
+// Versioned exact-save metadata; absence is only legacy when there is no protected history.
+message OutpostSaveMetadata {
+  uint32 schema_version = 1;
+  OutpostScopeMessage scope = 2;
+  repeated PawnRegistryEnvelope registry = 3;
+  repeated OutpostTransitionReceipt receipts = 4;
+  repeated OutpostFrontierEntry frontier = 5;
+}
+message OutpostTransitionReceipt {
+  string transition_id = 1;
+  string predecessor_id = 2;
+  bytes transition_digest = 3;
+  string client_request_id = 4;
+  bytes intent_digest = 5;
+  OutpostSnapshotProof snapshot = 6;
+  repeated string pawn_custody_ids = 7;
+  repeated string assignment_ids = 8;
+  repeated int64 parcel_ids = 9;
+  string delivery_attempt_id = 10;
+  OutpostCancelKind cancellation_kind = 11;
+}
+message OutpostFrontierEntry {
+  string transition_id = 1;
+  bytes transition_digest = 2;
+  string predecessor_id = 3;
+}
+// Owner-scoped invalidation; no private blobs/health/registry in public world projections.
+message OutpostChanged {
+  OutpostScopeMessage scope = 1;
+  string outpost_id = 2;
+  int64 authoritative_revision = 3;
+}

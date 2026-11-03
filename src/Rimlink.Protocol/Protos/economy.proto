@@ -37,6 +37,8 @@ message PawnBlob {
   bytes scribe_xml_zstd = 7;
   // Market value × 100 when sent (0 from older clients); the wealth check counts it as imported.
   int64 market_value_x100 = 8;
+  // Absent for legacy pawns; preserve through every escrow/return path.
+  PawnRegistryEnvelope registry = 9;
 }
 
 message ItemList { repeated ItemBlob items = 1; }
@@ -56,6 +58,7 @@ enum ParcelKind {
   PARCEL_GIFT_RETURN = 8;
   PARCEL_TRADE = 9;
   PARCEL_TRADE_RETURN = 10;
+  PARCEL_OUTPOST = 11;
 }
 
 message Parcel {
@@ -72,6 +75,7 @@ message Parcel {
   int32 size_bytes = 10;
   // A player's gift waiting for Mailbox.Answer: the client does not drop it.
   bool awaiting_decision = 11;
+  OutpostParcelPayload outpost_payload = 12;
 }
 
 message ParcelList { repeated Parcel parcels = 1; }
@@ -206,3 +210,45 @@ message LotClosed { int64 lot_id = 1; string reason = 2; int64 storage_fee = 3; 
 message WalletChanged { int64 balance = 1; int64 delta = 2; string kind = 3; int64 ref_id = 4; }
 // To the sender (a letter) and to the recipient (the parcel leaves its mailbox); expired: nobody answered in time.
 message GiftRefused { int64 parcel_id = 1; PlayerRef by = 2; string returned = 3; bool expired = 4; }
+
+// Economy owns the envelope to avoid economy/outposts import cycles.
+message PawnRegistryEnvelope {
+  uint32 schema_version = 1;
+  string pawn_custody_id = 2;
+  string assignment_id = 3;
+  OutpostScopeMessage scope = 4;
+  string pawn_reference_token = 5;
+  bool non_authoritative_mirror = 6;
+  bool tombstone = 7;
+}
+
+enum OutpostPayloadKind {
+  OUTPOST_PAYLOAD_KIND_UNSPECIFIED = 0;
+  OUTPOST_PAYLOAD_KIND_RESOURCES = 1;
+  OUTPOST_PAYLOAD_KIND_WORKERS = 2;
+  OUTPOST_PAYLOAD_KIND_RETURN_BATCH = 3;
+}
+
+// Typed allowlisted resource, never fabricated ItemBlob XML.
+message ResourceParcel {
+  uint32 schema_version = 1;
+  string def_name = 2; // v1: WoodLog or Steel
+  int32 count = 3;
+  int64 import_value_x100 = 4; // immutable total value of this line
+}
+
+message OutpostParcelPayload {
+  uint32 schema_version = 1;
+  OutpostPayloadKind kind = 2;
+  OutpostScopeMessage scope = 3;
+  string outpost_id = 4;
+  string batch_operation_id = 5;
+  bytes payload_digest = 6;
+  string manifest_id = 7;
+  bytes manifest_digest = 8;
+  int64 valuation_revision = 9;
+  repeated ResourceParcel resources = 10;
+  // Worker bytes stay in Parcel.pawns with ORIGINAL registry UUID/assignment.
+  repeated string pawn_custody_ids = 11;
+  repeated string assignment_ids = 12;
+}
