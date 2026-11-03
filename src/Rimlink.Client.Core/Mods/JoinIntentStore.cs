@@ -1,4 +1,6 @@
 using System.Text.Json;
+using Rimlink.Client.Mods.Delivery;
+using Rimlink.Protocol.ModpackDelivery;
 
 namespace Rimlink.Client.Mods;
 
@@ -15,8 +17,7 @@ public sealed class JoinIntentStore(string path)
 
     public void Save(JoinIntent intent)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        File.WriteAllText(path, JsonSerializer.Serialize(intent));
+        InstallFiles.Write(path, JsonSerializer.SerializeToUtf8Bytes(intent));
     }
 
     /// <summary>The intent if it is at most <see cref="MaxAge"/> old; null when there is none, it is stale or unreadable.</summary>
@@ -24,9 +25,10 @@ public sealed class JoinIntentStore(string path)
     {
         if (!File.Exists(path)) return null;
         JoinIntent? intent = null;
-        try { intent = JsonSerializer.Deserialize<JoinIntent>(File.ReadAllText(path)); }
-        catch (Exception ex) when (ex is JsonException or IOException or NotSupportedException) { }
-        finally { try { File.Delete(path); } catch (IOException) { } }
-        return intent is not null && nowUtc - intent.CreatedUtc <= MaxAge ? intent : null;
+        bool consumed = false;
+        try { intent = JsonSerializer.Deserialize<JoinIntent>(InstallFiles.Read(path, DeliveryLimits.SimpleBodyBytes)); }
+        catch (Exception ex) when (ex is JsonException or IOException or NotSupportedException or UnauthorizedAccessException) { }
+        finally { try { File.Delete(path); consumed = true; } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { } }
+        return consumed && intent is not null && nowUtc >= intent.CreatedUtc && nowUtc - intent.CreatedUtc <= MaxAge ? intent : null;
     }
 }

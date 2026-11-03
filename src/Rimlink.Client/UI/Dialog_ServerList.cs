@@ -12,9 +12,11 @@ public sealed class Dialog_ServerList : Window
     private string newHost = "";
     private string newPort = "25560";
     private Vector2 scroll;
+    private readonly bool hasPending;
 
     public Dialog_ServerList()
     {
+        hasPending = ModpackDownloadFlow.HasPending;
         doCloseX = true;
         forcePause = true;
         absorbInputAroundWindow = true;
@@ -30,7 +32,7 @@ public sealed class Dialog_ServerList : Window
 
         var servers = RimlinkMod.Settings.Servers.Select(ServerEndpoint.FromSettingsLine).Where(e => e is not null).Cast<ServerEndpoint>().ToList();
         var listRect = new Rect(0f, 44f, inRect.width, inRect.height - 44f - 110f);
-        var viewRect = new Rect(0f, 0f, listRect.width - 16f, Math.Max(listRect.height, servers.Count * 32f));
+        var viewRect = new Rect(0f, 0f, listRect.width - 16f, Math.Max(listRect.height, servers.Count * 68f));
         Widgets.BeginScrollView(listRect, ref scroll, viewRect);
         float y = 0f;
         foreach (var server in servers)
@@ -49,7 +51,9 @@ public sealed class Dialog_ServerList : Window
                 RimlinkMod.Settings.Servers.Remove(server.ToSettingsLine());
                 RimlinkMod.Settings.Write();
             }
-            y += 32f;
+            if (Widgets.ButtonText(new Rect(0f, y + 32f, 310f, 28f), "Rimlink.Delivery.Title".Translate())) ModpackDownloadFlow.Run(server);
+            if (hasPending && Widgets.ButtonText(new Rect(320f, y + 32f, viewRect.width - 320f, 28f), "Rimlink.Delivery.Restore".Translate())) ModpackDownloadFlow.Restore();
+            y += 68f;
         }
         if (servers.Count == 0) Widgets.Label(new Rect(0f, 0f, viewRect.width, 30f), "Rimlink.Servers.Empty".Translate());
         Widgets.EndScrollView();

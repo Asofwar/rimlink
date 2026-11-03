@@ -32,7 +32,7 @@ public static class MainMenuPatch
         var endpoint = RimlinkMod.Settings.Servers.Select(ServerEndpoint.FromSettingsLine)
             .FirstOrDefault(s => s is not null && s.Host == intent.Host && s.Port == intent.Port) ?? new ServerEndpoint(intent.Host, intent.Port, intent.Display);
         RimlinkLog.Instance.Info($"logging in to {endpoint.Display} again after the restart");
-        MainThread.Post(() => _ = LoginFlow.Run(endpoint, new GameCredentials { PrefillLogin = intent.Login }));
+        MainThread.Post(() => _ = LoginFlow.Run(endpoint, new GameCredentials { PrefillLogin = intent.Login }, fromRestart: true));
     }
 
     private static void ConfirmOwnSettings(string server) =>

@@ -3,6 +3,7 @@ using RimWorld;
 using Rimlink.Client.Game;
 using Rimlink.Client.Net;
 using Rimlink.Protocol.V1;
+using Rimlink.Client.Mods.Delivery;
 using Verse;
 
 namespace Rimlink.Client.UI;
@@ -14,8 +15,14 @@ public static class LoginFlow
     /// Main thread. The UI ignores the result; dev tooling passes preset credentials and pin answers and awaits where the
     /// flow ended. A preset login that ran out of attempts is <see cref="LoginOutcomeKind.Failed"/> with the server's reason.
     /// </summary>
-    public static Task<LoginOutcome> Run(ServerEndpoint endpoint, GameCredentials? credentials = null, IPinPrompt? pins = null)
+    public static Task<LoginOutcome> Run(ServerEndpoint endpoint, GameCredentials? credentials = null, IPinPrompt? pins = null, bool fromRestart = false)
     {
+        if (ModpackDownloadFlow.JoinBlocker() is { } blocker)
+        {
+            string error = (blocker switch { "Busy" => "Rimlink.Delivery.Error.Busy", "RestartRequired" => "Rimlink.Delivery.Error.RestartRequired", _ => "Rimlink.Delivery.Error.RecoveryRequired" }).Translate();
+            Find.WindowStack.Add(new Dialog_MessageBox(error));
+            return Task.FromResult(new LoginOutcome(LoginOutcomeKind.Failed, error));
+        }
         RimlinkConnection.Pins = new CertificatePinStore(Path.Combine(RimlinkSession.DataDir, "pins.json"));
         var cts = new CancellationTokenSource();
         var wait = new Dialog_Wait("Rimlink.Flow.Connecting".Translate(endpoint.Display), cts);
@@ -40,6 +47,10 @@ public static class LoginFlow
                     return new LoginOutcome(LoginOutcomeKind.ModpackDiff);
                 }
 
+                bool deliveryVerified = await ModpackDownloadFlow.VerifyLogin(endpoint);
+                if (!ModpackJoinReadiness.MayContinue(deliveryVerified, reply.Role, fromRestart))
+                    throw new IOException(await MainThread.Get(() => "Rimlink.Delivery.Error.InstalledMismatch".Translate().ToString()));
+                if (!deliveryVerified) RimlinkLog.Instance.Warn("manual admin login: modpack delivery remains unverified; backups retained");
                 RimlinkSession.Begin(endpoint, connection, reply);
                 MainThread.Post(DevModeGuard.OnSessionBegan);
                 MainThread.Post(() => wait.Text = "Rimlink.Flow.LoadingWorld".Translate());

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <Rimlink.Delivery.Title>Скачать модпак сервера</Rimlink.Delivery.Title>
+  <Rimlink.Delivery.Prepare>Проверяем доступ к модпаку и установленные моды…</Rimlink.Delivery.Prepare>
+  <Rimlink.Delivery.Summary>{0}\nМодов: {1}. Загрузка: {2} МиБ. После распаковки: {3} МиБ.</Rimlink.Delivery.Summary>
+  <Rimlink.Delivery.Install>Установить: {0} ({1}), версия {2}</Rimlink.Delivery.Install>
+  <Rimlink.Delivery.Reuse>Использовать установленный: {0} ({1}), версия {2}</Rimlink.Delivery.Reuse>
+  <Rimlink.Delivery.Retire>Предыдущих управляемых копий для замены: {0}. Они сохранятся для отката.</Rimlink.Delivery.Retire>
+  <Rimlink.Delivery.Policy>Способ входа на сервер: {0}. Загрузка не создаёт учётную запись и не отменяет проверку входа. Лишние игровые моды будут отключены, их папки останутся.</Rimlink.Delivery.Policy>
+  <Rimlink.Delivery.PasswordAuth>логин и пароль (доступно без Steam)</Rimlink.Delivery.PasswordAuth>
+  <Rimlink.Delivery.SteamAuth>Steam</Rimlink.Delivery.SteamAuth>
+  <Rimlink.Delivery.Consent>Доверяю владельцу сервера и согласен скачать, проверить и включить эти моды. Моды могут исполнять код. После установки игра перезапустится один раз.</Rimlink.Delivery.Consent>
+  <Rimlink.Delivery.SettingsConsent>Согласен использовать полный набор общих настроек сервера. Мои личные настройки сохранятся отдельно.</Rimlink.Delivery.SettingsConsent>
+  <Rimlink.Delivery.InstallRestart>Установить и перезапустить</Rimlink.Delivery.InstallRestart>
+  <Rimlink.Delivery.Restore>Откатить установку</Rimlink.Delivery.Restore>
+  <Rimlink.Delivery.Restored>Предыдущие файлы и список модов восстановлены. Перезапустите игру перед следующим входом.</Rimlink.Delivery.Restored>
+  <Rimlink.Delivery.Phase.Download>Скачиваем модпак: {0} из {1} МиБ…</Rimlink.Delivery.Phase.Download>
+  <Rimlink.Delivery.Phase.Verify>Проверяем архив модпака ({1} МиБ)…</Rimlink.Delivery.Phase.Verify>
+  <Rimlink.Delivery.Error.Unavailable>Сервер не опубликовал совместимый пакет. Попросите администратора подготовить полный набор разрешённых к распространению модов или установите их вручную.</Rimlink.Delivery.Error.Unavailable>
+  <Rimlink.Delivery.Error.SteamOnly>Этот сервер разрешает вход только через Steam. Установка модпака не добавит вход для GOG. Администратор должен отдельно включить вход по логину и паролю.</Rimlink.Delivery.Error.SteamOnly>
+  <Rimlink.Delivery.Error.TrustFirst>Сначала подтвердите сертификат сервера.</Rimlink.Delivery.Error.TrustFirst>
+  <Rimlink.Delivery.Error.TrustRefused>Сертификат сервера не подтверждён. Данные для входа не отправлены.</Rimlink.Delivery.Error.TrustRefused>
+  <Rimlink.Delivery.Error.Redirect>Сервер перенаправляет загрузку на другой адрес. Такая загрузка запрещена.</Rimlink.Delivery.Error.Redirect>
+  <Rimlink.Delivery.Error.Unauthorized>Доступ к загрузке истёк или отозван, либо пароль сервера неверен. Начните загрузку заново; проверенная часть файла может быть использована для докачки.</Rimlink.Delivery.Error.Unauthorized>
+  <Rimlink.Delivery.Error.Expired>Срок разрешения истёк. Начните операцию заново.</Rimlink.Delivery.Error.Expired>
+  <Rimlink.Delivery.Error.StaleCatalog>Администратор изменил модпак или его настройки. Проверьте новый список и подтвердите его заново.</Rimlink.Delivery.Error.StaleCatalog>
+  <Rimlink.Delivery.Error.Busy>Уже выполняется другая установка или сервер занят. Повторите позже.</Rimlink.Delivery.Error.Busy>
+  <Rimlink.Delivery.Error.RateLimit>Слишком много запросов. Подождите минуту.</Rimlink.Delivery.Error.RateLimit>
+  <Rimlink.Delivery.Error.Conflict>Установлена отличающаяся неуправляемая копия мода. Rimlink не будет её заменять. Закройте игру и вручную устраните конфликт:</Rimlink.Delivery.Error.Conflict>
+  <Rimlink.Delivery.Error.Duplicate>Найдено несколько копий одного мода. Закройте игру и оставьте нужную копию:</Rimlink.Delivery.Error.Duplicate>
+  <Rimlink.Delivery.Error.LoadedMod>Для замены требуется убрать мод, чья сборка уже загружена этой игрой. Автоматическая замена сейчас запрещена; закройте игру и обновите её вручную:</Rimlink.Delivery.Error.LoadedMod>
+  <Rimlink.Delivery.Error.ExternalChange>Файлы изменились во время операции. Обе версии сохранены; автоматическое перезаписывание запрещено:</Rimlink.Delivery.Error.ExternalChange>
+  <Rimlink.Delivery.Error.RecoveryRequired>Есть незавершённая установка. Используйте «Откатить установку» в списке серверов. Если файлы изменены вручную или сборки уже загружены, потребуется закрыть игру и разрешить конфликт. До восстановления вход заблокирован.</Rimlink.Delivery.Error.RecoveryRequired>
+  <Rimlink.Delivery.Error.RestartRequired>Файлы восстановлены после отката. Перед входом перезапустите игру, чтобы загруженные моды и настройки соответствовали восстановленным файлам.</Rimlink.Delivery.Error.RestartRequired>
+  <Rimlink.Delivery.Error.DiskSpace>Недостаточно места для архива, распаковки и резервных копий. Освободите место на дисках игры и профиля.</Rimlink.Delivery.Error.DiskSpace>
+  <Rimlink.Delivery.Error.HashMismatch>Контрольная сумма не совпала. Повреждённый пакет не установлен.</Rimlink.Delivery.Error.HashMismatch>
+  <Rimlink.Delivery.Error.InvalidRange>Сервер неправильно ответил на запрос докачки. Пакет не установлен.</Rimlink.Delivery.Error.InvalidRange>
+  <Rimlink.Delivery.Error.InvalidManifest>Некорректное описание модпака. Установка остановлена.</Rimlink.Delivery.Error.InvalidManifest>
+  <Rimlink.Delivery.Error.InvalidArchive>Некорректный архив модпака. Установка остановлена.</Rimlink.Delivery.Error.InvalidArchive>
+  <Rimlink.Delivery.Error.UnsafePath>Архив или каталог содержит небезопасный путь либо ссылку. Установка остановлена.</Rimlink.Delivery.Error.UnsafePath>
+  <Rimlink.Delivery.Error.Limit>Превышен допустимый размер или количество файлов. Установка остановлена.</Rimlink.Delivery.Error.Limit>
+  <Rimlink.Delivery.Error.Prerequisite>Не найдена нужная версия Core или DLC. Установите её из своей копии игры; сервер их не раздаёт.</Rimlink.Delivery.Error.Prerequisite>
+  <Rimlink.Delivery.Error.PreparedMismatch>Подготовленные файлы не соответствуют требованиям сервера. Перезапуск отменён.</Rimlink.Delivery.Error.PreparedMismatch>
+  <Rimlink.Delivery.Error.InstalledMismatch>После установки файлы модов или настройки изменились. Вход остановлен; резервные копии сохранены. Проверьте файлы или откатите установку. Повторного автоматического перезапуска не будет.</Rimlink.Delivery.Error.InstalledMismatch>
+  <Rimlink.Delivery.Error.Storage>Не удалось прочитать или записать файлы. Проверьте свободное место, доступ и блокировку файлов.</Rimlink.Delivery.Error.Storage>
+  <Rimlink.Delivery.Error.Unknown>Установка остановлена ({0}). Исходные файлы сохранены; проверьте журнал Rimlink.</Rimlink.Delivery.Error.Unknown>
+  <Rimlink.Delivery.Error.Consent>Администратор должен явно подтвердить права на распространение и доступность пакета без пароля.</Rimlink.Delivery.Error.Consent>
+  <Rimlink.Delivery.Error.SettingsConsent>Не подтверждено распространение полного набора общих настроек.</Rimlink.Delivery.Error.SettingsConsent>
+  <Rimlink.Delivery.Error.Incomplete>Пакет неполон: администратор должен добавить все обязательные моды и их зависимости.</Rimlink.Delivery.Error.Incomplete>
+  <Rimlink.Delivery.Error.Dependency>Не найдена зависимость или её порядок загрузки неверен. Попросите администратора исправить пакет.</Rimlink.Delivery.Error.Dependency>
+  <Rimlink.Delivery.Error.Incompatible>В пакете есть несовместимые моды. Попросите администратора исправить набор.</Rimlink.Delivery.Error.Incompatible>
+  <Rimlink.Delivery.Error.Order>Порядок загрузки противоречит метаданным модов. Попросите администратора исправить его.</Rimlink.Delivery.Error.Order>
+  <Rimlink.Delivery.Error.GameVersion>Пакет не предназначен для этой версии RimWorld.</Rimlink.Delivery.Error.GameVersion>
+  <Rimlink.Delivery.Error.InvalidConfig>Не удалось безопасно разобрать ModsConfig.xml. Исходный файл сохранён.</Rimlink.Delivery.Error.InvalidConfig>
+  <Rimlink.Delivery.Error.ForbiddenContent>В пакет включены игровые, личные или служебные файлы, которые нельзя раздавать.</Rimlink.Delivery.Error.ForbiddenContent>
+  <Rimlink.Delivery.Error.NotFound>Пакет больше не найден. Получите актуальные требования сервера.</Rimlink.Delivery.Error.NotFound>
+</LanguageData>

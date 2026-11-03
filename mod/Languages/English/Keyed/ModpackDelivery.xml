@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <Rimlink.Delivery.Title>Download server modpack</Rimlink.Delivery.Title>
+  <Rimlink.Delivery.Prepare>Checking modpack access and installed mods…</Rimlink.Delivery.Prepare>
+  <Rimlink.Delivery.Summary>{0}\nMods: {1}. Download: {2} MiB. Expanded: {3} MiB.</Rimlink.Delivery.Summary>
+  <Rimlink.Delivery.Install>Install: {0} ({1}), version {2}</Rimlink.Delivery.Install>
+  <Rimlink.Delivery.Reuse>Reuse installed: {0} ({1}), version {2}</Rimlink.Delivery.Reuse>
+  <Rimlink.Delivery.Retire>Previous managed copies to replace: {0}. They will be kept for rollback.</Rimlink.Delivery.Retire>
+  <Rimlink.Delivery.Policy>Server sign-in: {0}. Downloading does not create an account or bypass authentication. Extra gameplay mods will be disabled; their folders will stay.</Rimlink.Delivery.Policy>
+  <Rimlink.Delivery.PasswordAuth>login and password (available without Steam)</Rimlink.Delivery.PasswordAuth>
+  <Rimlink.Delivery.SteamAuth>Steam</Rimlink.Delivery.SteamAuth>
+  <Rimlink.Delivery.Consent>I trust the server owner and agree to download, verify and enable these mods. Mods may execute code. The game will restart once after installation.</Rimlink.Delivery.Consent>
+  <Rimlink.Delivery.SettingsConsent>I agree to use the complete server settings set. My personal settings will be kept separately.</Rimlink.Delivery.SettingsConsent>
+  <Rimlink.Delivery.InstallRestart>Install and restart</Rimlink.Delivery.InstallRestart>
+  <Rimlink.Delivery.Restore>Roll back installation</Rimlink.Delivery.Restore>
+  <Rimlink.Delivery.Restored>The previous files and mod list have been restored. Restart the game before joining again.</Rimlink.Delivery.Restored>
+  <Rimlink.Delivery.Phase.Download>Downloading modpack: {0} of {1} MiB…</Rimlink.Delivery.Phase.Download>
+  <Rimlink.Delivery.Phase.Verify>Verifying modpack archive ({1} MiB)…</Rimlink.Delivery.Phase.Verify>
+  <Rimlink.Delivery.Error.Unavailable>The server has no compatible published package. Ask its administrator to prepare the complete redistributable collection, or install the mods manually.</Rimlink.Delivery.Error.Unavailable>
+  <Rimlink.Delivery.Error.SteamOnly>This server permits Steam sign-in only. Installing mods will not add GOG sign-in. Its administrator must enable login and password separately.</Rimlink.Delivery.Error.SteamOnly>
+  <Rimlink.Delivery.Error.TrustFirst>Confirm the server certificate first.</Rimlink.Delivery.Error.TrustFirst>
+  <Rimlink.Delivery.Error.TrustRefused>The server certificate was not confirmed. Sign-in data was not sent.</Rimlink.Delivery.Error.TrustRefused>
+  <Rimlink.Delivery.Error.Redirect>The server redirects the download to another address. Redirected downloads are refused.</Rimlink.Delivery.Error.Redirect>
+  <Rimlink.Delivery.Error.Unauthorized>Download access expired, was revoked, or the server password is wrong. Start again; the verified partial file may be resumed.</Rimlink.Delivery.Error.Unauthorized>
+  <Rimlink.Delivery.Error.Expired>Permission expired. Start the operation again.</Rimlink.Delivery.Error.Expired>
+  <Rimlink.Delivery.Error.StaleCatalog>The administrator changed the modpack or its settings. Review and confirm the new collection.</Rimlink.Delivery.Error.StaleCatalog>
+  <Rimlink.Delivery.Error.Busy>Another installation is running or the server is busy. Try later.</Rimlink.Delivery.Error.Busy>
+  <Rimlink.Delivery.Error.RateLimit>Too many requests. Wait a minute.</Rimlink.Delivery.Error.RateLimit>
+  <Rimlink.Delivery.Error.Conflict>A different unmanaged copy of a mod is installed. Rimlink will not replace it. Close the game and resolve this conflict manually:</Rimlink.Delivery.Error.Conflict>
+  <Rimlink.Delivery.Error.Duplicate>Several copies of one mod were found. Close the game and keep the required copy:</Rimlink.Delivery.Error.Duplicate>
+  <Rimlink.Delivery.Error.LoadedMod>A replacement needs to remove a mod whose assembly is loaded by this game. Automatic replacement is refused; close the game and update it manually:</Rimlink.Delivery.Error.LoadedMod>
+  <Rimlink.Delivery.Error.ExternalChange>Files changed during the operation. Both versions were kept; automatic replacement is refused:</Rimlink.Delivery.Error.ExternalChange>
+  <Rimlink.Delivery.Error.RecoveryRequired>An installation is unfinished. Use “Roll back installation” in the server list. Manually changed files or loaded assemblies may require closing the game and resolving the conflict. Sign-in is blocked until recovery.</Rimlink.Delivery.Error.RecoveryRequired>
+  <Rimlink.Delivery.Error.RestartRequired>Files were rolled back. Restart the game before joining so its loaded mods and settings match the restored files.</Rimlink.Delivery.Error.RestartRequired>
+  <Rimlink.Delivery.Error.DiskSpace>Not enough room for the archive, extracted files and backups. Free space on the game and profile drives.</Rimlink.Delivery.Error.DiskSpace>
+  <Rimlink.Delivery.Error.HashMismatch>The checksum differs. The damaged package was not installed.</Rimlink.Delivery.Error.HashMismatch>
+  <Rimlink.Delivery.Error.InvalidRange>The server returned an invalid resume response. The package was not installed.</Rimlink.Delivery.Error.InvalidRange>
+  <Rimlink.Delivery.Error.InvalidManifest>Invalid modpack description. Installation stopped.</Rimlink.Delivery.Error.InvalidManifest>
+  <Rimlink.Delivery.Error.InvalidArchive>Invalid modpack archive. Installation stopped.</Rimlink.Delivery.Error.InvalidArchive>
+  <Rimlink.Delivery.Error.UnsafePath>The archive or directory contains an unsafe path or link. Installation stopped.</Rimlink.Delivery.Error.UnsafePath>
+  <Rimlink.Delivery.Error.Limit>A size or file-count limit was exceeded. Installation stopped.</Rimlink.Delivery.Error.Limit>
+  <Rimlink.Delivery.Error.Prerequisite>The required Core or DLC version is missing. Install it from your own game copy; the server does not distribute it.</Rimlink.Delivery.Error.Prerequisite>
+  <Rimlink.Delivery.Error.PreparedMismatch>Prepared files do not match the server requirements. Restart cancelled.</Rimlink.Delivery.Error.PreparedMismatch>
+  <Rimlink.Delivery.Error.InstalledMismatch>The installed mod files or settings changed after installation. Sign-in stopped; backups are kept. Check the files or roll back the installation. The game will not restart again automatically.</Rimlink.Delivery.Error.InstalledMismatch>
+  <Rimlink.Delivery.Error.Storage>Could not read or write files. Check free space, permissions and locked files.</Rimlink.Delivery.Error.Storage>
+  <Rimlink.Delivery.Error.Unknown>Installation stopped ({0}). Original files were kept; check the Rimlink log.</Rimlink.Delivery.Error.Unknown>
+  <Rimlink.Delivery.Error.Consent>The administrator must confirm redistribution rights and availability without a server password.</Rimlink.Delivery.Error.Consent>
+  <Rimlink.Delivery.Error.SettingsConsent>Distribution of the complete shared settings set was not confirmed.</Rimlink.Delivery.Error.SettingsConsent>
+  <Rimlink.Delivery.Error.Incomplete>The package is incomplete. The administrator must include all required mods and dependencies.</Rimlink.Delivery.Error.Incomplete>
+  <Rimlink.Delivery.Error.Dependency>A dependency is missing or loads in the wrong order. Ask the administrator to correct the package.</Rimlink.Delivery.Error.Dependency>
+  <Rimlink.Delivery.Error.Incompatible>The package contains incompatible mods. Ask the administrator to correct the collection.</Rimlink.Delivery.Error.Incompatible>
+  <Rimlink.Delivery.Error.Order>Load order conflicts with mod metadata. Ask the administrator to correct it.</Rimlink.Delivery.Error.Order>
+  <Rimlink.Delivery.Error.GameVersion>The package is not intended for this RimWorld version.</Rimlink.Delivery.Error.GameVersion>
+  <Rimlink.Delivery.Error.InvalidConfig>ModsConfig.xml could not be parsed safely. The original file was kept.</Rimlink.Delivery.Error.InvalidConfig>
+  <Rimlink.Delivery.Error.ForbiddenContent>The package contains game, personal or service files that must not be distributed.</Rimlink.Delivery.Error.ForbiddenContent>
+  <Rimlink.Delivery.Error.NotFound>The package no longer exists. Fetch the current server requirements.</Rimlink.Delivery.Error.NotFound>
+</LanguageData>

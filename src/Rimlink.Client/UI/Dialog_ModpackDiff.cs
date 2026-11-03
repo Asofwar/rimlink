@@ -29,7 +29,7 @@ public sealed class Dialog_ModpackDiff : Window
         absorbInputAroundWindow = true;
     }
 
-    public override Vector2 InitialSize => new(760f, 600f);
+    public override Vector2 InitialSize => new(760f, 650f);
 
     private static string Describe(ModpackDiff diff)
     {
@@ -83,7 +83,7 @@ public sealed class Dialog_ModpackDiff : Window
         Widgets.Label(new Rect(0f, 0f, inRect.width, 36f), "Rimlink.Modpack.Title".Translate());
         Text.Font = GameFont.Small;
 
-        var listRect = new Rect(0f, 44f, inRect.width, inRect.height - 44f - 90f);
+        var listRect = new Rect(0f, 44f, inRect.width, inRect.height - 44f - 134f);
         float height = Text.CalcHeight(text, listRect.width - 16f);
         Widgets.BeginScrollView(listRect, ref scroll, new Rect(0f, 0f, listRect.width - 16f, Math.Max(height, listRect.height)));
         Widgets.Label(new Rect(0f, 0f, listRect.width - 16f, height), text);
@@ -91,6 +91,7 @@ public sealed class Dialog_ModpackDiff : Window
 
         if (fixing) ContinueFix();
 
+        if (Widgets.ButtonText(new Rect(0f, inRect.height - 122f, inRect.width, 32f), "Rimlink.Delivery.Title".Translate(), active: !fixing)) ModpackDownloadFlow.Run(endpoint, login);
         float y = inRect.height - 80f;
         Widgets.Label(new Rect(0f, y, inRect.width, 40f), status);
         y += 44f;

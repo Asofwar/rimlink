@@ -53,7 +53,7 @@ public sealed class GameCredentials : ICredentialProvider
     {
         var request = new LoginRequest { ServerPassword = ServerPassword ?? "" };
         request.Mods.AddRange(await ModpackActions.RunningMods());
-        request.ModSettings.AddRange(ModpackActions.RunningModSettings());
+        request.ModSettings.AddRange(await MainThread.Get(ModpackActions.RunningModSettings));
 
         if (!PreferPassword && SteamManager.Initialized && await GetTicket(cancellationToken) is { } steamTicket)
         {

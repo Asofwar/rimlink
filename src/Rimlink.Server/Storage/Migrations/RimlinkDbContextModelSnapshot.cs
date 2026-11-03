@@ -972,6 +972,62 @@ namespace Rimlink.Server.Storage.Migrations
                     b.ToTable("modpack_entries", (string)null);
                 });
 
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.ModpackPackage", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Creator")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ManifestJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("PublicDistributionConfirmed")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("RedistributionConfirmed")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("SettingsJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("SharedSettingsConfirmed")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("UploadExpiresAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Verified")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("modpack_packages", (string)null);
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.ModpackPublication", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("PackageId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PreviousPackageId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("modpack_publication", (string)null);
+                });
+
             modelBuilder.Entity("Rimlink.Server.Storage.Entities.Parcel", b =>
                 {
                     b.Property<long>("Id")

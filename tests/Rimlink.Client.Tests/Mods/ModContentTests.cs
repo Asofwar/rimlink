@@ -111,6 +111,33 @@ public class ModContentTests : IDisposable
     }
 
     [Fact]
+    public void ScanningALargeAssemblyUsesBoundedMemory()
+    {
+        string mod = Mod("large");
+        Directory.CreateDirectory(mod);
+        _ = ModContent.Scan(mod);
+        Directory.CreateDirectory(Path.Combine(mod, "Assemblies"));
+        using (var stream = File.Create(Path.Combine(mod, "Assemblies", "large.dll"))) stream.SetLength(8 * 1024 * 1024);
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        var result = ModContent.Scan(mod);
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        Assert.True(result.HasAssemblies);
+        Assert.InRange(allocated, 0, 512 * 1024);
+    }
+
+    [Fact]
+    public void FilesHashPreservesTheExistingByteFormat()
+    {
+        string mod = Mod("wire-format");
+        Write(mod, "Defs/A.xml", "<Defs>α</Defs>");
+        Write(mod, "Defs/empty.xml", "");
+        string assembly = Path.Combine(mod, "Common", "Assemblies", "mod.dll");
+        Directory.CreateDirectory(Path.GetDirectoryName(assembly)!);
+        File.WriteAllBytes(assembly, [0, 1, 0, 255, 17]);
+        Assert.Equal("d99a16e49f77b70b3ef014857ee12ff7f1e5e32c5c20e30c9b0633efe2ef45e7", ModContent.Scan(mod).FilesHash);
+    }
+
+    [Fact]
     public void SettingsHashIgnoresHowTheGameWroteTheFile()
     {
         byte[] crlf = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<SettingsBlock>\r\n  <ModSettings Class=\"A.B\">\r\n    <points>5</points>\r\n  </ModSettings>\r\n</SettingsBlock>"u8.ToArray();

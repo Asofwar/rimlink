@@ -14,6 +14,7 @@ public sealed record ConnectionTransport(Uri Address, HttpMessageHandler Handler
     {
         var handler = new SocketsHttpHandler
         {
+            AllowAutoRedirect = false,
             EnableMultipleHttp2Connections = false,
             KeepAlivePingDelay = TimeSpan.FromSeconds(30),
             KeepAlivePingTimeout = TimeSpan.FromSeconds(10),

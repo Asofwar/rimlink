@@ -41,6 +41,22 @@ public class JoinStoresTests : IDisposable
     }
 
     [Fact]
+    public void AFutureIntentDoesNotCreateARestartLoop()
+    {
+        var store = Intents(); store.Save(new JoinIntent("host", 25560, "Host", null, Now.AddHours(1)));
+        Assert.Null(store.Take(Now)); Assert.Null(store.Take(Now.AddHours(1)));
+    }
+
+    [Fact]
+    public void AnIntentThatCannotBeConsumedIsNotUsed()
+    {
+        if (!OperatingSystem.IsWindows()) return; // Unix permits unlinking an open file; there the intent is consumed normally.
+        var store = Intents(); store.Save(new JoinIntent("host", 25560, "Host", null, Now));
+        string path = Path.Combine(dir, "join-intent.json");
+        using (var held = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read)) Assert.Null(store.Take(Now));
+    }
+
+    [Fact]
     public void ABrokenIntentFileIsDroppedWithoutThrowing()
     {
         File.WriteAllText(Path.Combine(dir, "join-intent.json"), "{ not json");

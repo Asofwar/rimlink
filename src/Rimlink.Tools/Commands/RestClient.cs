@@ -9,19 +9,20 @@ public sealed class RestClient : IDisposable
 {
     private readonly HttpClient http;
 
-    public RestClient(string server, string token, bool insecure)
-        : this(CreateHttp(server, token, insecure))
+    public RestClient(string server, string token, bool insecure, TimeSpan? timeout = null)
+        : this(CreateHttp(server, token, insecure, timeout))
     {
     }
 
     /// <summary>Over a ready client whose BaseAddress ends in /api/admin/ and which already carries the auth header (tests).</summary>
     public RestClient(HttpClient http) => this.http = http;
 
-    private static HttpClient CreateHttp(string server, string token, bool insecure)
+    private static HttpClient CreateHttp(string server, string token, bool insecure, TimeSpan? timeout)
     {
-        var handler = new HttpClientHandler();
+        var handler = new HttpClientHandler { AllowAutoRedirect = false };
         if (insecure) handler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
         var client = new HttpClient(handler) { BaseAddress = new Uri(server.TrimEnd('/') + "/api/admin/") };
+        if (timeout is { } duration) client.Timeout = duration;
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return client;
     }
@@ -33,6 +34,14 @@ public sealed class RestClient : IDisposable
     public async Task<string> Put(string path, object body) => await Read(await http.PutAsJsonAsync(path, body));
 
     public async Task<string> Delete(string path) => await Read(await http.DeleteAsync(path));
+
+    public async Task<string> Upload(string path, string file)
+    {
+        await using var stream = File.OpenRead(file);
+        using var content = new StreamContent(stream);
+        content.Headers.ContentType = new MediaTypeHeaderValue("application/zip");
+        return await Read(await http.PutAsync(path, content));
+    }
 
     /// <summary>Streams a binary response (a backup archive) into <paramref name="file"/>.</summary>
     public async Task Download(string path, string file)

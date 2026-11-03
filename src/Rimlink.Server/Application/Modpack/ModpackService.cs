@@ -9,7 +9,7 @@ using Rimlink.Server.Storage.Entities;
 
 namespace Rimlink.Server.Application.Modpack;
 
-public sealed class ModpackService(RimlinkDbContext db, ILogger<ModpackService> log)
+public sealed class ModpackService(RimlinkDbContext db, ILogger<ModpackService> log, DeliveryRuntime delivery)
 {
     public async Task<List<Protocol.V1.ModpackEntry>> Get() =>
         (await db.ModpackEntries.AsNoTracking().OrderBy(e => e.Position).ToListAsync()).Select(ToProto).ToList();
@@ -32,6 +32,9 @@ public sealed class ModpackService(RimlinkDbContext db, ILogger<ModpackService> 
             .DistinctBy(r => r.PackageId)
             .ToList();
 
+        await delivery.CatalogLock.WaitAsync();
+        try
+        {
         await using var tx = await db.Database.BeginTransactionAsync();
         await db.ModpackEntries.ExecuteDeleteAsync();
         db.ModpackEntries.AddRange(rows);
@@ -41,7 +44,10 @@ public sealed class ModpackService(RimlinkDbContext db, ILogger<ModpackService> 
         var below = rows.Where(r => r.Position > rimlink).Select(r => r.PackageId).ToList();
         int dropped = await db.ModpackConfigs.Where(c => !below.Contains(c.PackageId)).ExecuteDeleteAsync();
         await tx.CommitAsync();
+        delivery.Revoke();
         log.LogInformation("Modpack set by {Actor}: {Count} entries{Dropped}", actorName, rows.Count, dropped > 0 ? $", {dropped} shared settings files dropped" : "");
+        }
+        finally { delivery.CatalogLock.Release(); }
     }
 
     public async Task<List<Protocol.V1.ModConfig>> GetConfigs() =>
@@ -69,6 +75,9 @@ public sealed class ModpackService(RimlinkDbContext db, ILogger<ModpackService> 
         long total = configs.Sum(c => (long)c.Content.Length);
         if (total > Limits.MaxModConfigsTotalBytes) throw Invalid($"{total} bytes in all, at most {Limits.MaxModConfigsTotalBytes}");
 
+        await delivery.CatalogLock.WaitAsync();
+        try
+        {
         var positions = await db.ModpackEntries.AsNoTracking().ToDictionaryAsync(e => e.PackageId, e => e.Position);
         int rimlink = -1;
         if (configs.Count > 0 && !positions.TryGetValue(ModContent.RimlinkPackageId, out rimlink))
@@ -89,7 +98,10 @@ public sealed class ModpackService(RimlinkDbContext db, ILogger<ModpackService> 
         db.ModpackConfigs.AddRange(rows);
         await db.SaveChangesAsync();
         await tx.CommitAsync();
+        delivery.Revoke();
         log.LogInformation("Modpack configs set by {Actor}: {Count} files ({Bytes} bytes)", actorName, rows.Count, total);
+        }
+        finally { delivery.CatalogLock.Release(); }
     }
 
     private static readonly System.Text.RegularExpressions.Regex HandlePattern = new(@"^[A-Za-z_][A-Za-z0-9_]*$");

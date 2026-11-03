@@ -33,7 +33,7 @@ public static class ModpackActions
     public static async Task<List<ModRef>> RunningMods()
     {
         var content = await Content.Ready;
-        return LoadedModManager.RunningMods.Select((m, i) =>
+        return await MainThread.Get(() => LoadedModManager.RunningMods.Select((m, i) =>
         {
             var mod = new ModRef { PackageId = m.PackageId, Version = m.ModMetaData?.ModVersion ?? "", Position = i };
             if (content.TryGetValue(Normalize(m.PackageId), out var info))
@@ -44,7 +44,7 @@ public static class ModpackActions
                 mod.HasAssemblies = info.HasAssemblies;
             }
             return mod;
-        }).ToList();
+        }).ToList());
     }
 
     /// <summary>The settings file in effect for every Mod class (the server's copy when its settings are active), hashed.</summary>
@@ -107,9 +107,16 @@ public static class ModpackActions
 
         // Mods Steam installed since the game started are not in the list yet, and SetActiveToList drops unknown ids.
         ModLister.RebuildModList();
-        var installed = ModLister.AllInstalledMods
-            .GroupBy(m => Normalize(m.PackageIdNonUnique), StringComparer.Ordinal)
-            .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+        var copies = ModLister.AllInstalledMods.GroupBy(m => Normalize(m.PackageIdNonUnique), StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.ToArray());
+        if (diff.ServerList.Count == 0) throw new IOException("Rimlink.Delivery.Error.Unavailable".Translate());
+        foreach (var entry in diff.ServerList.Where(e => e.Kind == EntryKind.Required))
+        {
+            if (!copies.TryGetValue(Normalize(entry.PackageId), out var matches) || matches.Length == 0) throw new IOException("Rimlink.Delivery.Error.PreparedMismatch".Translate());
+            if (matches.Length != 1) throw new IOException("Rimlink.Delivery.Error.Duplicate".Translate());
+            var mod = matches[0];
+            if (entry.Version.Length > 0 && mod.ModVersion != entry.Version || entry.FilesHash.Length > 0 && ModContent.Scan(mod.RootDir.FullName).FilesHash != entry.FilesHash) throw new IOException("Rimlink.Delivery.Error.PreparedMismatch".Translate());
+        }
+        var installed = copies.ToDictionary(p => p.Key, p => p.Value[0], StringComparer.Ordinal);
         var ordered = new List<string>();
         foreach (var entry in diff.ServerList.OrderBy(e => e.Position))
         {

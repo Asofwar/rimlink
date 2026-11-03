@@ -18,11 +18,16 @@ raid or manage a colony together live.
 Rimlink is a clean-room project with its own protocol, server and client. It shares no code with other RimWorld multiplayer
 mods and does not work with them.
 
-## In development: 0.8.0
+## What's new in 0.8.0
 
-In development for **0.8.0**: [guild influence on the world map](docs/guild-influence.md), with voluntary publication,
-offline sources, guild colors, a legend and hatched disputed tiles. Influence is information; it changes no colony ownership
-or attack rights. This working branch is not a published release.
+[Release 0.8.0](https://github.com/Asofwar/rimlink/releases/tag/v0.8.0) adds
+[guild influence on the world map](docs/guild-influence.md): voluntary publication, offline sources,
+guild colors, a legend and hatched disputed tiles. Influence changes no colony ownership or attack rights.
+
+[Server-hosted modpack delivery](docs/modpack-delivery.md) downloads a prepared redistributable collection without Steam,
+checks it, installs it with rollback and enables it after one restart. The administrator must publish the package and
+permit password login for GOG players; Core and DLC come from the player's own game. Actual GOG runtime acceptance
+remains pending; the installation and restart workflow was checked in an isolated Steam copy.
 
 ## What's new in 0.7.0
 
@@ -50,7 +55,7 @@ checks and remaining limits.
   auctions, buy orders and delivery contracts. Colonies can pool supplies toward a common goal. For silver you can also
   order a raid or another event against a colony, priced by its wealth.
 - **A community between colonies.** Find friends and player profiles, form alliances, talk in an alliance chat and
-  contribute silver to a shared treasury. The upcoming influence layer shows zones around colonies whose owners opt in.
+  contribute silver to a shared treasury. The influence layer shows zones around colonies whose owners opt in.
 - **Rules a server can hold.** New and poor colonies are protected, there is a peaceful mode, raids have loot caps and
   cooldowns, and wealth kept on the server still counts. By default dev mode is for admins, sudden jumps in wealth alert them,
   and every colony plays with the world's storyteller.
