@@ -19,6 +19,7 @@ import "procurement.proto";
 import "auctions.proto";
 
 import "alliances.proto";
+import "influence.proto";
 
 // One server-push stream per session; everything that changes arrives here.
 service Events {
@@ -66,6 +67,7 @@ message ServerEvent {
     AuctionUpdated auction_updated = 110;
 
     CommunityChanged community_changed = 100;
+    InfluenceChanged influence_changed = 111;
   }
 }
 

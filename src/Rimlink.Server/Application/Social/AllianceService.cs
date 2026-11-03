@@ -7,6 +7,7 @@ using Rimlink.Protocol.V1;
 using Rimlink.Server.Application.Chat;
 using Rimlink.Server.Application.Economy;
 using Rimlink.Server.Application.Events;
+using Rimlink.Server.Application.Influence;
 using Rimlink.Server.Grpc;
 using Rimlink.Server.Storage;
 using Rimlink.Server.Storage.Entities;
@@ -15,7 +16,7 @@ using PublicProfile = Rimlink.Protocol.V1.PublicProfile;
 namespace Rimlink.Server.Application.Social;
 
 /// <summary>Small consent-based groups. All mutations and their replay receipts commit together.</summary>
-public sealed class AllianceService(RimlinkDbContext db, WalletService wallet, EconomyGate gate, EconomyGuard guard, EventBus events, TimeProvider clock, IServiceProvider services)
+public sealed class AllianceService(RimlinkDbContext db, WalletService wallet, EconomyGate gate, EconomyGuard guard, EventBus events, TimeProvider clock, IServiceProvider services, InfluenceService influence)
 {
     public const int MaxMembers = 16, MaxInvitations = 32, MaxFriends = 100;
     public const long MaxSilver = 1_000_000_000, MaxTreasury = 1_000_000_000_000;
@@ -121,6 +122,7 @@ public sealed class AllianceService(RimlinkDbContext db, WalletService wallet, E
             return CommunityReceipt.Parser.ParseFrom(prior.Result);
         }
         var notify = new HashSet<long> { playerId };
+        Storage.Entities.World? influenceWorld = null;
         long allianceId = r.AllianceId;
         switch (r.Action)
         {
@@ -290,6 +292,8 @@ public sealed class AllianceService(RimlinkDbContext db, WalletService wallet, E
                     }
                     case CommunityAction.AllianceLeave:
                         if (group.OwnerId == playerId) throw RpcErrors.Failed(ErrorCode.AllianceRefused, RefusalKeys.CommunityOwnerLeave, "transfer ownership or disband before leaving");
+                        await InfluenceLifecycle.RevokePlayers(db, [playerId], ct);
+                        influenceWorld = await InfluenceLifecycle.Advance(db, ct);
                         db.Remove(member); Audit(group, playerId, playerId, "leave");
                         await RevokeInvitations(playerId, group.Id, notify, ct);
                         break;
@@ -312,6 +316,8 @@ public sealed class AllianceService(RimlinkDbContext db, WalletService wallet, E
                         long refund = group.Silver;
                         if (await wallet.Balance(group.OwnerId) > long.MaxValue - refund) throw RpcErrors.Failed(ErrorCode.TreasuryLimit, RefusalKeys.CommunityWalletLimit, "the receiving wallet cannot hold that much silver");
                         if (refund > 0) await wallet.Apply(group.OwnerId, refund, "alliance-refund", group.Id);
+                        await InfluenceLifecycle.RevokePlayers(db, members.Select(m => m.PlayerId), ct);
+                        influenceWorld = await InfluenceLifecycle.Advance(db, ct);
                         group.Silver = 0; group.Disbanded = true;
                         Audit(group, playerId, group.OwnerId, "disband", -refund);
                         db.RemoveRange(members);
@@ -333,6 +339,7 @@ public sealed class AllianceService(RimlinkDbContext db, WalletService wallet, E
         }
         await tx.CommitAsync(ct);
         wallet.FlushEvents();
+        if (influenceWorld is not null) influence.Notify(influenceWorld);
         Changed(notify);
         return receipt;
     }

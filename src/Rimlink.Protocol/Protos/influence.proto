@@ -1,0 +1,50 @@
+syntax = "proto3";
+package rimlink.v1;
+option csharp_namespace = "Rimlink.Protocol.V1";
+import "common.proto";
+
+service Influence {
+  rpc Get (Empty) returns (InfluenceSnapshot);
+  rpc GetSetting (InfluenceTarget) returns (InfluenceSetting);
+  rpc Mutate (InfluenceMutation) returns (InfluenceReceipt);
+}
+
+message InfluenceContext {
+  string world_instance_id = 1;
+  int64 settlement_id = 2;
+  int64 save_generation = 3;
+  int64 alliance_id = 4;
+}
+message InfluenceTarget { int64 settlement_id = 1; int64 archive_id = 2; }
+message InfluenceAlliance { int64 id = 1; string name = 2; int32 palette_index = 3; }
+message InfluenceSource { int64 id = 1; int64 alliance_id = 2; int32 tile = 3; int32 radius = 4; }
+message InfluenceSnapshot {
+  string world_instance_id = 1;
+  string process_instance_id = 2;
+  int64 revision = 3;
+  int32 algorithm_version = 4;
+  repeated InfluenceAlliance alliances = 5;
+  repeated InfluenceSource sources = 6;
+}
+message InfluenceSetting {
+  InfluenceContext context = 1;
+  int64 version = 2;
+  bool enabled = 3;
+  optional bool root_surface = 4;
+  int32 tile = 5;
+  int64 archive_id = 6;
+}
+message InfluencePublication { InfluenceContext context = 1; int64 expected_version = 2; optional bool enabled = 3; }
+message InfluenceSurface { InfluenceContext context = 1; int64 expected_version = 2; int32 tile = 3; optional bool root_surface = 4; }
+message InfluenceColor { string world_instance_id = 1; int64 alliance_id = 2; int32 palette_index = 3; }
+message InfluenceMutation {
+  string client_request_id = 1;
+  oneof action {
+    InfluencePublication publication = 10;
+    InfluenceSurface surface = 11;
+    InfluenceColor color = 12;
+  }
+}
+// A replay is the original receipt, never a newly read setting or another mutation.
+message InfluenceReceipt { int64 applied_version = 1; int64 public_revision = 2; ErrorDetail error = 3; }
+message InfluenceChanged { string world_instance_id = 1; string process_instance_id = 2; optional int64 revision = 3; }

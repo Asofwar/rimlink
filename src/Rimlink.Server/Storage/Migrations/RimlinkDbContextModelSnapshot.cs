@@ -273,6 +273,9 @@ namespace Rimlink.Server.Storage.Migrations
                     b.Property<long>("OwnerId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("PaletteIndex")
+                        .HasColumnType("INTEGER");
+
                     b.Property<long>("Silver")
                         .HasColumnType("INTEGER");
 
@@ -360,6 +363,31 @@ namespace Rimlink.Server.Storage.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Dir")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("InfluenceAllianceId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("InfluenceEnabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool?>("InfluenceRootSurface")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("InfluenceSaveGeneration")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("InfluenceSettlementId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("InfluenceTile")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("InfluenceVersion")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("InfluenceWorldId")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
@@ -728,6 +756,29 @@ namespace Rimlink.Server.Storage.Migrations
                     b.HasIndex("TargetPlayerId", "State");
 
                     b.ToTable("incidents", (string)null);
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.InfluenceOperation", b =>
+                {
+                    b.Property<string>("Actor")
+                        .HasMaxLength(160)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RequestId")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("Intent")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<byte[]>("Result")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.HasKey("Actor", "RequestId");
+
+                    b.ToTable("influence_operations", (string)null);
                 });
 
             modelBuilder.Entity("Rimlink.Server.Storage.Entities.LiveSession", b =>
@@ -1545,6 +1596,13 @@ namespace Rimlink.Server.Storage.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("InfluenceInstanceId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("InfluenceRevision")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("NpcTiles")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -1569,6 +1627,28 @@ namespace Rimlink.Server.Storage.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("InfluenceAllianceId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("InfluenceEnabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool?>("InfluenceRootSurface")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("InfluenceSaveGeneration")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("InfluenceTile")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("InfluenceVersion")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("InfluenceWorldId")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Name")

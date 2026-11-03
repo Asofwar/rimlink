@@ -7,10 +7,10 @@ using Rimlink.Protocol.V1;
 
 namespace Rimlink.Client.Economy;
 
-public enum OutboxKind { Send, Post, Deposit, Deliver, Launch, Land, Report, Buy, AckRemoval, Propose, TradeOpen, TradeSetSide, IncidentOrder, ProcurementCreate, ProcurementSupply, ProcurementCancel, AuctionPost, AuctionBid, AuctionCancel, Community }
+public enum OutboxKind { Send, Post, Deposit, Deliver, Launch, Land, Report, Buy, AckRemoval, Propose, TradeOpen, TradeSetSide, IncidentOrder, ProcurementCreate, ProcurementSupply, ProcurementCancel, AuctionPost, AuctionBid, AuctionCancel, Community, Influence }
 
 /// <summary>The typed clients a replay needs; a null client leaves entries of its kinds waiting.</summary>
-public sealed record OutboxClients(EconomyClient Economy, Raids.RaidClient? Raids, Visits.ShopClient? Shop, Live.LiveClient? Live = null, Social.TradesClient? Trades = null, Incidents.IncidentClient? Incidents = null, Procurement.ProcurementClient? Procurement = null, Social.CommunityClient? Community = null);
+public sealed record OutboxClients(EconomyClient Economy, Raids.RaidClient? Raids, Visits.ShopClient? Shop, Live.LiveClient? Live = null, Social.TradesClient? Trades = null, Incidents.IncidentClient? Incidents = null, Procurement.ProcurementClient? Procurement = null, Social.CommunityClient? Community = null, Influence.InfluenceClient? Influence = null);
 
 /// <summary>One request whose answer has not been seen yet. The payload is the request itself, so it can be replayed or its contents returned.</summary>
 public sealed class OutboxEntry
@@ -78,6 +78,7 @@ public sealed class TransferOutbox
         AuctionCancelRequest => Add(OutboxKind.AuctionCancel, request),
 
         CommunityRequest => Add(OutboxKind.Community, request),
+        InfluenceMutation => Add(OutboxKind.Influence, request),
         _ => throw new ArgumentException("not an outbox request: " + request.GetType().Name),
     };
 
@@ -133,6 +134,7 @@ public sealed class TransferOutbox
     public static IMessage Decode(OutboxEntry entry) => entry.Kind switch
     {
         OutboxKind.Community => CommunityRequest.Parser.ParseFrom(entry.Payload),
+        OutboxKind.Influence => InfluenceMutation.Parser.ParseFrom(entry.Payload),
         OutboxKind.Send => TransferRequest.Parser.ParseFrom(entry.Payload),
         OutboxKind.Post => PostRequest.Parser.ParseFrom(entry.Payload),
         OutboxKind.Deposit => DepositRequest.Parser.ParseFrom(entry.Payload),
@@ -166,7 +168,7 @@ public sealed class TransferOutbox
         // A frozen economy or a rate limit says "not now", not "no". PLAYER_FROZEN is a "no": the server checks it after the
         // replay lookup, so a request applied before the freeze still returns its result and a refused one was never applied.
         if (ex.StatusCode == StatusCode.ResourceExhausted) return false;
-        if (EconomyClient.CodeOf(ex) is { } code) return code != ErrorCode.EconomyFrozen;
+        if (EconomyClient.CodeOf(ex) is { } code) return code is not (ErrorCode.EconomyFrozen or ErrorCode.InfluenceUnavailable);
         return ex.StatusCode is StatusCode.InvalidArgument or StatusCode.FailedPrecondition or StatusCode.NotFound
             or StatusCode.PermissionDenied or StatusCode.AlreadyExists or StatusCode.OutOfRange or StatusCode.Unimplemented;
     }
@@ -219,6 +221,7 @@ public sealed class TransferOutbox
         OutboxKind.IncidentOrder => clients.Incidents is not null,
 
         OutboxKind.Community => clients.Community is not null,
+        OutboxKind.Influence => clients.Influence is not null,
         _ => true,
     };
 
@@ -231,7 +234,7 @@ public sealed class TransferOutbox
     /// </summary>
     private static bool NothingToReturn(OutboxEntry entry)
     {
-        if (entry.Kind is OutboxKind.Deliver or OutboxKind.Land or OutboxKind.Buy or OutboxKind.AckRemoval or OutboxKind.IncidentOrder or OutboxKind.Community) return true;
+        if (entry.Kind is OutboxKind.Deliver or OutboxKind.Land or OutboxKind.Buy or OutboxKind.AckRemoval or OutboxKind.IncidentOrder or OutboxKind.Community or OutboxKind.Influence) return true;
         return Decode(entry) switch
         {
             TransferRequest send => (send.Items?.Items.Count ?? 0) == 0 && (send.Pawns?.Pawns.Count ?? 0) == 0,
@@ -285,6 +288,7 @@ public sealed class TransferOutbox
                 case OutboxKind.AuctionCancel: await economy.CancelAuction(AuctionCancelRequest.Parser.ParseFrom(entry.Payload), ct); break;
 
                 case OutboxKind.Community: await clients.Community!.Mutate(CommunityRequest.Parser.ParseFrom(entry.Payload), ct); break;
+                case OutboxKind.Influence: await clients.Influence!.Mutate(InfluenceMutation.Parser.ParseFrom(entry.Payload), ct); break;
             }
             log.Info($"outbox: {entry.Kind} {entry.Id} answered on replay");
             return true;

@@ -24,6 +24,10 @@ public static class Patch_WorldObjectsHolder_Add
         // Faction.IsPlayer, not Faction.OfPlayer: NPC settlements are added during world generation before the player faction exists.
         if (!RimlinkSession.Active || o is not Settlement settlement || settlement.Faction is not { IsPlayer: true } faction) return;
         int tileId = settlement.Tile;
+        var sourceTile = settlement.Tile;
+        var influenceProof = new Influence.InfluenceSurfaceProof(sourceTile.tileId,
+            sourceTile.Layer == Find.WorldGrid.Surface && sourceTile.Layer.IsRootSurface,
+            RimlinkSession.World?.WorldInstanceId ?? "", RimlinkSession.Connection?.Login?.SaveGeneration ?? 0);
         string name = settlement.Name ?? faction.Name;
         var connection = RimlinkSession.Connection!;
 
@@ -33,6 +37,7 @@ public static class Patch_WorldObjectsHolder_Add
             {
                 var created = await connection.World.SettleAsync(new SettleRequest { Tile = tileId, Name = name });
                 RimlinkSession.Inbox.Enqueue(new ServerEvent { WorldObjectAdded = new WorldObjectAdded { Object = created } });
+                if (influenceProof.WorldId.Length != 0) Influence.InfluenceSync.ConfirmRegistered(created.Id, influenceProof, connection);
                 RimlinkLog.Instance.Info($"settled tile {tileId} as '{name}' (server id {created.Id})");
             }
             catch (RpcException ex)
@@ -60,6 +65,7 @@ public static class Patch_WorldObjectsHolder_Add
             }
         });
     }
+
 }
 
 /// <summary>Other players' settlements block a tile the same way NPC settlements do, so the site picker says so before the server has to.</summary>

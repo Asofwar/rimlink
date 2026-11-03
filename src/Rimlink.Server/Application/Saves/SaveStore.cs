@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Rimlink.Protocol;
 using Rimlink.Protocol.V1;
 using Rimlink.Server.Application.Events;
+using Rimlink.Server.Application.Influence;
 using Rimlink.Server.Grpc;
 using Rimlink.Server.Storage;
 using Rimlink.Server.Storage.Entities;
@@ -18,7 +19,7 @@ public sealed class SaveRejected(string key, string reason, params object[] args
 }
 
 /// <summary>Versioned save storage: blobs under &lt;data&gt;/saves/&lt;playerId&gt; (see <see cref="SaveFiles"/>), metadata in save_versions.</summary>
-public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles files, SaveCompactor compactor, EventBus events, Integrity.IntegrityService integrity, World.WorldService worlds, ILogger<SaveStore> log)
+public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles files, SaveCompactor compactor, EventBus events, Integrity.IntegrityService integrity, World.WorldService worlds, ILogger<SaveStore> log, InfluenceService influence)
 {
     public async Task<SaveVersion> Store(long playerId, SaveHeader header, IAsyncEnumerable<ReadOnlyMemory<byte>> chunks, CancellationToken cancellationToken)
     {
@@ -259,12 +260,17 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
                 db.SaveVersions.Remove(version);
             }
             files.PruneBases(playerId);
+            await using var tx = await db.Database.BeginTransactionAsync();
+            await InfluenceLifecycle.RevokePlayers(db, [playerId]);
+            var influenceWorld = await InfluenceLifecycle.Advance(db);
             // A fresh colony starts at tick 0: the transfer stamp and the redelivery marks of the old one must not follow it.
             await db.Players.Where(p => p.Id == playerId).ExecuteUpdateAsync(s => s
                 .SetProperty(p => p.LastOutgoingTick, 0L)
                 .SetProperty(p => p.SaveGeneration, p => p.SaveGeneration + 1));
             await db.Parcels.Where(p => p.ToPlayerId == playerId && p.DeliveredAt != null).ExecuteUpdateAsync(s => s.SetProperty(p => p.DeliveredTick, 0L));
             await db.SaveChangesAsync();
+            await tx.CommitAsync();
+            if (influenceWorld is not null) influence.Notify(influenceWorld);
         }
         finally
         {

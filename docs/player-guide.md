@@ -2,6 +2,8 @@
 
 Alliances, shared silver, friends and public profiles: [Social window guide](community.md).
 
+Optional guild colors and disputed zones on the world map: [Guild influence](guild-influence.md) (0.8.0).
+
 Rimlink lets a group of players share one RimWorld 1.7 planet. Each player runs their own
 colony in their own game; the server keeps the shared world map, everyone's settlements, the
 chat and your save games. Your colony is frozen while you are offline.

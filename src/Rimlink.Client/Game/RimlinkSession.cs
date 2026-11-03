@@ -2,6 +2,7 @@ using Rimlink.Client.Net;
 using Rimlink.Client.State;
 using Rimlink.Protocol.V1;
 using Verse;
+using Rimlink.Client.UI;
 
 namespace Rimlink.Client.Game;
 
@@ -26,6 +27,7 @@ public static class RimlinkSession
     public static Rimlink.Client.Social.TradesClient? Trades => Connection is null ? null : new(Connection);
     public static Rimlink.Client.Social.SocialClient? Social => Connection is null ? null : new(Connection);
     public static Rimlink.Client.Social.CommunityClient? Community => Connection is null ? null : new(Connection);
+    public static Rimlink.Client.Influence.InfluenceClient? Influence => Connection is null ? null : new(Connection);
     /// <summary>One live client per session: it owns the frame stream, so it is not recreated per call.</summary>
     public static Rimlink.Client.Live.LiveClient? Live { get; private set; }
     /// <summary>Economy requests whose answer has not been seen; replayed at login and after a reconnect.</summary>
@@ -61,6 +63,8 @@ public static class RimlinkSession
     /// <summary>Forgets the session; the connection is disposed by the caller.</summary>
     public static void End()
     {
+        var ending = Connection;
+        MainThread.Post(() => { if (Connection is null || ReferenceEquals(Connection, ending)) Game.Influence.InfluenceSync.Reset(); });
         if (Connection is { } c) c.EventReceived -= Inbox.Enqueue;
         if (Live is { } live) _ = live.Close();
         Live = null;

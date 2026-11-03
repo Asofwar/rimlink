@@ -34,7 +34,7 @@ public enum ArchiveState
 }
 
 /// <summary>A colony moved out of the world: its settlement data and where its save files wait (<see cref="Dir"/>, under the data directory).</summary>
-public sealed class ArchivedColony
+public sealed class ArchivedColony : IInfluenceRecord
 {
     public long Id { get; set; }
     public long PlayerId { get; set; }
@@ -54,6 +54,14 @@ public sealed class ArchivedColony
     public ArchiveState State { get; set; }
     public DateTime? RestoredAt { get; set; }
     public string? RestoredBy { get; set; }
+    public long InfluenceSettlementId { get; set; }
+    public bool InfluenceEnabled { get; set; }
+    public long InfluenceVersion { get; set; }
+    public long InfluenceAllianceId { get; set; }
+    public bool? InfluenceRootSurface { get; set; }
+    public string InfluenceWorldId { get; set; } = "";
+    public long InfluenceSaveGeneration { get; set; }
+    public int InfluenceTile { get; set; } = -1;
 }
 
 public sealed class Player
@@ -120,9 +128,11 @@ public sealed class World
     /// <summary>Comma separated tile ids occupied by NPC settlements.</summary>
     public string NpcTiles { get; set; } = "";
     public DateTime CreatedAt { get; set; }
+    public string InfluenceInstanceId { get; set; } = Guid.NewGuid().ToString("N");
+    public long InfluenceRevision { get; set; }
 }
 
-public sealed class WorldObject
+public sealed class WorldObject : IInfluenceRecord
 {
     public long Id { get; set; }
     public string Type { get; set; } = WorldObjectTypes.Settlement;
@@ -132,6 +142,13 @@ public sealed class WorldObject
     public string Name { get; set; } = "";
     public byte[] Payload { get; set; } = [];
     public DateTime CreatedAt { get; set; }
+    public bool InfluenceEnabled { get; set; }
+    public long InfluenceVersion { get; set; }
+    public long InfluenceAllianceId { get; set; }
+    public bool? InfluenceRootSurface { get; set; }
+    public string InfluenceWorldId { get; set; } = "";
+    public long InfluenceSaveGeneration { get; set; }
+    public int InfluenceTile { get; set; } = -1;
 }
 
 public sealed class ChatMessage

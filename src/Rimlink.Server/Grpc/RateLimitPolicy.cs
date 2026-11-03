@@ -11,6 +11,9 @@ public static class RateLimitPolicy
         ["/rimlink.v1.Chat/Ping"] = (12, TimeSpan.FromMinutes(1)),
         ["/rimlink.v1.Community/Mutate"] = (5, TimeSpan.FromSeconds(5)),
         ["/rimlink.v1.Community/Directory"] = (5, TimeSpan.FromSeconds(10)),
+        ["/rimlink.v1.Influence/Get"] = (5, TimeSpan.FromSeconds(10)),
+        ["/rimlink.v1.Influence/GetSetting"] = (5, TimeSpan.FromSeconds(10)),
+        ["/rimlink.v1.Influence/Mutate"] = (5, TimeSpan.FromSeconds(5)),
         ["/rimlink.v1.Saves/Upload"] = (3, TimeSpan.FromSeconds(30)), // a transfer, a delivery and a leave can each save within half a minute
         ["/rimlink.v1.World/Settle"] = (1, TimeSpan.FromSeconds(10)),
         ["/rimlink.v1.Auth/Login"] = (10, TimeSpan.FromSeconds(60)),

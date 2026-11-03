@@ -75,6 +75,8 @@ public sealed class RimlinkGameComponent : GameComponent
         {
             RimlinkSession.SummaryPending = false;
             Away.AwayLetter.Request();
+            if (Rimlink.Client.Influence.InfluenceClient.RestoreNoticeKey(RimlinkSession.Login?.ColonyRestore) is { } noticeKey)
+                UI.MainThread.Post(() => Find.WindowStack.Add(new Dialog_MessageBox(noticeKey.Translate())));
         }
     }
 
@@ -178,11 +180,12 @@ public sealed class RimlinkGameComponent : GameComponent
         ShowNoticeAfterLoad();
         DevModeGuard.Tick();
         if (Prefs.DevMode) DevModeSinceUpload = true;
-        if (!RimlinkSession.Active) return;
+        if (!RimlinkSession.Active) { Influence.InfluenceSync.Reset(); return; }
         HoldStoryteller();
 
         RimlinkSession.Inbox.DrainTo(RimlinkSession.State.Apply);
         CommunitySync.Tick();
+        Influence.InfluenceSync.Tick();
         HandleConnectionState();
         HandleNotices();
         ReportPresence();

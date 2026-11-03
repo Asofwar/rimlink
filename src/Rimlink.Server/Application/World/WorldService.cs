@@ -13,10 +13,11 @@ using Rimlink.Server.Storage;
 using Rimlink.Server.Storage.Entities;
 using WorldEntity = Rimlink.Server.Storage.Entities.World;
 using Rimlink.Server.Application.Feed;
+using Rimlink.Server.Application.Influence;
 
 namespace Rimlink.Server.Application.World;
 
-public sealed class WorldService(RimlinkDbContext db, EventBus events, AdminFeed feed, IOptions<ServerOptions> server, IOptions<HygieneOptions> hygiene, ILogger<WorldService> log)
+public sealed class WorldService(RimlinkDbContext db, EventBus events, AdminFeed feed, IOptions<ServerOptions> server, IOptions<HygieneOptions> hygiene, ILogger<WorldService> log, InfluenceService influence)
 {
     private const int SqliteConstraint = 19;
 
@@ -46,7 +47,7 @@ public sealed class WorldService(RimlinkDbContext db, EventBus events, AdminFeed
     public static WorldInfo ToInfo(WorldEntity? world)
     {
         if (world is null) return new WorldInfo { Exists = false };
-        var info = new WorldInfo { Exists = true, Params = WorldParams.Parser.ParseFrom(world.Params) };
+        var info = new WorldInfo { Exists = true, Params = WorldParams.Parser.ParseFrom(world.Params), WorldInstanceId = world.InfluenceInstanceId };
         info.NpcTiles.AddRange(ParseTiles(world.NpcTiles));
         return info;
     }
@@ -131,11 +132,15 @@ public sealed class WorldService(RimlinkDbContext db, EventBus events, AdminFeed
 
     public async Task Abandon(Session actor, long objectId)
     {
+        await using var tx = await db.Database.BeginTransactionAsync();
         var entity = await db.WorldObjects.FindAsync(objectId) ?? throw RpcErrors.With(StatusCode.NotFound, ErrorCode.Unspecified, RefusalKeys.WorldObjectUnknown, "no such world object");
         if (entity.OwnerPlayerId != actor.PlayerId && actor.Role != Storage.Entities.Role.Admin) throw RpcErrors.With(StatusCode.PermissionDenied, ErrorCode.Unspecified, RefusalKeys.WorldNotOwned, "not your world object");
 
         db.WorldObjects.Remove(entity);
+        var influenceWorld = await InfluenceLifecycle.Advance(db);
         await db.SaveChangesAsync();
+        await tx.CommitAsync();
+        if (influenceWorld is not null) influence.Notify(influenceWorld);
         events.Broadcast(new ServerEvent { WorldObjectRemoved = new WorldObjectRemoved { ObjectId = objectId } });
         if (entity.Type == WorldObjectTypes.Settlement)
         {

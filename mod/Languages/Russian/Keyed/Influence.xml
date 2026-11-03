@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <Rimlink.Influence.Title>Влияние гильдии</Rimlink.Influence.Title>
+  <Rimlink.Influence.Toggle>Зоны гильдий</Rimlink.Influence.Toggle>
+  <Rimlink.Influence.Legend>Показать легенду</Rimlink.Influence.Legend>
+  <Rimlink.Influence.HideLegend>Скрыть легенду</Rimlink.Influence.HideLegend>
+  <Rimlink.Influence.Settings>Настроить</Rimlink.Influence.Settings>
+  <Rimlink.Influence.Explanation>Публикация показывает название гильдии вашей колонии и её влияние на картах других игроков. Казна и чат остаются закрытыми. Заливка не передаёт чужие колонии во владение и не разрешает нападение. Согласие на публикацию можете дать только вы.</Rimlink.Influence.Explanation>
+  <Rimlink.Influence.NoColony>У вас пока нет колонии на этом сервере. Создайте или восстановите её.</Rimlink.Influence.NoColony>
+  <Rimlink.Influence.Refresh>Обновить</Rimlink.Influence.Refresh>
+  <Rimlink.Influence.Loading>Загружаем влияние…</Rimlink.Influence.Loading>
+  <Rimlink.Influence.Unavailable>Данные влияния недоступны.</Rimlink.Influence.Unavailable>
+  <Rimlink.Influence.Stale>Устаревшие данные — ждём обновления.</Rimlink.Influence.Stale>
+  <Rimlink.Influence.Empty>Колонии пока не публикуют влияние.</Rimlink.Influence.Empty>
+  <Rimlink.Influence.Own>Ваш союз</Rimlink.Influence.Own>
+  <Rimlink.Influence.DisputedLegend>Штриховка: спорная зона влияния</Rimlink.Influence.DisputedLegend>
+  <Rimlink.Influence.Disputed>Спорная зона влияния</Rimlink.Influence.Disputed>
+  <Rimlink.Influence.Zone>Влияние</Rimlink.Influence.Zone>
+  <Rimlink.Influence.Source>{0}: {1}, тайл {2}, расстояние по суше: {3}</Rimlink.Influence.Source>
+  <Rimlink.Influence.Published>Сервер подтвердил публикацию.</Rimlink.Influence.Published>
+  <Rimlink.Influence.Hidden>Публикация выключена.</Rimlink.Influence.Hidden>
+  <Rimlink.Influence.Publish>Показать влияние</Rimlink.Influence.Publish>
+  <Rimlink.Influence.Disable>Отозвать согласие</Rimlink.Influence.Disable>
+  <Rimlink.Influence.Color>Цвет гильдии (выбирает владелец)</Rimlink.Influence.Color>
+  <Rimlink.Influence.ColorNumber>Выбрать цвет гильдии {0}</Rimlink.Influence.ColorNumber>
+  <Rimlink.Influence.NeedHome>Для подтверждения поверхности загрузите свою домашнюю колонию. Отозвать согласие можно и из другого места.</Rimlink.Influence.NeedHome>
+  <Rimlink.Influence.ContextChanged>Колония или мир изменились либо колония находится не на поверхности планеты. Обновите данные перед публикацией.</Rimlink.Influence.ContextChanged>
+  <Rimlink.Influence.NoAlliance>Для публикации вступите в союз или создайте его.</Rimlink.Influence.NoAlliance>
+  <Rimlink.Influence.Pending>Ждём сервер. Запрос без ответа остаётся в очереди отправки.</Rimlink.Influence.Pending>
+  <Rimlink.Influence.Updated>Сервер подтвердил изменение.</Rimlink.Influence.Updated>
+  <Rimlink.Influence.CapacityRestore>Колония восстановлена, но публикация влияния выключена: достигнут лимит источников мира.</Rimlink.Influence.CapacityRestore>
+  <Rimlink.Refusal.Influence.Conflict>Колония, союз или версия согласия изменились. Обновите данные и повторите действие; отзыв согласия пока не подтверждён.</Rimlink.Refusal.Influence.Conflict>
+  <Rimlink.Refusal.Influence.Ineligible>Перед публикацией подтвердите союз и расположение колонии на поверхности планеты.</Rimlink.Refusal.Influence.Ineligible>
+  <Rimlink.Refusal.Influence.Capacity>Достигнут лимит источников влияния мира. Публикация выключена.</Rimlink.Refusal.Influence.Capacity>
+  <Rimlink.Refusal.Influence.Invalid>Некорректный запрос влияния. Обновите данные и повторите действие.</Rimlink.Refusal.Influence.Invalid>
+  <Rimlink.Refusal.Influence.Intent>Этот идентификатор запроса уже относится к другому изменению. Обновите данные и повторите действие.</Rimlink.Refusal.Influence.Intent>
+  <Rimlink.Refusal.Influence.Unavailable>Полная карта влияния недоступна. Слой обновится после восстановления корректных данных сервера.</Rimlink.Refusal.Influence.Unavailable>
+</LanguageData>

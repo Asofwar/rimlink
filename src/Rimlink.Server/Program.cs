@@ -151,6 +151,7 @@ builder.Services.AddSingleton<PanelSessions>();
 builder.Services.AddHttpClient<ISteamTicketVerifier, SteamWebApiTicketVerifier>(client => client.Timeout = TimeSpan.FromSeconds(10));
 
 builder.Services.AddProcurement();
+Rimlink.Server.Application.Influence.InfluenceFeature.AddInfluence(builder.Services);
 
 var app = builder.Build();
 app.Services.GetRequiredService<ApiTokens>(); // validates Admin:Tokens: a bad entry stops the start
@@ -189,6 +190,7 @@ app.MapCommunity();
 app.MapGrpcService<TradesGrpcService>();
 app.MapGrpcService<AwayGrpcService>();
 app.MapProcurement();
+Rimlink.Server.Application.Influence.InfluenceFeature.MapInfluence(app);
 app.MapAdminApi();
 app.MapAdminDirectoryApi();
 app.MapColonyApi();

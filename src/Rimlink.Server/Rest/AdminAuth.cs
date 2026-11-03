@@ -30,6 +30,11 @@ public static class AdminAuth
 
     public static ApiScope Scopes(this HttpContext context) => context.Items[typeof(ApiScope)] is ApiScope scopes ? scopes : ApiScope.None;
 
+    // Audit labels are editable; replay and rate-limit identity must come from the authenticated token instead.
+    public static string ReceiptIdentity(this HttpContext context) => context.Items[typeof(ApiTokenMatch)] is ApiTokenMatch match
+        ? match.Name is null ? "api:full" : "api:token:" + match.Name
+        : "panel";
+
     internal static bool IsValidLabel(string value) => value.Length is >= 1 and <= 64 && !value.Any(char.IsControl);
 
     /// <summary>
@@ -71,6 +76,7 @@ public static class AdminAuth
         if (!ApiScopes.Grants(match.Scopes, needed))
             return Results.Problem($"this needs the {ApiScopes.Name(needed)} scope", statusCode: StatusCodes.Status403Forbidden);
 
+        http.Items[typeof(ApiTokenMatch)] = match;
         return await Run(context, next, Application.Admin.Actor.ForToken(match, label), ApiScopes.Expand(match.Scopes));
     }
 

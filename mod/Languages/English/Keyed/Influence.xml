@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <Rimlink.Influence.Title>Guild influence</Rimlink.Influence.Title>
+  <Rimlink.Influence.Toggle>Guild influence zones</Rimlink.Influence.Toggle>
+  <Rimlink.Influence.Legend>Show legend</Rimlink.Influence.Legend>
+  <Rimlink.Influence.HideLegend>Hide legend</Rimlink.Influence.HideLegend>
+  <Rimlink.Influence.Settings>Settings</Rimlink.Influence.Settings>
+  <Rimlink.Influence.Explanation>Publishing shows your colony's guild name and influence on other players' maps. It does not reveal your treasury or chat, grant ownership of nearby colonies, or permit an attack. Only you can consent to publication.</Rimlink.Influence.Explanation>
+  <Rimlink.Influence.NoColony>You have no colony on this server. Create or restore one first.</Rimlink.Influence.NoColony>
+  <Rimlink.Influence.Refresh>Refresh</Rimlink.Influence.Refresh>
+  <Rimlink.Influence.Loading>Loading influence…</Rimlink.Influence.Loading>
+  <Rimlink.Influence.Unavailable>Influence data is unavailable.</Rimlink.Influence.Unavailable>
+  <Rimlink.Influence.Stale>Outdated data — waiting for an update.</Rimlink.Influence.Stale>
+  <Rimlink.Influence.Empty>No colonies publish influence yet.</Rimlink.Influence.Empty>
+  <Rimlink.Influence.Own>Your guild</Rimlink.Influence.Own>
+  <Rimlink.Influence.DisputedLegend>Hatched area: disputed influence</Rimlink.Influence.DisputedLegend>
+  <Rimlink.Influence.Disputed>Disputed influence zone</Rimlink.Influence.Disputed>
+  <Rimlink.Influence.Zone>Influence</Rimlink.Influence.Zone>
+  <Rimlink.Influence.Source>{0}: {1}, tile {2}, {3} land steps away</Rimlink.Influence.Source>
+  <Rimlink.Influence.Published>Publication confirmed by the server.</Rimlink.Influence.Published>
+  <Rimlink.Influence.Hidden>Publication is off.</Rimlink.Influence.Hidden>
+  <Rimlink.Influence.Publish>Publish influence</Rimlink.Influence.Publish>
+  <Rimlink.Influence.Disable>Withdraw consent</Rimlink.Influence.Disable>
+  <Rimlink.Influence.Color>Guild color (guild owner)</Rimlink.Influence.Color>
+  <Rimlink.Influence.ColorNumber>Use guild color {0}</Rimlink.Influence.ColorNumber>
+  <Rimlink.Influence.NeedHome>Load your own home colony to confirm its surface. You can withdraw consent from elsewhere.</Rimlink.Influence.NeedHome>
+  <Rimlink.Influence.ContextChanged>The colony or world changed, or it is not on the root surface. Refresh before publishing.</Rimlink.Influence.ContextChanged>
+  <Rimlink.Influence.NoAlliance>Join or create a guild before publishing its influence.</Rimlink.Influence.NoAlliance>
+  <Rimlink.Influence.Pending>Waiting for the server. An unanswered request stays in the outbox.</Rimlink.Influence.Pending>
+  <Rimlink.Influence.Updated>Change confirmed by the server.</Rimlink.Influence.Updated>
+  <Rimlink.Influence.CapacityRestore>Your colony was restored, but influence publication is off because the world's source limit was reached.</Rimlink.Influence.CapacityRestore>
+  <Rimlink.Refusal.Influence.Conflict>The colony, guild or publication version changed. Refresh and try again; withdrawal has not been confirmed.</Rimlink.Refusal.Influence.Conflict>
+  <Rimlink.Refusal.Influence.Ineligible>Confirm your guild and the colony's root surface before publishing.</Rimlink.Refusal.Influence.Ineligible>
+  <Rimlink.Refusal.Influence.Capacity>The world's influence source limit has been reached. Publication is off.</Rimlink.Refusal.Influence.Capacity>
+  <Rimlink.Refusal.Influence.Invalid>This influence request is invalid. Refresh and try again.</Rimlink.Refusal.Influence.Invalid>
+  <Rimlink.Refusal.Influence.Intent>This request identifier belongs to another change. Refresh and try again.</Rimlink.Refusal.Influence.Intent>
+  <Rimlink.Refusal.Influence.Unavailable>The complete influence map is unavailable. The layer will update when the server's data is valid again.</Rimlink.Refusal.Influence.Unavailable>
+</LanguageData>

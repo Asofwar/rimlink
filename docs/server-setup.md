@@ -2,6 +2,8 @@
 
 Alliances, treasury limits, privacy and profile routes: [Community guide and integration contract](community.md).
 
+Guild map publication, limits and administrative routes: [Guild influence](guild-influence.md) (0.8.0).
+
 The server is a single .NET 10 process. It needs one open TCP port (25560 by default), a data directory and,
 for Steam logins, a Steam Web API key. Everything shared (accounts, world, settlements, chat, modpack, saves)
 lives in the data directory.

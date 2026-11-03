@@ -41,12 +41,15 @@ public sealed class RimlinkSettings : ModSettings
 
     /// <summary>Which of the host's letters pause a live session for this player (live UX spec §4).</summary>
     public LetterPause LetterPause = LetterPause.Major;
+    public List<string> HiddenInfluenceServers = [];
 
     public override void ExposeData()
     {
         Scribe_Collections.Look(ref Servers, "servers", LookMode.Value);
         Scribe_Values.Look(ref LetterPause, "letterPause", LetterPause.Major);
+        Scribe_Collections.Look(ref HiddenInfluenceServers, "hiddenInfluenceServers", LookMode.Value);
         Servers ??= [];
+        HiddenInfluenceServers ??= [];
     }
 }
 

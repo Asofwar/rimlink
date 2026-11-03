@@ -4,6 +4,8 @@ using Rimlink.Protocol.V1;
 using Rimlink.Server.Application.Admin;
 using Rimlink.Server.Application.Events;
 using Rimlink.Server.Application.Feed;
+using Rimlink.Server.Application.Influence;
+using Rimlink.Protocol;
 using Rimlink.Server.Application.Live;
 using Rimlink.Server.Application.Raids;
 using Rimlink.Server.Application.Saves;
@@ -24,7 +26,7 @@ public abstract record ArchiveOutcome
 
 public abstract record RestoreOutcome
 {
-    public sealed record Restored(Protocol.V1.WorldObject Settlement) : RestoreOutcome;
+    public sealed record Restored(Protocol.V1.WorldObject Settlement, string InfluenceNoticeKey = "") : RestoreOutcome;
     public sealed record NotFound : RestoreOutcome;
     public sealed record AlreadyRestored : RestoreOutcome;
     public sealed record PlayerHasColony : RestoreOutcome;
@@ -56,7 +58,8 @@ public sealed class ColonyArchive(
     DataDirectory data,
     ColonyLocks locks,
     TimeProvider time,
-    ILogger<ColonyArchive> log)
+    ILogger<ColonyArchive> log,
+    InfluenceService influence)
 {
     private const int SqliteConstraint = 19;
 
@@ -102,10 +105,16 @@ public sealed class ColonyArchive(
             State = ArchiveState.Archived,
         };
 
+        Storage.Entities.World? influenceWorld = null;
         try
         {
             await files.CopyOut(versions, dir);
             await using var tx = await db.Database.BeginTransactionAsync();
+            // A leave or force-disable may have committed while the files were copied.
+            await db.Entry(settlement).ReloadAsync();
+            InfluenceLifecycle.Copy(settlement, row);
+            row.InfluenceSettlementId = settlement.Id;
+            influenceWorld = await InfluenceLifecycle.Advance(db);
             db.SaveVersions.RemoveRange(versions);
             db.WorldObjects.Remove(settlement);
             db.ArchivedColonies.Add(row);
@@ -120,6 +129,7 @@ public sealed class ColonyArchive(
         }
 
         TryDeleteFiles(playerId, versions.Select(v => v.Number));
+        if (influenceWorld is not null) influence.Notify(influenceWorld);
         events.Broadcast(new ServerEvent { WorldObjectRemoved = new WorldObjectRemoved { ObjectId = settlement.Id } });
         feed.Publish(FeedTypes.ColonyArchived, new ColonyArchivedData(new FeedPlayer(playerId, player.Name), row.Name, row.Tile, reason, actor.Name));
         await audit.Write(actor, "archive", player.AccountId, $"{row.Name} on tile {row.Tile} ({reason})");
@@ -172,8 +182,9 @@ public sealed class ColonyArchive(
         }
         switch (outcome)
         {
-            case RestoreOutcome.Restored:
+            case RestoreOutcome.Restored restored:
                 reply.Restored = true;
+                reply.InfluenceNoticeKey = restored.InfluenceNoticeKey;
                 return reply;
             case RestoreOutcome.TileTaken:
                 reply.Reason = "tile_taken";
@@ -216,9 +227,24 @@ public sealed class ColonyArchive(
             Name = row.Name,
             CreatedAt = row.SettledAt,
         };
+        Storage.Entities.World? influenceWorld = null;
+        string influenceNotice = "";
         try
         {
             await using var tx = await db.Database.BeginTransactionAsync();
+            await db.Entry(row).ReloadAsync();
+            InfluenceLifecycle.Copy(row, settlement);
+            var world = await db.World.AsNoTracking().SingleOrDefaultAsync();
+            long allianceId = await db.Set<AllianceMember>().Where(m => m.PlayerId == row.PlayerId && db.Set<AllianceGroup>().Any(g => g.Id == m.AllianceId && !g.Disbanded)).Select(m => m.AllianceId).SingleOrDefaultAsync();
+            var context = new InfluenceContext { WorldInstanceId = world?.InfluenceInstanceId ?? "", SaveGeneration = generation, AllianceId = allianceId };
+            if (settlement.InfluenceEnabled && !InfluenceService.Eligible(settlement, context, settlement.Tile))
+                InfluenceLifecycle.Revoke(settlement);
+            if (settlement.InfluenceEnabled && await db.WorldObjects.CountAsync(o => o.InfluenceEnabled) >= InfluenceLimits.MaxSources)
+            {
+                settlement.InfluenceEnabled = false;
+                influenceNotice = "Influence.CapacityRestore";
+            }
+            influenceWorld = await InfluenceLifecycle.Advance(db);
             db.SaveVersions.AddRange(versions);
             db.WorldObjects.Add(settlement);
             row.State = ArchiveState.Restored;
@@ -242,13 +268,14 @@ public sealed class ColonyArchive(
         }
 
         TryDeleteDirectory(dir);
+        if (influenceWorld is not null) influence.Notify(influenceWorld);
         settlement.Owner ??= row.Player;
         var proto = (await worlds.Describe([settlement]))[0];
         events.Broadcast(new ServerEvent { WorldObjectAdded = new WorldObjectAdded { Object = proto } });
         feed.Publish(FeedTypes.ColonyRestored, new ColonyRestoredData(new FeedPlayer(row.PlayerId, row.Player.Name), row.Name, row.Tile, restoredBy));
         HygieneMetrics.Restored.WithLabels(restoredBy == "player" ? "player" : "admin").Inc();
         log.LogInformation("Colony '{Colony}' of {Player} restored on tile {Tile} (by {By})", row.Name, row.Player.Name, row.Tile, restoredBy);
-        return new RestoreOutcome.Restored(proto);
+        return new RestoreOutcome.Restored(proto, influenceNotice);
     }
 
     private async Task<bool> TileTaken(int tile)

@@ -14,6 +14,7 @@ public static class AdminCommand
         name.Description += " | auctions | auction cancel <id> [reason]";
         var args = new Argument<string[]>("args") { Arity = ArgumentArity.ZeroOrMore };
         name.Description += " | colonies [playerId] | colony revoke <ownerPlayerId> <memberPlayerId>";
+        name.Description += " | influence | influence-setting <settlementId> | influence-archive-setting <archiveId> | influence-disable <settlementId> <requestId> <worldId> <generation> <allianceId> <version> | influence-archive-disable <archiveId> <settlementId> <requestId> <worldId> <generation> <allianceId> <version> | influence-color <allianceId> <worldId> <paletteIndex> <requestId>";
 
         var command = new Command("admin", "Run an admin operation on a running server") { server, token, insecure, name, args };
         command.SetAction(async parse =>
@@ -30,6 +31,7 @@ public static class AdminCommand
         string rest1 = string.Join(' ', a.Skip(1));
         return command switch
             {
+                var influence when influence.StartsWith("influence", StringComparison.Ordinal) => await RunInfluence(rest, influence, a),
                 "online" => await rest.Get("players/online"),
                 "colonies" => await rest.Get(a.Length > 0 ? $"colonies?playerId={a[0]}" : "colonies"),
                 "colony" when a.Length == 3 && a[0] == "revoke" => await rest.Delete($"colonies/{a[1]}/{a[2]}"),
@@ -121,6 +123,25 @@ public static class AdminCommand
                 },
                 var other => throw new InvalidOperationException($"unknown command '{other}'"),
             };
+    }
+
+    private static async Task<string> RunInfluence(RestClient rest, string command, string[] args)
+    {
+        int expected = command switch { "influence" => 0, "influence-setting" or "influence-archive-setting" => 1, "influence-disable" => 6, "influence-archive-disable" => 7, "influence-color" => 4, _ => -1 };
+        if (expected < 0 || args.Length != expected) throw new InvalidOperationException($"{command}: expected {expected} arguments; see admin --help");
+        if (command == "influence") return await rest.Get("influence");
+        if (command == "influence-setting") return await rest.Get($"influence/settings/{long.Parse(args[0])}");
+        if (command == "influence-archive-setting") return await rest.Get($"influence/archive/{long.Parse(args[0])}/setting");
+        if (command == "influence-color") return await rest.Post($"influence/alliances/{long.Parse(args[0])}/color", new { worldId = args[1], paletteIndex = int.Parse(args[2]), requestId = args[3] });
+        bool archive = command == "influence-archive-disable";
+        int offset = archive ? 1 : 0;
+        long settlementId = long.Parse(args[offset]);
+        string path = archive ? $"influence/archive/{long.Parse(args[0])}/disable" : $"influence/settings/{settlementId}/disable";
+        return await rest.Post(path, new
+        {
+            requestId = args[offset + 1], expectedVersion = long.Parse(args[offset + 5]),
+            context = new { worldInstanceId = args[offset + 2], settlementId, saveGeneration = long.Parse(args[offset + 3]), allianceId = long.Parse(args[offset + 4]) },
+        });
     }
 
     private static async Task<string> Download(RestClient rest, string name, string file)

@@ -88,6 +88,7 @@ public sealed class RimlinkConnection : IAsyncDisposable
         TradesApi = new Protocol.V1.Trades.TradesClient(channel);
         SocialApi = new Protocol.V1.Social.SocialClient(channel);
         CommunityApi = new Protocol.V1.Community.CommunityClient(channel);
+        InfluenceApi = new Protocol.V1.Influence.InfluenceClient(channel);
         AwayApi = new Protocol.V1.Away.AwayClient(channel);
         IncidentsApi = new Protocol.V1.Incidents.IncidentsClient(channel);
         ColoniesApi = new Protocol.V1.Colonies.ColoniesClient(channel);
@@ -140,6 +141,7 @@ public sealed class RimlinkConnection : IAsyncDisposable
     public Protocol.V1.Trades.TradesClient TradesApi { get; }
     public Protocol.V1.Social.SocialClient SocialApi { get; }
     public Protocol.V1.Community.CommunityClient CommunityApi { get; }
+    public Protocol.V1.Influence.InfluenceClient InfluenceApi { get; }
     public Protocol.V1.Away.AwayClient AwayApi { get; }
     public Protocol.V1.Incidents.IncidentsClient IncidentsApi { get; }
     public Protocol.V1.Colonies.ColoniesClient ColoniesApi { get; }

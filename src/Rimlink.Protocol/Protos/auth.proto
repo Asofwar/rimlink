@@ -79,4 +79,5 @@ message ColonyRestore {
   google.protobuf.Timestamp archived_at = 4;
   // When not restored: "tile_taken" or "damaged".
   string reason = 5;
+  string influence_notice_key = 6;
 }

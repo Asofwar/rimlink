@@ -101,6 +101,8 @@ public sealed class Dialog_Community : Window
         bool owner = alliance.OwnerId == RimlinkSession.MyPlayerId;
         if (Button(width - 280, y, 270, owner ? "Disband" : "Leave")) Confirm(owner ? "DisbandConfirm" : "LeaveConfirm", new CommunityRequest { Action = owner ? CommunityAction.AllianceDisband : CommunityAction.AllianceLeave, AllianceId = alliance.Id });
         y += 38;
+        if (Widgets.ButtonText(new Rect(0, y, 280, 30), "Rimlink.Influence.Title".Translate())) InfluenceOverlay.OpenSettings();
+        y += 38;
         Widgets.Label(new Rect(0, y, 90, 28), T("Silver"));
         amount = Widgets.TextField(new Rect(94, y, 150, 28), amount, 12);
         if (Button(254, y, 150, "Deposit")) Silver(CommunityAction.TreasuryDeposit, alliance.Id);

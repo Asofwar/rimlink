@@ -16,6 +16,7 @@ public sealed class SharedState
     public Procurement.ProcurementState Procurement { get; } = new();
     public Social.SocialState Social { get; } = new();
     public Social.CommunityCache Community { get; } = new();
+    public Influence.InfluenceCache Influence { get; } = new();
     public List<Notice> Notices { get; } = [];
     public int? PendingRollbackVersion { get; private set; }
     public ServerShutdown? PendingShutdown { get; private set; }
@@ -43,6 +44,9 @@ public sealed class SharedState
     {
         switch (ev.BodyCase)
         {
+            case ServerEvent.BodyOneofCase.InfluenceChanged:
+                Influence.Invalidate(ev.InfluenceChanged);
+                break;
             case ServerEvent.BodyOneofCase.AuctionUpdated:
                 AuctionRevision++;
                 Economy.MarkWealthStale();
@@ -144,6 +148,7 @@ public sealed class SharedState
         Procurement.Reset();
         Social.Reset();
         Community.Reset();
+        Influence.Reset();
         Raids.Reset();
         Live.Reset();
         Incidents.Reset();

@@ -111,6 +111,22 @@ public class AdminCommandTests
     }
 
     [Fact]
+    public async Task InfluenceCommandsReadSettingsDisableAndChangeColor()
+    {
+        using var fixture = await InfluenceFixtures.Create();
+        using var cli = Cli(fixture.Server);
+        Assert.Null((await fixture.Send(InfluenceFixtures.Publication(await fixture.ConfirmSurface(), true))).Error);
+        Assert.Contains("sources", await AdminCommand.Run(cli, "influence", []));
+        var setting = await fixture.Setting();
+        Assert.Contains("version", await AdminCommand.Run(cli, "influence-setting", [fixture.HomeId.ToString()]));
+        await AdminCommand.Run(cli, "influence-disable", [fixture.HomeId.ToString(), Guid.NewGuid().ToString("N"), setting.Context.WorldInstanceId, "0", fixture.AllianceId.ToString(), setting.Version.ToString()]);
+        Assert.Empty((await fixture.Snapshot()).Sources);
+        await AdminCommand.Run(cli, "influence-color", [fixture.AllianceId.ToString(), setting.Context.WorldInstanceId, "3", Guid.NewGuid().ToString("N")]);
+        foreach (string command in new[] { "influence-setting", "influence-disable", "influence-archive-setting", "influence-archive-disable", "influence-color" })
+            await Assert.ThrowsAsync<InvalidOperationException>(() => AdminCommand.Run(cli, command, []));
+    }
+
+    [Fact]
     public async Task ArchiveCommandsCallTheArchiveRoutes()
     {
         using var fixture = Server();

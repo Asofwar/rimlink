@@ -10,12 +10,25 @@ public sealed class AdminAudit(RimlinkDbContext db, AdminFeed feed, ILogger<Admi
 {
     public async Task Write(Actor actor, string action, long? targetAccountId, string details)
     {
-        db.AdminActions.Add(new AdminAction { ActorAccountId = actor.AccountId, ActorName = actor.Name, Action = action, TargetAccountId = targetAccountId, Details = details, At = DateTime.UtcNow });
+        var row = Stage(actor, action, targetAccountId, details);
         await db.SaveChangesAsync();
-        log.LogInformation("Admin {Actor}: {Action} {Target} {Details}", actor.Name, action, targetAccountId, details);
-        FeedPlayer? target = targetAccountId is { } accountId
+        await Publish(row);
+    }
+
+    public AdminAction Stage(Actor actor, string action, long? targetAccountId, string details)
+    {
+        var row = new AdminAction { ActorAccountId = actor.AccountId, ActorName = actor.Name, Action = action, TargetAccountId = targetAccountId, Details = details, At = DateTime.UtcNow };
+        db.AdminActions.Add(row);
+        return row;
+    }
+
+    /// <summary>Call after the caller's transaction committed; staging never emits a premature feed entry.</summary>
+    public async Task Publish(AdminAction row)
+    {
+        log.LogInformation("Admin {Actor}: {Action} {Target} {Details}", row.ActorName, row.Action, row.TargetAccountId, row.Details);
+        FeedPlayer? target = row.TargetAccountId is { } accountId
             ? await db.Players.AsNoTracking().Where(p => p.AccountId == accountId).Select(p => new FeedPlayer(p.Id, p.Name)).FirstOrDefaultAsync()
             : null;
-        feed.Publish(FeedTypes.AdminAction, new AdminActionData(action, actor.Name, target, details));
+        feed.Publish(FeedTypes.AdminAction, new AdminActionData(row.Action, row.ActorName ?? "", target, row.Details));
     }
 }

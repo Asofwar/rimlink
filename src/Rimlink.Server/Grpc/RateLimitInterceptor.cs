@@ -55,14 +55,18 @@ public sealed class RateLimitInterceptor : Interceptor, IDisposable
 
     private async Task Acquire(ServerCallContext context)
     {
-        if (disabled) return;
-
         // Anonymous calls (Login, Register) are keyed by IP, everything after login by account.
         string caller = context.GetHttpContext().Items[SessionInterceptor.ItemKey] is Session session
             ? "acct:" + session.AccountId
             : "ip:" + context.ClientIp();
 
-        using var lease = await limiter.AcquireAsync((caller, context.Method), permitCount: 1, context.CancellationToken);
+        await Acquire(caller, context.Method, context.CancellationToken);
+    }
+
+    public async Task Acquire(string caller, string method, CancellationToken cancellationToken)
+    {
+        if (disabled) return;
+        using var lease = await limiter.AcquireAsync((caller, method), permitCount: 1, cancellationToken);
         if (!lease.IsAcquired)
         {
             throw RpcErrors.With(StatusCode.ResourceExhausted, ErrorCode.Unspecified, RefusalKeys.RateLimited, "too many requests, slow down");

@@ -7,4 +7,5 @@ public sealed class AllianceGroup
     public long OwnerId { get; set; }
     public long Silver { get; set; }
     public bool Disbanded { get; set; }
+    public int? PaletteIndex { get; set; }
 }
