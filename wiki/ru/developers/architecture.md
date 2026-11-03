@@ -1,6 +1,6 @@
 ---
 pageId: developers/architecture
-contentRevision: 1
+contentRevision: 2
 ---
 
 # Архитектура
@@ -12,6 +12,20 @@ contentRevision: 1
 Rimlink — clean-room реализация: не копируй код игры или других multiplayer-модов. Rimlink.Protocol хранит protobuf/gRPC контракты. Rimlink.Server — ASP.NET Core 10, Application-сервисы, Grpc/Rest endpoints, EF Core + SQLite. Rimlink.Client.Core не зависит от игры; Rimlink.Client — Harmony-мод, отдельно от solution. Rimlink.Tools — административный CLI; Discord-бот — отдельная интеграция.
 
 Сервер авторитетен для мира, эскроу и версий сейвов. Домашнюю симуляцию ведёт клиент; в live хозяин исполняет команды гостя и единственный сохраняет карту. SharedState снабжает UI состоянием, outbox обеспечивает повтор неподтверждённых мутаций. Веб-панель — обычные ES modules без bundler; эта wiki собирается отдельно.
+
+## Карта компонентов и границ доверия {#boundaries}
+
+Game UI/MainThread связывает игровые объекты с Client.Core. Core ведёт соединение, SharedState, outbox и передачу сейвов; Protocol задаёт wire-контракты. Server Grpc/Rest проверяет вход и передаёт Application-сервисам. Storage хранит SQLite/сейвы; фоновые sweep и Backup работают с теми же правилами блокировок.
+
+Три авторитета различны: домашнюю симуляцию исполняет клиент, world/economy/права хранит сервер, live-карту исполняет хозяин. Подпись пользователя на UI не является проверкой полномочий сервера. Подключённый гость не становится вторым writer хозяйского сейва.
+
+Tools/Discord используют admin API; web-panel — отдельный статический ES-module UI сервера. Wiki — другой build и публичный артефакт, не часть игрового runtime.
+
+## Как найти место для изменения? {#change-trace}
+
+Начни с пользовательского сценария и существующего proto/endpoint. Проследи клиентское намерение до валидации/сервиса/транзакции/события и обратно в SharedState/UI. Изменение поля не заканчивается компиляцией: нужны отказ без права, повтор после обрыва, миграция при новой схеме и обе локали.
+
+Не переносить Verse в Core ради удобства теста. Новую доменную логику помещай в Application, transport mapping — в Grpc/Rest. Dev BridgeTools остаётся вне релизного набора. Не используй исторический отчёт как доказательство нынешнего runtime.
 
 ## Ограничения и безопасность {#limits}
 

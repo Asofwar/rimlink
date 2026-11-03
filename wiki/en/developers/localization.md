@@ -1,6 +1,6 @@
 ---
 pageId: developers/localization
-contentRevision: 1
+contentRevision: 2
 ---
 
 # Localization
@@ -14,6 +14,12 @@ Every mod-facing string is a keyed string under mod/Languages/English and Russia
 The wiki uses matching pageIds and shared explicit anchors in RU/EN. Both articles carry the same contentRevision. A semantic change requires updating both versions and the manifest, not replacing English with a link to Russian. Navigation labels are translated too. Search runs locally and normalizes case and ё/е.
 
 Run test:checks and check:content after translating; manually compare meaning, warnings and numeric limits. Matching metadata does not prove translation quality.
+
+## Verify translation as behavior {#translation-work}
+
+Choose a key and parameter meaning before adding matching English/Russian placeholders. Verify plurals, substitutions, button length and warnings before dangerous actions. Never translate technical IDs, configuration keys or paths.
+
+Translate the full wiki scenario, not just its title. Compare numbers, prerequisites, actors and failure consequences. Increment shared contentRevision and update coverage questions/sources. Shared anchors preserve language switching with hashes. Structural PASS cannot establish semantic translation quality.
 
 ## Limits and safety {#limits}
 

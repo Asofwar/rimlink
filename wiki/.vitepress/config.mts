@@ -1,7 +1,7 @@
 import { defineConfig } from 'vitepress';
 import manifest from '../content-manifest.json';
 const labels={ru:['Общее','Игрокам','Администраторам','Разработчикам'],en:['General','Players','Administrators','Developers']};
-function sidebar(lang:'ru'|'en') {return ['', 'players/', 'admins/', 'developers/'].map((prefix,i)=>({text:labels[lang][i],collapsed:i>0,items:manifest.pages.filter(p=>prefix?p.id.startsWith(prefix):!p.id.includes('/')).map(p=>({text:p.titles[lang],link:'/'+lang+'/'+(p.id==='index'?'':p.id)}))}));}
+function sidebar(lang:'ru'|'en') {return manifest.groups.map(group=>({text:group.titles[lang],items:manifest.pages.filter(p=>p.group===group.id).map(p=>({text:p.titles[lang],link:'/'+lang+'/'+(p.id==='index'?'':p.id)}))}));}
 export default defineConfig({
  base:'/rimlink/',title:'Rimlink Wiki',description:'Rimlink — persistent multiplayer for RimWorld 1.7',cleanUrls:true,
  srcExclude:['scripts/**','tests/**','README.md'], lastUpdated:false,

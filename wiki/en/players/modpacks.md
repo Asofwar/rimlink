@@ -1,6 +1,6 @@
 ---
 pageId: players/modpacks
-contentRevision: 1
+contentRevision: 2
 ---
 
 # Server modpacks
@@ -28,6 +28,22 @@ Without a published archive, install requirements following the administrator's 
 2. Let the client finish its resumable download and SHA-256/path/size verification. New mods use separate `Mods/rimlink-managed-…` folders. An exact installed copy can be reused; conflicting or duplicate unmanaged copies block installation and show their paths. They are never overwritten. Extra gameplay mods are disabled, not deleted.
 3. The complete settings snapshot is staged before one restart. Matching loaded mods/settings and successful login are required for verification. Failure preserves installed files and backups for retry; no restart loop is expected.
 4. If interrupted, use **Roll back installation** from the server list for a pending journal. Preserve `Rimlink/install-journal.json`, the pending marker and backups. External modifications stop automatic recovery: resolve the indicated files manually with the game closed. Loaded assemblies cannot be replaced or restored safely.
+
+## Choose a path: Workshop or server package? {#modpack-decision}
+
+If only requirements are published, you need your own copies of required mods and DLC. **Fix and restart** can subscribe/order Workshop mods but cannot invent a missing older revision. Server package delivery requires redistribution rights for every included mod.
+
+Read the diff first: missing, newer-than-server, changed files and different settings require different actions. If Workshop redownload does not resolve it, give the administrator the mismatch list. Do not disable checks, copy arbitrary DLLs or edit the manifest.
+
+Before applying a package, verify address, certificate, sizes and code list. Consent to shared settings is separate from code installation. Single-player saves can also use active server settings until personal settings are explicitly restored.
+
+## Safe recovery after an interrupted installation {#modpack-recovery}
+
+Distinguish download, verification, application and post-restart loading. An unfinished download does not mean the collection is installed. A conflicting unmanaged mod must not be silently replaced; inspect its reported path.
+
+Preserve the install journal, pending marker and backups. Use **Roll back installation** in the server list for a pending install. External changes may stop automatic rollback: close the game, reconcile the exact paths, and do not delete the entire Mods directory. Loaded assemblies cannot be reliably rolled back in a running game.
+
+Restart afterward, pass collection validation again and check personal/server settings. A successful login with the intended loaded collection completes verification.
 
 ## Limits and safety {#limits}
 

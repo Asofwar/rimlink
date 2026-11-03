@@ -1,6 +1,6 @@
 ---
 pageId: admins/getting-started
-contentRevision: 1
+contentRevision: 2
 ---
 
 # Your first server
@@ -15,6 +15,18 @@ Applies to: Rimlink 0.8.1 · RimWorld 1.7 · protocol 1.
 4. Start the server, check /health, then verify HTTPS /admin/ login and game login.
 5. Create the shared world with an administrator client, configure the modpack and invite a test player.
 6. Create a backup and restore it into a separate test directory before opening publicly.
+
+## Acceptance before inviting players {#launch-proof}
+
+Prepare a separate DataDir, stable address, TLS and administrator. After startup, check more than /health: open the HTTPS panel, log in with the game, create the world as administrator and a test colony as an ordinary account. Save, leave normally, then reload. Test a small delivery and mailbox.
+
+Record server/mod/collection versions, port, DataDir and recovery procedure. Create a backup and restore it to an isolated directory before inviting the group. Never test reset/recreateworld against the only world containing real players.
+
+## What should players know beforehand? {#launch-policy}
+
+Publish address, verifiable fingerprint, supported version, authentication method, collection/DLC and raid/storage/treasury rules. Explain support contacts and safe operation-ID reporting. Never publish an API/admin secret alongside a shared server password.
+
+Agree on maintenance and recovery: backup retention, rollback authority and how players learn that old sessions are fenced. This wiki explains mechanisms, not your community's policy.
 
 ## Limits and safety {#limits}
 

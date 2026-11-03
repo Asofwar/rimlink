@@ -1,6 +1,6 @@
 ---
 pageId: admins/api
-contentRevision: 1
+contentRevision: 2
 ---
 
 # Справочник REST API
@@ -14,6 +14,14 @@ REST доступен на том же сервере. Администрати�
 Пример чтения: `curl --header "Authorization: Bearer <TOKEN>" https://play.example.org:25560/api/admin/status`. Не вставляй реальный токен в общедоступную команду. Cookie-вход панели дополнительно требует CSRF для мутаций; предпочитай bearer для автоматизации.
 
 При отказе сохрани HTTP status и тело ошибки. 401 означает отсутствие допустимой аутентификации, 403 — недостаточные права/защиту запроса; 404 — отсутствующий объект/выключенную поверхность. Конфликты проверяются по ответу операции. Для influence читай setting, передавай requestId, expectedVersion и context; на InfluenceConflict обнови setting, не выдумывай новую версию.
+
+## Интеграция: начать с чтения и правильно повторять {#api-client}
+
+Начни с GET /api/admin/status с отдельным read Bearer. Ожидай JSON и проверяй HTTP status до разбора тела; 401 означает неверную авторизацию, 403 — недостаточный scope/CSRF, а не сетевой timeout. Для SteamID используй строку, не JavaScript Number. Пагинацию и ограниченные списки читай по контрактам каждой операции ниже.
+
+Мутация с потерянным ответом могла выполниться. Не повторяй автоматически POST wallet/refund/reset как новый запрос. Сначала сверяй audit и текущее состояние; где API задаёт requestId/expectedVersion/context, сохраняй исходное намерение. Idempotency игровых gRPC не означает универсальную идемпотентность любого REST POST.
+
+События SSE — уведомления, не база: после gap перечитай состояние. Минимизируй scope, не логируй Authorization/cookies и не сохраняй приватные payload в аналитике.
 
 ## Ограничения и безопасность {#limits}
 
@@ -167,29 +175,29 @@ Delivery: capabilities публичный; access принимает serverPassw
 
 ### Контракт каждой операции
 
-Вход — DTO из таблицы выше либо query/header; «—» означает отсутствие тела и дополнительных параметров (path-параметры остаются в адресе). 200 без объекта означает пустой успешный ответ. JSON использует camelCase. Все admin-операции дополнительно могут вернуть 401 (токен), 403 (scope/CSRF), 400 (валидация/предусловие) и 404 (сущность); ошибки — ProblemDetails. Не все отказы повторяемы. D — DeliveryError: {code,messageKey,args,retryable}, 400/401/404/409/413/429/503/507, Retry-After: 60 при 429.
+Вход — DTO, query/header или «—» без тела; path-параметры остаются в URL. 200 без объекта — пустой успешный ответ. JSON использует camelCase. Сначала обрабатывай HTTP status и Content-Type: неверный/отсутствующий bearer или просроченная cookie дают 401 с пустым телом, cookie-CSRF — пустой 403. Отказ scope и перехваченные сервисные RpcException обычно возвращают ProblemDetails; отдельные 400/404 могут быть пустыми либо JSON-строкой. Универсального JSON error-body нет. D — DeliveryError: {code,messageKey,args,retryable}, 400/401/404/409/413/429/503/507, Retry-After: 60 при 429.
 
 | Операция | Вход | Успех | Дополнительные отказы |
 |---|---|---|---|
 | `POST /api/panel/login` | `LoginBody` | `{expiresAt} + Set-Cookie` | `401 / 403 / 404 / 429` |
 | `POST /api/panel/logout` | `—` | `200` | `403 / 404` |
 | `GET /api/panel/session` | `—` | `{expiresAt}` | `401 / 404` |
-| `GET /api/public/status` | `—` | `PublicStatus` | `404` |
+| `GET /api/public/status` | `—` | [PublicStatus](#response-schemas) | `404` |
 | `GET /api/admin/events` | `after=epoch:seq; Last-Event-ID` | `SSE: id/event/data; gap` | `—` |
 | `GET /api/admin/players` | `q; limit=50 (1..200); offset=0` | `{total,items: PlayerRow[]}` | `400` |
-| `GET /api/admin/players/{id:long}` | `—` | `PlayerCard (flattened)` | `404` |
+| `GET /api/admin/players/{id:long}` | `—` | [PlayerCard](#response-schemas) | `404` |
 | `POST /api/admin/players/{id:long}/role` | `RoleBody` | `200` | `400 / 404` |
 | `POST /api/admin/players/{id:long}/economy` | `EconomyFreezeBody` | `200` | `400 / 404` |
 | `POST /api/admin/players/{id:long}/rename` | `RenameBody` | `200` | `400 / 404` |
 | `GET /api/admin/economy/wallet/{id:long}` | `—` | `{balance}` | `404` |
 | `POST /api/admin/saveall` | `—` | `200` | `—` |
-| `GET /api/admin/status` | `—` | `AdminStatus` | `—` |
+| `GET /api/admin/status` | `—` | [AdminStatus](#response-schemas) | `—` |
 | `GET /api/admin/config` | `—` | `ServerStatus.Config (redacted)` | `—` |
 | `GET /api/admin/backups` | `—` | `{name,size,createdAt}[]` | `—` |
 | `POST /api/admin/backups` | `—` | `{name,size}` | `—` |
 | `GET /api/admin/backups/{name}` | `—` | `application/octet-stream` | `400 / 404` |
-| `GET /api/admin/chat` | `playerId; before; after; limit=100` | `ChatLine[]` | `400` |
-| `GET /api/admin/players/online` | `—` | `OnlinePlayer[]` | `—` |
+| `GET /api/admin/chat` | `playerId; before; after; limit=100` | [ChatLine[]](#response-schemas) | `400` |
+| `GET /api/admin/players/online` | `—` | [OnlinePlayer[]](#response-schemas) | `—` |
 | `POST /api/admin/players/{id:long}/kick` | `KickBody` | `JSON string` | `400 / 404` |
 | `POST /api/admin/players/{id:long}/mute` | `MuteBody` | `200` | `400 / 404` |
 | `DELETE /api/admin/players/{id:long}/mute` | `—` | `200` | `404` |
@@ -199,7 +207,7 @@ Delivery: capabilities публичный; access принимает serverPassw
 | `GET /api/admin/bans` | `—` | `{id,accountId,steamId,steamIdText,ip,reason,expiresAt,createdAt,playerName}[]` | `—` |
 | `POST /api/admin/bans` | `BanBody` | `{id}` | `400 / 404` |
 | `DELETE /api/admin/bans/{id:long}` | `—` | `200` | `404` |
-| `GET /api/admin/archive` | `state=archived` | `ArchivedRow[]` | `400` |
+| `GET /api/admin/archive` | `state=archived` | [ArchivedRow[]](#response-schemas) | `400` |
 | `POST /api/admin/players/{id:long}/archive` | `—` | `{id}` | `409: no colony / online` |
 | `POST /api/admin/archive/{id:long}/restore` | `—` | `200` | `404 / 409: restored / occupied / damaged` |
 | `POST /api/admin/chat` | `ChatBody` | `{id}` | `400` |
@@ -212,13 +220,13 @@ Delivery: capabilities публичный; access принимает serverPassw
 | `PUT /api/admin/modpack/defs` | `DefsBody` | `{count}` | `400` |
 | `POST /api/admin/economy/wallet/{id:long}` | `WalletBody` | `{balance}` | `400 / 404` |
 | `GET /api/admin/economy/parcels/{id:long}` | `—` | `{id,kind,fromPlayerId,fromName,toPlayerId,toName,silver,sizeBytes,createdAt,deliveredAt,deliveredTick}[]` | `—` |
-| `GET /api/admin/economy/lots` | `playerId` | `LotView[]` | `—` |
+| `GET /api/admin/economy/lots` | `playerId` | [LotView[]](#response-schemas) | `—` |
 | `POST /api/admin/economy/refund/lot/{id:long}` | `—` | `200` | `404` |
 | `POST /api/admin/economy/refund/parcel/{id:long}` | `—` | `200` | `404` |
 | `POST /api/admin/economy/freeze` | `FreezeBody` | `200` | `—` |
 | `GET /api/admin/economy/stats` | `—` | `{silverInWallets,openLots,pendingParcels,tradesToday,frozen,freezeReason,storageFeesCollected}` | `—` |
 | `GET /api/admin/raids` | `playerId` | `{id,attackerPlayerId,attackerName,targetPlayerId,targetName,state,pawnMode,timing,lootCap,createdAt,landAtTick,landedTick,resolvedAt,expiresAt}[]` | `—` |
-| `GET /api/admin/trades` | `playerId` | `TradeView[]` | `—` |
+| `GET /api/admin/trades` | `playerId` | [TradeView[]](#response-schemas) | `—` |
 | `POST /api/admin/trades/{id:long}/cancel` | `ReasonBody` | `200` | `404` |
 | `POST /api/admin/raids/{id:long}/cancel` | `CancelRaidBody` | `200` | `404` |
 | `POST /api/admin/raids/freeze` | `FreezeBody` | `200` | `—` |
@@ -255,8 +263,8 @@ Delivery: capabilities публичный; access принимает serverPassw
 | `GET /api/modpack-delivery/packages/{id}/archive` | `delivery Bearer; Range; If-Range` | `ZIP: 200 / 206; ETag; Accept-Ranges` | `D / 416` |
 | `GET /api/admin/auctions` | `max 500; active only` | `{id,sellerPlayerId,startPrice,buyoutPrice,bid,bidderPlayerId,expiresAt}[]` | `—` |
 | `POST /api/admin/auctions/{id:long}/cancel` | `AuctionCancelBody` | `JSON bool` | `—` |
-| `GET /api/public/profiles/{id:long}` | `—` | `PublicProfileDto` | `404` |
-| `GET /api/admin/profiles/{id:long}` | `—` | `PublicProfileDto` | `404` |
+| `GET /api/public/profiles/{id:long}` | `—` | [PublicProfileDto](#response-schemas) | `404` |
+| `GET /api/admin/profiles/{id:long}` | `—` | [PublicProfileDto](#response-schemas) | `404` |
 | `GET /api/admin/procurement` | `page=0` | `{total,entries:[{id,kind,buyerId,buyerName,supplierId,defName,quantity,supplied,reward,escrow,status,expiresAt,contributions}]}` | `400` |
 | `POST /api/admin/procurement/{id:long}/cancel` | `CancelBody; reason <=200` | `{closed:bool}` | `400` |
 | `GET /health` | `—` | `text: Healthy` | `503` |
@@ -283,3 +291,57 @@ Delivery: capabilities публичный; access принимает serverPassw
 | `DeliveryMod` | `packageId, displayName, version, filesHash, contentHash, folderId; position; supportedVersions[], dependencies[], incompatibilities[], loadBefore[], loadAfter[]; expandedBytes; fileCount` |
 
 Delivery JSON регистрозависим, неизвестные/повторные поля отвергаются, глубина ≤32. Секрет access token не сохраняй в журнал. Безопасный поток публикации: requirements → локальный package → UploadOffer → PUT ZIP → PublishPackage с ожидаемыми revision/hash; 409 требует заново сверить каталог, а не подставить устаревший hash.
+
+## Схемы ответов {#response-schemas}
+
+Ниже JSON-поля фактических REST-проекций, а не внутренняя структура protobuf/C# records. `?` после типа допускает null, `[]` — массив, UTC — ISO 8601 строка с Z. int/int64/uint64 — JSON numbers; не округляй 64-битные ID в JavaScript: используй lossless JSON-парсер либо храни исходный текст. Для Steam ID предпочитай строковые steamId/steamIdText. Строковые статусы регистрозависимы; Role в OnlinePlayer числовой, role в каталоге — строка player/moderator/admin. ModpackBody.kind — строковое enum; delivery EntryKind — число. Не переноси enum-предположения между API.
+
+| Схема | JSON |
+|---|---|
+| [PublicStatus](#response-schemas) | `serverName, description, version, certificateFingerprint, address: string; protocolVersion, playersOnline, maxPlayers: int; worldExists, passwordRequired, steamLogin, passwordLogin: bool; modpack: PublicModpackEntry[]; players: PublicPlayer[]?; world: PublicWorld` |
+| `PublicModpackEntry` | `position: int; packageId, version, url, kind: string; workshopId: uint64` |
+| `PublicPlayer / PublicWorld` | `PublicPlayer: {name, factionName: string}; PublicWorld: {settlements, tradesToday, raidsResolvedToday, liveActive: int; economyFrozen, raidsFrozen: bool}` |
+| `PlayerRow` | `id, accountId: int64; name, factionName, role: string; steamId, login: string?; online, peaceful, banned: bool; lastSeenAt, mutedUntil: UTC?; createdAt: UTC` |
+| `PlayerCard` | `все поля PlayerRow в корне; lastIp: string?; session: {ip: string; since: UTC}?; settlements: {id: int64; tile: int; name: string}[]; walletBalance, wealthTotal: int64; firstSaveAt: UTC?; currentSave: {version: int; size, gameTick: int64; createdAt: UTC}?; activeBans: {id: int64; reason: string; expiresAt: UTC?}[]; visitsClosed: bool; peacefulOffAt, economyFrozenAt: UTC?; blocks: string[]?; economyFreezeReason: string?` |
+| `ChatLine` | `id: int64; at: UTC; fromPlayerId: int64?; fromName, author: string?; kind, text: string` |
+| `OnlinePlayer` | `playerId, accountId: int64; name, factionName, ip: string; role: int (0 Player, 1 Moderator, 2 Admin); since: UTC` |
+| [AdminStatus](#response-schemas) | `version, certificateFingerprint: string; protocolVersion, playersOnline, maxPlayers, playersTotal, settlements, liveActive: int; startedAt: UTC; uptimeSeconds: int64; worldExists, certificateSelfSigned: bool; worldCreatedAt: UTC?; economy: {frozen: bool; reason: string?}?; raids: {frozen: bool; reason: string?; active: int}?; saves: {count: int; totalBytes, diskBytes: int64}?; backups: {count: int; lastAt: UTC?}?` |
+| `ArchivedRow` | `id, playerId, wealthTotal: int64; playerName: string?; colony, reason, archivedBy, state: string; tile: int; settledAt, archivedAt: UTC; colonyGameDays: int?; lastActiveAt, restoredAt: UTC?; restoredBy: string?` |
+| `LotView` | `id, sellerPlayerId, price: int64; sellerName, status, summary: string; createdAt, expiresAt: UTC` |
+| `TradeView` | `id, initiatorId, partnerId: int64; initiatorName, partnerName, status, initiatorSide, partnerSide: string; revision: int; createdAt, expiresAt: UTC; closedAt: UTC?; closeReason: string?` |
+| `PublicProfileDto (ProfileView)` | `playerId: int64; name, bio: string; lastSeen: UTC?; invitationsOpen, notifications: bool` |
+| `Save list row` | `version: int; size, gameTick, wealthTotal: int64; isCurrent, devMode: bool; createdAt: UTC` |
+| `Ban list row` | `id: int64; accountId, steamId: int64?; steamIdText, ip, playerName: string?; reason: string; expiresAt: UTC?; createdAt: UTC` |
+| `Action list row` | `id, actorAccountId: int64; actorName: string?; action, details: string; targetAccountId: int64?; targetName: string?; at: UTC` |
+| `Parcel list row` | `id, toPlayerId, silver: int64; fromPlayerId, deliveredTick: int64?; kind: string; fromName, toName: string?; sizeBytes: int; createdAt: UTC; deliveredAt: UTC?` |
+| `Raid list row` | `id, attackerPlayerId, targetPlayerId, lootCap: int64; attackerName, targetName: string?; state, pawnMode, timing: string; createdAt, expiresAt: UTC; landAtTick, landedTick: int64?; resolvedAt: UTC?` |
+| `Live list row` | `id, hostPlayerId, guestPlayerId: int64; kind, state: string; hostName, guestName, endReason: string?; raidId: int64?; snapshotVersion: int?; createdAt: UTC; startedAt, endedAt: UTC?` |
+| `Incident list row` | `id, buyerPlayerId, targetPlayerId, price: int64; buyerName, targetName, reason: string?; entryId, state: string; level: int; pods: bool; fireTick: int64?; createdAt, expiresAt: UTC; resolvedAt: UTC?` |
+| `Shop / removal rows` | `shop: {thingId, price, saveTick: int64; defName, stuffDef, label: string; count, quality: int; soldAt: UTC?}; removal: {id, thingId: int64; count: int; createdAt: UTC}` |
+| `Auction list row` | `id, sellerPlayerId, startPrice, buyoutPrice, bid: int64; bidderPlayerId: int64?; expiresAt: UTC` |
+| `Procurement page` | `total: int; entries: {id, buyerId, reward, escrow: int64; supplierId: int64?; kind, buyerName, defName, status: string; quantity, supplied: int; expiresAt: UTC; contributions: {playerId, paid: int64; name: string; quantity: int}[]}[]` |
+| `EconomyStats / RaidStats` | `EconomyStats: {silverInWallets, storageFeesCollected: int64; openLots, pendingParcels, tradesToday: int; frozen: bool; freezeReason: string?}; RaidStats: {queued, announced, landed, resolvedToday, expired, cancelled: int; frozen: bool; freezeReason: string?}` |
+| `Colony permission row` | `ownerPlayerId, memberPlayerId: int64; accepted: bool; pawnIds: string` |
+| `Small receipts / backup` | `{id: int64}, {balance: int64}, {count: int}, {closed: bool}, {verified: bool}, {appliedVersion, publicRevision: int64}; backup POST: {name: string; size: int64}; backup GET list adds createdAt: UTC; panel session/login: {expiresAt: UTC}` |
+| `Mod config row` | `packageId, handle, hash: string; size: int` |
+
+PlayerCard — плоский объект: нет свойства player. Read-only GET players возвращает только id/name/factionName/online/role; остальные поля **отсутствуют**, не обнулены. Полная строка и карточка требуют moderate/admin. PublicStatus.players=null при скрытых публичных именах. AdminStatus может потерять отдельный объект economy/raids/saves/backups (null) при сбое подсистемы; числовые счётчики возвращают default 0 — это не доказательство пустой базы.
+
+GET config возвращает только секции server/tls/auth/backup/saves/economy/raids/live/panel/hygiene/admin в camelCase. Значения secret serverPassword/steamWebApiKey/apiToken заменены на "set" либо ""; admin.tokens содержит только {name,scopes}, без token. Это не полный экспорт всех Options: например Social/Incidents отсутствуют. Значения и смысл — в [конфигурации](./configuration.md#reference). SSE и бинарные ответы не являются JSON DTO; входные DTO и delivery-схемы описаны выше.
+
+Безопасный пример read-only каталога (вымышленные данные):
+
+~~~json
+{"total":1,"items":[{"id":42,"name":"Nova","factionName":"Cedar","online":true,"role":"player"}]}
+~~~
+
+Пример status-first клиента для GET JSON; не используй его как автоматический повтор POST:
+
+~~~js
+const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+const text = await response.text();
+if (!response.ok) {
+  throw new Error(`HTTP ${response.status}: ${text.slice(0, 200)}`);
+}
+const data = text ? JSON.parse(text) : null;
+~~~

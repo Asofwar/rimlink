@@ -4,7 +4,7 @@
   "pages": [
     {
       "id": "index",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -17,11 +17,25 @@
       "titles": {
         "ru": "Добро пожаловать",
         "en": "Welcome"
-      }
+      },
+      "group": "general",
+      "kind": "portal",
+      "coverage": [
+        {
+          "id": "usage",
+          "questions": {
+            "ru": "Как найти маршрут и любую статью?",
+            "en": "How do I find a route and any article?"
+          },
+          "sources": [
+            "wiki/.vitepress/theme/WikiPortal.vue"
+          ]
+        }
+      ]
     },
     {
       "id": "overview",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -34,11 +48,35 @@
       "titles": {
         "ru": "Как устроен Rimlink",
         "en": "How Rimlink works"
-      }
+      },
+      "group": "general",
+      "kind": "explanation",
+      "coverage": [
+        {
+          "id": "ownership",
+          "questions": {
+            "ru": "Кто симулирует мир и владеет сохранением?",
+            "en": "Who simulates the world and owns the save?"
+          },
+          "sources": [
+            "README.md"
+          ]
+        },
+        {
+          "id": "boundaries",
+          "questions": {
+            "ru": "Какие связи действительно общие?",
+            "en": "Which interactions are actually shared?"
+          },
+          "sources": [
+            "README.md"
+          ]
+        }
+      ]
     },
     {
       "id": "compatibility",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -51,11 +89,35 @@
       "titles": {
         "ru": "Версии и совместимость",
         "en": "Versions and compatibility"
-      }
+      },
+      "group": "general",
+      "kind": "explanation",
+      "coverage": [
+        {
+          "id": "checklist",
+          "questions": {
+            "ru": "Как сверить сборку до подключения?",
+            "en": "How do I check a setup before joining?"
+          },
+          "sources": [
+            "README.md"
+          ]
+        },
+        {
+          "id": "verified",
+          "questions": {
+            "ru": "Что проверено, а что нельзя обещать?",
+            "en": "What is verified and what is not promised?"
+          },
+          "sources": [
+            "README.md"
+          ]
+        }
+      ]
     },
     {
       "id": "faq",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -68,11 +130,35 @@
       "titles": {
         "ru": "Частые вопросы",
         "en": "Frequently asked questions"
-      }
+      },
+      "group": "general",
+      "kind": "faq",
+      "coverage": [
+        {
+          "id": "choosing",
+          "questions": {
+            "ru": "Нужен ли отдельный сервер и общий график?",
+            "en": "Do we need a server and a shared schedule?"
+          },
+          "sources": [
+            "README.md"
+          ]
+        },
+        {
+          "id": "mistakes",
+          "questions": {
+            "ru": "Почему привычный обход проблемы опасен?",
+            "en": "Why are familiar workarounds unsafe?"
+          },
+          "sources": [
+            "README.md"
+          ]
+        }
+      ]
     },
     {
       "id": "glossary",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -85,11 +171,25 @@
       "titles": {
         "ru": "Словарь",
         "en": "Glossary"
-      }
+      },
+      "group": "general",
+      "kind": "glossary",
+      "coverage": [
+        {
+          "id": "state-terms",
+          "questions": {
+            "ru": "Какие термины нельзя смешивать при восстановлении?",
+            "en": "Which state terms must not be confused during recovery?"
+          },
+          "sources": [
+            "README.md"
+          ]
+        }
+      ]
     },
     {
       "id": "players/getting-started",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -102,11 +202,35 @@
       "titles": {
         "ru": "Первый сеанс",
         "en": "Your first session"
-      }
+      },
+      "group": "start",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "first-evening",
+          "questions": {
+            "ru": "Первый вечер: от адреса сервера до повторного входа",
+            "en": "First evening: from server address to a second login"
+          },
+          "sources": [
+            "docs/player-guide.md"
+          ]
+        },
+        {
+          "id": "first-failure",
+          "questions": {
+            "ru": "Если первый вход не завершился",
+            "en": "If the first login does not finish"
+          },
+          "sources": [
+            "docs/player-guide.md"
+          ]
+        }
+      ]
     },
     {
       "id": "players/install",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -119,11 +243,25 @@
       "titles": {
         "ru": "Установка мода",
         "en": "Installing the mod"
-      }
+      },
+      "group": "start",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "verify-install",
+          "questions": {
+            "ru": "Как понять, что установлен именно клиентский мод?",
+            "en": "How do I verify that the client mod is installed?"
+          },
+          "sources": [
+            "docs/player-guide.md"
+          ]
+        }
+      ]
     },
     {
       "id": "players/connect",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -145,11 +283,35 @@
       "titles": {
         "ru": "Подключение и вход",
         "en": "Connecting and signing in"
-      }
+      },
+      "group": "start",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "login-flow",
+          "questions": {
+            "ru": "Вход по шагам: сертификат, учётная запись, колония",
+            "en": "Login steps: certificate, account, colony"
+          },
+          "sources": [
+            "docs/player-guide.md"
+          ]
+        },
+        {
+          "id": "login-refusal",
+          "questions": {
+            "ru": "Различай временное ожидание и окончательный отказ",
+            "en": "Distinguish temporary waiting from a final refusal"
+          },
+          "sources": [
+            "docs/player-guide.md"
+          ]
+        }
+      ]
     },
     {
       "id": "players/modpacks",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -168,11 +330,35 @@
       "titles": {
         "ru": "Набор модов сервера",
         "en": "Server modpacks"
-      }
+      },
+      "group": "start",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "modpack-decision",
+          "questions": {
+            "ru": "Выбор пути: Workshop или серверный пакет?",
+            "en": "Choose a path: Workshop or server package?"
+          },
+          "sources": [
+            "docs/player-guide.md"
+          ]
+        },
+        {
+          "id": "modpack-recovery",
+          "questions": {
+            "ru": "Безопасное восстановление после прерванной установки",
+            "en": "Safe recovery after an interrupted installation"
+          },
+          "sources": [
+            "docs/player-guide.md"
+          ]
+        }
+      ]
     },
     {
       "id": "players/world",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -186,11 +372,35 @@
       "titles": {
         "ru": "Общая планета и поселения",
         "en": "Shared world and settlements"
-      }
+      },
+      "group": "start",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "settlement",
+          "questions": {
+            "ru": "Как выбрать место и прочитать чужое поселение?",
+            "en": "How do I settle and read another settlement?"
+          },
+          "sources": [
+            "docs/player-guide.md"
+          ]
+        },
+        {
+          "id": "archive",
+          "questions": {
+            "ru": "Что происходит после долгого отсутствия?",
+            "en": "What happens after a long absence?"
+          },
+          "sources": [
+            "docs/player-guide.md"
+          ]
+        }
+      ]
     },
     {
       "id": "players/saves-recovery",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -208,11 +418,35 @@
       "titles": {
         "ru": "Сохранения и восстановление",
         "en": "Saves and recovery"
-      }
+      },
+      "group": "start",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "save-cycle",
+          "questions": {
+            "ru": "Как сохраняются отправки и доставки?",
+            "en": "How are transfers and deliveries saved?"
+          },
+          "sources": [
+            "docs/player-guide.md"
+          ]
+        },
+        {
+          "id": "recover-tree",
+          "questions": {
+            "ru": "Дерево решений после обрыва, rollback или reset",
+            "en": "Decision tree after a drop, rollback or reset"
+          },
+          "sources": [
+            "docs/player-guide.md"
+          ]
+        }
+      ]
     },
     {
       "id": "players/chat-pings",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -231,11 +465,25 @@
       "titles": {
         "ru": "Чат, сообщения и пинги",
         "en": "Chat, messages and pings"
-      }
+      },
+      "group": "together",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "channels",
+          "questions": {
+            "ru": "Публичный, личный и союзный канал: куда уйдёт сообщение?",
+            "en": "Public, direct and alliance channels: who receives a message?"
+          },
+          "sources": [
+            "docs/player-guide.md"
+          ]
+        }
+      ]
     },
     {
       "id": "players/economy",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -269,11 +517,45 @@
       "titles": {
         "ru": "Кошелёк, почта и рынок",
         "en": "Wallet, mail and market"
-      }
+      },
+      "group": "economy",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "wallet-market",
+          "questions": {
+            "ru": "Как внести серебро, купить и получить товар?",
+            "en": "How do I deposit silver, buy and receive goods?"
+          },
+          "sources": [
+            "docs/player-guide.md"
+          ]
+        },
+        {
+          "id": "selling-fees",
+          "questions": {
+            "ru": "Как продать и почему баланс может стать отрицательным?",
+            "en": "How do I sell, and why can a balance become negative?"
+          },
+          "sources": [
+            "docs/player-guide.md"
+          ]
+        },
+        {
+          "id": "exchange-recovery",
+          "questions": {
+            "ru": "Что делать, если ответ на отправку потерян?",
+            "en": "What if the transfer response is lost?"
+          },
+          "sources": [
+            "docs/player-guide.md"
+          ]
+        }
+      ]
     },
     {
       "id": "players/gifts-trades",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -306,11 +588,35 @@
       "titles": {
         "ru": "Подарки и двусторонние сделки",
         "en": "Gifts and two-way trades"
-      }
+      },
+      "group": "economy",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "gift-flow",
+          "questions": {
+            "ru": "Подарок: отправка, решение и возврат",
+            "en": "Gifts: dispatch, decision and return"
+          },
+          "sources": [
+            "docs/player-guide.md"
+          ]
+        },
+        {
+          "id": "trade-flow",
+          "questions": {
+            "ru": "Двусторонняя сделка: что именно подтверждают обе стороны?",
+            "en": "Two-way trades: what exactly do both parties confirm?"
+          },
+          "sources": [
+            "docs/player-guide.md"
+          ]
+        }
+      ]
     },
     {
       "id": "players/auctions",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -325,11 +631,35 @@
       "titles": {
         "ru": "Аукционы",
         "en": "Auctions"
-      }
+      },
+      "group": "economy",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "auction-example",
+          "questions": {
+            "ru": "Пример: резерв ставки и возврат перебитому участнику",
+            "en": "Example: reserved bids and outbid refunds"
+          },
+          "sources": [
+            "docs/player-guide.md"
+          ]
+        },
+        {
+          "id": "auction-settlement",
+          "questions": {
+            "ru": "Где результат после окончания, заморозки или отмены?",
+            "en": "Where is the result after expiry, freeze or cancellation?"
+          },
+          "sources": [
+            "docs/player-guide.md"
+          ]
+        }
+      ]
     },
     {
       "id": "players/procurement",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -344,11 +674,35 @@
       "titles": {
         "ru": "Заказы, контракты и общие цели",
         "en": "Orders, contracts and shared goals"
-      }
+      },
+      "group": "economy",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "procurement-steps",
+          "questions": {
+            "ru": "Как создать заказ и поставить ресурс?",
+            "en": "How do I create an order and supply resources?"
+          },
+          "sources": [
+            "docs/procurement.md"
+          ]
+        },
+        {
+          "id": "goal-example",
+          "questions": {
+            "ru": "Общая цель: когда платят и как делится остаток?",
+            "en": "Shared goals: when are rewards paid and how is rounding handled?"
+          },
+          "sources": [
+            "docs/procurement.md"
+          ]
+        }
+      ]
     },
     {
       "id": "players/raids-incidents",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -372,11 +726,35 @@
       "titles": {
         "ru": "Рейды и платные события",
         "en": "Raids and paid incidents"
-      }
+      },
+      "group": "adventure",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "raid-choice",
+          "questions": {
+            "ru": "Как выбрать риск рейда до отправки?",
+            "en": "How do I choose raid risk before dispatch?"
+          },
+          "sources": [
+            "docs/player-guide.md"
+          ]
+        },
+        {
+          "id": "incident-order",
+          "questions": {
+            "ru": "Платные события: заказ, неизвестный ответ и возврат",
+            "en": "Paid incidents: ordering, unknown responses and refunds"
+          },
+          "sources": [
+            "docs/player-guide.md"
+          ]
+        }
+      ]
     },
     {
       "id": "players/visits",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -394,11 +772,35 @@
       "titles": {
         "ru": "Визиты и магазин",
         "en": "Visits and shops"
-      }
+      },
+      "group": "adventure",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "visit-flow",
+          "questions": {
+            "ru": "Обычный визит и покупка с полки",
+            "en": "Ordinary visits and buying from a shelf"
+          },
+          "sources": [
+            "docs/player-guide.md"
+          ]
+        },
+        {
+          "id": "visit-load",
+          "questions": {
+            "ru": "Если карта визита не загружается",
+            "en": "If the visited map cannot load"
+          },
+          "sources": [
+            "docs/player-guide.md"
+          ]
+        }
+      ]
     },
     {
       "id": "players/live",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -430,11 +832,35 @@
       "titles": {
         "ru": "Live: живая карта",
         "en": "Live: the active map"
-      }
+      },
+      "group": "adventure",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "live-flow",
+          "questions": {
+            "ru": "Совместная сессия: действия гостя и хозяина",
+            "en": "Live session: guest and host actions"
+          },
+          "sources": [
+            "docs/player-guide.md"
+          ]
+        },
+        {
+          "id": "live-failure",
+          "questions": {
+            "ru": "Паузы, отставание зеркала и разрыв",
+            "en": "Pauses, mirror lag and disconnection"
+          },
+          "sources": [
+            "docs/player-guide.md"
+          ]
+        }
+      ]
     },
     {
       "id": "players/coop",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -450,11 +876,35 @@
       "titles": {
         "ru": "Постоянная совместная колония",
         "en": "Persistent shared colony"
-      }
+      },
+      "group": "together",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "coop-check",
+          "questions": {
+            "ru": "Кто что контролирует после приглашения?",
+            "en": "Who controls what after an invitation?"
+          },
+          "sources": [
+            "docs/shared-colony.md"
+          ]
+        },
+        {
+          "id": "coop-recovery",
+          "questions": {
+            "ru": "Отзыв, занятость и восстановление назначений",
+            "en": "Revocation, busy sessions and reassignment"
+          },
+          "sources": [
+            "docs/shared-colony.md"
+          ]
+        }
+      ]
     },
     {
       "id": "players/community",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -473,11 +923,35 @@
       "titles": {
         "ru": "Профили, друзья и союзы",
         "en": "Profiles, friends and alliances"
-      }
+      },
+      "group": "together",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "social-consent",
+          "questions": {
+            "ru": "Профиль, приглашение и альянс: управление согласием",
+            "en": "Profiles, invitations and alliances: managing consent"
+          },
+          "sources": [
+            "docs/community.md"
+          ]
+        },
+        {
+          "id": "treasury",
+          "questions": {
+            "ru": "Казна: взнос не является личным депозитом",
+            "en": "Treasury: a contribution is not a personal deposit"
+          },
+          "sources": [
+            "docs/community.md"
+          ]
+        }
+      ]
     },
     {
       "id": "players/guild-influence",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -497,11 +971,35 @@
       "titles": {
         "ru": "Влияние гильдий",
         "en": "Guild influence"
-      }
+      },
+      "group": "together",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "publish-influence",
+          "questions": {
+            "ru": "Опубликовать, скрыть слой или отозвать согласие?",
+            "en": "Publish, hide the layer, or withdraw consent?"
+          },
+          "sources": [
+            "docs/guild-influence.md"
+          ]
+        },
+        {
+          "id": "influence-refusal",
+          "questions": {
+            "ru": "Почему источник не включается или слой недоступен?",
+            "en": "Why is a source refused or the overlay unavailable?"
+          },
+          "sources": [
+            "docs/guild-influence.md"
+          ]
+        }
+      ]
     },
     {
       "id": "players/troubleshooting",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -516,11 +1014,35 @@
       "titles": {
         "ru": "Проблемы игрока",
         "en": "Player troubleshooting"
-      }
+      },
+      "group": "start",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "triage",
+          "questions": {
+            "ru": "Диагностика по этапу, а не переустановка всего",
+            "en": "Diagnose the failed stage, not the entire installation"
+          },
+          "sources": [
+            "docs/player-guide.md"
+          ]
+        },
+        {
+          "id": "escalate",
+          "questions": {
+            "ru": "Когда остановиться и передать данные администратору?",
+            "en": "When should I stop and ask an administrator?"
+          },
+          "sources": [
+            "docs/player-guide.md"
+          ]
+        }
+      ]
     },
     {
       "id": "admins/getting-started",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -533,11 +1055,35 @@
       "titles": {
         "ru": "Первый сервер",
         "en": "Your first server"
-      }
+      },
+      "group": "operate",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "launch-proof",
+          "questions": {
+            "ru": "Приёмка до приглашения игроков",
+            "en": "Acceptance before inviting players"
+          },
+          "sources": [
+            "docs/server-setup.md"
+          ]
+        },
+        {
+          "id": "launch-policy",
+          "questions": {
+            "ru": "Что сообщить игрокам заранее?",
+            "en": "What should players know beforehand?"
+          },
+          "sources": [
+            "docs/server-setup.md"
+          ]
+        }
+      ]
     },
     {
       "id": "admins/hosting",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -551,11 +1097,25 @@
       "titles": {
         "ru": "Размещение и запуск",
         "en": "Hosting and startup"
-      }
+      },
+      "group": "operate",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "host-checklist",
+          "questions": {
+            "ru": "Сеть и постоянные данные: проверка снаружи",
+            "en": "Network and persistence: verify externally"
+          },
+          "sources": [
+            "docs/server-setup.md"
+          ]
+        }
+      ]
     },
     {
       "id": "admins/configuration",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -570,11 +1130,25 @@
       "titles": {
         "ru": "Справочник конфигурации",
         "en": "Configuration reference"
-      }
+      },
+      "group": "reference",
+      "kind": "reference",
+      "coverage": [
+        {
+          "id": "config-method",
+          "questions": {
+            "ru": "Как изменить параметр без угадывания единиц?",
+            "en": "How do I change settings without guessing units?"
+          },
+          "sources": [
+            "docs/server-setup.md"
+          ]
+        }
+      ]
     },
     {
       "id": "admins/security-auth",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -588,11 +1162,35 @@
       "titles": {
         "ru": "TLS, вход и права",
         "en": "TLS, authentication and permissions"
-      }
+      },
+      "group": "operate",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "rotate-access",
+          "questions": {
+            "ru": "Разделение и отзыв доступа интеграций",
+            "en": "Separate and revoke integration access"
+          },
+          "sources": [
+            "docs/server-setup.md"
+          ]
+        },
+        {
+          "id": "rotate-cert",
+          "questions": {
+            "ru": "Плановая замена сертификата",
+            "en": "Planned certificate replacement"
+          },
+          "sources": [
+            "docs/server-setup.md"
+          ]
+        }
+      ]
     },
     {
       "id": "admins/modpacks",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -605,11 +1203,35 @@
       "titles": {
         "ru": "Управление набором модов",
         "en": "Managing modpacks"
-      }
+      },
+      "group": "operate",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "modpack-release",
+          "questions": {
+            "ru": "Версия коллекции как отдельный релиз",
+            "en": "Treat the collection as a release"
+          },
+          "sources": [
+            "docs/server-setup.md"
+          ]
+        },
+        {
+          "id": "delivery-accept",
+          "questions": {
+            "ru": "Приёмка новой сборки и откат публикации",
+            "en": "Accept a new collection and withdraw publication"
+          },
+          "sources": [
+            "docs/server-setup.md"
+          ]
+        }
+      ]
     },
     {
       "id": "admins/gameplay-policy",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -623,11 +1245,35 @@
       "titles": {
         "ru": "Игровая политика сервера",
         "en": "Server gameplay policy"
-      }
+      },
+      "group": "operate",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "policy-example",
+          "questions": {
+            "ru": "Пример согласованного набора правил",
+            "en": "Example of a coherent server policy"
+          },
+          "sources": [
+            "docs/server-setup.md"
+          ]
+        },
+        {
+          "id": "freeze-runbook",
+          "questions": {
+            "ru": "Заморозка подсистемы при инциденте",
+            "en": "Freeze procedure during an incident"
+          },
+          "sources": [
+            "docs/server-setup.md"
+          ]
+        }
+      ]
     },
     {
       "id": "admins/administration",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -640,11 +1286,35 @@
       "titles": {
         "ru": "Панель и модерация",
         "en": "Panel and moderation"
-      }
+      },
+      "group": "operate",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "moderation-case",
+          "questions": {
+            "ru": "Разобрать обращение о пропавшей отправке",
+            "en": "Investigate a missing-transfer report"
+          },
+          "sources": [
+            "docs/server-setup.md"
+          ]
+        },
+        {
+          "id": "admin-danger",
+          "questions": {
+            "ru": "Выбор между rollback, reset и archive",
+            "en": "Choose rollback, reset or archive"
+          },
+          "sources": [
+            "docs/server-setup.md"
+          ]
+        }
+      ]
     },
     {
       "id": "admins/cli",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -658,11 +1328,25 @@
       "titles": {
         "ru": "Справочник CLI",
         "en": "CLI reference"
-      }
+      },
+      "group": "reference",
+      "kind": "reference",
+      "coverage": [
+        {
+          "id": "cli-read-first",
+          "questions": {
+            "ru": "Безопасный первый сеанс CLI",
+            "en": "A safe first CLI session"
+          },
+          "sources": [
+            "docs/server-setup.md"
+          ]
+        }
+      ]
     },
     {
       "id": "admins/api",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -676,11 +1360,25 @@
       "titles": {
         "ru": "Справочник REST API",
         "en": "REST API reference"
-      }
+      },
+      "group": "reference",
+      "kind": "reference",
+      "coverage": [
+        {
+          "id": "api-client",
+          "questions": {
+            "ru": "Интеграция: начать с чтения и правильно повторять",
+            "en": "Integration: start read-only and retry correctly"
+          },
+          "sources": [
+            "docs/server-setup.md"
+          ]
+        }
+      ]
     },
     {
       "id": "admins/backup-recovery",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -694,11 +1392,35 @@
       "titles": {
         "ru": "Резервные копии и восстановление",
         "en": "Backup and recovery"
-      }
+      },
+      "group": "operate",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "restore-drill",
+          "questions": {
+            "ru": "Проверка backup в изоляции, шаг за шагом",
+            "en": "Isolated backup restoration, step by step"
+          },
+          "sources": [
+            "docs/server-setup.md"
+          ]
+        },
+        {
+          "id": "backup-scope",
+          "questions": {
+            "ru": "Что не исправляет whole-server restore?",
+            "en": "What does whole-server restore not repair?"
+          },
+          "sources": [
+            "docs/server-setup.md"
+          ]
+        }
+      ]
     },
     {
       "id": "admins/updating",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -711,11 +1433,25 @@
       "titles": {
         "ru": "Обновление сервера и клиентов",
         "en": "Updating server and clients"
-      }
+      },
+      "group": "operate",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "update-proof",
+          "questions": {
+            "ru": "Контрольная точка и решение о возврате",
+            "en": "Checkpoint and rollback decision"
+          },
+          "sources": [
+            "docs/server-setup.md"
+          ]
+        }
+      ]
     },
     {
       "id": "admins/monitoring",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -729,11 +1465,35 @@
       "titles": {
         "ru": "Мониторинг и журнал событий",
         "en": "Monitoring and event feed"
-      }
+      },
+      "group": "operate",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "monitor-layers",
+          "questions": {
+            "ru": "Три уровня наблюдения",
+            "en": "Three monitoring layers"
+          },
+          "sources": [
+            "docs/server-setup.md"
+          ]
+        },
+        {
+          "id": "sse-gap",
+          "questions": {
+            "ru": "Как обрабатывать пропуск SSE",
+            "en": "How to handle an SSE gap"
+          },
+          "sources": [
+            "docs/server-setup.md"
+          ]
+        }
+      ]
     },
     {
       "id": "admins/discord",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -747,11 +1507,25 @@
       "titles": {
         "ru": "Discord-бот",
         "en": "Discord bot"
-      }
+      },
+      "group": "operate",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "bot-accept",
+          "questions": {
+            "ru": "Запуск бота с минимальными правами",
+            "en": "Start the bot with least privilege"
+          },
+          "sources": [
+            "docs/server-setup.md"
+          ]
+        }
+      ]
     },
     {
       "id": "admins/troubleshooting",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -764,11 +1538,25 @@
       "titles": {
         "ru": "Проблемы администратора",
         "en": "Administrator troubleshooting"
-      }
+      },
+      "group": "operate",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "incident-triage",
+          "questions": {
+            "ru": "Порядок расследования серверного отказа",
+            "en": "Order of server-side investigation"
+          },
+          "sources": [
+            "docs/server-setup.md"
+          ]
+        }
+      ]
     },
     {
       "id": "developers/architecture",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -781,11 +1569,35 @@
       "titles": {
         "ru": "Архитектура",
         "en": "Architecture"
-      }
+      },
+      "group": "develop",
+      "kind": "explanation",
+      "coverage": [
+        {
+          "id": "boundaries",
+          "questions": {
+            "ru": "Карта компонентов и границ доверия",
+            "en": "Component map and trust boundaries"
+          },
+          "sources": [
+            "AGENTS.md"
+          ]
+        },
+        {
+          "id": "change-trace",
+          "questions": {
+            "ru": "Как найти место для изменения?",
+            "en": "Where should a change live?"
+          },
+          "sources": [
+            "AGENTS.md"
+          ]
+        }
+      ]
     },
     {
       "id": "developers/build",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -798,11 +1610,25 @@
       "titles": {
         "ru": "Сборка проекта",
         "en": "Building the project"
-      }
+      },
+      "group": "develop",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "build-track",
+          "questions": {
+            "ru": "От чистого checkout до сборки мода",
+            "en": "From checkout to an assembled mod"
+          },
+          "sources": [
+            "AGENTS.md"
+          ]
+        }
+      ]
     },
     {
       "id": "developers/protocol",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -816,11 +1642,25 @@
       "titles": {
         "ru": "Протокол и идемпотентность",
         "en": "Protocol and idempotency"
-      }
+      },
+      "group": "develop",
+      "kind": "reference",
+      "coverage": [
+        {
+          "id": "mutation-contract",
+          "questions": {
+            "ru": "Контракт мутации: не только protobuf-поле",
+            "en": "A mutation contract is more than a protobuf field"
+          },
+          "sources": [
+            "AGENTS.md"
+          ]
+        }
+      ]
     },
     {
       "id": "developers/storage",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -834,11 +1674,25 @@
       "titles": {
         "ru": "Хранилище и эскроу",
         "en": "Storage and escrow"
-      }
+      },
+      "group": "develop",
+      "kind": "explanation",
+      "coverage": [
+        {
+          "id": "storage-repair",
+          "questions": {
+            "ru": "Порядок исследования повреждённого сейва",
+            "en": "Investigating a damaged save safely"
+          },
+          "sources": [
+            "AGENTS.md"
+          ]
+        }
+      ]
     },
     {
       "id": "developers/client",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -853,11 +1707,35 @@
       "titles": {
         "ru": "Клиент, мод и live",
         "en": "Client, mod and live"
-      }
+      },
+      "group": "develop",
+      "kind": "explanation",
+      "coverage": [
+        {
+          "id": "client-intent",
+          "questions": {
+            "ru": "Путь UI-намерения и граница главного потока",
+            "en": "UI intent and the main-thread boundary"
+          },
+          "sources": [
+            "AGENTS.md"
+          ]
+        },
+        {
+          "id": "pawn-lifecycle",
+          "questions": {
+            "ru": "Пешки: id, отношения и возврат",
+            "en": "Pawns: IDs, relations and return"
+          },
+          "sources": [
+            "AGENTS.md"
+          ]
+        }
+      ]
     },
     {
       "id": "developers/localization",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -871,11 +1749,25 @@
       "titles": {
         "ru": "Локализация",
         "en": "Localization"
-      }
+      },
+      "group": "develop",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "translation-work",
+          "questions": {
+            "ru": "Проверка перевода как поведения",
+            "en": "Verify translation as behavior"
+          },
+          "sources": [
+            "AGENTS.md"
+          ]
+        }
+      ]
     },
     {
       "id": "developers/testing",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -889,11 +1781,35 @@
       "titles": {
         "ru": "Тестирование и приёмка",
         "en": "Testing and acceptance"
-      }
+      },
+      "group": "develop",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "test-matrix",
+          "questions": {
+            "ru": "Какая проверка отвечает на какой вопрос?",
+            "en": "Which check answers which question?"
+          },
+          "sources": [
+            "AGENTS.md"
+          ]
+        },
+        {
+          "id": "acceptance-record",
+          "questions": {
+            "ru": "Как записать воспроизводимую приёмку?",
+            "en": "How do I record reproducible acceptance?"
+          },
+          "sources": [
+            "AGENTS.md"
+          ]
+        }
+      ]
     },
     {
       "id": "developers/contributing",
-      "contentRevision": 1,
+      "contentRevision": 2,
       "sections": [
         "usage",
         "limits",
@@ -906,7 +1822,21 @@
       "titles": {
         "ru": "Вклад и сопровождение wiki",
         "en": "Contributing and wiki maintenance"
-      }
+      },
+      "group": "develop",
+      "kind": "guide",
+      "coverage": [
+        {
+          "id": "contribution-dod",
+          "questions": {
+            "ru": "Готовность задачи включает документацию",
+            "en": "Documentation is part of task completion"
+          },
+          "sources": [
+            "AGENTS.md"
+          ]
+        }
+      ]
     }
   ],
   "fallbackSourcePrefixes": [
@@ -915,5 +1845,63 @@
     "scripts/",
     "deploy/"
   ],
-  "fallbackPage": "developers/architecture"
+  "fallbackPage": "developers/architecture",
+  "groups": [
+    {
+      "id": "general",
+      "titles": {
+        "ru": "Об устройстве Rimlink",
+        "en": "Understanding Rimlink"
+      }
+    },
+    {
+      "id": "start",
+      "titles": {
+        "ru": "Начать играть",
+        "en": "Start playing"
+      }
+    },
+    {
+      "id": "economy",
+      "titles": {
+        "ru": "Экономика и доставка",
+        "en": "Economy and delivery"
+      }
+    },
+    {
+      "id": "together",
+      "titles": {
+        "ru": "Играть вместе",
+        "en": "Play together"
+      }
+    },
+    {
+      "id": "adventure",
+      "titles": {
+        "ru": "Рейды, визиты и live",
+        "en": "Raids, visits and live"
+      }
+    },
+    {
+      "id": "operate",
+      "titles": {
+        "ru": "Свой сервер",
+        "en": "Run a server"
+      }
+    },
+    {
+      "id": "reference",
+      "titles": {
+        "ru": "Справочники администратора",
+        "en": "Administrator reference"
+      }
+    },
+    {
+      "id": "develop",
+      "titles": {
+        "ru": "Разработка",
+        "en": "Development"
+      }
+    }
+  ]
 }

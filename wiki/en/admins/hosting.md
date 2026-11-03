@@ -1,6 +1,6 @@
 ---
 pageId: admins/hosting
-contentRevision: 1
+contentRevision: 2
 ---
 
 # Hosting and startup
@@ -45,6 +45,12 @@ For a framework-dependent release, appsettings.json in the server directory uses
 ```
 
 Run `dotnet Rimlink.Server.dll` from a stable working directory. TLS is enabled by default: verify the fingerprint through a trusted channel on first connection; configure Tls:CertificatePath and Tls:KeyPath (PEM) for a public certificate. Allow TCP 25560 through the host/router only for the intended network. Expected result: a listening server, a healthy /health response, and a client that can save and reload a colony. A working panel alone does not prove the proxy supports game HTTP/2 streams.
+
+## Network and persistence: verify externally {#host-checklist}
+
+Test the TCP endpoint from a player's machine, not just localhost. NAT must reach the correct host; proxies must pass gRPC HTTP/2 and long streams. HTML success proves no streaming support. Verify login, save transfer and live streaming with test colonies.
+
+For containers, inspect the DataDir mount and write permissions. Recreating a container must not create an empty world. Never share a live DataDir with a parallel bare server. Preserve process settings, certificates and secrets separately: a world archive is not an infrastructure backup.
 
 ## Limits and safety {#limits}
 

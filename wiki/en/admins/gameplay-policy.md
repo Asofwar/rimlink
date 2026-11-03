@@ -1,6 +1,6 @@
 ---
 pageId: admins/gameplay-policy
-contentRevision: 1
+contentRevision: 2
 ---
 
 # Server gameplay policy
@@ -14,6 +14,18 @@ Before opening a server, publish rules for economy, newcomer protection, raids, 
 Integrity controls dev mode, wealth changes and scenario modifications. Hygiene archives sufficiently old inactive colonies under wealth/age conditions and defines public wealth bands. Disabling a check requires understanding its semantics, not assigning an arbitrary zero.
 
 For an incident, first freeze the relevant subsystem, preserve IDs and audit, inspect escrow, then cancel or unfreeze. Verify mail returns.
+
+## Example of a coherent server policy {#policy-example}
+
+Decide raids, newcomer/low-wealth protection, peaceful exit delay and available hostile incidents before launch. Explain real/copies and warned/instant; chat blocking is not raid protection.
+
+Economic rules should disclose fees, pawn/perishable storage charges, debt, threat restrictions and treasury distribution on disbanding. Offline colonies are not continuously simulated by the server. Influence is an opt-in overlay, not land ownership. These boundaries matter more than promises of automatic behavior.
+
+## Freeze procedure during an incident {#freeze-runbook}
+
+Record time, player, ID and state; freeze the relevant subsystem and preserve audit. Inspect wallets/escrow/parcels and pending client replay. Freeze does not undo settled operations; auctions may defer settlement.
+
+Choose a supported cancellation/return or remove the cause. Verify recipients/mail before unfreezing and watch the queue. Do not grant guessed silver compensation: a later automatic return could pay twice.
 
 ## Limits and safety {#limits}
 

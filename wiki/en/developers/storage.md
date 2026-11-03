@@ -1,6 +1,6 @@
 ---
 pageId: developers/storage
-contentRevision: 1
+contentRevision: 2
 ---
 
 # Storage and escrow
@@ -20,6 +20,14 @@ Escrow retains outgoing items/pawns/silver until settlement and returns them thr
 `SaveGeneration` changes on reset so an old local save cannot become a new colony's first version. `SaveWriteEpoch` changes on administrative rollback within the same generation so an old session/outgoing operation cannot overwrite the administrator's selected timeline. The save version number is a separate sequential identifier, not either counter.
 
 Upload checks header generation/epoch, recovery proof and the epoch captured by the session; mismatch yields SaveGenerationMismatch or SaveWriteEpochMismatch. After rollback the client must receive current authority and a snapshot, not replay stale outbox intent with rewritten metadata. Regression scenario: begin an old upload, roll back, then continue that upload; it must be refused without changing the current save.
+
+## Investigating a damaged save safely {#storage-repair}
+
+Preserve version rows and an immutable file copy first, then open full content through SaveFiles. Do not derive an older path from its number: it may be a delta. Size/Sha256 describe full reconstructed bytes, not delta size.
+
+Full+delta can signal interrupted rebuilding. Compare raw contents/metadata before deleting a supposedly spare file. A matching filename does not prove its hash. Backup/restore share the storage lock; manual SQL/copying outside it destroys consistency evidence.
+
+Schema changes need migrations and schema regression tests. Reproduce repairs on a copy and name unrecoverable/recovered versions explicitly rather than promising complete recovery.
 
 ## Limits and safety {#limits}
 

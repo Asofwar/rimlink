@@ -1,10 +1,11 @@
 import {readFileSync,readdirSync,existsSync} from 'node:fs';
 import {resolve,relative,dirname} from 'node:path';
-const root=resolve(import.meta.dirname,'../.vitepress/dist'), errors=[];
+import {validateRenderedAnchors} from './check-lib.mjs';
+const root=resolve(import.meta.dirname,'../.vitepress/dist'), errors=[], htmlFiles={};
 function walk(dir){return readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(resolve(dir,e.name)):[resolve(dir,e.name)]);}
 let count=0;
 for(const file of walk(root).filter(f=>f.endsWith('.html'))) {
- const text=readFileSync(file,'utf8');count++;
+ const text=readFileSync(file,'utf8');count++;htmlFiles[relative(root,file).split(String.fromCharCode(92)).join('/')]=text;
  for(const m of text.matchAll(/(?:href|src)="([^"]+)"/g)) {
   const href=m[1].replaceAll('&amp;','&');
   if(/^(https?:|data:|mailto:|javascript:)/.test(href)) continue;
@@ -16,4 +17,5 @@ for(const file of walk(root).filter(f=>f.endsWith('.html'))) {
   if(hash&&target.endsWith('.html')&&!readFileSync(target,'utf8').includes('id="'+decodeURIComponent(hash)+'"'))errors.push(relative(root,file)+' missing anchor '+href);
  }
 }
+errors.push(...validateRenderedAnchors(JSON.parse(readFileSync(new URL('../legacy-anchors.json',import.meta.url))),htmlFiles));
 console.log(count+' HTML pages; '+errors.length+' broken links');errors.forEach(e=>console.error(e));if(errors.length)process.exitCode=1;

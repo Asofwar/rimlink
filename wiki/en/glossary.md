@@ -1,6 +1,6 @@
 ---
 pageId: glossary
-contentRevision: 1
+contentRevision: 2
 ---
 
 # Glossary
@@ -26,6 +26,19 @@ Applies to: Rimlink 0.8.1 · RimWorld 1.7 · protocol 1.
 - **SaveGeneration / generation**: a colony lifetime; reset makes previous local saves stale.
 - **SaveWriteEpoch / write epoch**: authority to write the current timeline; rollback changes the epoch and fences stale sessions without creating a new colony.
 - **Save version**: a server snapshot number; neither the software version nor generation/epoch.
+
+## Which state terms must not be confused during recovery? {#state-terms}
+
+| Term | Not the same as | Practical consequence |
+|---|---|---|
+| Rimlink version | Save version | Updating the mod does not select a colony snapshot |
+| ProtocolVersion | RimWorld version | It checks a network contract, not DLC availability |
+| SaveGeneration | SaveWriteEpoch | Reset starts a colony lifetime; rollback changes write authority |
+| Escrow | Mail | An escrowed offer has not yet reached its recipient |
+| request_id | Trade id | Replaying intent uses the original request_id |
+| Host | Dedicated server | In live, host means the map owner's game |
+| Tick | Real hours | Pausing a map does not pause a server offer deadline |
+| Alliance | Coop | Social membership grants no pawn control |
 
 ## Limits and safety {#limits}
 

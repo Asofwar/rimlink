@@ -1,3 +1,5 @@
+import type { Theme } from 'vitepress';
 import DefaultTheme from 'vitepress/theme';
+import WikiPortal from './WikiPortal.vue';
 import './style.css';
-export default DefaultTheme;
+export default {extends:DefaultTheme,enhanceApp({app}){app.component('WikiPortal',WikiPortal);}} satisfies Theme;

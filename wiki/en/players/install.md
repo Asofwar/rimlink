@@ -1,6 +1,6 @@
 ---
 pageId: players/install
-contentRevision: 1
+contentRevision: 2
 ---
 
 # Installing the mod
@@ -22,6 +22,14 @@ Enable Harmony and Rimlink in the game's mod list, respecting dependencies and s
 5. Connect to the server and complete its modpack check. Reaching the menu alone does not prove your collection matches.
 
 If Rimlink is absent from the list, check the folder nesting and About metadata. If it is listed but fails to load, verify RimWorld 1.7, Harmony 3.x and the matching Rimlink release; do not solve an assembly error by copying random DLLs into the mod.
+
+## How do I verify that the client mod is installed? {#verify-install}
+
+Before launching, verify that the Rimlink folder contains About and Assemblies. A server archive containing a .NET executable is not the game mod. Do not mix release contents or enable two Rimlink copies.
+
+Check three signs after startup: Rimlink appears in Mods, dependencies have no errors, and **Multiplayer** appears in the main menu. Then pass the chosen server's collection check. The button alone does not prove collection compatibility.
+
+If an update seems ignored, close the game and verify which installation folder you edited. Different installations/profiles can use different mod lists; a running process holds DLLs. Preserve Config and local Rimlink journals before reinstalling. Deleting saves is not a fix for a missing menu.
 
 ## Limits and safety {#limits}
 

@@ -1,27 +1,23 @@
 ---
 pageId: index
-contentRevision: 1
+contentRevision: 2
+layout: doc
+sidebar: false
+aside: false
+pageClass: wiki-home
 ---
 
-# Welcome
+<span id="welcome"></span>
+<WikiPortal />
 
-Applies to: Rimlink 0.8.1 · RimWorld 1.7 · protocol 1.
+## How to use this guide {#usage}
 
-<img class="wiki-art" src="/illustrations/world.svg" alt="One shared world. Your own colony. New connections." width="960" height="440" />
-<p class="wiki-caption">One shared world. Your own colony. New connections.</p>
-
-## Usage {#usage}
-
-Rimlink is persistent multiplayer for RimWorld 1.7. Colonies share a server world, while each home map is simulated by its own player. This is not continuous synchronization of every colony.
-
-**First session:** install → connect → create a colony → save. Start with the player quick start. Server owners should follow the administration track; contributors should read architecture and build instructions. The sidebar lists all articles and search runs locally. Switch language in the top bar.
+Start with one of the three routes above or choose a mechanic from the catalog. Articles separate player actions, server policy and recovery. RU/EN switching opens the corresponding article.
 
 ## Limits and safety {#limits}
 
-This wiki describes 0.8.1, protocol 1. A server may override defaults. Planned outposts and territorial capture are not current features.
+A home colony is not simulated while its owner is offline. A shared colony is not a second autonomous save. The game, DLC and commercial hosting are not included with the free mod; GOG runtime is not separately verified. Diagrams explain rules, not game UI.
 
 ## See also {#related}
 
-- [Your first session](./players/getting-started.md)
-- [Your first server](./admins/getting-started.md)
-- [Architecture](./developers/architecture.md)
+[How Rimlink works](overview.md) · [FAQ](faq.md) · [Glossary](glossary.md)

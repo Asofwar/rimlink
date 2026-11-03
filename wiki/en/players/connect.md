@@ -1,6 +1,6 @@
 ---
 pageId: players/connect
-contentRevision: 1
+contentRevision: 2
 ---
 
 # Connecting and signing in
@@ -12,11 +12,29 @@ Applies to: Rimlink 0.8.1 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 
+<ol class="flow-diagram" aria-label="Process diagram"><li><strong>Endpoint and TLS</strong><span>Verify host and fingerprint.</span></li><li><strong>Personal login</strong><span>Steam or an allowed password account.</span></li><li><strong>Collection</strong><span>Diff → approved install → restart → check.</span></li><li><strong>Colony</strong><span>Current server save or a new colony.</span></li></ol>
+
 Add the host and port in **Multiplayer** (default 25560). Obtain the address from the administrator; the browser panel URL and game endpoint need not match. A server-wide password, if configured, is additional to personal authentication.
 
 Steam login uses a Steam ticket. Password login is available only when enabled by the server; credentials belong to that server. A new certificate is remembered after trust is granted. If its pin changes, confirm the certificate replacement with the administrator first.
 
 After login the server loads your saved colony, offers a new colony, or shows modpack differences. Resolve the listed differences and reconnect.
+
+## Login steps: certificate, account, colony {#login-flow}
+
+1. Open a saved server or enter the exact host/port. A browser panel URL can differ from the game endpoint.
+2. On first TLS contact, compare the fingerprint with the administrator through another channel. Trust only after verification. A changed pin requires a separate stop, not an automatic continue.
+3. Enter the shared server password if enabled. It does not replace a Steam ticket or personal password.
+4. For Steam, wait for ticket verification; temporary rejection may retry automatically. Password accounts belong to this server, which must allow that authentication method.
+5. Complete collection checks. The server then loads the existing colony or offers a new one. If you expected an old colony, check account/address before creating anything.
+
+**Success:** the home map is loaded, connection active, with no unfinished recovery. Public player names and account logins are not interchangeable.
+
+## Distinguish temporary waiting from a final refusal {#login-refusal}
+
+“Waiting for Steam to accept the login” is a Steam wait, not save corruption. “login details are invalid” requires checking credentials. “This account logged in from another place” fences this copy: do not continue it as an independent timeline.
+
+A normal drop pauses the game and reconnects: first after a second, then less often, up to once a minute. After two minutes you may wait or return to the menu; retries continue behind the dialog. A final refusal, such as a ban or untrusted replacement certificate, requires the menu and fixing its cause. Preserve local state rather than replacing it with another colony.
 
 ## Limits and safety {#limits}
 

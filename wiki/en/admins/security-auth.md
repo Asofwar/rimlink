@@ -1,6 +1,6 @@
 ---
 pageId: admins/security-auth
-contentRevision: 1
+contentRevision: 2
 ---
 
 # TLS, authentication and permissions
@@ -14,6 +14,20 @@ TLS is enabled by default. Set PEM CertificatePath/KeyPath or use a self-signed 
 Steam authentication requires SteamWebApiKey and administrative Steam IDs as appropriate. AllowPassword enables password accounts; AdminLogins assigns initial administrators. ServerPassword is not a replacement for personal authentication.
 
 Give each integration a separate Admin:Tokens entry with Name, Token and Scopes. Names are unique, [a-z0-9-], up to 32 characters; tokens are unique and at least 24 characters. read reads, moderate includes read, chat permits external chat, and admin grants all permissions. Minimize scope.
+
+## Separate and revoke integration access {#rotate-access}
+
+Give monitoring read, a chat bridge read+chat, and moderation moderate only as needed. moderate includes read but not chat; admin grants everything. Use a distinct name/secret per process. Revoke independently, apply configuration through controlled restart and verify the revoked token fails.
+
+Only legacy Admin:ApiToken opens the panel; a named admin-scope token still does not. Restart ends cookie sessions. Cookie mutations require X-Rimlink-Panel: 1 and an acceptable Origin; Bearer integrations must not emulate cookies.
+
+Never send tokens in URLs. CLI --token can remain in history/process lists: use a protected operator environment and keep command transcripts private.
+
+## Planned certificate replacement {#rotate-cert}
+
+Preserve working settings and announce the new pin through a trusted channel before replacement. After restart compare the served certificate and test game clients/bot. A stored old pin must require a decision, not update silently.
+
+For an unexpected pin, inspect address/NAT/proxy and whether rotation really occurred. Never tell everyone to use --insecure or trust arbitrary certificates. The default SelfSignedPath depends on DataDir; an empty mount can look like certificate rotation on a new server.
 
 ## Limits and safety {#limits}
 

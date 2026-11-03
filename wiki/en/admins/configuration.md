@@ -1,6 +1,6 @@
 ---
 pageId: admins/configuration
-contentRevision: 1
+contentRevision: 2
 ---
 
 # Configuration reference
@@ -13,11 +13,19 @@ Settings bind to root JSON sections. Environment overrides replace colons with d
 
 Set the service/container environment and restart after changes: this guide does not promise hot reload. The table below records Options initializers, not a sample populated with secrets. deploy/appsettings.example.json is a useful template but not an exhaustive contract (SelfSignedPath, for example, is absent).
 
-The complete key inventory follows below. Hours/Days/Minutes/Seconds suffixes use real time, Ticks means game ticks and Bytes means bytes. Preserve units when transferring settings.
+The complete key inventory follows below. Read the setting, not just its suffix: Hygiene:ArchiveAfterDays counts real days of absence, Hygiene:ArchiveMaxColonyDays counts colony game days, and NewbieProtectionDays counts real days since the first save. Ticks means game ticks and Bytes means bytes. Preserve units when transferring settings.
+
+## How do I change settings without guessing units? {#config-method}
+
+Find the exact key and its group explanation. JSON uses Section/Key; environment variables use Rimlink__Section__Key, with array indices. Preserve working settings and test one related change set on a test server. Options validation may refuse startup: fix its named value, not the database.
+
+Examples are not exhaustive: the table is checked against Options classes, while mechanic constants are separate. Zero does not universally mean disabled: Backup:IntervalHours=0 disables scheduling, other fields differ. Do not promise behavior from Raids:TimeoutDays; it is declared but the current client uses a constant.
+
+Verify behavior and the redacted /api/admin/config after applying changes. Redaction is not a reason to dump the full environment into tickets.
 
 ## Limits and safety {#limits}
 
-Admin:ApiToken, Admin:Tokens:*:Token, Auth:SteamWebApiKey and Server:ServerPassword are secrets. FeedBufferSize: 100–100000, FeedPingSeconds: 1–300; gift/trade lifetimes and MaxOpenTrades must be >=1. Integrity thresholds are nonnegative; Freeze must not be below Warn except 0. Hygiene requires a 1–168-hour sweep, positive age/wealth values and 4 strictly increasing tiers. Incident catalogs require unique IDs, valid Kind and positive multipliers; a nonempty list replaces the entire built-in catalog.
+Admin:ApiToken, Admin:Tokens:*:Token, Auth:SteamWebApiKey and Server:ServerPassword are secrets. FeedBufferSize: 100–100000, FeedPingSeconds: 1–300; gift/trade lifetimes and MaxOpenTrades must be >=1. Integrity thresholds are nonnegative; Freeze must not be below Warn except 0. Hygiene requires a 1–168-hour sweep, nonnegative age/wealth values (0 disables the corresponding filter; ArchiveAfterDays=0 disables archiving) and 4 strictly increasing tiers. Incident catalogs require unique IDs, valid Kind and positive multipliers; a nonempty list replaces the entire built-in catalog.
 
 ## See also {#related}
 

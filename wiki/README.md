@@ -1,6 +1,6 @@
 # Rimlink Wiki — maintenance
 
-45 complete RU/EN article pairs, VitePress 1.6.4, Node 24 (see .node-version), project base /rimlink/. The site is not published by this change.
+45 complete RU/EN article pairs, VitePress 1.6.4, Node 24 (see .node-version), project base /rimlink/. Published at https://asofwar.github.io/rimlink/ (RU/EN). Hosting is legacy GitHub Pages from gh-pages:/, not GitHub Actions deployment.
 
 ## Local verification
 
@@ -25,7 +25,7 @@ For manual reading: npm run preview --prefix wiki -- --host 127.0.0.1; open the 
 
 Change both ru/<pageId>.md and en/<pageId>.md in the feature task. Preserve pageId, matching contentRevision and explicit shared section anchors. Update content-manifest.json for new pages, translated titles, ownership and sourcePaths; navigation is generated from it. No placeholders or links in lieu of translation. Record unverified behavior honestly, and never add secrets, real tokens or private logs.
 
-check:drift requires an explicit base (PR base SHA, push before SHA or deliberate local merge base). Unmapped src/mod/scripts/deploy changes fail closed: map them to their actual feature articles first. A genuine no-documentation-impact case belongs in docs-impact.json as [{"pageId":"…","sources":["exact/changed/path"],"reason":"Substantial reviewed explanation, at least 30 characters","reviewer":"reviewer identity","base":"explicit-base-commit","afterHashes":{"exact/changed/path":"sha256-of-current-bytes"}}]. The exception file itself must change in this diff; base and hashes must match. Rationale is reviewed, never an automatic escape; old exceptions cannot exempt a new edit. Increment contentRevision in the manifest and both translations when updating an existing pair.
+check:drift requires an explicit base (PR base SHA, push before SHA or deliberate local merge base). Unmapped src/mod/scripts/deploy changes fail closed: map them to their actual feature articles first. A genuine no-documentation-impact case belongs in docs-impact.json as [{"pageId":"…","sources":["exact/changed/path"],"reason":"Substantial reviewed explanation, at least 30 characters","reviewer":"reviewer identity","base":"explicit-base-commit","after":{"exact/changed/path":"sha256-of-current-bytes"}}]. The exception file itself must change in this diff; base and hashes must match. Rationale is reviewed, never an automatic escape; old exceptions cannot exempt a new edit. Increment contentRevision in the manifest and both translations when updating an existing pair.
 
 reference-inventory.json binds the configuration, HTTP and CLI inventory to source digests. After a contract change inspect the actual Options, binders/validation, route scope and CLI dispatch, update both references, then refresh the corresponding inventory and source digest. A digest-only refresh does not document a change. check:reference compares extracted surfaces, rendered reference coverage and product/protocol versions. Parsers intentionally target this repository's C# declaration style; if that style changes, update parser tests before accepting a new snapshot.
 
@@ -33,7 +33,9 @@ Vite 6.4.5 is pinned via override because the VitePress stable dependency range 
 
 ## Publication — separate human decision
 
-wiki-check.yml only validates; it has read-only permissions. wiki-deploy.yml is manual-only workflow_dispatch and uses the github-pages environment. Before any deployment: confirm repository visibility/free Pages eligibility, configure Pages source as GitHub Actions, check existing Pages content/custom domain will not be overwritten, approve publication and choose the reviewed ref. Changing source or passing CI never authorizes deploying it. A project hosted outside /rimlink/ requires an explicit base change and renewed link/browser checks.
+wiki-check.yml validates with read-only permissions. Despite its historical filename, wiki-deploy.yml is manual artifact build/check only: no Pages write permission or deploy job. Neither workflow switches hosting or publishes. The active site uses legacy gh-pages:/; do not change its source to Actions.
+
+After explicit publication approval: inspect actual Pages settings and remote gh-pages HEAD; record the prior deployment commit, verify the reviewed source and dist, check Git author/committer and secrets, then copy only dist plus .nojekyll into a separate gh-pages checkout. Commit and push normally without force; do not merge marketing/foreign source changes. Preserve the prior commit for an explicitly approved rollback. Wait for the Pages build, then verify public RU/EN portal, deep links, assets, language/hash and search in a real browser. HTTP200 alone is insufficient. Publishing permission does not permit changing a custom domain or overwriting another site. A different project base requires renewed link/browser checks.
 
 ## Legacy documentation
 

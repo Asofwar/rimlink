@@ -1,6 +1,6 @@
 ---
 pageId: admins/updating
-contentRevision: 1
+contentRevision: 2
 ---
 
 # Updating server and clients
@@ -16,6 +16,14 @@ Applies to: Rimlink 0.8.1 · RimWorld 1.7 · protocol 1.
 5. Check login, save download/upload, mail and modpack. Reopen access only after successful checks.
 
 If it fails, stop the new server. Restore a compatible old-server/data-backup set; merely replacing binaries after migration does not guarantee compatibility.
+
+## Checkpoint and rollback decision {#update-proof}
+
+Before updating, pin binaries/image by version or digest, configuration, collection and a consistent backup. Test migrations, login, save, replay/mail and TLS on a copy. A mod update may require reimporting requirements and rebuilding a permitted ZIP, not just replacing server DLLs.
+
+If it fails, stop the new version and never let clients use two world copies. Restore a compatible old-binaries/data-backup pair, not just an executable over migrated data. Record operations after the checkpoint; they may need reconciliation.
+
+Completion requires fresh game login/save acceptance, not merely a running container.
 
 ## Limits and safety {#limits}
 

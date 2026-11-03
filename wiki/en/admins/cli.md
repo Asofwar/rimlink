@@ -1,6 +1,6 @@
 ---
 pageId: admins/cli
-contentRevision: 1
+contentRevision: 2
 ---
 
 # CLI reference
@@ -14,6 +14,14 @@ rimlink-tools has four roots: backup, restore, modpack and admin. Local backup/r
 Read-only example: `rimlink-tools admin status --server https://play.example.org:25560 --token <TOKEN>`. Tokens in arguments can appear in shell history and process listings: never save a real-secret command in tickets or screenshots. --insecure trusts an unverified certificate and is suitable only for isolated tests.
 
 Use the appropriate root's --help for exact arity. Every admin command is listed below; modpack and disk backup commands are explained in the linked guides. IDs are numeric; CLI decimal parsing uses invariant culture (a dot).
+
+## A safe first CLI session {#cli-read-first}
+
+Inspect --help, HTTPS endpoint and certificate trust. Remote admin commands require --server and --token; local backup/restore use --data without HTTP. Read status/players, resolve a persistent playerId, then inspect player/actions before mutating.
+
+For example, admin status → admin players → admin player 42 → admin actions is read-only. Supply operator address/secrets outside shared chat. Wallet delta is required despite ambiguous help brackets; negative values debit funds. Never test syntax with a real compensation.
+
+The groups below retain all commands. Before an irreversible operation record target, reason, backup and expected result, then verify response/audit.
 
 ## Limits and safety {#limits}
 
