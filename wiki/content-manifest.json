@@ -1,0 +1,919 @@
+{
+  "productVersion": "0.8.1",
+  "protocolVersion": 1,
+  "pages": [
+    {
+      "id": "index",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "README.md"
+      ],
+      "titles": {
+        "ru": "Добро пожаловать",
+        "en": "Welcome"
+      }
+    },
+    {
+      "id": "overview",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "README.md"
+      ],
+      "titles": {
+        "ru": "Как устроен Rimlink",
+        "en": "How Rimlink works"
+      }
+    },
+    {
+      "id": "compatibility",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "README.md"
+      ],
+      "titles": {
+        "ru": "Версии и совместимость",
+        "en": "Versions and compatibility"
+      }
+    },
+    {
+      "id": "faq",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "README.md"
+      ],
+      "titles": {
+        "ru": "Частые вопросы",
+        "en": "Frequently asked questions"
+      }
+    },
+    {
+      "id": "glossary",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "README.md"
+      ],
+      "titles": {
+        "ru": "Словарь",
+        "en": "Glossary"
+      }
+    },
+    {
+      "id": "players/getting-started",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "docs/player-guide.md"
+      ],
+      "titles": {
+        "ru": "Первый сеанс",
+        "en": "Your first session"
+      }
+    },
+    {
+      "id": "players/install",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "docs/player-guide.md"
+      ],
+      "titles": {
+        "ru": "Установка мода",
+        "en": "Installing the mod"
+      }
+    },
+    {
+      "id": "players/connect",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "docs/player-guide.md",
+        "src/Rimlink.Server/Application/Auth/",
+        "src/Rimlink.Server/Application/Sessions/",
+        "src/Rimlink.Client/UI/Dialog_PinPrompt.cs",
+        "src/Rimlink.Client/UI/Dialog_ServerPassword.cs",
+        "src/Rimlink.Client/UI/PasswordWidget.cs",
+        "src/Rimlink.Client/UI/Dialog_Login.cs",
+        "src/Rimlink.Client/UI/Dialog_ServerList.cs",
+        "src/Rimlink.Client/UI/SteamAuth.cs",
+        "src/Rimlink.Client/UI/LoginFlow.cs"
+      ],
+      "titles": {
+        "ru": "Подключение и вход",
+        "en": "Connecting and signing in"
+      }
+    },
+    {
+      "id": "players/modpacks",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "docs/player-guide.md",
+        "src/Rimlink.Server/Application/Modpack/",
+        "src/Rimlink.Client/Game/Patches/Patch_LoadedModManager_GetSettingsFilename.cs",
+        "src/Rimlink.Client/UI/Dialog_ModpackDiff.cs",
+        "src/Rimlink.Client/UI/Dialog_ModpackDownload.cs",
+        "src/Rimlink.Client/UI/ModpackActions.cs",
+        "src/Rimlink.Client/UI/ModpackDownloadFlow.cs"
+      ],
+      "titles": {
+        "ru": "Набор модов сервера",
+        "en": "Server modpacks"
+      }
+    },
+    {
+      "id": "players/world",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "docs/player-guide.md",
+        "src/Rimlink.Server/Application/World/"
+      ],
+      "titles": {
+        "ru": "Общая планета и поселения",
+        "en": "Shared world and settlements"
+      }
+    },
+    {
+      "id": "players/saves-recovery",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "docs/player-guide.md",
+        "src/Rimlink.Server/Application/Saves/",
+        "src/Rimlink.Client/Game/QuitGuard.cs",
+        "src/Rimlink.Client/Game/Patches/Patch_GameDataSaveLoader_SaveGame.cs",
+        "src/Rimlink.Client/Game/RimlinkSession.cs",
+        "src/Rimlink.Client/Game/SaveSync.cs"
+      ],
+      "titles": {
+        "ru": "Сохранения и восстановление",
+        "en": "Saves and recovery"
+      }
+    },
+    {
+      "id": "players/chat-pings",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "docs/player-guide.md",
+        "src/Rimlink.Server/Application/Chat/",
+        "src/Rimlink.Client/Game/Patches/Patch_MapInterface_MapInterfaceUpdate_Pings.cs",
+        "src/Rimlink.Client/Game/Patches/Patch_WorldInterface_WorldInterfaceUpdate_Pings.cs",
+        "src/Rimlink.Client/Game/Pings/PingMarkers.cs",
+        "src/Rimlink.Client/Game/Pings/PingSender.cs",
+        "src/Rimlink.Client/UI/Dialog_Chat.cs"
+      ],
+      "titles": {
+        "ru": "Чат, сообщения и пинги",
+        "en": "Chat, messages and pings"
+      }
+    },
+    {
+      "id": "players/economy",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "docs/player-guide.md",
+        "src/Rimlink.Server/Application/Economy/",
+        "src/Rimlink.Client/Game/Economy/CaravanArrivalAction_RimlinkTransfer.cs",
+        "src/Rimlink.Client/Game/Economy/RimlinkCommTarget.cs",
+        "src/Rimlink.Client/Game/Economy/BlobDebugActions.cs",
+        "src/Rimlink.Client/Game/Economy/PawnExit.cs",
+        "src/Rimlink.Client/Game/Economy/RelationLedger.cs",
+        "src/Rimlink.Client/UI/Economy/Dialog_TradeSide.cs",
+        "src/Rimlink.Client/Game/Economy/GiftLetters.cs",
+        "src/Rimlink.Client/UI/Economy/TradesTab.cs",
+        "src/Rimlink.Client/Game/Economy/Building_DeliverySpot.cs",
+        "src/Rimlink.Client/Game/Economy/SaleNotices.cs",
+        "src/Rimlink.Client/Game/Economy/ThingBlobs.cs",
+        "src/Rimlink.Client/Game/Economy/WealthRefresh.cs",
+        "src/Rimlink.Client/UI/Economy/AuctionsTab.cs",
+        "src/Rimlink.Client/UI/Economy/Dialog_Economy.cs",
+        "src/Rimlink.Client/UI/Economy/EventsTab.cs",
+        "src/Rimlink.Client/UI/Economy/ProcurementTab.cs",
+        "src/Rimlink.Client/UI/Economy/ThingPicker.cs",
+        "src/Rimlink.Client/Game/Economy/Incoming.cs",
+        "src/Rimlink.Client/Game/Economy/Outgoing.cs",
+        "src/Rimlink.Client/Game/Shop/RimlinkShop.cs"
+      ],
+      "titles": {
+        "ru": "Кошелёк, почта и рынок",
+        "en": "Wallet, mail and market"
+      }
+    },
+    {
+      "id": "players/gifts-trades",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "docs/player-guide.md",
+        "src/Rimlink.Server/Application/Trades/",
+        "src/Rimlink.Client/Game/Economy/CaravanArrivalAction_RimlinkTransfer.cs",
+        "src/Rimlink.Client/Game/Economy/RimlinkCommTarget.cs",
+        "src/Rimlink.Client/Game/Economy/BlobDebugActions.cs",
+        "src/Rimlink.Client/Game/Economy/PawnExit.cs",
+        "src/Rimlink.Client/Game/Economy/RelationLedger.cs",
+        "src/Rimlink.Client/UI/Economy/Dialog_TradeSide.cs",
+        "src/Rimlink.Client/Game/Economy/GiftLetters.cs",
+        "src/Rimlink.Client/UI/Economy/TradesTab.cs",
+        "src/Rimlink.Client/Game/Economy/Building_DeliverySpot.cs",
+        "src/Rimlink.Client/Game/Economy/SaleNotices.cs",
+        "src/Rimlink.Client/Game/Economy/ThingBlobs.cs",
+        "src/Rimlink.Client/Game/Economy/WealthRefresh.cs",
+        "src/Rimlink.Client/UI/Economy/AuctionsTab.cs",
+        "src/Rimlink.Client/UI/Economy/Dialog_Economy.cs",
+        "src/Rimlink.Client/UI/Economy/EventsTab.cs",
+        "src/Rimlink.Client/UI/Economy/ProcurementTab.cs",
+        "src/Rimlink.Client/UI/Economy/ThingPicker.cs",
+        "src/Rimlink.Client/Game/Economy/Incoming.cs",
+        "src/Rimlink.Client/Game/Economy/Outgoing.cs"
+      ],
+      "titles": {
+        "ru": "Подарки и двусторонние сделки",
+        "en": "Gifts and two-way trades"
+      }
+    },
+    {
+      "id": "players/auctions",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "docs/player-guide.md",
+        "src/Rimlink.Server/Application/Auctions/",
+        "src/Rimlink.Client/UI/Economy/AuctionsTab.cs"
+      ],
+      "titles": {
+        "ru": "Аукционы",
+        "en": "Auctions"
+      }
+    },
+    {
+      "id": "players/procurement",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "docs/procurement.md",
+        "src/Rimlink.Server/Application/Procurement/",
+        "src/Rimlink.Client/UI/Economy/ProcurementTab.cs"
+      ],
+      "titles": {
+        "ru": "Заказы, контракты и общие цели",
+        "en": "Orders, contracts and shared goals"
+      }
+    },
+    {
+      "id": "players/raids-incidents",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "docs/player-guide.md",
+        "src/Rimlink.Server/Application/Raids/",
+        "src/Rimlink.Server/Application/Incidents/",
+        "src/Rimlink.Client/Game/Raids/RaidArrivalActions.cs",
+        "src/Rimlink.Client/Game/Raids/RimlinkFactions.cs",
+        "src/Rimlink.Client/UI/Raids/Dialog_Raid.cs",
+        "src/Rimlink.Client/Game/Incidents/IncidentLabels.cs",
+        "src/Rimlink.Client/Game/Incidents/IncidentIncoming.cs",
+        "src/Rimlink.Client/UI/Economy/EventsTab.cs",
+        "src/Rimlink.Client/Game/Raids/RaidIncoming.cs",
+        "src/Rimlink.Client/Game/Raids/RaidOutgoing.cs",
+        "src/Rimlink.Client/Game/Raids/RaidResolver.cs"
+      ],
+      "titles": {
+        "ru": "Рейды и платные события",
+        "en": "Raids and paid incidents"
+      }
+    },
+    {
+      "id": "players/visits",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "docs/player-guide.md",
+        "src/Rimlink.Server/Application/Visits/",
+        "src/Rimlink.Client/Game/Visits/VisitArrivalActions.cs",
+        "src/Rimlink.Client/Game/Patches/Patch_Visits.cs",
+        "src/Rimlink.Client/UI/Visits/ShopDialogs.cs",
+        "src/Rimlink.Client/Game/Visits/VisitSession.cs"
+      ],
+      "titles": {
+        "ru": "Визиты и магазин",
+        "en": "Visits and shops"
+      }
+    },
+    {
+      "id": "players/live",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "docs/player-guide.md",
+        "src/Rimlink.Server/Application/Live/",
+        "src/Rimlink.Client/Game/Live/LiveRules.cs",
+        "src/Rimlink.Client/Game/Live/LordJob_RimlinkGuests.cs",
+        "src/Rimlink.Client/UI/Live/Dialog_LiveWait.cs",
+        "src/Rimlink.Client/Game/Patches/Patch_Live_Mirror.cs",
+        "src/Rimlink.Client/Game/Live/LiveArrivalActions.cs",
+        "src/Rimlink.Client/Game/Live/DeltaCollector.cs",
+        "src/Rimlink.Client/Game/Live/LiveTempo.cs",
+        "src/Rimlink.Client/Game/Live/MirrorApplier.cs",
+        "src/Rimlink.Client/Game/Live/MirrorMode.cs",
+        "src/Rimlink.Client/Game/Patches/Patch_LetterStack_ReceiveLetter_Live.cs",
+        "src/Rimlink.Client/Game/Patches/Patch_Live_HostHooks.cs",
+        "src/Rimlink.Client/Game/Patches/Patch_TimeControls_DoTimeControlsGUI_Live.cs",
+        "src/Rimlink.Client/UI/Live/Dialog_LiveInvite.cs",
+        "src/Rimlink.Client/Game/Live/LiveHost.cs",
+        "src/Rimlink.Client/Game/Live/MapComponent_LiveOwners.cs",
+        "src/Rimlink.Client/Game/Live/OrderExecutor.cs",
+        "src/Rimlink.Client/UI/Live/LiveHud.cs",
+        "src/Rimlink.Client/Game/Live/LiveGuest.cs"
+      ],
+      "titles": {
+        "ru": "Live: живая карта",
+        "en": "Live: the active map"
+      }
+    },
+    {
+      "id": "players/coop",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "docs/shared-colony.md",
+        "src/Rimlink.Server/Application/Colonies/",
+        "src/Rimlink.Client/Game/Colonies/ColonyDebugActions.cs",
+        "src/Rimlink.Client/UI/Colonies/Dialog_Colonies.cs"
+      ],
+      "titles": {
+        "ru": "Постоянная совместная колония",
+        "en": "Persistent shared colony"
+      }
+    },
+    {
+      "id": "players/community",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "docs/community.md",
+        "src/Rimlink.Server/Application/Social/",
+        "src/Rimlink.Client/Game/CommunityDebugActions.cs",
+        "src/Rimlink.Client/Game/CommunitySync.cs",
+        "src/Rimlink.Client/UI/Dialog_Players.cs",
+        "src/Rimlink.Client/UI/Dialog_ServerInvite.cs",
+        "src/Rimlink.Client/UI/Dialog_Community.cs"
+      ],
+      "titles": {
+        "ru": "Профили, друзья и союзы",
+        "en": "Profiles, friends and alliances"
+      }
+    },
+    {
+      "id": "players/guild-influence",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "docs/guild-influence.md",
+        "src/Rimlink.Server/Application/Influence/",
+        "src/Rimlink.Client/Game/Influence/InfluenceDebugActions.cs",
+        "src/Rimlink.Client/Game/Influence/InfluenceLayerController.cs",
+        "src/Rimlink.Client/Game/Influence/InfluenceSurfaceCapture.cs",
+        "src/Rimlink.Client/Game/Influence/InfluenceSync.cs",
+        "src/Rimlink.Client/Game/Influence/WorldDrawLayer_Influence.cs",
+        "src/Rimlink.Client/UI/InfluenceOverlay.cs"
+      ],
+      "titles": {
+        "ru": "Влияние гильдий",
+        "en": "Guild influence"
+      }
+    },
+    {
+      "id": "players/troubleshooting",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "docs/player-guide.md",
+        "src/Rimlink.Client/UI/RefusalText.cs",
+        "src/Rimlink.Client/UI/Dialog_Diagnostics.cs"
+      ],
+      "titles": {
+        "ru": "Проблемы игрока",
+        "en": "Player troubleshooting"
+      }
+    },
+    {
+      "id": "admins/getting-started",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "docs/server-setup.md"
+      ],
+      "titles": {
+        "ru": "Первый сервер",
+        "en": "Your first server"
+      }
+    },
+    {
+      "id": "admins/hosting",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "docs/server-setup.md",
+        "deploy/"
+      ],
+      "titles": {
+        "ru": "Размещение и запуск",
+        "en": "Hosting and startup"
+      }
+    },
+    {
+      "id": "admins/configuration",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "docs/server-setup.md",
+        "src/Rimlink.Server/Hosting/",
+        "src/Rimlink.Server/Backup/BackupScheduler.cs"
+      ],
+      "titles": {
+        "ru": "Справочник конфигурации",
+        "en": "Configuration reference"
+      }
+    },
+    {
+      "id": "admins/security-auth",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "docs/server-setup.md",
+        "src/Rimlink.Server/Rest/AdminAuth.cs"
+      ],
+      "titles": {
+        "ru": "TLS, вход и права",
+        "en": "TLS, authentication and permissions"
+      }
+    },
+    {
+      "id": "admins/modpacks",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "docs/server-setup.md"
+      ],
+      "titles": {
+        "ru": "Управление набором модов",
+        "en": "Managing modpacks"
+      }
+    },
+    {
+      "id": "admins/gameplay-policy",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "docs/server-setup.md",
+        "src/Rimlink.Server/Application/Integrity/"
+      ],
+      "titles": {
+        "ru": "Игровая политика сервера",
+        "en": "Server gameplay policy"
+      }
+    },
+    {
+      "id": "admins/administration",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "docs/server-setup.md"
+      ],
+      "titles": {
+        "ru": "Панель и модерация",
+        "en": "Panel and moderation"
+      }
+    },
+    {
+      "id": "admins/cli",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "docs/server-setup.md",
+        "src/Rimlink.Tools/"
+      ],
+      "titles": {
+        "ru": "Справочник CLI",
+        "en": "CLI reference"
+      }
+    },
+    {
+      "id": "admins/api",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "docs/server-setup.md",
+        "src/Rimlink.Server/Rest/"
+      ],
+      "titles": {
+        "ru": "Справочник REST API",
+        "en": "REST API reference"
+      }
+    },
+    {
+      "id": "admins/backup-recovery",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "docs/server-setup.md",
+        "src/Rimlink.Server/Backup/"
+      ],
+      "titles": {
+        "ru": "Резервные копии и восстановление",
+        "en": "Backup and recovery"
+      }
+    },
+    {
+      "id": "admins/updating",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "docs/server-setup.md"
+      ],
+      "titles": {
+        "ru": "Обновление сервера и клиентов",
+        "en": "Updating server and clients"
+      }
+    },
+    {
+      "id": "admins/monitoring",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "docs/server-setup.md",
+        "src/Rimlink.Server/Application/Feed/"
+      ],
+      "titles": {
+        "ru": "Мониторинг и журнал событий",
+        "en": "Monitoring and event feed"
+      }
+    },
+    {
+      "id": "admins/discord",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "docs/server-setup.md",
+        "src/Rimlink.Discord/"
+      ],
+      "titles": {
+        "ru": "Discord-бот",
+        "en": "Discord bot"
+      }
+    },
+    {
+      "id": "admins/troubleshooting",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "docs/server-setup.md"
+      ],
+      "titles": {
+        "ru": "Проблемы администратора",
+        "en": "Administrator troubleshooting"
+      }
+    },
+    {
+      "id": "developers/architecture",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "AGENTS.md"
+      ],
+      "titles": {
+        "ru": "Архитектура",
+        "en": "Architecture"
+      }
+    },
+    {
+      "id": "developers/build",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "AGENTS.md"
+      ],
+      "titles": {
+        "ru": "Сборка проекта",
+        "en": "Building the project"
+      }
+    },
+    {
+      "id": "developers/protocol",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "AGENTS.md",
+        "src/Rimlink.Protocol/"
+      ],
+      "titles": {
+        "ru": "Протокол и идемпотентность",
+        "en": "Protocol and idempotency"
+      }
+    },
+    {
+      "id": "developers/storage",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "AGENTS.md",
+        "src/Rimlink.Server/Storage/"
+      ],
+      "titles": {
+        "ru": "Хранилище и эскроу",
+        "en": "Storage and escrow"
+      }
+    },
+    {
+      "id": "developers/client",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "AGENTS.md",
+        "src/Rimlink.Client.Core/",
+        "src/Rimlink.Client/"
+      ],
+      "titles": {
+        "ru": "Клиент, мод и live",
+        "en": "Client, mod and live"
+      }
+    },
+    {
+      "id": "developers/localization",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "AGENTS.md",
+        "mod/Languages/"
+      ],
+      "titles": {
+        "ru": "Локализация",
+        "en": "Localization"
+      }
+    },
+    {
+      "id": "developers/testing",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "AGENTS.md",
+        "tests/"
+      ],
+      "titles": {
+        "ru": "Тестирование и приёмка",
+        "en": "Testing and acceptance"
+      }
+    },
+    {
+      "id": "developers/contributing",
+      "contentRevision": 1,
+      "sections": [
+        "usage",
+        "limits",
+        "related"
+      ],
+      "owner": "change-author",
+      "sourcePaths": [
+        "AGENTS.md"
+      ],
+      "titles": {
+        "ru": "Вклад и сопровождение wiki",
+        "en": "Contributing and wiki maintenance"
+      }
+    }
+  ],
+  "fallbackSourcePrefixes": [
+    "src/",
+    "mod/",
+    "scripts/",
+    "deploy/"
+  ],
+  "fallbackPage": "developers/architecture"
+}

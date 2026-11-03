@@ -143,6 +143,31 @@ Conventions that follow from this:
    server reports it in `/status`) stay equal; one bump per sub-project.
    `ProtocolVersion.Current` changes only on an incompatible protocol change (there has been none).
 
+## Обязательное обновление Wiki (RU/EN)
+
+Обновление Wiki — часть готовности задачи, а не отдельная необязательная работа после неё.
+
+- При добавлении, изменении или удалении фичи, исправлении поведения, изменении настроек, CLI/API,
+  установки, эксплуатации или восстановления обновляй затронутые статьи Wiki в рамках той же задачи,
+  до объявления её завершённой. Для новой возможности добавляй статью или соответствующий раздел и навигацию.
+- Поддерживай полные русскую и английскую версии: одинаковый охват, актуальные примеры, ограничения
+  и предупреждения. Ссылка на статью другого языка не заменяет перевод. Имена ключей, команд и API не переводи.
+- Описывай фактическую реализацию и проверенные сценарии; отличай реализованное от планов, а выполненные
+  проверки — от ещё не выполненных. Не публикуй секреты, личные данные и локальные рабочие журналы.
+- Проверяй соответствие RU/EN-страниц, внутренние ссылки и сборку Wiki штатными командами сайта.
+  В итоговом отчёте указывай обновлённые статьи и выполненные проверки; если задача не влияет на документацию,
+  явно объясни, почему обновление Wiki не требуется. Незапущенные или недоступные проверки отмечай отдельно.
+- Исходники: `wiki/ru/` и `wiki/en/`; одинаковый `pageId` и `contentRevision` в обеих версиях.
+  Обновляй `wiki/content-manifest.json` (навигация и связь с исходниками); исключения без влияния на документацию
+  записывай в `wiki/docs-impact.json` с точным перечнем исходников и проверяемым обоснованием. Старые `docs/` и якоря сохраняй.
+- Проверки из корня: `npm ci --prefix wiki --ignore-scripts`, `npm run test:checks --prefix wiki`,
+  `npm run check:content --prefix wiki`, `npm run check:reference --prefix wiki`, `npm run build --prefix wiki`,
+  `npm run check:links --prefix wiki`, `npm run check:browser --prefix wiki`,
+  `npm run check:drift --prefix wiki -- --base <commit>`; база явная, не подменяй её HEAD для обхода проверки.
+  При изменении справочных исходников пересверь RU/EN и обнови `wiki/reference-inventory.json`; подробности в `wiki/README.md`.
+- Обновление исходников Wiki не разрешает push, публикацию сайта, включение Pages или deploy:
+  для них по-прежнему нужна явная команда пользователя.
+
 ## Rules that are not obvious from the code
 
 **Protocol only grows.** Add fields with new numbers, new messages, new `.proto` files, new `ErrorCode` values in `common.proto`,

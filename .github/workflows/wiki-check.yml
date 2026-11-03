@@ -1,0 +1,38 @@
+name: Wiki checks
+on:
+  pull_request:
+  push:
+permissions:
+  contents: read
+jobs:
+  wiki:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: wiki/.node-version
+          cache: npm
+          cache-dependency-path: wiki/package-lock.json
+      - run: npm ci --prefix wiki --ignore-scripts
+      - run: npm run test:checks --prefix wiki
+      - run: npm run check:content --prefix wiki
+      - run: npm run check:reference --prefix wiki
+      - name: Check source documentation drift
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BASE: ${{ github.event.before }}
+        run: |
+          base="$PR_BASE"
+          if [ -z "$base" ]; then base="$PUSH_BASE"; fi
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
+            echo "First push has no base commit; validating full content/reference instead of commit drift"
+          else
+            npm run check:drift --prefix wiki -- --base "$base"
+          fi
+      - run: npm run build --prefix wiki
+      - run: npm run check:links --prefix wiki
+      - run: cd wiki && npx playwright install --with-deps chromium
+      - run: npm run check:browser --prefix wiki

@@ -18,6 +18,13 @@ raid or manage a colony together live.
 Rimlink is a clean-room project with its own protocol, server and client. It shares no code with other RimWorld multiplayer
 mods and does not work with them.
 
+## Wiki · Вики
+
+Full bilingual documentation: [Русский](wiki/ru/index.md) · [English](wiki/en/index.md).
+Player guides, server operations, configuration, CLI/API and development: 45 articles per language.
+[Build and maintain the wiki](wiki/README.md). GitHub Pages publication is a separate manual step; it is not enabled by this change.
+Existing documentation links below remain available.
+
 ## What's new in 0.8.1
 
 [Release 0.8.1](https://github.com/Asofwar/rimlink/releases/tag/v0.8.1) keeps transfers and deliveries tied to the exact saved colony, including two saves on the same game

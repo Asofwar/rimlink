@@ -1,0 +1,27 @@
+---
+pageId: admins/getting-started
+contentRevision: 1
+---
+
+# Your first server
+
+Applies to: Rimlink 0.8.1 · RimWorld 1.7 · protocol 1.
+
+## Usage {#usage}
+
+1. Choose a host with persistent storage and reachable TCP 25560. Prepare a private data directory and backups.
+2. Install a server release or use the container. Pin the image version rather than relying on latest for reproducible recovery.
+3. Configure TLS, personal authentication, an initial administrator and a separate strong Admin:ApiToken. Password login is disabled by default.
+4. Start the server, check /health, then verify HTTPS /admin/ login and game login.
+5. Create the shared world with an administrator client, configure the modpack and invite a test player.
+6. Create a backup and restore it into a separate test directory before opening publicly.
+
+## Limits and safety {#limits}
+
+An accessible /health does not prove authentication or saving works. Apply a network policy before exposing /metrics and the admin panel. Creating/recreating a world is not a harmless health check.
+
+## See also {#related}
+
+- [Hosting and startup](./hosting.md)
+- [TLS, authentication and permissions](./security-auth.md)
+- [Backup and recovery](./backup-recovery.md)

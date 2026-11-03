@@ -1,0 +1,40 @@
+name: Publish Wiki (manual only)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: wiki-pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: wiki/.node-version
+          cache: npm
+          cache-dependency-path: wiki/package-lock.json
+      - run: npm ci --prefix wiki --ignore-scripts
+      - run: npm run test:checks --prefix wiki
+      - run: npm run check:content --prefix wiki
+      - run: npm run check:reference --prefix wiki
+      - run: npm run build --prefix wiki
+      - run: npm run check:links --prefix wiki
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: wiki/.vitepress/dist
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy reviewed wiki
+        id: deployment
+        uses: actions/deploy-pages@v4
