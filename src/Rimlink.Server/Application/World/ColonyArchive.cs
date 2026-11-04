@@ -60,14 +60,20 @@ public sealed class ColonyArchive(
     TimeProvider time,
     ILogger<ColonyArchive> log,
     InfluenceService influence,
-    Outposts.OutpostTileClaims outpostTiles)
+    Outposts.OutpostTileClaims outpostTiles,
+    Outposts.OutpostAuthority outpostAuthority)
 {
     private const int SqliteConstraint = 19;
 
     public async Task<ArchiveOutcome> Archive(long playerId, string reason, Actor actor)
     {
-        using var held = await locks.Hold(playerId);
-        using var storage = await saveFiles.PerStoreLock.HoldAsync();
+        await using var held = await AcquireArchiveLockAsync(playerId);
+        if (held.Authority is { } authorityLease)
+        {
+            if ((await outpostAuthority.CheckHeldAsync(authorityLease, default)).State != Outposts.OutpostStartupState.Ready
+                || await db.OutpostDeliveryAttempts.AnyAsync(a => a.PlayerId == playerId && a.Active))
+                throw Grpc.RpcErrors.Failed(ErrorCode.RecoveryRequired, Grpc.RefusalKeys.OutpostsOperation, "outpost-delivery-unresolved-before-archive");
+        }
         var settlement = await db.WorldObjects.Include(o => o.Owner).ThenInclude(p => p.Account)
             .FirstOrDefaultAsync(o => o.OwnerPlayerId == playerId && o.Type == WorldObjectTypes.Settlement);
         if (settlement is null) return new ArchiveOutcome.NoColony();
@@ -137,6 +143,35 @@ public sealed class ColonyArchive(
         HygieneMetrics.Archived.WithLabels(reason).Inc();
         log.LogInformation("Colony '{Colony}' of {Player} archived ({Reason}, by {Actor}) into {Dir}", row.Name, player.Name, reason, actor.Name, relativeDir);
         return new ArchiveOutcome.Archived(row.Id);
+    }
+
+    // Legacy colonies retain O -> S. A protected history must release both before taking A -> O -> S.
+    // Recheck under O/S closes the first-history race without ever acquiring A under an owner lock.
+    private async Task<ArchiveLock> AcquireArchiveLockAsync(long playerId)
+    {
+        IDisposable? owner = await locks.Hold(playerId);
+        IDisposable? storage = null;
+        try
+        {
+            storage = await saveFiles.PerStoreLock.HoldAsync();
+            bool protectedHistory = await db.OutpostSnapshotLinks.AnyAsync(p => p.PlayerId == playerId)
+                || await db.PawnCustody.AnyAsync(p => p.PlayerId == playerId)
+                || await db.OutpostDeliveryAttempts.AnyAsync(p => p.PlayerId == playerId);
+            if (!protectedHistory) return new(owner, storage, null);
+            storage.Dispose(); storage = null; owner.Dispose(); owner = null;
+            return new(null, null, await outpostAuthority.AcquireAsync([playerId], default));
+        }
+        catch { storage?.Dispose(); owner?.Dispose(); throw; }
+    }
+
+    private sealed class ArchiveLock(IDisposable? owner, IDisposable? storage, Outposts.OutpostLease? authority) : IAsyncDisposable
+    {
+        public Outposts.OutpostLease? Authority { get; } = authority;
+        public async ValueTask DisposeAsync()
+        {
+            if (Authority is not null) await Authority.DisposeAsync();
+            storage?.Dispose(); owner?.Dispose();
+        }
     }
 
     /// <param name="restoredBy"><c>player</c> for the automatic restore at login, otherwise the admin actor's name.</param>

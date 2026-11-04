@@ -82,17 +82,24 @@ public class ApiScopeTests
     }
 
     [Fact]
-    public void DuplicateNamesAndReusedTokensStopTheStart()
+    public async Task DuplicateNamesAndReusedTokensStopTheStart()
     {
-        using var duplicate = new ServerFixture()
-            .WithToken(0, "bot", "bot-token-0123456789abcdefgh", "read")
-            .WithToken(1, "bot", "bot-token-0123456789abcdefgX", "read");
-        Assert.Contains("Admin:Tokens[1]", Assert.ThrowsAny<Exception>(() => duplicate.CreateClient()).ToString());
+        await Task.WhenAll(Enumerable.Range(0, 32).Select(_ => Task.Run(() =>
+        {
+            using var duplicate = new ServerFixture()
+                .WithToken(0, "bot", "bot-token-0123456789abcdefgh", "read")
+                .WithToken(1, "bot", "bot-token-0123456789abcdefgX", "read");
+            string duplicateDiagnostic = duplicate.StartupFailureDiagnostic(Assert.ThrowsAny<Exception>(() => duplicate.CreateClient()));
+            Assert.True(duplicateDiagnostic.Contains("Admin:Tokens[1]", StringComparison.Ordinal), duplicateDiagnostic);
+            Assert.Contains("name is already used by another token", duplicateDiagnostic);
 
-        using var reused = new ServerFixture()
-            .WithSetting("Admin:ApiToken", "same-token-0123456789abcdef")
-            .WithToken(0, "bot", "same-token-0123456789abcdef", "read");
-        Assert.Contains("Admin:Tokens[0]", Assert.ThrowsAny<Exception>(() => reused.CreateClient()).ToString());
+            using var reused = new ServerFixture()
+                .WithSetting("Admin:ApiToken", "same-token-0123456789abcdef")
+                .WithToken(0, "bot", "same-token-0123456789abcdef", "read");
+            string reusedDiagnostic = reused.StartupFailureDiagnostic(Assert.ThrowsAny<Exception>(() => reused.CreateClient()));
+            Assert.True(reusedDiagnostic.Contains("Admin:Tokens[0]", StringComparison.Ordinal), reusedDiagnostic);
+            Assert.Contains("token is the same as another token", reusedDiagnostic);
+        })));
     }
 
     [Fact]

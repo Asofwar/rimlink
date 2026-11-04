@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Rimlink.Protocol;
 using Rimlink.Protocol.V1;
 using Rimlink.Server.Application.Economy;
 using Rimlink.Server.Application.Feed;
@@ -68,12 +69,21 @@ public sealed class IntegrityService(RimlinkDbContext db, PlayerFreeze freeze, A
 
     private async Task<long> ImportedReceipts(long playerId, SaveVersion before, SaveVersion after)
     {
-        var old = SaveStore.RecoveryOf(before).ParcelIds.ToHashSet();
-        var added = SaveStore.RecoveryOf(after).ParcelIds.Where(id => !old.Contains(id)).ToArray();
+        var previous = SaveStore.RecoveryOf(before); var current = SaveStore.RecoveryOf(after);
+        static IEnumerable<long> Protected(SaveRecoveryData recovery) => recovery.Outposts.Metadata.Receipts
+            .Where(r => r.DeliveryAttemptId.Length > 0).SelectMany(r => r.ParcelIds);
+        var old = previous.ParcelIds.Concat(Protected(previous)).ToHashSet();
+        var accepted = Protected(current).ToHashSet();
+        var added = current.ParcelIds.Concat(accepted).Where(id => !old.Contains(id)).Distinct().ToArray();
         if (added.Length == 0) return 0;
+        var links = await db.OutpostParcelLinks.AsNoTracking().Where(p => p.PlayerId == playerId && added.Contains(p.ParcelId)).ToDictionaryAsync(p => p.ParcelId);
         var parcels = await db.Parcels.AsNoTracking().Where(p => p.ToPlayerId == playerId && added.Contains(p.Id)
             && (p.DeliveryRecoveryVersion == 0 || p.DeliveredAt == null || p.DeliveredGeneration == after.SaveGeneration)).ToListAsync();
-        return PhysicalValue(parcels);
+        decimal value = PhysicalValue(parcels.Where(p => !links.ContainsKey(p.Id)));
+        foreach (var link in links.Values.Where(l => accepted.Contains(l.ParcelId) && l.AcceptedSnapshotId != null
+            && l.SaveGeneration == after.SaveGeneration && l.WorldId == current.Outposts.Metadata.Scope?.WorldInstanceId))
+            value += link.ValueX100 / 100m;
+        return value <= 0 ? 0 : value >= long.MaxValue ? long.MaxValue : (long)decimal.Floor(value);
     }
 
     private static long PhysicalValue(IEnumerable<Parcel> parcels)

@@ -58,6 +58,10 @@ public sealed class OutpostReplayTests
         var error = await Assert.ThrowsAsync<RpcException>(() => client.PrepareAsync(new OutpostPrepareRequest(), GrpcTestExtensions.Bearer(login.SessionToken)).ResponseAsync);
         Assert.Equal(code, error.ErrorDetail()?.Code);
         Assert.NotEqual(StatusCode.Unimplemented, error.StatusCode);
+        var stateError = await Assert.ThrowsAsync<RpcException>(() => client.StateAsync(new OutpostStateQuery(), GrpcTestExtensions.Bearer(login.SessionToken)).ResponseAsync);
+        var mutationError = await Assert.ThrowsAsync<RpcException>(() => client.MutateAsync(new OutpostMutationRequest(), GrpcTestExtensions.Bearer(login.SessionToken)).ResponseAsync);
+        var deliveryError = await Assert.ThrowsAsync<RpcException>(() => client.BeginDeliveryAsync(new OutpostDeliveryRequest(), GrpcTestExtensions.Bearer(login.SessionToken)).ResponseAsync);
+        Assert.Equal(code, stateError.ErrorDetail()?.Code); Assert.Equal(code, mutationError.ErrorDetail()?.Code); Assert.Equal(code, deliveryError.ErrorDetail()?.Code);
         var session = server.Services.GetRequiredService<SessionRegistry>().All.Single(s => s.PlayerId == login.Player.PlayerId);
         Assert.Equal(clientVersion, session.OutpostVersion);
     }
@@ -81,7 +85,7 @@ public sealed class OutpostReplayTests
     [Fact]
     public void Admission_mutations_have_explicit_bounded_rate_policy()
     {
-        foreach (string method in new[] { "Prepare", "Commit", "Cancel" })
+        foreach (string method in new[] { "Prepare", "Commit", "Cancel", "Mutate", "BeginDelivery" })
             Assert.Equal((5, TimeSpan.FromSeconds(5)), RateLimitPolicy.For("/rimlink.v1.Outposts/" + method));
     }
 

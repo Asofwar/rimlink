@@ -78,7 +78,9 @@ public sealed class MailboxService(RimlinkDbContext db, EventBus events, WalletS
                 || p.DeliveryRecoveryVersion > 0 && p.DeliveredGeneration == generation
                 || p.DeliveryRecoveryVersion == 0 && p.DeliveredTick > saveTick))
             .OrderBy(p => p.Id).ToListAsync();
-        return parcels.Where(p => p.DeliveredAt is null || p.DeliveryRecoveryVersion == 0 || !receipts.Contains(p.Id))
+        var acceptedOutposts = (await db.OutpostParcelLinks.AsNoTracking().Where(p => p.PlayerId == playerId && p.AcceptedSnapshotId != null)
+            .Select(p => p.ParcelId).ToListAsync()).ToHashSet();
+        return parcels.Where(p => !acceptedOutposts.Contains(p.Id) && (p.DeliveredAt is null || p.DeliveryRecoveryVersion == 0 || !receipts.Contains(p.Id)))
             .Select(p => (p, p.DeliveredAt != null)).ToList();
     }
 
@@ -93,6 +95,18 @@ public sealed class MailboxService(RimlinkDbContext db, EventBus events, WalletS
             ?? throw RpcErrors.With(StatusCode.NotFound, ErrorCode.Unspecified, RefusalKeys.EconomyParcelUnknown, "no such parcel in your mailbox");
         if (parcel.Decision == ParcelDecisionDb.Awaiting) throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.Unspecified, RefusalKeys.GiftsAwaiting, "the gift awaits a decision");
         var player = await db.Players.AsNoTracking().SingleAsync(p => p.Id == playerId);
+        if (await db.OutpostParcelLinks.AsNoTracking().SingleOrDefaultAsync(p => p.ParcelId == parcelId) is { } protectedParcel)
+        {
+            // This is an ACK only. The exact snapshot acceptance has already performed all delivery effects atomically.
+            var current = await db.SaveVersions.AsNoTracking().FirstOrDefaultAsync(v => v.PlayerId == playerId && v.IsCurrent);
+            var metadata = SaveStore.RecoveryOf(current).Outposts.Metadata;
+            if (protectedParcel.AcceptedSnapshotId is null || request.SaveGeneration != player.SaveGeneration
+                || request.SaveWriteEpoch != player.SaveWriteEpoch || metadata.Scope?.OwnerPlayerId != playerId
+                || metadata.Scope.SaveGeneration != player.SaveGeneration || metadata.Scope.SaveWriteEpoch != player.SaveWriteEpoch
+                || !metadata.Receipts.Any(r => r.DeliveryAttemptId.Length > 0 && r.ParcelIds.Contains(parcelId)))
+                throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.RecoveryRequired, RefusalKeys.RecoveryRequired, "outpost delivery requires an accepted exact receipt");
+            return;
+        }
         if (request.SnapshotId.Length > 0)
         {
             var proof = await db.SaveVersions.AsNoTracking().FirstOrDefaultAsync(v => v.PlayerId == playerId && v.SnapshotId == request.SnapshotId);
@@ -175,6 +189,11 @@ public sealed class MailboxService(RimlinkDbContext db, EventBus events, WalletS
             SizeBytes = p.SizeBytes,
             AwaitingDecision = p.Decision == ParcelDecisionDb.Awaiting,
         };
+        if (await db.OutpostParcelLinks.AsNoTracking().SingleOrDefaultAsync(l => l.ParcelId == p.Id) is { } link)
+        {
+            proto.OutpostPayload = OutpostParcelPayload.Parser.ParseFrom(link.Payload);
+            proto.OutpostPayload.PayloadDigest = ByteString.CopyFrom(link.PayloadDigest); // Transport envelope; immutable stored bytes keep the self-digest empty.
+        }
         if (p.FromPlayerId is { } fromId)
         {
             var from = await db.Players.AsNoTracking().FirstOrDefaultAsync(x => x.Id == fromId);

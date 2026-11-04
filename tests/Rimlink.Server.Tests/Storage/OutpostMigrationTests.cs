@@ -103,6 +103,13 @@ public sealed class OutpostMigrationTests
         Assert.Equal(0L, Scalar(connection, "SELECT Stock FROM outposts"));
     }
 
+    [Fact]
+    public void Child_batches_keep_a_nonunique_batch_lookup_index()
+    {
+        using var connection = Open(); using var db = Context(connection); db.Database.Migrate();
+        Assert.Equal(0L, Scalar(connection, "SELECT [unique] FROM pragma_index_list('outpost_parcel_links') WHERE name='IX_outpost_parcel_links_BatchId'"));
+    }
+
     private static SqliteConnection Open()
     {
         var connection = new SqliteConnection("Data Source=:memory:");

@@ -36,6 +36,8 @@ public sealed class OutpostFeature
         services.AddSingleton<OutpostManifestUploads>();
         services.AddScoped<OutpostTileClaims>();
         services.AddScoped<OutpostAssignmentService>();
+        services.AddScoped<OutpostService>();
+        services.AddScoped<OutpostParcels>();
     }
 
     // Invoked before any hosted service, compactor, expiry sweep or request can run.

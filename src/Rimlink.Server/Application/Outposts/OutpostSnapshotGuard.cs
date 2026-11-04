@@ -217,6 +217,7 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
                 throw Unavailable("required-delivery-evidence-unavailable");
         }
         await ValidateAdmissionStoredAsync(transitions, links, ct);
+        await ValidateMutationsStoredAsync(transitions, links, ct);
         // Lifecycle/restore codecs are introduced by their own later tasks, never inferred from an unrelated link.
         if (await db.OutpostRestoreAuthorizations.AnyAsync(ct) || await db.OutpostLifecycleOperations.AnyAsync(ct))
             throw Unavailable("required-snapshot-evidence-unavailable");

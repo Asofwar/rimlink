@@ -10,6 +10,8 @@ public static class RateLimitPolicy
         ["/rimlink.v1.Outposts/Prepare"] = (5, TimeSpan.FromSeconds(5)),
         ["/rimlink.v1.Outposts/Commit"] = (5, TimeSpan.FromSeconds(5)),
         ["/rimlink.v1.Outposts/Cancel"] = (5, TimeSpan.FromSeconds(5)),
+        ["/rimlink.v1.Outposts/Mutate"] = (5, TimeSpan.FromSeconds(5)),
+        ["/rimlink.v1.Outposts/BeginDelivery"] = (5, TimeSpan.FromSeconds(5)),
         ["/rimlink.v1.Chat/Send"] = (5, TimeSpan.FromSeconds(5)),
         ["/rimlink.v1.Chat/Ping"] = (12, TimeSpan.FromMinutes(1)),
         ["/rimlink.v1.Community/Mutate"] = (5, TimeSpan.FromSeconds(5)),

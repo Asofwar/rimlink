@@ -42,14 +42,33 @@ public sealed class ServerWealth(RimlinkDbContext db, IOptions<EconomyOptions> o
         }
         var current = await db.SaveVersions.AsNoTracking().FirstOrDefaultAsync(v => v.PlayerId == playerId && v.IsCurrent);
         var received = SaveStore.RecoveryOf(current).ParcelIds.ToHashSet();
+        var outpostParcels = await db.OutpostParcelLinks.AsNoTracking().Where(p => p.PlayerId == playerId).ToDictionaryAsync(p => p.ParcelId);
         foreach (var parcel in await db.Parcels.AsNoTracking().Where(p => p.ToPlayerId == playerId && p.DeliveredAt == null).ToListAsync())
         {
+            if (outpostParcels.TryGetValue(parcel.Id, out var link))
+            {
+                if (link.AcceptedSnapshotId is null) sum += link.ValueX100 / 100m;
+                continue; // Never count its ordinary PawnList a second time.
+            }
             bool onMap = received.Contains(parcel.Id);
             if (!onMap || parcel.Kind != ParcelKindDb.Withdraw) sum += parcel.Silver;
             if (!onMap && !DeclaredByAnother(parcel.Kind))
                 sum += (decimal)ValueOf(ItemList.Parser.ParseFrom(parcel.Items)) + ValueOf(PawnList.Parser.ParseFrom(parcel.Pawns));
         }
 
+        // Prepared-but-not-removed workers still live on the map. ReturnPending workers belong to their parcel above.
+        var heldWorkers = await (from custody in db.PawnCustody.AsNoTracking()
+            join assignment in db.OutpostAssignments.AsNoTracking() on custody.AssignmentId equals assignment.Id
+            where custody.PlayerId == playerId && (custody.LocationKind == "Removed" || custody.LocationKind == "Assigned")
+            select assignment.FactsJson).ToListAsync();
+        foreach (string facts in heldWorkers) sum += Google.Protobuf.JsonParser.Default.Parse<OutpostWorkerCapture>(facts).Pawn.MarketValueX100 / 100m;
+        var stocks = await (from outpost in db.Outposts.AsNoTracking() join manifest in db.OutpostManifests.AsNoTracking() on outpost.ManifestId equals manifest.Id
+            where outpost.PlayerId == playerId && outpost.Stock > 0 select new { outpost.Stock, outpost.Profile, manifest.Document }).ToListAsync();
+        foreach (var stock in stocks)
+        {
+            string resource = stock.Profile == (int)OutpostProfile.Wood ? "WoodLog" : "Steel";
+            sum += (decimal)stock.Stock * OutpostManifestDocument.Parser.ParseFrom(stock.Document).Resources.Single(r => r.DefName == resource).UnitValueX100 / 100m;
+        }
         sum += await Procurement.ProcurementService.HeldWealth(db, playerId);
         return Saturate(sum * Math.Clamp(o.ServerWealthPercent, 0, 1000) / 100m);
     }

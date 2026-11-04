@@ -127,6 +127,7 @@ message OutpostMutationRequest {
   repeated string assignment_ids = 12;
   OutpostSnapshotProof canonical_snapshot = 13;
   bytes intent_digest = 14;
+  bool confirm_fraction_discard = 15;
 }
 message OutpostOperationQuery {
   OutpostScopeMessage scope = 1;
@@ -165,6 +166,7 @@ message OutpostSummary {
   int64 stock = 8;
   bool archived = 9;
   bool recovery_required = 10;
+  bool has_fraction = 11;
 }
 message OutpostDeliveryRequest {
   OutpostScopeMessage scope = 1;

@@ -322,18 +322,18 @@ internal sealed class SnapshotHarness : IDisposable
         Scope = new() { WorldInstanceId = "world-1", OwnerPlayerId = 1,
             RestoreBoundary = H.Db.OutpostAuthority.AsNoTracking().Single().RestoreBoundary }
     };
-    public EvidenceSave Snapshot(OutpostSaveMetadata? metadata = null)
+    public EvidenceSave Snapshot(OutpostSaveMetadata? metadata = null, long tick = 1000)
     {
         string id = Guid.NewGuid().ToString("N");
         var section = new OutpostRecoveryData { Metadata = metadata ?? Metadata() };
-        byte[] packed = RecoveryFixtures.Save(1000, id, generation: section.Metadata.Scope.SaveGeneration,
+        byte[] packed = RecoveryFixtures.Save(tick, id, generation: section.Metadata.Scope.SaveGeneration,
             epoch: section.Metadata.Scope.SaveWriteEpoch, outposts: section);
         var recovery = SaveRecoveryData.ReadXml(new MemoryStream(SaveFixtures.Decompress(packed)), out byte[] rawHash);
-        var version = new SaveVersion { PlayerId = 1, Number = ++number, GameTick = 1000, Size = packed.Length,
+        var version = new SaveVersion { PlayerId = 1, Number = ++number, GameTick = tick, Size = packed.Length,
             Sha256 = SHA256.HashData(packed), RawSha256 = rawHash, SnapshotId = id, RecoveryVersion = 1,
             SaveGeneration = recovery.Generation, SaveWriteEpoch = recovery.WriteEpoch,
             RecoveryJson = JsonSerializer.Serialize(recovery), CreatedAt = DateTime.UtcNow, IsCurrent = true };
-        return new(version, RecoveryFixtures.Header(packed, 1000), recovery, packed);
+        return new(version, RecoveryFixtures.Header(packed, tick), recovery, packed);
     }
     public async Task Accept(EvidenceSave save)
     {

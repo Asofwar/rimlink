@@ -1416,8 +1416,7 @@ namespace Rimlink.Server.Storage.Migrations
 
                     b.HasKey("ParcelId");
 
-                    b.HasIndex("BatchId")
-                        .IsUnique();
+                    b.HasIndex("BatchId");
 
                     b.HasIndex("WorldId", "PlayerId", "SaveGeneration");
 

@@ -65,7 +65,7 @@ public sealed partial class OutpostSnapshotGuard
 
     private async Task ValidateAdmissionStoredAsync(Dictionary<string, OutpostTransition> transitions, List<OutpostSnapshotLink> links, CancellationToken ct)
     {
-        var operations = await db.OutpostOperations.AsNoTracking().ToDictionaryAsync(o => o.Id, ct);
+        var operations = await db.OutpostOperations.AsNoTracking().Where(o => o.Kind == "Found" || o.Kind == "Assign").ToDictionaryAsync(o => o.Id, ct);
         foreach (var operation in operations.Values)
         {
             if (operation.Intent.Length is < 1 or > Limits.EconomyMaxParcelBytes || operation.Result.Length is < 1 or > Limits.MaxMessageBytes)
@@ -104,7 +104,8 @@ public sealed partial class OutpostSnapshotGuard
         foreach (var reservation in await db.OutpostReservations.AsNoTracking().ToListAsync(ct))
             if (!operations.TryGetValue(reservation.OperationId, out var operation) || operation.Kind != "Found"
                 || reservation.WorldId != operation.WorldId || reservation.PlayerId != operation.PlayerId || reservation.SaveGeneration != operation.SaveGeneration
-                || reservation.Tile != OutpostAssignmentService.ParseIntent(operation).Tile || reservation.Active == (operation.State == "Cancelled"))
+                || reservation.Tile != OutpostAssignmentService.ParseIntent(operation).Tile
+                || reservation.Active != (operation.State != "Cancelled" && await db.Outposts.AnyAsync(o => o.Id == operation.OutpostId && o.OccupiesSlot, ct)))
                 throw Unavailable("required-reservation-evidence-unavailable");
     }
 }

@@ -214,7 +214,7 @@ public sealed class OutpostAssignmentService(RimlinkDbContext db, OutpostAuthori
         return await ReplyAsync(operation, ct);
     }
 
-    private async Task ScopeAsync(OutpostLease lease, long playerId, OutpostScopeMessage scope, CancellationToken ct)
+    internal async Task ScopeAsync(OutpostLease lease, long playerId, OutpostScopeMessage scope, CancellationToken ct)
     {
         if ((await authority.CheckHeldAsync(lease, ct)).State != OutpostStartupState.Ready) throw Refuse(ErrorCode.OutpostUnavailable, "authority-not-ready");
         var head = await db.OutpostAuthority.AsNoTracking().SingleAsync(ct); var player = await db.Players.AsNoTracking().SingleOrDefaultAsync(p => p.Id == playerId, ct);
@@ -222,7 +222,7 @@ public sealed class OutpostAssignmentService(RimlinkDbContext db, OutpostAuthori
             || scope.SaveGeneration != player.SaveGeneration || scope.SaveWriteEpoch != player.SaveWriteEpoch || scope.RestoreBoundary != head.RestoreBoundary)
             throw Refuse(ErrorCode.OutpostRestoreBoundaryMismatch, "operation-scope-mismatch");
     }
-    private async Task<OutpostOperation?> ExistingAsync(OutpostScopeMessage scope, string requestId, ByteString digest, CancellationToken ct)
+    internal async Task<OutpostOperation?> ExistingAsync(OutpostScopeMessage scope, string requestId, ByteString digest, CancellationToken ct)
     {
         ValidateIdentity(requestId, digest);
         var operation = await db.OutpostOperations.AsNoTracking().SingleOrDefaultAsync(o => o.WorldId == scope.WorldInstanceId && o.PlayerId == scope.OwnerPlayerId
@@ -236,7 +236,7 @@ public sealed class OutpostAssignmentService(RimlinkDbContext db, OutpostAuthori
         if (!await db.OutpostManifests.AnyAsync(m => m.Active && m.Confirmed && m.Id == request.ManifestId && m.Digest == request.ManifestDigest.ToByteArray(), ct))
             throw Refuse(ErrorCode.OutpostManifestMismatch, "admission-manifest-changed");
     }
-    private async Task<OutpostSaveMetadata> ProofAsync(OutpostScopeMessage scope, OutpostSnapshotProof proof, bool current, CancellationToken ct)
+    internal async Task<OutpostSaveMetadata> ProofAsync(OutpostScopeMessage scope, OutpostSnapshotProof proof, bool current, CancellationToken ct)
     {
         if (proof is null || !scope.Equals(proof.Scope) || proof.RawSha256.Length != 32) throw Refuse(ErrorCode.RecoveryRequired, "exact-snapshot-required");
         var link = await db.OutpostSnapshotLinks.AsNoTracking().SingleOrDefaultAsync(l => l.WorldId == scope.WorldInstanceId && l.PlayerId == scope.OwnerPlayerId
@@ -276,7 +276,7 @@ public sealed class OutpostAssignmentService(RimlinkDbContext db, OutpostAuthori
             || profile == OutpostProfile.Wood && !worker.PlantsCapable || profile == OutpostProfile.Steel && !worker.MiningCapable)
             throw Refuse(ErrorCode.OutpostIneligible, "worker-ineligible");
     }
-    private async Task SettleAsync(OutpostRow outpost, ClockSample now, CancellationToken ct)
+    internal async Task SettleAsync(OutpostRow outpost, ClockSample now, CancellationToken ct)
     {
         var workers = await (from a in db.OutpostAssignments.AsNoTracking() join o in db.OutpostOperations.AsNoTracking() on a.PreparedOperationId equals o.Id
             where a.OutpostId == outpost.Id && a.Active && o.State == "Committed" select a.FactsJson).ToListAsync(ct);
@@ -307,7 +307,7 @@ public sealed class OutpostAssignmentService(RimlinkDbContext db, OutpostAuthori
             .SetProperty(o => o.TransitionId, id).SetProperty(o => o.Result, result), ct);
     }
     private async Task<OutpostOperationReply> LoadReplyAsync(string id, CancellationToken ct) => await ReplyAsync(await db.OutpostOperations.AsNoTracking().SingleAsync(o => o.Id == id, ct), ct);
-    private async Task<OutpostOperationReply> ReplyAsync(OutpostOperation operation, CancellationToken ct)
+    internal async Task<OutpostOperationReply> ReplyAsync(OutpostOperation operation, CancellationToken ct)
     {
         var reply = OutpostOperationReply.Parser.ParseFrom(operation.Result);
         reply.TransitionDigest = ByteString.CopyFrom(await db.OutpostTransitions.AsNoTracking().Where(t => t.Id == reply.TransitionId).Select(t => t.Digest).SingleAsync(ct));

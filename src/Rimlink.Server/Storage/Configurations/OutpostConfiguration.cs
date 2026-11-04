@@ -90,7 +90,7 @@ public sealed class OutpostParcelLinkConfiguration : IEntityTypeConfiguration<Ou
     public void Configure(EntityTypeBuilder<OutpostParcelLink> e)
     {
         e.ToTable("outpost_parcel_links"); e.HasKey(x => x.ParcelId); e.Property(x => x.ParcelId).ValueGeneratedNever();
-        e.HasIndex(x => x.BatchId).IsUnique();
+        e.HasIndex(x => x.BatchId); // One stable batch may own multiple bounded child parcels.
         e.HasIndex(x => new { x.WorldId, x.PlayerId, x.SaveGeneration });
     }
 }

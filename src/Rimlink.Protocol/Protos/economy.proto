@@ -251,4 +251,6 @@ message OutpostParcelPayload {
   // Worker bytes stay in Parcel.pawns with ORIGINAL registry UUID/assignment.
   repeated string pawn_custody_ids = 11;
   repeated string assignment_ids = 12;
+  int32 child_index = 13;
+  int32 child_count = 14;
 }
