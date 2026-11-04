@@ -90,6 +90,18 @@ public sealed class PawnCustodyRegistry : GameComponent
         row.Envelope.Tombstone = true; row.KnownTombstone = true; row.DepartureId = evidence.OperationId; row.Pawn = null;
     }
 
+    /// <summary>Main thread only: a verified rollback changes scopes, never bindings, UUIDs or Scribe Pawn references.</summary>
+    public void ApplyRollbackBridge(OutpostRollbackBridge bridge, OutpostSnapshotProof downloaded, OutpostScopeMessage current)
+    {
+        if (!IsOwnGame) throw new InvalidDataException("rollback bridge has no own game");
+        var validation = ValidateOwnGame();
+        if (validation.RecoveryRequired) throw new InvalidDataException("rollback bridge has ambiguous live registry");
+        var decision = OutpostRollbackBridgeChecks.Validate(bridge, downloaded, current, validation.Registry);
+        if (!decision.Allowed || decision.Registry.Count != entries.Count) throw new InvalidDataException("rollback bridge differs from the loaded live registry");
+        var replacements = entries.Select(row => decision.Registry.Single(r => r.PawnCustodyId == row.Envelope.PawnCustodyId).Clone()).ToArray();
+        for (int i = 0; i < entries.Count; i++) entries[i].Envelope = replacements[i];
+    }
+
     public void RefreshBoundReference(Pawn pawn)
     {
         foreach (var row in entries.Where(e => ReferenceEquals(e.Pawn, pawn))) row.Envelope.PawnReferenceToken = pawn.GetUniqueLoadID();

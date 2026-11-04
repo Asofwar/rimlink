@@ -7,6 +7,7 @@ public sealed class OutpostLease : IAsyncDisposable
     private readonly IReadOnlyList<long> ownerIds;
     private IDisposable[]? held;
     internal OutpostAnchorStore.OutpostAnchorLease Anchor { get; }
+    internal string? LifecycleOperationId { get; set; }
 
     internal OutpostLease(OutpostAuthority owner, long[] ownerIds,
         OutpostAnchorStore.OutpostAnchorLease anchor, IDisposable[] held)

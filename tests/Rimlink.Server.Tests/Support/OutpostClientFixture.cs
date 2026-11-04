@@ -90,6 +90,14 @@ public sealed class OutpostClientFixture : IDisposable
         target.Scope.OwnerPlayerId = player.Id; target.Scope.SaveGeneration = player.SaveGeneration; target.Scope.SaveWriteEpoch = player.SaveWriteEpoch;
         await harness.F.H.Accept(harness.F.H.Snapshot(target));
     }
+    public async Task RollbackForDownload()
+    {
+        var target = harness.Post;
+        await harness.F.H.Accept(harness.F.H.Snapshot(target.Recovery.Outposts.Metadata.Clone(), tick: target.Version.GameTick + 100));
+        using var services = Server.Services.CreateScope();
+        if (!await services.ServiceProvider.GetRequiredService<Rimlink.Server.Application.Saves.SaveStore>().Rollback(1, target.Version.Number))
+            throw new InvalidOperationException("actual fixture rollback was refused");
+    }
     public void SetAvailable(bool value) => Server.Services.GetRequiredService<OutpostFeature>().IsAvailable = value;
     public async Task<OutpostDeliveryRequest> CloseForDelivery()
     {

@@ -247,8 +247,8 @@ public sealed class OutpostAssignmentService(RimlinkDbContext db, OutpostAuthori
         if (link is null || !link.RawSha256.AsSpan().SequenceEqual(proof.RawSha256.Span)) throw Refuse(ErrorCode.RecoveryRequired, "exact-snapshot-mismatch");
         if (current)
         {
-            var latest = await db.SaveVersions.AsNoTracking().Where(v => v.PlayerId == scope.OwnerPlayerId && v.SaveGeneration == scope.SaveGeneration)
-                .OrderByDescending(v => v.Number).Select(v => v.SnapshotId).FirstOrDefaultAsync(ct);
+            var latest = await db.SaveVersions.AsNoTracking().Where(v => v.PlayerId == scope.OwnerPlayerId && v.SaveGeneration == scope.SaveGeneration && v.IsCurrent)
+                .Select(v => v.SnapshotId).SingleOrDefaultAsync(ct);
             if (latest != proof.SnapshotId) throw Refuse(ErrorCode.RecoveryRequired, "canonical-snapshot-changed");
         }
         return OutpostSaveMetadata.Parser.ParseFrom(link.Metadata);

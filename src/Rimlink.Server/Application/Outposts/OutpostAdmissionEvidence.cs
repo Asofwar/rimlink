@@ -10,7 +10,7 @@ namespace Rimlink.Server.Application.Outposts;
 public sealed partial class OutpostSnapshotGuard
 {
     private async Task ValidateAdmissionReceiptAsync(OutpostSaveMetadata metadata, OutpostTransitionReceipt receipt,
-        OutpostTransition transition, CancellationToken ct)
+        OutpostTransition transition, CancellationToken ct, bool historicalRollback = false)
     {
         var operation = await db.OutpostOperations.AsNoTracking().SingleOrDefaultAsync(o => o.WorldId == transition.WorldId
             && o.PlayerId == transition.PlayerId && o.SaveGeneration == transition.SaveGeneration && o.RestoreBoundary == transition.RestoreBoundary
@@ -19,7 +19,7 @@ public sealed partial class OutpostSnapshotGuard
             || receipt.DeliveryAttemptId.Length != 0 || receipt.ParcelIds.Count != 0 || !transition.Intent.AsSpan().SequenceEqual(operation.Intent))
             throw Unavailable("snapshot-admission-receipt-mismatch");
         var intent = OutpostAssignmentService.ParseIntent(operation);
-        if (!receipt.Snapshot.Equals(intent.PreRemoval) || !intent.Scope.Equals(metadata.Scope)
+        if (!receipt.Snapshot.Equals(intent.PreRemoval) || !intent.Scope.Equals(metadata.Scope) && !historicalRollback
             || !intent.Workers.Select(w => w.PawnCustodyId).Order().SequenceEqual(receipt.PawnCustodyIds.Order())
             || !intent.Workers.Select(w => w.AssignmentId).Order().SequenceEqual(receipt.AssignmentIds.Order()))
             throw Unavailable("snapshot-admission-receipt-mismatch");

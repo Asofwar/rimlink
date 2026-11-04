@@ -18,9 +18,13 @@ public sealed class OutpostCrashTests
     public async Task Killed_writer_reopens_only_durably_committed_branch(string point, bool committed)
     {
         using var h = await Initialized();
-        await OutpostFaults.KillAtAsync(h.Root, point);
+        var termination = await OutpostFaults.KillAtAsync(h.Root, point);
         var reopened = await h.Authority.OpenAsync(CancellationToken.None);
-        Assert.Equal(new OutpostStartupResult(OutpostStartupState.Ready), reopened);
+        if (reopened != new OutpostStartupResult(OutpostStartupState.Ready)) h.KeepForDiagnostics = true;
+        Assert.True(reopened == new OutpostStartupResult(OutpostStartupState.Ready),
+            $"Expected Ready without refusal; got {reopened}; termination: {termination}; " +
+            $"sqlite extended code: {(h.Authority.LastOpenFailure as SqliteException)?.SqliteExtendedErrorCode}; " +
+            $"native OS error: {h.SqliteFailure.LastFailure}; retained fixture: {h.Root}; storage exception: {h.Authority.LastOpenFailure}");
         Assert.Equal(committed ? 1 : 0, await h.Db.Outposts.CountAsync());
         Assert.Equal(committed ? 2 : 1, await h.Db.OutpostTransitions.CountAsync());
         using var lease = await h.Anchor.AcquireAsync(CancellationToken.None);
@@ -164,7 +168,9 @@ public sealed class OutpostCrashTests
 
     private static void StopAtCheckpoint(string ready)
     {
-        File.WriteAllText(ready, "owned-ready");
+        using var worker = System.Diagnostics.Process.GetCurrentProcess();
+        File.WriteAllText(ready + ".pending", $"{worker.Id}|{OutpostFaults.StartIdentity(worker)}");
+        File.Move(ready + ".pending", ready);
         Thread.Sleep(Timeout.Infinite);
     }
 

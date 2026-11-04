@@ -65,7 +65,8 @@ public sealed class AdminOperations(
     ForbiddenDefs forbidden,
     Incidents.IncidentService incidents,
     Auctions.AuctionService auctions,
-    Application.Outposts.PawnCustodyBridge custody)
+    Application.Outposts.PawnCustodyBridge custody,
+    Application.Outposts.OutpostLifecycle lifecycle)
 {
     /// <summary>Archived colonies, newest first (at most 500); <paramref name="state"/> is archived, restored or all.</summary>
     public async Task<List<ArchivedRow>> ListArchived(Actor actor, string state)
@@ -483,6 +484,33 @@ public sealed class AdminOperations(
     {
         actor.Require(Role.Admin);
         var player = await FindPlayer(playerId);
+        AdminAction? protectedAudit = null;
+        if (await lifecycle.TryResetAsync(playerId, actor.Name, async lease =>
+        {
+            await using var cleanup = custody.UseHeldEntry(lease);
+            await auctions.CancelAllOf(playerId, "colony reset");
+            if (sessions.ByPlayer(playerId) is { } protectedSession)
+            {
+                events.SendTo(playerId, new ServerEvent { Notice = new Notice { Text = "Your colony was reset by an admin" } });
+                sessions.End(protectedSession.Token);
+            }
+            await live.EndAllOf(playerId, LiveEndReason.EndAdmin, cleanup);
+            await raids.CancelAllOf(playerId, "colony reset", sharedEntry: cleanup);
+            await incidents.CancelAllOf(playerId, "colony reset");
+            await shop.ClearOf(playerId);
+            await visits.EndAllOf(playerId);
+            await trades.CancelAllOf(playerId, "colony reset", cleanup);
+            await procurement.CancelAllOf(playerId);
+        }, _ =>
+        {
+            protectedAudit = audit.Stage(actor, "reset", player.AccountId, "protected lifecycle reset");
+            return Task.CompletedTask;
+        }, default))
+        {
+            await audit.Publish(protectedAudit!);
+            log.LogInformation("Player {Name} reset by {Actor}", player.Name, actor.Name);
+            return;
+        }
         await auctions.CancelAllOf(playerId, "colony reset");
         if (sessions.ByPlayer(playerId) is { } session)
         {
@@ -570,6 +598,36 @@ public sealed class AdminOperations(
     public async Task RecreateWorld(Actor actor)
     {
         actor.Require(Role.Admin);
+        AdminAction? protectedAudit = null;
+        if (await lifecycle.TryRecreateAsync(actor.Name, async lease =>
+        {
+            await using var cleanup = custody.UseHeldEntry(lease);
+            foreach (var session in sessions.All)
+            {
+                events.SendTo(session.PlayerId, new ServerEvent { Notice = new Notice { Text = "The world is being recreated; please reconnect later" } });
+                sessions.End(session.Token);
+            }
+            foreach (long owner in lease.OwnerIds)
+            {
+                await auctions.CancelAllOf(owner, "world recreated");
+                await live.EndAllOf(owner, LiveEndReason.EndAdmin, cleanup);
+                await raids.CancelAllOf(owner, "world recreated", sharedEntry: cleanup);
+                await incidents.CancelAllOf(owner, "world recreated");
+                await shop.ClearOf(owner);
+                await visits.EndAllOf(owner);
+                await trades.CancelAllOf(owner, "world recreated", cleanup);
+            }
+            await procurement.CancelAllOf(null);
+        }, _ =>
+        {
+            protectedAudit = audit.Stage(actor, "recreateworld", null, "protected lifecycle retirement");
+            return Task.CompletedTask;
+        }, default))
+        {
+            await audit.Publish(protectedAudit!);
+            log.LogWarning("World retired by {Actor}; exact protected evidence retained", actor.Name);
+            return;
+        }
         string archive = Path.Combine(data.Archive, $"world-{DateTime.UtcNow:yyyyMMdd-HHmmss}");
         Directory.CreateDirectory(archive);
 

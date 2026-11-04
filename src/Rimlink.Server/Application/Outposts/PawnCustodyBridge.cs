@@ -41,7 +41,7 @@ public sealed partial class PawnCustodyBridge(RimlinkDbContext db, OutpostAuthor
             || scope.SaveGeneration != player.SaveGeneration || scope.SaveWriteEpoch != player.SaveWriteEpoch
             || scope.RestoreBoundary != anchor.RestoreBoundary || proof!.RawSha256.Length != 32)
             throw Invalid("custody-removal-scope");
-        var latest = await db.SaveVersions.AsNoTracking().Where(v => v.PlayerId == actorId).OrderByDescending(v => v.Number).FirstOrDefaultAsync(ct);
+        var latest = await db.SaveVersions.AsNoTracking().SingleOrDefaultAsync(v => v.PlayerId == actorId && v.IsCurrent, ct);
         var recovery = SaveStore.RecoveryOf(latest);
         var link = await db.OutpostSnapshotLinks.AsNoTracking().SingleOrDefaultAsync(l => l.WorldId == scope.WorldInstanceId
             && l.PlayerId == actorId && l.SaveGeneration == scope.SaveGeneration && l.SnapshotId == proof.SnapshotId, ct);
@@ -94,8 +94,7 @@ public sealed partial class PawnCustodyBridge(RimlinkDbContext db, OutpostAuthor
             if (!lease.CoversOwner(evidence.RecipientPlayerId)) throw new InvalidOperationException("custody-recipient-lease-required");
             var session = sessions.ByPlayer(evidence.RecipientPlayerId);
             bool compatible = session is not null ? session.OutpostVersion == 1
-                : SaveStore.RecoveryOf(await db.SaveVersions.AsNoTracking().Where(v => v.PlayerId == evidence.RecipientPlayerId)
-                    .OrderByDescending(v => v.Number).FirstOrDefaultAsync(ct)).Outposts.Present;
+                : SaveStore.RecoveryOf(await db.SaveVersions.AsNoTracking().SingleOrDefaultAsync(v => v.PlayerId == evidence.RecipientPlayerId && v.IsCurrent, ct)).Outposts.Present;
             if (!compatible) throw RpcErrors.Failed(ErrorCode.OutpostClientRequired, RefusalKeys.OutpostsClient, "custody-recipient-client-required");
         }
     }

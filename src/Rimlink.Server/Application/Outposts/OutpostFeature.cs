@@ -10,7 +10,7 @@ public sealed record TransitionIntent(string Id, string WorldId, long PlayerId, 
     string RestoreBoundary, string Kind, string Actor, AuthorityHead ExpectedHead, Google.Protobuf.ByteString Intent,
     string? PawnCustodyId = null, string? OutpostId = null);
 
-public enum OutpostStartupState { Ready, RequiresInitialization, Maintenance }
+public enum OutpostStartupState { Ready, RequiresInitialization, Maintenance, NoActiveWorld }
 public sealed record OutpostStartupResult(OutpostStartupState State, string Reason = "");
 
 public sealed class OutpostEvidenceUnavailableException(string reason) : InvalidOperationException(reason);
@@ -40,6 +40,7 @@ public sealed class OutpostFeature
         services.AddScoped<OutpostParcels>();
         services.AddScoped<PawnCustodyBridge>();
         services.AddScoped<OrdinaryReturnService>();
+        services.AddScoped<OutpostLifecycle>();
     }
 
     // Invoked before any hosted service, compactor, expiry sweep or request can run.
@@ -66,7 +67,7 @@ public sealed class OutpostFeature
             history = await authority.HasHistoryAsync(ct);
         }
         // Disabling the user feature never disables protection of retained custody history.
-        if (history && feature.Startup.State != OutpostStartupState.Ready)
+        if (history && feature.Startup.State is not (OutpostStartupState.Ready or OutpostStartupState.NoActiveWorld))
             throw new InvalidOperationException("outpost-startup-blocked: " + feature.Startup.Reason);
     }
 }

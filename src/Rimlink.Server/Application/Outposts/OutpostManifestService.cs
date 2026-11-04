@@ -105,7 +105,8 @@ public sealed class OutpostManifestService(RimlinkDbContext db, OutpostAuthority
     public async Task<OutpostManifestDocument> RequireActiveHeldAsync(OutpostLease lease, string surfaceId, int tile, OutpostProfile profile, CancellationToken ct)
     {
         lease.Require(authority);
-        var row = await db.OutpostManifests.AsNoTracking().SingleOrDefaultAsync(m => m.Active && m.Confirmed, ct)
+        string worldId = await db.OutpostAuthority.AsNoTracking().Select(a => a.WorldId).SingleAsync(ct);
+        var row = await db.OutpostManifests.AsNoTracking().SingleOrDefaultAsync(m => m.Active && m.Confirmed && m.WorldId == worldId, ct)
             ?? throw Invalid("manifest-not-confirmed");
         CheckBytes(row);
         var document = OutpostManifestDocument.Parser.ParseFrom(row.Document);

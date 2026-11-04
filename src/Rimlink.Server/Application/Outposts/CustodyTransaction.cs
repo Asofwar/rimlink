@@ -82,7 +82,7 @@ public sealed partial class PawnCustodyBridge
             var parts = new List<CustodyTransferEvidence>();
             foreach (var route in protectedRoutes)
             {
-                var latest = await db.SaveVersions.AsNoTracking().Where(v => v.PlayerId == route.Actor).OrderByDescending(v => v.Number).FirstOrDefaultAsync(ct);
+                var latest = await db.SaveVersions.AsNoTracking().SingleOrDefaultAsync(v => v.PlayerId == route.Actor && v.IsCurrent, ct);
                 var metadata = SaveStore.RecoveryOf(latest).Outposts;
                 if (latest?.SnapshotId is null || latest.RawSha256 is null || !metadata.Present) throw Invalid("custody-canonical-snapshot-required");
                 var evidence = new CustodyTransferEvidence { TransitionId = id, Kind = route.Kind, SourceId = route.SourceId,
@@ -111,9 +111,17 @@ public sealed partial class PawnCustodyBridge
             var root = parts[0]; root.RelatedTransfers.Add(parts.Skip(1));
             if (root.CalculateSize() > Rimlink.Protocol.Limits.MaxMessageBytes) throw Invalid("custody-route-batch-size");
             var head = await db.OutpostAuthority.AsNoTracking().SingleAsync(ct);
-            var transaction = await authority.BeginHeldAsync(lease, new(id, head.WorldId, root.ActorPlayerId,
+            var transitionIntent = new TransitionIntent(id, head.WorldId, root.ActorPlayerId,
                 root.RemovalSnapshot.Scope.SaveGeneration, head.RestoreBoundary, "CustodyTransfer", "player:" + (root.SourceAuthorizerPlayerId > 0 ? root.SourceAuthorizerPlayerId : root.ActorPlayerId),
-                new(head.HeadId, ByteString.CopyFrom(head.HeadDigest)), ByteString.Empty), ct);
+                new(head.HeadId, ByteString.CopyFrom(head.HeadDigest)), ByteString.Empty);
+            OutpostAuthority.OutpostDomainTransaction transaction;
+            if (borrowed is not null && lease.LifecycleOperationId is { } operationId)
+            {
+                var operation = await db.OutpostLifecycleOperations.AsNoTracking().SingleAsync(r => r.Id == operationId, ct);
+                transaction = await authority.BeginLifecycleHeldAsync(lease, transitionIntent,
+                    new(operationId, operation.Phase, operation.IntentDigest, operation.Phase, Cleanup: true), ct);
+            }
+            else transaction = await authority.BeginHeldAsync(lease, transitionIntent, ct);
             return new(this, transaction, lease, root, ownsLease: borrowed is null);
         }
         catch

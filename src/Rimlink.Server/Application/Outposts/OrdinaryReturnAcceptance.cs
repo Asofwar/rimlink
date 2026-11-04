@@ -19,13 +19,13 @@ public sealed partial class OutpostSnapshotGuard
     }
 
     private async Task ValidateOrdinaryReturnReceiptAsync(OutpostSaveMetadata metadata, OutpostTransitionReceipt receipt,
-        OutpostTransition transition, CancellationToken ct)
+        OutpostTransition transition, CancellationToken ct, bool historicalRollback = false)
     {
         var row = await db.OutpostOrdinaryReturns.AsNoTracking().SingleOrDefaultAsync(r => r.Id == receipt.OrdinaryReturnAttemptId, ct);
         if (row is null || transition.Kind != "OrdinaryReturnStarted" || row.Id != transition.Id)
             throw Unavailable("ordinary-return-receipt-source");
         var intent = ReadOrdinaryReturnIntent(row); var capture = intent.Capture;
-        if (!metadata.Scope.Equals(intent.Scope) || !receipt.Snapshot.Equals(intent.CanonicalSnapshot)
+        if (!metadata.Scope.Equals(intent.Scope) && !historicalRollback || !receipt.Snapshot.Equals(intent.CanonicalSnapshot)
             || receipt.ClientRequestId != capture.ClientRequestId || receipt.OrdinaryLocalOperationId != capture.LocalOperationId
             || !SHA256.HashData(row.Intent).AsSpan().SequenceEqual(receipt.IntentDigest.Span)
             || receipt.DeliveryAttemptId.Length != 0 || receipt.NoRemovalBranchId.Length != 0

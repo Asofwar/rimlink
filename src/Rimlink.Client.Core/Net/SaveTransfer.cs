@@ -101,9 +101,15 @@ public sealed class SaveTransfer(RimlinkConnection connection)
     /// <summary>Only this verified own-colony download can grant the write epoch of a rolled-back file.</summary>
     public async Task<DownloadedSave?> DownloadSnapshotAsync(string targetPath, CancellationToken cancellationToken)
     {
-        DownloadedSave? result = null;
+        DownloadedSave? result = null; var authentication = connection.Login;
         await Receive(connection.Saves.Download(new Empty(), cancellationToken: cancellationToken), targetPath, cancellationToken,
-            (header, hash) => result = new(targetPath, header, hash));
+            (header, hash) => result = new(targetPath, header, hash),
+            (header, recovery, hash) =>
+            {
+                if (!ReferenceEquals(connection.Login, authentication)) throw new OperationCanceledException("authentication changed during snapshot download");
+                if (!Outposts.OutpostDownloadChecks.Validate(header, recovery, hash, authentication).Allowed)
+                    throw new InvalidDataException("downloaded outpost snapshot does not match its authenticated rollback boundary");
+            });
         return result;
     }
 
@@ -112,7 +118,7 @@ public sealed class SaveTransfer(RimlinkConnection connection)
         Receive(connection.Saves.DownloadOf(new PlayerRef { PlayerId = playerId }, cancellationToken: cancellationToken), targetPath, cancellationToken);
 
     private static async Task<string?> Receive(AsyncServerStreamingCall<SaveChunk> call, string targetPath, CancellationToken cancellationToken,
-        Action<SaveHeader, byte[]>? verified = null)
+        Action<SaveHeader, byte[]>? verified = null, Action<SaveHeader, SaveRecoveryData, byte[]>? validate = null)
     {
         string targetDir = Path.GetDirectoryName(Path.GetFullPath(targetPath))!;
         Directory.CreateDirectory(targetDir);
@@ -168,6 +174,8 @@ public sealed class SaveTransfer(RimlinkConnection connection)
             using (var file = File.OpenRead(temp)) recovery = SaveRecoveryData.ReadXml(file, out rawHash);
             if (recovery.Version != header.RecoveryVersion || recovery.SnapshotId != header.SnapshotId)
                 throw new InvalidDataException("downloaded save identity does not match its header");
+            validate?.Invoke(header, recovery, rawHash);
+            cancellationToken.ThrowIfCancellationRequested();
             File.Move(temp, final, overwrite: true);
             verified?.Invoke(header, rawHash);
             return final;

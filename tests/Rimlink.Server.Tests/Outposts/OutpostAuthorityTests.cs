@@ -355,6 +355,8 @@ internal sealed class AuthorityHarness : IDisposable
     public ColonyLocks Owners { get; } = new();
     public SaveFiles Files { get; }
     public OutpostFeature Feature { get; } = new();
+    public Rimlink.Server.Tests.Support.SqliteFailureCapture SqliteFailure { get; } = new();
+    public bool KeepForDiagnostics { get; set; }
 
     public AuthorityHarness(string? root = null)
     {
@@ -363,9 +365,10 @@ internal sealed class AuthorityHarness : IDisposable
         string external = Path.Combine(Root, "external");
         Directory.CreateDirectory(external);
         Db = new RimlinkDbContext(new DbContextOptionsBuilder<RimlinkDbContext>()
-            .UseSqlite($"Data Source={Data.DatabasePath};Pooling=False").Options);
+            .UseSqlite($"Data Source={Data.DatabasePath};Pooling=False").AddInterceptors(SqliteFailure).Options);
         Db.Database.Migrate();
-        Anchor = new OutpostAnchorStore(Data, Options.Create(new OutpostOptions { AnchorDirectory = external, StorageContract = "sqlite-local-v1" }));
+        Anchor = new OutpostAnchorStore(Data, Options.Create(new OutpostOptions { AnchorDirectory = external, StorageContract = "sqlite-local-v1",
+            QualifiedLinuxFileSystem = Rimlink.Server.Tests.Support.LocalTestStorage.LinuxQualification(Data.Root) }));
         Files = new SaveFiles(Data);
         Authority = new AuthorityService(Db, Anchor, Files, Owners, Feature);
     }
@@ -373,6 +376,6 @@ internal sealed class AuthorityHarness : IDisposable
     public void Dispose()
     {
         Db.Dispose();
-        if (Directory.Exists(Root)) Directory.Delete(Root, true);
+        if (!KeepForDiagnostics && Directory.Exists(Root)) Directory.Delete(Root, true);
     }
 }

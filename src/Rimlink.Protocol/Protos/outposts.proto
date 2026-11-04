@@ -215,6 +215,18 @@ message OutpostSaveMetadata {
   repeated OutpostWorkerCapture worker_captures = 6;
   repeated OutpostCaravanAttestation caravans = 7;
   repeated OrdinaryOutgoingCapture ordinary_outgoing = 8;
+  OutpostRollbackBridge rollback_bridge = 9;
+}
+// Server-authored canonical-download provenance; an echoed bridge alone grants no authority.
+message OutpostRollbackBridge {
+  string lifecycle_operation_id = 1;
+  string transition_id = 2;
+  bytes transition_digest = 3;
+  OutpostSnapshotProof canonical_snapshot = 4;
+  OutpostScopeMessage source_scope = 5;
+  OutpostScopeMessage current_scope = 6;
+  bytes local_frontier_digest = 7;
+  repeated PawnRegistryEnvelope mutable_registry = 8;
 }
 message OutpostTransitionReceipt {
   string transition_id = 1;

@@ -55,7 +55,7 @@ public sealed partial class PawnCustodyBridge
     {
         var session = sessions.ByPlayer(recipient);
         bool compatible = session is not null ? session.OutpostVersion == 1
-            : SaveStore.RecoveryOf(await db.SaveVersions.AsNoTracking().Where(v => v.PlayerId == recipient).OrderByDescending(v => v.Number).FirstOrDefaultAsync(ct)).Outposts.Present;
+            : SaveStore.RecoveryOf(await db.SaveVersions.AsNoTracking().SingleOrDefaultAsync(v => v.PlayerId == recipient && v.IsCurrent, ct)).Outposts.Present;
         if (!compatible) throw RpcErrors.Failed(ErrorCode.OutpostClientRequired, RefusalKeys.OutpostsClient, "custody-recipient-client-required");
     }
 

@@ -70,6 +70,7 @@ public class ServerFixture : WebApplicationFactory<Program>
         Directory.CreateDirectory(DataDir);
         builder.UseSetting("Tls:Required", "false");
         builder.UseSetting("Server:DataDir", DataDir);
+        builder.UseSetting("Outposts:QualifiedLinuxFileSystem", LocalTestStorage.LinuxQualification(DataDir));
         foreach (var (key, value) in settings) builder.UseSetting(key, value);
         builder.ConfigureTestServices(services =>
         {

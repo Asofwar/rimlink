@@ -42,14 +42,15 @@ public sealed class SavesGrpcService(SaveStore store, Rimlink.Server.Application
     private async Task Stream(long playerId, IServerStreamWriter<SaveChunk> responseStream, ServerCallContext context)
     {
         var current = await store.OpenCurrent(playerId) ?? throw RpcErrors.With(StatusCode.NotFound, ErrorCode.Unspecified, RefusalKeys.SavesNone, "no save stored for this player");
-        var (version, content, generation, writeEpoch) = current;
+        var (version, content, generation, writeEpoch, rollbackBridge) = current;
 
         await using (content)
         {
             await responseStream.WriteAsync(new SaveChunk
             {
                 Header = new SaveHeader { GameTick = version.GameTick, TotalSize = version.Size, Sha256 = ByteString.CopyFrom(version.Sha256),
-                    SnapshotId = version.SnapshotId ?? "", SaveWriteEpoch = writeEpoch, RecoveryVersion = version.RecoveryVersion, SaveGeneration = generation },
+                    SnapshotId = version.SnapshotId ?? "", SaveWriteEpoch = writeEpoch, RecoveryVersion = version.RecoveryVersion, SaveGeneration = generation,
+                    OutpostRollbackBridge = rollbackBridge },
             }, context.CancellationToken);
 
             byte[] buffer = new byte[Limits.SaveChunkBytes];

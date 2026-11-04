@@ -23,6 +23,7 @@
   <Rimlink.Outposts.Complete>Работники назначены. Пассивная добыча началась.</Rimlink.Outposts.Complete>
   <Rimlink.Outposts.Cancelled>Назначение отменено. Если работники уже отправились, забери их серверный возврат из почты.</Rimlink.Outposts.Cancelled>
   <Rimlink.Outposts.RecoveryHold>Нужно восстановить операцию. Не возвращай работников вручную; после подключения обнови состояние той же операции.</Rimlink.Outposts.RecoveryHold>
+  <Rimlink.Outposts.RollbackIncompatible>Откатанное сохранение не совпадает с серверным разрешением восстановления. Запись заблокирована; подключись заново и загрузи каноническое сохранение с сервера.</Rimlink.Outposts.RollbackIncompatible>
   <Rimlink.Outposts.ManifestTitle>География аванпостов</Rimlink.Outposts.ManifestTitle>
   <Rimlink.Outposts.ManifestHelp>Администратор: экспортируй всю основную планету и отпечатки игровых данных. Проверь хеш перед отдельным подтверждением. Одна загрузка географию не активирует.</Rimlink.Outposts.ManifestHelp>
   <Rimlink.Outposts.ManifestStage>Экспортировать и загрузить географию</Rimlink.Outposts.ManifestStage>

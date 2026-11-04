@@ -23,6 +23,7 @@
   <Rimlink.Outposts.Complete>Workers assigned. Passive production is active.</Rimlink.Outposts.Complete>
   <Rimlink.Outposts.Cancelled>Staffing cancelled. If workers had already left, collect their server return in the mailbox.</Rimlink.Outposts.Cancelled>
   <Rimlink.Outposts.RecoveryHold>Staffing requires recovery. Do not restore workers locally; refresh the same operation after reconnecting.</Rimlink.Outposts.RecoveryHold>
+  <Rimlink.Outposts.RollbackIncompatible>The rolled-back save does not match the server’s recovery authorization. Writes are blocked; reconnect and load the canonical server save.</Rimlink.Outposts.RollbackIncompatible>
   <Rimlink.Outposts.ManifestTitle>Outpost geography</Rimlink.Outposts.ManifestTitle>
   <Rimlink.Outposts.ManifestHelp>Administrator: export the complete main planet and gameplay fingerprints. Review the staged digest before explicitly confirming. Staging alone does not activate geography.</Rimlink.Outposts.ManifestHelp>
   <Rimlink.Outposts.ManifestStage>Capture and stage geography</Rimlink.Outposts.ManifestStage>

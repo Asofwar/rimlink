@@ -46,6 +46,7 @@ message SaveHeader {
   string outpost_restore_boundary = 14;
   bytes raw_sha256 = 15;
   OutpostSaveMetadata outpost_metadata = 16;
+  OutpostRollbackBridge outpost_rollback_bridge = 17;
 }
 
 message SaveInfo {

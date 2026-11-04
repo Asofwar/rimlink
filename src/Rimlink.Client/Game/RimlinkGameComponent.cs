@@ -113,13 +113,36 @@ public sealed class RimlinkGameComponent : GameComponent
         if (!RimlinkSession.Active) return;
         if (!Visits.VisitSession.InVisit && RimlinkSession.PendingDownload is { } downloaded)
         {
-            if (!downloaded.MatchesFile(SaveSync.SaveFilePath)) throw new InvalidDataException("the verified downloaded snapshot changed before loading");
-            SaveWriteEpoch = downloaded.Header.SaveWriteEpoch;
-            SaveGeneration = downloaded.Header.SaveGeneration;
-            RimlinkSession.PendingDownload = null;
-            RimlinkSession.RecoveryNeedsSave = RecoveryVersion != SaveRecoveryData.CurrentVersion ||
-                SaveRecoveryData.CurrentVersion > 0 && downloaded.Header.SaveWriteEpoch != SaveMetaReader.Read(SaveSync.SaveFilePath).Recovery?.WriteEpoch;
-            RimlinkSession.RecoveryNeeded |= RimlinkSession.RecoveryNeedsSave;
+            try
+            {
+                if (!downloaded.MatchesFile(SaveSync.SaveFilePath)) throw new InvalidDataException("the verified downloaded snapshot changed before loading");
+                var saved = SaveMetaReader.Read(SaveSync.SaveFilePath).Recovery ?? throw new InvalidDataException("downloaded snapshot has no recovery identity");
+                var decision = Rimlink.Client.Outposts.OutpostDownloadChecks.Validate(downloaded.Header, saved, downloaded.RawSha256, RimlinkSession.Login);
+                if (!decision.Allowed || OutpostLoadFailure is not null || SnapshotId != saved.SnapshotId || SaveGeneration != saved.Generation
+                    || SaveWriteEpoch != saved.WriteEpoch || !OutpostRecovery.Metadata.Equals(saved.Outposts.Metadata))
+                    throw new InvalidDataException("loaded snapshot differs from its verified download and authentication");
+                if (downloaded.Header.OutpostRollbackBridge is { } bridge)
+                {
+                    var proposed = OutpostRecovery.Metadata.Clone(); proposed.Scope = bridge.CurrentScope.Clone(); proposed.RollbackBridge = bridge.Clone();
+                    proposed.Registry.Clear(); proposed.Registry.Add(decision.Registry.Select(r => r.Clone()));
+                    var recovery = new OutpostRecoveryData { Metadata = proposed }; recovery.Validate();
+                    Current.Game.GetComponent<Outposts.PawnCustodyRegistry>().ApplyRollbackBridge(bridge,
+                        new() { Scope = saved.Outposts.Metadata.Scope.Clone(), SnapshotId = saved.SnapshotId, RawSha256 = ByteString.CopyFrom(downloaded.RawSha256) }, bridge.CurrentScope);
+                    OutpostRecovery = recovery;
+                }
+                SaveWriteEpoch = downloaded.Header.SaveWriteEpoch;
+                SaveGeneration = downloaded.Header.SaveGeneration;
+                RimlinkSession.PendingDownload = null;
+                RimlinkSession.RecoveryNeedsSave = RecoveryVersion != SaveRecoveryData.CurrentVersion ||
+                    SaveRecoveryData.CurrentVersion > 0 && downloaded.Header.SaveWriteEpoch != saved.WriteEpoch;
+                RimlinkSession.RecoveryNeeded |= RimlinkSession.RecoveryNeedsSave;
+            }
+            catch (Exception error)
+            {
+                OutpostLoadFailure = error.Message; SaveSync.BlockWrites();
+                RimlinkLog.Instance.Error("verified snapshot load requires recovery: " + error);
+                UI.MainThread.Post(AbortToMenu); return;
+            }
         }
         // A colony loaded in a session is the server's current version (downloaded, or uploaded just before): whatever its file
         // says about dev mode was reported with it. Without this a re-download would flag (and freeze) the player again.

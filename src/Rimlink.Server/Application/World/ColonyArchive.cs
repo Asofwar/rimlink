@@ -62,7 +62,8 @@ public sealed class ColonyArchive(
     InfluenceService influence,
     Outposts.OutpostTileClaims outpostTiles,
     Outposts.OutpostAuthority outpostAuthority,
-    Outposts.PawnCustodyBridge custody)
+    Outposts.PawnCustodyBridge custody,
+    Outposts.OutpostLifecycle outpostLifecycle)
 {
     private const int SqliteConstraint = 19;
 
@@ -84,6 +85,12 @@ public sealed class ColonyArchive(
         var versions = await db.SaveVersions.Where(v => v.PlayerId == playerId).OrderBy(v => v.Number).ToListAsync();
         files.EnsureFilesExist(playerId, versions); // before any side effect: a colony whose saves are gone stays as it is
 
+        OutpostLifecycleOperation? lifecycle = null;
+        if (held.Authority is { } protectedLease)
+        {
+            lifecycle = await outpostLifecycle.PrepareArchiveHeldAsync(protectedLease, playerId, versions, time.GetUtcNow().UtcDateTime, actor.Name, default);
+            await outpostLifecycle.RetainArchiveEvidenceHeldAsync(protectedLease, lifecycle, default);
+        }
         await using var cleanup = held.Authority is null ? null : custody.UseHeldEntry(held.Authority);
         await raids.CancelAllOf(playerId, "colony archived", returnOwnPawns: true, cleanup);
         await visits.EndAllOf(playerId);
@@ -118,26 +125,40 @@ public sealed class ColonyArchive(
         try
         {
             await files.CopyOut(versions, dir);
-            await using var tx = await db.Database.BeginTransactionAsync();
-            // A leave or force-disable may have committed while the files were copied.
-            await db.Entry(settlement).ReloadAsync();
-            InfluenceLifecycle.Copy(settlement, row);
-            row.InfluenceSettlementId = settlement.Id;
-            influenceWorld = await InfluenceLifecycle.Advance(db);
-            db.SaveVersions.RemoveRange(versions);
-            db.WorldObjects.Remove(settlement);
-            db.ArchivedColonies.Add(row);
-            await db.SaveChangesAsync();
-            await tx.CommitAsync();
+            async Task Stage(CancellationToken ct)
+            {
+                // A leave or force-disable may have committed while the files were copied.
+                await db.Entry(settlement).ReloadAsync(ct);
+                InfluenceLifecycle.Copy(settlement, row);
+                row.InfluenceSettlementId = settlement.Id;
+                influenceWorld = await InfluenceLifecycle.Advance(db);
+                db.SaveVersions.RemoveRange(versions);
+                db.WorldObjects.Remove(settlement);
+                db.ArchivedColonies.Add(row);
+                await db.SaveChangesAsync(ct);
+            }
+            if (lifecycle is not null)
+                await outpostLifecycle.DestructiveHeldAsync(held.Authority!, lifecycle, Stage, () => row.Id, default);
+            else
+            {
+                await using var tx = await db.Database.BeginTransactionAsync();
+                await Stage(default);
+                await tx.CommitAsync();
+            }
         }
         catch
         {
             db.ChangeTracker.Clear();
-            TryDeleteDirectory(dir);
+            if (lifecycle is null) TryDeleteDirectory(dir); // Never compensate by deleting a protected reachable locator.
             throw;
         }
 
         TryDeleteFiles(playerId, versions.Select(v => v.Number));
+        if (lifecycle is not null)
+        {
+            outpostLifecycle.SourceCleanupCheckpoint();
+            await outpostLifecycle.CompleteArchiveHeldAsync(held.Authority!, lifecycle, row.Id, _ => Task.CompletedTask, default);
+        }
         if (influenceWorld is not null) influence.Notify(influenceWorld);
         events.Broadcast(new ServerEvent { WorldObjectRemoved = new WorldObjectRemoved { ObjectId = settlement.Id } });
         feed.Publish(FeedTypes.ColonyArchived, new ColonyArchivedData(new FeedPlayer(playerId, player.Name), row.Name, row.Tile, reason, actor.Name));
@@ -202,8 +223,8 @@ public sealed class ColonyArchive(
     {
         long? playerId = await db.ArchivedColonies.Where(c => c.Id == archiveId).Select(c => (long?)c.PlayerId).FirstOrDefaultAsync();
         if (playerId is null) return new RestoreOutcome.NotFound();
-        using var held = await locks.Hold(playerId.Value);
-        return await RestoreHeld(archiveId, restoredBy);
+        await using var held = await AcquireArchiveLockAsync(playerId.Value);
+        return await RestoreHeld(archiveId, restoredBy, held);
     }
 
     /// <summary>
@@ -213,7 +234,7 @@ public sealed class ColonyArchive(
     /// </summary>
     public async Task<ColonyRestore?> RestoreOnLogin(long playerId)
     {
-        using var held = await locks.Hold(playerId); // waits for an archive of this player still in progress
+        await using var held = await AcquireArchiveLockAsync(playerId); // A → O → S for protected history.
         if (await db.WorldObjects.AnyAsync(o => o.OwnerPlayerId == playerId && o.Type == WorldObjectTypes.Settlement)) return null;
         var generation = await db.Players.Where(p => p.Id == playerId).Select(p => p.SaveGeneration).SingleAsync();
         var latest = await db.ArchivedColonies.AsNoTracking()
@@ -231,11 +252,11 @@ public sealed class ColonyArchive(
         RestoreOutcome outcome;
         try
         {
-            outcome = await RestoreHeld(latest.Id, "player");
+            outcome = await RestoreHeld(latest.Id, "player", held);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (held.Authority is null)
         {
-            // Whatever goes wrong here must not keep the player out: the login goes on as for a damaged archive.
+            // Only legacy archives can fall back to a fresh colony without protected custody.
             log.LogError(ex, "Restoring archived colony #{Id} of player {PlayerId} at login failed", latest.Id, playerId);
             outcome = new RestoreOutcome.Damaged();
         }
@@ -255,14 +276,15 @@ public sealed class ColonyArchive(
             default:
                 return null;
         }
+        if (held.Authority is not null)
+            throw new Outposts.OutpostEvidenceUnavailableException("lifecycle-restore-manual-evidence-required");
         await db.Players.Where(p => p.Id == playerId).ExecuteUpdateAsync(s => s.SetProperty(p => p.LastOutgoingTick, 0L));
         await db.Parcels.Where(p => p.ToPlayerId == playerId && p.DeliveredAt != null).ExecuteUpdateAsync(s => s.SetProperty(p => p.DeliveredTick, 0L));
         return reply;
     }
 
-    private async Task<RestoreOutcome> RestoreHeld(long archiveId, string restoredBy)
+    private async Task<RestoreOutcome> RestoreHeld(long archiveId, string restoredBy, ArchiveLock held)
     {
-        using var storage = await saveFiles.PerStoreLock.HoldAsync();
         var row = await db.ArchivedColonies.Include(c => c.Player).FirstOrDefaultAsync(c => c.Id == archiveId);
         if (row is null) return new RestoreOutcome.NotFound();
         // Auth may already track Player from before a reset; Include must not decide from that cached instance.
@@ -274,9 +296,15 @@ public sealed class ColonyArchive(
             return new RestoreOutcome.PlayerHasColony();
         if (await TileTaken(row.Tile)) return new RestoreOutcome.TileTaken();
 
+        OutpostLifecycleOperation? lifecycle = held.Authority is null ? null
+            : await outpostLifecycle.PrepareRestoreHeldAsync(held.Authority, row.PlayerId, archiveId, restoredBy, default);
         string dir = Path.Combine(data.Root, row.Dir);
         var versions = await files.CopyIn(row.PlayerId, dir);
-        if (versions is null) return new RestoreOutcome.Damaged();
+        if (versions is null)
+        {
+            if (lifecycle is not null) throw new Outposts.OutpostEvidenceUnavailableException("lifecycle-restore-bytes-unavailable");
+            return new RestoreOutcome.Damaged();
+        }
 
         var settlement = new Storage.Entities.WorldObject
         {
@@ -290,8 +318,9 @@ public sealed class ColonyArchive(
         string influenceNotice = "";
         try
         {
-            await using var tx = await db.Database.BeginTransactionAsync();
-            await db.Entry(row).ReloadAsync();
+            async Task Stage(CancellationToken ct)
+            {
+            await db.Entry(row).ReloadAsync(ct);
             InfluenceLifecycle.Copy(row, settlement);
             var world = await db.World.AsNoTracking().SingleOrDefaultAsync();
             long allianceId = await db.Set<AllianceMember>().Where(m => m.PlayerId == row.PlayerId && db.Set<AllianceGroup>().Any(g => g.Id == m.AllianceId && !g.Disbanded)).Select(m => m.AllianceId).SingleOrDefaultAsync();
@@ -309,10 +338,21 @@ public sealed class ColonyArchive(
             row.State = ArchiveState.Restored;
             row.RestoredAt = time.GetUtcNow().UtcDateTime;
             row.RestoredBy = restoredBy;
-            await db.SaveChangesAsync();
-            await tx.CommitAsync();
+            if (lifecycle is not null)
+                await outpostLifecycle.StageRestoreHeldAsync(held.Authority!, row.PlayerId, generation,
+                    Outposts.OutpostLifecycleEvidence.Intent(lifecycle).CutUtc, ct);
+            await db.SaveChangesAsync(ct);
+            }
+            if (lifecycle is not null)
+                await outpostLifecycle.DestructiveHeldAsync(held.Authority!, lifecycle, Stage, () => archiveId, default);
+            else
+            {
+                await using var tx = await db.Database.BeginTransactionAsync();
+                await Stage(default);
+                await tx.CommitAsync();
+            }
         }
-        catch (DbUpdateException ex) when (ex.InnerException is SqliteException { SqliteErrorCode: SqliteConstraint })
+        catch (DbUpdateException ex) when (lifecycle is null && ex.InnerException is SqliteException { SqliteErrorCode: SqliteConstraint })
         {
             // Someone settled the tile between the check and the commit.
             db.ChangeTracker.Clear();
@@ -322,11 +362,16 @@ public sealed class ColonyArchive(
         catch
         {
             db.ChangeTracker.Clear();
-            TryDeleteFiles(row.PlayerId, versions.Select(v => v.Number));
+            if (lifecycle is null) TryDeleteFiles(row.PlayerId, versions.Select(v => v.Number));
             throw;
         }
 
         TryDeleteDirectory(dir);
+        if (lifecycle is not null)
+        {
+            outpostLifecycle.SourceCleanupCheckpoint();
+            await outpostLifecycle.CompleteArchiveHeldAsync(held.Authority!, lifecycle, archiveId, _ => Task.CompletedTask, default);
+        }
         if (influenceWorld is not null) influence.Notify(influenceWorld);
         settlement.Owner ??= row.Player;
         var proto = (await worlds.Describe([settlement]))[0];

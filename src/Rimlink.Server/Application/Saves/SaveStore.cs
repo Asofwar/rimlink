@@ -23,7 +23,7 @@ public sealed class SaveRejected(string key, string reason, params object[] args
 }
 
 /// <summary>Versioned save storage: blobs under &lt;data&gt;/saves/&lt;playerId&gt; (see <see cref="SaveFiles"/>), metadata in save_versions.</summary>
-public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles files, SaveCompactor compactor, EventBus events, Integrity.IntegrityService integrity, World.WorldService worlds, ILogger<SaveStore> log, InfluenceService influence, Outposts.OutpostAuthority outpostAuthority, OutpostSnapshotGuard outpostGuard)
+public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles files, SaveCompactor compactor, EventBus events, Integrity.IntegrityService integrity, World.WorldService worlds, ILogger<SaveStore> log, InfluenceService influence, Outposts.OutpostAuthority outpostAuthority, OutpostSnapshotGuard outpostGuard, OutpostLifecycle outpostLifecycle)
 {
     public async Task<SaveVersion> Store(long playerId, SaveHeader header, IAsyncEnumerable<ReadOnlyMemory<byte>> chunks, CancellationToken cancellationToken,
         long? sessionEpoch = null, Func<bool>? sessionIsCurrent = null)
@@ -198,9 +198,12 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
         }
     }
 
-    private async Task<OutpostLease?> AcquireUploadLockAsync(long playerId, OutpostRecoveryData metadata)
+    private async Task<OutpostLease?> AcquireUploadLockAsync(long playerId, OutpostRecoveryData metadata, bool lifecycleRead = false)
     {
-        if (metadata.Present || await outpostGuard.RequiresProtectionAsync(playerId, CancellationToken.None))
+        async Task<bool> RequiresFence() => await outpostGuard.RequiresProtectionAsync(playerId, CancellationToken.None)
+            || lifecycleRead && (await db.OutpostLifecycleOperations.AsNoTracking().Where(r => r.Kind == "Rollback").ToListAsync())
+                .Any(r => OutpostLifecycleEvidence.Intent(r).PlayerId == playerId);
+        if (metadata.Present || await RequiresFence())
         {
             string[] ids = metadata.Metadata.Registry.Select(r => r.PawnCustodyId).ToArray();
             var sourceOwners = await db.PawnCustody.AsNoTracking().Where(p => ids.Contains(p.Id)).Select(p => p.PlayerId).ToListAsync();
@@ -209,19 +212,23 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
         await files.PerStoreLock.WaitAsync();
         try
         {
-            if (!await outpostGuard.RequiresProtectionAsync(playerId, CancellationToken.None)) return null;
+            if (!await RequiresFence()) return null;
         }
         catch { files.PerStoreLock.Release(); throw; }
         files.PerStoreLock.Release();
         return await outpostAuthority.AcquireAsync([playerId], CancellationToken.None);
     }
 
-    public async Task<(SaveVersion Version, Stream Content, long Generation, long WriteEpoch)?> OpenCurrent(long playerId)
+    public async Task<(SaveVersion Version, Stream Content, long Generation, long WriteEpoch, OutpostRollbackBridge? RollbackBridge)?> OpenCurrent(long playerId)
     {
-        await files.PerStoreLock.WaitAsync();
+        OutpostLease? lease = await AcquireUploadLockAsync(playerId, new(), lifecycleRead: true);
         try
         {
-            var version = await db.SaveVersions.AsNoTracking().FirstOrDefaultAsync(v => v.PlayerId == playerId && v.IsCurrent);
+            if (lease is not null && (await outpostAuthority.CheckHeldAsync(lease, CancellationToken.None)).State != OutpostStartupState.Ready)
+                throw RpcErrors.Failed(ErrorCode.RecoveryRequired, RefusalKeys.RecoveryRequired, "protected download authority is not ready");
+            var version = await db.SaveVersions.AsNoTracking().SingleOrDefaultAsync(v => v.PlayerId == playerId && v.IsCurrent);
+            OutpostRollbackBridge? bridge = version is null || lease is null ? null
+                : await new OutpostLifecycleEvidence(db, files).GetRollbackBridgeHeldAsync(lease, playerId, version, CancellationToken.None);
             if (version is null) return null;
             // A backup's database can be older than its files: the version it calls current may have become a delta after the snapshot.
             if (!File.Exists(PathOf(version)) || files.Deltas(playerId, version.Number).Any())
@@ -230,9 +237,9 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
             }
             var authority = await db.Players.AsNoTracking().Where(p => p.Id == playerId).Select(p => new { p.SaveWriteEpoch, p.SaveGeneration }).SingleAsync();
             var stream = new FileStream(PathOf(version), FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 16, FileOptions.Asynchronous | FileOptions.SequentialScan);
-            return (version, stream, authority.SaveGeneration, authority.SaveWriteEpoch);
+            return (version, stream, authority.SaveGeneration, authority.SaveWriteEpoch, bridge);
         }
-        finally { files.PerStoreLock.Release(); }
+        finally { if (lease is not null) await lease.DisposeAsync(); else files.PerStoreLock.Release(); }
     }
 
     public Task<List<SaveVersion>> List(long playerId) =>
@@ -242,6 +249,16 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
 
     public async Task<bool> Rollback(long playerId, int number)
     {
+        if (await outpostLifecycle.TryRollbackAsync(playerId, number, "save-rollback", CancellationToken.None) is { } protectedResult)
+        {
+            if (protectedResult)
+            {
+                long epoch = await db.Players.AsNoTracking().Where(p => p.Id == playerId).Select(p => p.SaveWriteEpoch).SingleAsync();
+                events.SendTo(playerId, new ServerEvent { SaveRolledBack = new SaveRolledBack { Version = number, SaveWriteEpoch = epoch } });
+                log.LogInformation("Save of player {PlayerId} rolled back to v{Version}", playerId, number);
+            }
+            return protectedResult;
+        }
         await files.PerStoreLock.WaitAsync();
         try
         {

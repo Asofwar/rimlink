@@ -139,7 +139,7 @@ public sealed class OutpostStorageProfileTests
             Assert.Throws<InvalidDataException>(() => OutpostStorageProfile.Validate(f.Data, f.Anchor, "sqlite-local-v1", actual));
     }
 
-    private static string CurrentQualification(string path) => OperatingSystem.IsLinux() ? CoveringDrive(path).DriveFormat : "";
+    private static string CurrentQualification(string path) => Support.LocalTestStorage.LinuxQualification(path);
 
     private static DriveInfo CoveringDrive(string path)
     {

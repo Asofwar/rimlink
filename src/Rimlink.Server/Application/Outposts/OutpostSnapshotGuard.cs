@@ -24,7 +24,7 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
         for (int n = 0; n < acceptedDeliveries; n++) Economy.EconomyMetrics.Trade("deliver");
         receiptEvents.Clear(); acceptedDeliveries = 0;
     }
-    internal static readonly string[] SnapshotIndependentKinds = ["Initialize", "Production", "StageManifest", "ConfirmManifest"];
+    internal static readonly string[] SnapshotIndependentKinds = ["Initialize", "Production", "StageManifest", "ConfirmManifest", "Lifecycle", "WorldBind", "Rollback"];
     public const int MaxSnapshots = 10_000; // No history GC: refuse new evidence before any pawn can be removed.
     public const long MaxRetainedMetadataBytes = 256L * 1024 * 1024;
 
@@ -143,7 +143,7 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
     }
 
     // Used only from authority's already-held startup/commit barrier, without reacquiring any lock or transaction.
-    internal async Task ValidateStoredEvidenceCoreAsync(CancellationToken ct, OutpostTransition? staged = null)
+    internal async Task ValidateStoredEvidenceCoreAsync(CancellationToken ct, OutpostTransition? staged = null, string? lifecycleOperation = null)
     {
         if (await db.OutpostSnapshotLinks.SumAsync(l => (long)l.Metadata.Length, ct) > MaxRetainedMetadataBytes
             || await db.OutpostSnapshotLinks.AnyAsync(l => l.Metadata.Length > OutpostRecoveryData.MaxMetadataBytes, ct))
@@ -188,6 +188,7 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
                     if (!transitions.TryGetValue(frontier.TransitionId, out var entry) || entry.WorldId != link.WorldId
                         || !entry.Digest.AsSpan().SequenceEqual(frontier.TransitionDigest.Span)
                         || (entry.PredecessorId ?? "") != frontier.PredecessorId) throw Unavailable("snapshot-frontier-mismatch");
+                var rollbackOriginal = await new OutpostLifecycleEvidence(db, files).ValidateRollbackProvenanceAsync(metadata, ct);
                 foreach (var receipt in metadata.Receipts)
                 {
                     if (!transitions.TryGetValue(receipt.TransitionId, out var entry) || entry.WorldId != link.WorldId
@@ -196,7 +197,10 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
                         || !entry.Digest.AsSpan().SequenceEqual(receipt.TransitionDigest.Span)
                         || (entry.PredecessorId ?? "") != receipt.PredecessorId
                         || !metadata.Frontier.Any(f => f.TransitionId == receipt.TransitionId)) throw Unavailable("snapshot-receipt-mismatch");
-                    await ValidateReceiptAsync(metadata, receipt, entry, ct);
+                    bool historicalRollback = rollbackOriginal?.Receipts.Any(r => r.Equals(receipt)) == true;
+                    if (receipt.Snapshot.Scope.SaveWriteEpoch != metadata.Scope.SaveWriteEpoch && !historicalRollback)
+                        throw Unavailable("snapshot-receipt-epoch-without-rollback-proof");
+                    await ValidateReceiptAsync(metadata, receipt, entry, ct, historicalRollback);
                 }
             }
             catch (Exception error) when (error is IOException or InvalidDataException or JsonException or System.Xml.XmlException
@@ -246,8 +250,9 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
         await ValidateMutationsStoredAsync(transitions, links, ct);
         await PawnCustodyBridge.ValidateStoredEvidenceAsync(db, transitions.Values, ct);
         await ValidateOrdinaryReturnsStoredAsync(transitions, links, ct);
-        // Lifecycle/restore codecs are introduced by their own later tasks, never inferred from an unrelated link.
-        if (await db.OutpostRestoreAuthorizations.AnyAsync(ct) || await db.OutpostLifecycleOperations.AnyAsync(ct))
+        await new OutpostLifecycleEvidence(db, files).ValidateStoredCoreAsync(ct, staged, lifecycleOperation);
+        // Rollback bridges are not inferred from an unrelated snapshot.
+        if (await db.OutpostRestoreAuthorizations.AnyAsync(ct))
             throw Unavailable("required-snapshot-evidence-unavailable");
     }
 
@@ -313,6 +318,7 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
     private async Task ValidateCausalityAsync(OutpostSaveMetadata metadata, CancellationToken ct)
     {
         var scope = metadata.Scope;
+        var rollbackOriginal = await new OutpostLifecycleEvidence(db, files).ValidateRollbackProvenanceAsync(metadata, ct);
         var transitions = await db.OutpostTransitions.AsNoTracking().ToDictionaryAsync(t => t.Id, ct);
         foreach (var frontier in metadata.Frontier)
             if (!transitions.TryGetValue(frontier.TransitionId, out var entry) || entry.WorldId != scope.WorldInstanceId
@@ -326,17 +332,20 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
                 || !entry.Digest.AsSpan().SequenceEqual(receipt.TransitionDigest.Span)
                 || !metadata.Frontier.Any(f => f.TransitionId == receipt.TransitionId))
                 throw Unavailable("snapshot-receipt-mismatch");
-            await ValidateReceiptAsync(metadata, receipt, entry, ct);
+            bool historicalRollback = rollbackOriginal?.Receipts.Any(r => r.Equals(receipt)) == true;
+            if (receipt.Snapshot.Scope.SaveWriteEpoch != scope.SaveWriteEpoch && !historicalRollback)
+                throw Unavailable("snapshot-receipt-epoch-without-rollback-proof");
+            await ValidateReceiptAsync(metadata, receipt, entry, ct, historicalRollback);
         }
     }
 
     private async Task ValidateReceiptAsync(OutpostSaveMetadata metadata, OutpostTransitionReceipt receipt,
-        OutpostTransition transition, CancellationToken ct)
+        OutpostTransition transition, CancellationToken ct, bool historicalRollback = false)
     {
         if (receipt.OrdinaryReturnAttemptId.Length > 0 || transition.Kind == "OrdinaryReturnStarted")
-        { await ValidateOrdinaryReturnReceiptAsync(metadata, receipt, transition, ct); return; }
+        { await ValidateOrdinaryReturnReceiptAsync(metadata, receipt, transition, ct, historicalRollback); return; }
         if (receipt.DeliveryAttemptId.Length == 0 && transition.Kind is "Prepare" or "CancelFence")
-        { await ValidateAdmissionReceiptAsync(metadata, receipt, transition, ct); return; }
+        { await ValidateAdmissionReceiptAsync(metadata, receipt, transition, ct, historicalRollback); return; }
         if (receipt.DeliveryAttemptId.Length == 0 || transition.Kind != "BeginDelivery")
             throw Unavailable("snapshot-receipt-kind-unavailable");
         var attempt = await db.OutpostDeliveryAttempts.AsNoTracking().SingleOrDefaultAsync(a => a.Id == receipt.DeliveryAttemptId, ct);
@@ -379,33 +388,8 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
         }
     }
 
-    private async Task<(SaveVersion Version, string? Archive)> ResolveAsync(OutpostSnapshotLink link, CancellationToken ct)
-    {
-        var live = await db.SaveVersions.AsNoTracking().Where(v => v.PlayerId == link.PlayerId && v.SaveGeneration == link.SaveGeneration
-            && v.SnapshotId == link.SnapshotId).ToListAsync(ct);
-        if (live.Count == 1) return (live[0], null);
-        if (live.Count != 0) throw Unavailable("snapshot-version-ambiguous");
-        var archives = await db.ArchivedColonies.AsNoTracking().Where(a => a.PlayerId == link.PlayerId && a.SaveGeneration == link.SaveGeneration).ToListAsync(ct);
-        (SaveVersion, string)? selected = null;
-        foreach (var row in archives)
-        {
-            string dir = files.EvidenceArchiveDirectory(row.Dir);
-            string path = Path.Combine(dir, SaveArchive.ManifestFile);
-            if (!File.Exists(path)) continue;
-            if (new FileInfo(path).Length > 64 * 1024 * 1024) throw Unavailable("snapshot-archive-manifest-limit");
-            var manifest = JsonSerializer.Deserialize<SaveArchive.Manifest>(await File.ReadAllTextAsync(path, ct), new JsonSerializerOptions(JsonSerializerDefaults.Web));
-            if (manifest is null || manifest.PlayerId != link.PlayerId) throw Unavailable("snapshot-archive-owner-mismatch");
-            foreach (var version in manifest.Versions.Where(v => v.SnapshotId == link.SnapshotId && v.SaveGeneration == link.SaveGeneration))
-            {
-                if (selected is not null) throw Unavailable("snapshot-archive-ambiguous");
-                selected = (new SaveVersion { PlayerId = link.PlayerId, Number = version.Number, GameTick = version.GameTick,
-                    Size = version.Size, Sha256 = Convert.FromHexString(version.Sha256), SnapshotId = version.SnapshotId,
-                    SaveGeneration = version.SaveGeneration, SaveWriteEpoch = version.SaveWriteEpoch, RecoveryVersion = version.RecoveryVersion,
-                    RawSha256 = version.RawSha256, RecoveryJson = version.RecoveryJson }, dir);
-            }
-        }
-        return selected ?? throw Unavailable("snapshot-version-missing");
-    }
+    private Task<(SaveVersion Version, string? Archive)> ResolveAsync(OutpostSnapshotLink link, CancellationToken ct) =>
+        new OutpostLifecycleEvidence(db, files).ResolveSnapshotAsync(link, ct);
 
     private static void RequireOwner(OutpostLease lease, long playerId)
     { if (!lease.CoversOwner(playerId)) throw new InvalidOperationException("outpost-owner-lease-required"); }

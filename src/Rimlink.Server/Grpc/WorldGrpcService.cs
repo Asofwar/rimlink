@@ -11,7 +11,7 @@ namespace Rimlink.Server.Grpc;
 public sealed class WorldGrpcService(WorldService worlds, IOptions<IntegrityOptions> integrity, IOptions<Hosting.HygieneOptions> hygiene, Application.Influence.InfluenceProcessEpoch process, OutpostManifestService manifests, OutpostManifestUploads uploads) : Protocol.V1.World.WorldBase
 {
     public override async Task<WorldInfo> Create(CreateWorldRequest request, ServerCallContext context) =>
-        WithPolicy(WorldService.ToInfo(await worlds.Create(request.Params ?? new WorldParams(), request.NpcTiles, context.GetSession())));
+        WithPolicy(WorldService.ToInfo(await worlds.Create(request.Params ?? new WorldParams(), request.NpcTiles, context.GetSession(), context.CancellationToken)));
 
     public override async Task<WorldInfo> Get(Empty request, ServerCallContext context) =>
         WithPolicy(WorldService.ToInfo(await worlds.Get()));

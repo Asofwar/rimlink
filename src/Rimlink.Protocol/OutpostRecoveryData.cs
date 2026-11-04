@@ -58,13 +58,14 @@ public sealed record OutpostRecoveryData
         ValidateScope(Metadata.Scope);
         if (Metadata.Registry.Count > MaxEntries || Metadata.Receipts.Count > MaxEntries || Metadata.Frontier.Count > MaxEntries) throw Invalid();
         ValidateAdmissions();
+        ValidateRollbackBridge();
         if (Metadata.OrdinaryOutgoing.Count > MaxEntries) throw Invalid();
         var operations = new HashSet<string>(StringComparer.Ordinal);
         var ordinaryRequests = new HashSet<string>(StringComparer.Ordinal);
         foreach (var capture in Metadata.OrdinaryOutgoing)
         {
             OrdinaryCapture.Validate(capture);
-            if (!capture.Scope.Equals(Metadata.Scope) || !operations.Add(capture.LocalOperationId)
+            if (!CaptureScopeAllowed(capture.Scope) || !operations.Add(capture.LocalOperationId)
                 || !ordinaryRequests.Add(((int)capture.RequestKind) + ":" + capture.ClientRequestId)) throw Invalid();
         }
         var custody = new HashSet<string>(StringComparer.Ordinal);
@@ -99,6 +100,33 @@ public sealed record OutpostRecoveryData
         var frontier = new HashSet<string>(StringComparer.Ordinal);
         foreach (var entry in Metadata.Frontier)
             if (!Uuid(entry.TransitionId) || !frontier.Add(entry.TransitionId) || !OptionalUuid(entry.PredecessorId) || !Hash(entry.TransitionDigest)) throw Invalid();
+    }
+
+    // Structural provenance only: the server still proves every historical byte against its committed bridge and original snapshot.
+    private bool CaptureScopeAllowed(OutpostScopeMessage scope) => scope.Equals(Metadata.Scope)
+        || Metadata.RollbackBridge is { } bridge && SameNamespace(scope, bridge.SourceScope)
+            && scope.SaveWriteEpoch <= bridge.SourceScope.SaveWriteEpoch;
+
+    private static bool SameNamespace(OutpostScopeMessage left, OutpostScopeMessage right) =>
+        left.WorldInstanceId == right.WorldInstanceId && left.OwnerPlayerId == right.OwnerPlayerId
+        && left.SaveGeneration == right.SaveGeneration && left.RestoreBoundary == right.RestoreBoundary;
+
+    private void ValidateRollbackBridge()
+    {
+        if (Metadata.RollbackBridge is not { } bridge) return;
+        ValidateScope(bridge.SourceScope); ValidateScope(bridge.CurrentScope);
+        if (!Uuid(bridge.LifecycleOperationId) || !Uuid(bridge.TransitionId) || !Hash(bridge.TransitionDigest)
+            || !Hash(bridge.LocalFrontierDigest) || !bridge.CurrentScope.Equals(Metadata.Scope)
+            || !SameNamespace(bridge.SourceScope, bridge.CurrentScope) || bridge.SourceScope.SaveWriteEpoch >= bridge.CurrentScope.SaveWriteEpoch
+            || bridge.CanonicalSnapshot is not { } proof || !Guid.TryParseExact(proof.SnapshotId, "N", out _)
+            || !Hash(proof.RawSha256) || !bridge.SourceScope.Equals(proof.Scope) || bridge.MutableRegistry.Count > MaxEntries) throw Invalid();
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var original in bridge.MutableRegistry)
+        {
+            if (original.SchemaVersion != CurrentVersion || !Uuid(original.PawnCustodyId) || !OptionalUuid(original.AssignmentId)
+                || !ids.Add(original.PawnCustodyId) || original.NonAuthoritativeMirror || original.Tombstone
+                || !Text(original.PawnReferenceToken, 256) || !original.Scope.Equals(bridge.SourceScope)) throw Invalid();
+        }
     }
 
     private void ValidateAdmissions()

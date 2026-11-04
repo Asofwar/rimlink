@@ -19,7 +19,7 @@ using Rimlink.Server.Application.Outposts;
 
 namespace Rimlink.Server.Application.World;
 
-public sealed class WorldService(RimlinkDbContext db, EventBus events, AdminFeed feed, IOptions<ServerOptions> server, IOptions<HygieneOptions> hygiene, ILogger<WorldService> log, InfluenceService influence, SaveFiles files, OutpostTileClaims outpostTiles)
+public sealed class WorldService(RimlinkDbContext db, EventBus events, AdminFeed feed, IOptions<ServerOptions> server, IOptions<HygieneOptions> hygiene, ILogger<WorldService> log, InfluenceService influence, SaveFiles files, OutpostTileClaims outpostTiles, OutpostLifecycle lifecycle)
 {
     private const int SqliteConstraint = 19;
 
@@ -27,7 +27,7 @@ public sealed class WorldService(RimlinkDbContext db, EventBus events, AdminFeed
 
     public Task<bool> Exists() => db.World.AnyAsync();
 
-    public async Task<WorldEntity> Create(WorldParams parameters, IReadOnlyList<int> npcTiles, Session actor)
+    public async Task<WorldEntity> Create(WorldParams parameters, IReadOnlyList<int> npcTiles, Session actor, CancellationToken ct = default)
     {
         if (actor.Role != Storage.Entities.Role.Admin) throw RpcErrors.With(StatusCode.PermissionDenied, ErrorCode.Unspecified, RefusalKeys.WorldOnlyAdminCreates, "only an admin can create the world");
         if (await db.World.AnyAsync()) throw RpcErrors.Failed(ErrorCode.Unspecified, RefusalKeys.WorldAlreadyExists, "the world already exists; recreate it through the admin tools");
@@ -40,8 +40,11 @@ public sealed class WorldService(RimlinkDbContext db, EventBus events, AdminFeed
             NpcTiles = string.Join(',', npcTiles.Distinct().Order()),
             CreatedAt = DateTime.UtcNow,
         };
-        db.World.Add(world);
-        await db.SaveChangesAsync();
+        if (!await lifecycle.TryBindWorldAsync(world, "player:" + actor.PlayerId, ct))
+        {
+            db.World.Add(world);
+            await db.SaveChangesAsync(ct);
+        }
         log.LogInformation("World created by {Player}: seed {Seed}, {NpcTiles} NPC tiles", actor.PlayerName, world.Seed, npcTiles.Count);
         return world;
     }

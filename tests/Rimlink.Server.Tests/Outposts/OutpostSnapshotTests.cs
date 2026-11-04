@@ -345,7 +345,7 @@ internal sealed class SnapshotHarness : IDisposable
         await Guard.ValidateHeldAsync(lease, playerId, save.Header, save.Recovery.Outposts, save.Version.RawSha256!, default);
         var row = await H.Db.OutpostAuthority.AsNoTracking().SingleAsync();
         H.Files.WriteAtomically(H.Files.FullPath(playerId, save.Version.Number), save.Packed);
-        await H.Authority.CommitHeldAsync(lease, new(id, "world-1", playerId, save.Version.SaveGeneration, row.RestoreBoundary,
+        await H.Authority.CommitHeldAsync(lease, new(id, save.Recovery.Outposts.Metadata.Scope.WorldInstanceId, playerId, save.Version.SaveGeneration, row.RestoreBoundary,
             "SnapshotAccepted", "snapshot", new(row.HeadId, ByteString.CopyFrom(row.HeadDigest)),
             ByteString.CopyFrom(save.Recovery.Outposts.Metadata.ToByteArray())), async (db, ct) =>
         {

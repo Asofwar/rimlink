@@ -272,8 +272,8 @@ public sealed class TradeService(
             && ((t.InitiatorPlayerId == a && t.PartnerPlayerId == b) || (t.InitiatorPlayerId == b && t.PartnerPlayerId == a))), TradeStatusDb.Cancelled, reason);
 
     /// <summary>Closes every open trade of the player (a colony reset); returns how many.</summary>
-    public async Task<int> CancelAllOf(long playerId, string reason) =>
-        await CloseAll(db.Trades.Where(t => t.Status == TradeStatusDb.Open && (t.InitiatorPlayerId == playerId || t.PartnerPlayerId == playerId)), TradeStatusDb.Cancelled, reason);
+    public async Task<int> CancelAllOf(long playerId, string reason, PawnCustodyBridge.CustodyEntry? sharedEntry = null) =>
+        await CloseAll(db.Trades.Where(t => t.Status == TradeStatusDb.Open && (t.InitiatorPlayerId == playerId || t.PartnerPlayerId == playerId)), TradeStatusDb.Cancelled, reason, sharedEntry);
 
     public Task<bool> AdminCancel(long tradeId, string reason) => Close(tradeId, TradeStatusDb.Cancelled, reason);
 
@@ -286,22 +286,23 @@ public sealed class TradeService(
             .Where(t => playerId == null || t.InitiatorPlayerId == playerId || t.PartnerPlayerId == playerId)
             .OrderByDescending(t => t.Id).Take(200).ToListAsync();
 
-    private async Task<int> CloseAll(IQueryable<Trade> query, TradeStatusDb status, string reason)
+    private async Task<int> CloseAll(IQueryable<Trade> query, TradeStatusDb status, string reason, PawnCustodyBridge.CustodyEntry? sharedEntry = null)
     {
         int n = 0;
         foreach (long id in await query.Select(t => t.Id).ToListAsync())
-            if (await Close(id, status, reason)) n++;
+            if (await Close(id, status, reason, sharedEntry)) n++;
         return n;
     }
 
     /// <summary>Sends each side's goods back by parcel and its silver to the wallet; false when the trade was not open anymore.</summary>
-    private async Task<bool> Close(long tradeId, TradeStatusDb status, string reason)
+    private async Task<bool> Close(long tradeId, TradeStatusDb status, string reason, PawnCustodyBridge.CustodyEntry? sharedEntry = null)
     {
         var before = await db.Trades.AsNoTracking().FirstOrDefaultAsync(t => t.Id == tradeId && t.Status == TradeStatusDb.Open);
         if (before is null) return false;
         Trade? trade;
         var parcels = new List<Parcel>();
-        await using (var tx = await custody.BeginRoutesAsync(TradeRoutes(before, CustodyTransferKind.CustodyTransferTradeReturn, "", RequestIdentity.Hash(new TradeRef { TradeId = tradeId }))))
+        var routes = TradeRoutes(before, CustodyTransferKind.CustodyTransferTradeReturn, "", RequestIdentity.Hash(new TradeRef { TradeId = tradeId }));
+        await using (var tx = sharedEntry is null ? await custody.BeginRoutesAsync(routes) : await sharedEntry.BeginRoutesAsync(routes))
         {
             trade = await db.Trades.FirstOrDefaultAsync(t => t.Id == tradeId && t.Status == TradeStatusDb.Open);
             if (trade is null) return false;
