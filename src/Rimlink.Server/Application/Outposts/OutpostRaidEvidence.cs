@@ -56,6 +56,7 @@ public sealed partial class PawnCustodyBridge
     {
         var originals = PawnList.Parser.ParseFrom(raid.Pawns); var routes = new List<CustodyRoute>();
         byte[] body = report.ToByteArray(), digest = System.Security.Cryptography.SHA256.HashData(body);
+        var requestKind = report.LiveSessionId > 0 && report.RaidId == 0 ? OrdinaryRequestKind.LiveReport : OrdinaryRequestKind.RaidReport;
         if (raid.PawnMode == (int)PawnMode.PawnReal)
         {
             foreach (var group in report.Outcomes.GroupBy(o => o.Outcome is PawnOutcome.OutcomeAlive or PawnOutcome.OutcomeFled ? 1 : o.Outcome == PawnOutcome.OutcomeCaptured ? 2 : 0))
@@ -68,13 +69,14 @@ public sealed partial class PawnCustodyBridge
                 PawnList? result = group.Key == 0 ? null : RaidOutcomePawns(raid, selectedReport, group.Select(o => o.Outcome).Distinct().ToArray());
                 routes.Add(new(raid.AttackerPlayerId, group.Key == 0 ? 0 : group.Key == 1 ? raid.AttackerPlayerId : raid.TargetPlayerId,
                     selected, group.Key == 1 ? CustodyTransferKind.CustodyTransferRaidReturn : CustodyTransferKind.CustodyTransferRaidReport,
-                    raid.Id, report.ClientRequestId, digest, true, SourcePayload: body, ResultPawns: result, SourceAuthorizer: raid.TargetPlayerId));
+                    raid.Id, report.ClientRequestId, digest, true, SourcePayload: body, ResultPawns: result, SourceAuthorizer: raid.TargetPlayerId, RequestKind: requestKind));
             }
         }
         if (report.Captives is { Pawns.Count: > 0 }) routes.Add(new(raid.TargetPlayerId, raid.AttackerPlayerId, report.Captives,
-            CustodyTransferKind.CustodyTransferRaidReport, raid.Id, report.ClientRequestId, digest, false, SourcePayload: body, SourceAuthorizer: raid.TargetPlayerId));
+            CustodyTransferKind.CustodyTransferRaidReport, raid.Id, report.ClientRequestId, digest, false, SourcePayload: body, SourceAuthorizer: raid.TargetPlayerId,
+            RequestKind: requestKind));
         if (routes.Count == 0) routes.Add(new(raid.AttackerPlayerId, raid.TargetPlayerId, new PawnList(), CustodyTransferKind.CustodyTransferRaidReport,
-            raid.Id, report.ClientRequestId, digest, false));
+            raid.Id, report.ClientRequestId, digest, false, SourceAuthorizer: raid.TargetPlayerId, RequestKind: requestKind));
         return routes;
     }
 

@@ -78,6 +78,21 @@ public sealed partial class OutpostCustodyBridgeTests
     }
 
     [Fact]
+    public async Task Cross_owner_market_wire_is_parseable_without_replacing_original_registry_scope()
+    {
+        using var h = await CustodyHarness.Returned(); h.AddRecipient(1);
+        h.Db.Wallets.Add(new Rimlink.Server.Storage.Entities.Wallet { PlayerId = 2, Balance = 1000 }); await h.Db.SaveChangesAsync();
+        var target = new OutpostSaveMetadata { SchemaVersion = 1, Scope = h.F.Scope.Clone() }; target.Scope.OwnerPlayerId = 2;
+        await h.F.F.H.Accept(h.F.F.H.Snapshot(target)); var evidence = await h.Depart();
+        using var host = h.StartHost(); using var scope = host.Services.CreateScope();
+        var market = scope.ServiceProvider.GetRequiredService<MarketService>();
+        var lot = await market.Post(1, new PostRequest { Pawn = h.Blob.Clone(), Price = 150, ClientRequestId = evidence.ClientRequestId, GameTick = 1000 });
+        var parcel = await scope.ServiceProvider.GetRequiredService<Rimlink.Server.Application.Economy.MailboxService>().ToProto(await market.Buy(2, lot.Id));
+        Assert.Equal(2, parcel.OutpostPayload.Scope.OwnerPlayerId); Assert.Equal(1, parcel.Pawns.Pawns[0].Registry.Scope.OwnerPlayerId);
+        Assert.Null(Rimlink.Protocol.OutpostPayloadCompatibility.Refusal(parcel, 1));
+    }
+
+    [Fact]
     public async Task Returned_then_sold_keeps_uuid_and_changes_owner_only_with_receipts()
     {
         using var h = await CustodyHarness.Returned(); h.AddRecipient(1);
@@ -121,6 +136,46 @@ public sealed partial class OutpostCustodyBridgeTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public async Task Tagged_gift_silver_is_credited_once_when_exact_receipt_is_accepted(bool aged)
+    {
+        using var h = await CustodyHarness.Returned(); h.AddRecipient(1); await h.Db.SaveChangesAsync();
+        var target = new OutpostSaveMetadata { SchemaVersion = 1, Scope = h.F.Scope.Clone() }; target.Scope.OwnerPlayerId = 2;
+        var baseline = h.F.F.H.Snapshot(target); await h.F.F.H.Accept(baseline);
+        var outgoing = new TransferRequest { ToPlayerId = 2, Silver = 25, Items = new(), Pawns = new() { Pawns = { h.Blob.Clone() } },
+            ClientRequestId = Guid.NewGuid().ToString("N"), GameTick = 1000 };
+        await h.Depart(outgoing); using var host = h.StartHost(); using var scope = host.Services.CreateScope();
+        var send = scope.ServiceProvider.GetRequiredService<TransferService>();
+        var parcel = await send.Send(1, outgoing);
+        await scope.ServiceProvider.GetRequiredService<GiftService>().Answer(2, parcel.Id, true);
+        if (aged) await h.Db.Parcels.Where(p => p.Id == parcel.Id).ExecuteUpdateAsync(s => s.SetProperty(p => p.CreatedAt, DateTime.UtcNow.AddDays(-10)));
+        var link = await h.Db.OutpostParcelLinks.AsNoTracking().SingleAsync(l => l.ParcelId == parcel.Id);
+        var request = new OutpostDeliveryRequest { Scope = target.Scope.Clone(), ClientRequestId = Guid.NewGuid().ToString("N"),
+            ParcelId = parcel.Id, PayloadDigest = ByteString.CopyFrom(link.PayloadDigest), CanonicalSnapshot = AssignmentHarness.SnapshotProof(baseline) };
+        var reply = await h.F.Parcels.BeginDeliveryAsync(2, request, default);
+        var transition = await h.Db.OutpostTransitions.AsNoTracking().SingleAsync(t => t.Id == reply.TransitionId);
+        var registry = h.Blob.Registry.Clone(); registry.Scope = target.Scope.Clone(); registry.PawnReferenceToken = "Thing_GiftReceived";
+        target.Registry.Add(registry);
+        target.Receipts.Add(new OutpostTransitionReceipt { TransitionId = reply.TransitionId, PredecessorId = reply.PredecessorId,
+            TransitionDigest = reply.TransitionDigest, ClientRequestId = request.ClientRequestId,
+            IntentDigest = ByteString.CopyFrom(System.Security.Cryptography.SHA256.HashData(request.ToByteArray())),
+            Snapshot = request.CanonicalSnapshot.Clone(), DeliveryAttemptId = reply.AttemptId, ParcelIds = { parcel.Id },
+            PawnCustodyIds = { SnapshotHarness.Custody }, AssignmentIds = { SnapshotHarness.Assignment } });
+        target.Frontier.Add(new OutpostFrontierEntry { TransitionId = transition.Id, PredecessorId = transition.PredecessorId ?? "", TransitionDigest = reply.TransitionDigest });
+        await h.F.F.H.Accept(h.F.F.H.Snapshot(target));
+        Assert.Equal(aged ? 22 : 25, await h.Db.Wallets.Where(w => w.PlayerId == 2).Select(w => w.Balance).SingleOrDefaultAsync());
+        Assert.Single(await h.Db.Transfers.Where(t => t.FromPlayerId == 2 && t.Kind == "deliver").ToListAsync());
+        Assert.Equal(aged ? 1 : 0, await h.Db.WalletEntries.CountAsync(w => w.PlayerId == 2 && w.Kind == "storage"));
+        Assert.Single(await h.Db.WalletEntries.Where(w => w.PlayerId == 2 && w.Kind == "receive").ToListAsync());
+        await h.F.F.H.Accept(h.F.F.H.Snapshot(target));
+        Assert.True((await h.F.Parcels.BeginDeliveryAsync(2, request, default)).AckOnly);
+        Assert.Equal(aged ? 22 : 25, await h.Db.Wallets.Where(w => w.PlayerId == 2).Select(w => w.Balance).SingleAsync());
+        Assert.Single(await h.Db.Transfers.Where(t => t.FromPlayerId == 2 && t.Kind == "deliver").ToListAsync());
+        Assert.Single(await h.Db.WalletEntries.Where(w => w.PlayerId == 2 && w.Kind == "receive").ToListAsync());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public async Task Market_withdraw_and_expiry_return_tagged_uuid_through_one_own_parcel(bool expired)
     {
         using var h = await CustodyHarness.Returned(); var evidence = await h.Depart();
@@ -142,10 +197,11 @@ public sealed partial class OutpostCustodyBridgeTests
         using var h = await CustodyHarness.Returned(); h.AddRecipient(1); await h.Db.SaveChangesAsync();
         var target = new OutpostSaveMetadata { SchemaVersion = 1, Scope = h.F.Scope.Clone() }; target.Scope.OwnerPlayerId = 2;
         var baseline = h.F.F.H.Snapshot(target); await h.F.F.H.Accept(baseline);
-        var evidence = await h.Depart(); using var host = h.StartHost(); using var scope = host.Services.CreateScope();
+        var outgoing = new TransferRequest { ToPlayerId = 2, Items = new(), Pawns = new() { Pawns = { h.Blob.Clone() } },
+            ClientRequestId = Guid.NewGuid().ToString("N"), GameTick = 1000 };
+        await h.Depart(outgoing); using var host = h.StartHost(); using var scope = host.Services.CreateScope();
         var send = scope.ServiceProvider.GetRequiredService<TransferService>();
-        var parcel = await send.Send(1, new TransferRequest { ToPlayerId = 2, Items = new(), Pawns = evidence.Pawns.Clone(),
-            ClientRequestId = evidence.ClientRequestId, GameTick = 1000 });
+        var parcel = await send.Send(1, outgoing);
         var link = await h.Db.OutpostParcelLinks.AsNoTracking().SingleAsync(l => l.ParcelId == parcel.Id);
         var delivery = new OutpostDeliveryRequest { Scope = target.Scope.Clone(), ClientRequestId = Guid.NewGuid().ToString("N"),
             ParcelId = parcel.Id, PayloadDigest = ByteString.CopyFrom(link.PayloadDigest), CanonicalSnapshot = AssignmentHarness.SnapshotProof(baseline) };
@@ -161,11 +217,12 @@ public sealed partial class OutpostCustodyBridgeTests
     public async Task Actual_send_rejects_legacy_recipient_before_creating_mail_or_spending_silver()
     {
         using var h = await CustodyHarness.Returned(); h.AddRecipient(0); await h.Db.SaveChangesAsync();
-        var evidence = await h.Depart(); using var host = h.StartHost(); using var scope = host.Services.CreateScope();
+        var outgoing = new TransferRequest { ToPlayerId = 2, Silver = 10, Items = new(), Pawns = new() { Pawns = { h.Blob.Clone() } },
+            ClientRequestId = Guid.NewGuid().ToString("N"), GameTick = 1000 };
+        await h.Depart(outgoing); using var host = h.StartHost(); using var scope = host.Services.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<TransferService>();
         long before = await h.Db.Wallets.Where(w => w.PlayerId == 1).Select(w => w.Balance).SingleAsync();
-        var error = await Assert.ThrowsAsync<RpcException>(() => service.Send(1, new TransferRequest { ToPlayerId = 2,
-            Items = new(), Pawns = evidence.Pawns.Clone(), Silver = 10, ClientRequestId = evidence.ClientRequestId, GameTick = 1000 }));
+        var error = await Assert.ThrowsAsync<RpcException>(() => service.Send(1, outgoing));
         Assert.Equal(ErrorCode.OutpostClientRequired, GrpcTestExtensions.ErrorDetail(error)?.Code);
         Assert.Empty(await h.Db.Parcels.Where(p => p.ToPlayerId == 2).ToListAsync());
         Assert.Equal(before, await h.Db.Wallets.Where(w => w.PlayerId == 1).Select(w => w.Balance).SingleAsync());
@@ -260,12 +317,31 @@ internal sealed class CustodyHarness : IDisposable
         ClientRequestId = Guid.NewGuid().ToString("N"), RemovalSnapshot = AssignmentHarness.SnapshotProof(save),
         Pawns = new PawnList { Pawns = { Blob.Clone() } }, SourceRequestIntent = ByteString.CopyFrom(SHA256.HashData("source-intent"u8))
     };
-    public async Task<CustodyTransferEvidence> Depart()
+    public async Task<CustodyTransferEvidence> Depart(IMessage? request = null)
     {
-        var evidence = Evidence(HomeSave); var metadata = HomeSave.Recovery.Outposts.Metadata.Clone();
-        metadata.Registry[0].Tombstone = true; metadata.Registry[0].PawnReferenceToken = "";
-        var post = F.F.H.Snapshot(metadata, removed: [evidence.ClientRequestId]); await F.F.H.Accept(post);
-        evidence.RemovalSnapshot = AssignmentHarness.SnapshotProof(post); return evidence;
+        request ??= new PostRequest { Pawn = Blob.Clone(), Price = 150, GameTick = 1000, ClientRequestId = Guid.NewGuid().ToString("N") };
+        var (kind, requestId, pawns) = Rimlink.Protocol.OrdinaryCapture.Identity(request);
+        var metadata = HomeSave.Recovery.Outposts.Metadata.Clone();
+        var capture = Rimlink.Protocol.OrdinaryCapture.Create(request, Guid.NewGuid().ToString("N"), metadata.Scope);
+        metadata.OrdinaryOutgoing.Add(capture.Clone());
+        foreach (var pawn in capture.Pawns)
+            metadata.Registry.Single(r => r.PawnCustodyId == pawn.Pawn.Registry.PawnCustodyId).Tombstone = true;
+        var post = F.F.H.Snapshot(metadata, removed: [capture.LocalOperationId]); await F.F.H.Accept(post);
+        var evidence = Evidence(post); evidence.ClientRequestId = requestId; evidence.Pawns = pawns.Clone();
+        evidence.SourceRequestIntent = ByteString.CopyFrom(SHA256.HashData(request.ToByteArray()));
+        evidence.OrdinaryRequestKind = kind; evidence.OrdinaryCapture = capture.Clone();
+        evidence.Kind = kind switch
+        {
+            OrdinaryRequestKind.TransferSend => CustodyTransferKind.CustodyTransferSend,
+            OrdinaryRequestKind.MarketPost => CustodyTransferKind.CustodyTransferMarketPost,
+            OrdinaryRequestKind.TradeOpen or OrdinaryRequestKind.TradeSide => CustodyTransferKind.CustodyTransferTradeSide,
+            OrdinaryRequestKind.RaidLaunch => CustodyTransferKind.CustodyTransferRaidLaunch,
+            OrdinaryRequestKind.LivePropose => CustodyTransferKind.CustodyTransferLiveLaunch,
+            OrdinaryRequestKind.RaidReport => CustodyTransferKind.CustodyTransferRaidReport,
+            OrdinaryRequestKind.LiveReport => CustodyTransferKind.CustodyTransferLiveReturn,
+            _ => throw new InvalidOperationException("unsupported fixture route")
+        };
+        return evidence;
     }
     public void AddRecipient(uint version)
     {
@@ -286,10 +362,11 @@ internal sealed class CustodyHarness : IDisposable
             await db.SaveChangesAsync(ct); await Bridge.StageTransferHeldAsync(lease, evidence, ct);
         }, default);
     }
-    public ServerFixture StartHost()
+    public ServerFixture StartHost(bool allowKidnap = false)
     {
         var shared = F.F.H.H;
         var host = HygieneFixtures.HygieneServer().WithoutWorld().WithDataDir(shared.Data.Root).KeepDataDir()
+            .WithSetting("Raids:AllowKidnap", allowKidnap ? "true" : "false")
             .WithSetting("Outposts:AnchorDirectory", Path.Combine(shared.Root, "external"))
             .WithSetting("Outposts:StorageContract", "sqlite-local-v1")
             .WithServices(s => { s.AddSingleton(shared.Files); s.AddSingleton(shared.Owners); s.AddSingleton(shared.Anchor); s.AddSingleton(Sessions); });

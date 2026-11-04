@@ -72,7 +72,10 @@ public sealed partial class PawnCustodyBridge
         var tagged = delivered.Pawns.Where(p => p.Registry is not null).ToArray();
         payload.PawnCustodyIds.Add(tagged.Select(p => p.Registry.PawnCustodyId));
         payload.AssignmentIds.Add(tagged.Select(p => p.Registry.AssignmentId).Where(id => id.Length > 0));
-        byte[] bytes = payload.ToByteArray(); long parcelId = evidence.ParcelIds.Single();
+        long parcelId = evidence.ParcelIds.Single();
+        var parcel = await db.Parcels.AsNoTracking().SingleAsync(p => p.Id == parcelId, ct);
+        OutpostParcelContents.Bind(payload, ItemList.Parser.ParseFrom(parcel.Items), PawnList.Parser.ParseFrom(parcel.Pawns), parcel.Silver);
+        byte[] bytes = payload.ToByteArray();
         db.OutpostParcelLinks.Add(new OutpostParcelLink { ParcelId = parcelId, WorldId = scope.WorldInstanceId, PlayerId = player.Id,
             SaveGeneration = player.SaveGeneration, RestoreBoundary = scope.RestoreBoundary, BatchId = evidence.TransitionId,
             Payload = bytes, PayloadDigest = SHA256.HashData(bytes), TransitionId = evidence.TransitionId,

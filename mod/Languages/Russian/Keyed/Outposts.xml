@@ -40,4 +40,32 @@ SHA-256: {2}
 DLC: {6}</Rimlink.Outposts.ManifestDetails>
   <Rimlink.Outposts.StaffingPreview>Пешек: {0}. Итого: {1}/реальный час; склад: {2} ед. Цена: {3}; останется в кошельке: {4}.</Rimlink.Outposts.StaffingPreview>
   <Rimlink.Outposts.CancelAdmission>Безопасно отменить передачу (возврат только через сервер)</Rimlink.Outposts.CancelAdmission>
+  <Rimlink.Outposts.Title>Аванпосты</Rimlink.Outposts.Title>
+  <Rimlink.Outposts.Empty>Активного аванпоста нет. Приведи подходящий караван на свободную клетку, чтобы основать его.</Rimlink.Outposts.Empty>
+  <Rimlink.Outposts.Summary>На складе: {0}/{1} ед. · Добыча: {2}/реальный час</Rimlink.Outposts.Summary>
+  <Rimlink.Outposts.Worker>{0} — {1}/реальный час</Rimlink.Outposts.Worker>
+  <Rimlink.Outposts.Marker>Аванпост — {0}</Rimlink.Outposts.Marker>
+  <Rimlink.Outposts.Tile>Клетка мира {0}</Rimlink.Outposts.Tile>
+  <Rimlink.Outposts.NoMap>Пассивный рабочий участок. Отдельной карты и территориальных прав нет.</Rimlink.Outposts.NoMap>
+  <Rimlink.Outposts.Refresh>Обновить</Rimlink.Outposts.Refresh>
+  <Rimlink.Outposts.Claim>На склад почты — бесплатно</Rimlink.Outposts.Claim>
+  <Rimlink.Outposts.Recall>Отозвать выбранных ({0}) — бесплатно</Rimlink.Outposts.Recall>
+  <Rimlink.Outposts.Close>Закрыть аванпост</Rimlink.Outposts.Close>
+  <Rimlink.Outposts.Switch>Переключить на {0}</Rimlink.Outposts.Switch>
+  <Rimlink.Outposts.FractionWarning>Переключение возможно только с пустым складом. Сначала учитывается добыча; дробная часть единицы будет потеряна. Все работники и клетка должны подходить для нового ресурса. Продолжить?</Rimlink.Outposts.FractionWarning>
+  <Rimlink.Outposts.CloseWarning>Все работники и целые единицы добычи бесплатно вернутся через почту домашней колонии. Дробная часть будет потеряна; плата за основание не возвращается. Закрыть аванпост?</Rimlink.Outposts.CloseWarning>
+  <Rimlink.Outposts.Pending>Незавершённых назначений: {0}. Не возвращай работников вручную.</Rimlink.Outposts.Pending>
+  <Rimlink.Outposts.FractionPresent>Дробная часть единицы сохранена до следующего расчёта добычи.</Rimlink.Outposts.FractionPresent>
+  <Rimlink.Outposts.FractionEmpty>Сохранённой дробной части сейчас нет.</Rimlink.Outposts.FractionEmpty>
+  <Rimlink.Outposts.CommandComplete>Команда выполнена. Возвращаемое имущество, если оно есть, находится в почте домашней колонии.</Rimlink.Outposts.CommandComplete>
+  <Rimlink.Outposts.CommandHold>Операция не завершена. Сохрани исходный журнал; не создавай заменяющий запрос.</Rimlink.Outposts.CommandHold>
+  <Rimlink.Outposts.DeliveryComplete>Посылка аванпоста получена, точный снимок принят сервером.</Rimlink.Outposts.DeliveryComplete>
+  <Rimlink.Outposts.DeliveryHold>Посылка удержана для восстановления. Не создавай и не возвращай её содержимое вручную.</Rimlink.Outposts.DeliveryHold>
+  <Rimlink.Outposts.State.Active>Добывает, в том числе пока ты офлайн</Rimlink.Outposts.State.Active>
+  <Rimlink.Outposts.State.SafetyHold>Добыча приостановлена — совместимость или восстановление</Rimlink.Outposts.State.SafetyHold>
+  <Rimlink.Outposts.State.Archived>Добыча приостановлена — архив</Rimlink.Outposts.State.Archived>
+  <Rimlink.Outposts.State.Full>Склад заполнен — добыча остановлена</Rimlink.Outposts.State.Full>
+  <Rimlink.Outposts.State.Prepared>Назначение подготовлено, добыча ещё не началась</Rimlink.Outposts.State.Prepared>
+  <Rimlink.Outposts.State.Aborted>Назначение отменено</Rimlink.Outposts.State.Aborted>
+  <Rimlink.Outposts.State.Closed>Закрыт</Rimlink.Outposts.State.Closed>
 </LanguageData>

@@ -19,7 +19,8 @@ public sealed class OutpostCrashTests
     {
         using var h = await Initialized();
         await OutpostFaults.KillAtAsync(h.Root, point);
-        Assert.Equal(OutpostStartupState.Ready, (await h.Authority.OpenAsync(CancellationToken.None)).State);
+        var reopened = await h.Authority.OpenAsync(CancellationToken.None);
+        Assert.Equal(new OutpostStartupResult(OutpostStartupState.Ready), reopened);
         Assert.Equal(committed ? 1 : 0, await h.Db.Outposts.CountAsync());
         Assert.Equal(committed ? 2 : 1, await h.Db.OutpostTransitions.CountAsync());
         using var lease = await h.Anchor.AcquireAsync(CancellationToken.None);

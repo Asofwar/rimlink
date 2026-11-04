@@ -46,6 +46,7 @@ public sealed class RimlinkDbContext(DbContextOptions<RimlinkDbContext> options)
     public DbSet<OutpostRestoreAuthorization> OutpostRestoreAuthorizations => Set<OutpostRestoreAuthorization>();
     public DbSet<OutpostDeliveryAttempt> OutpostDeliveryAttempts => Set<OutpostDeliveryAttempt>();
     public DbSet<OutpostLifecycleOperation> OutpostLifecycleOperations => Set<OutpostLifecycleOperation>();
+    public DbSet<OutpostOrdinaryReturn> OutpostOrdinaryReturns => Set<OutpostOrdinaryReturn>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {

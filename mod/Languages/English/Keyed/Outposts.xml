@@ -40,4 +40,32 @@ Gameplay fingerprint: {5}
 DLC: {6}</Rimlink.Outposts.ManifestDetails>
   <Rimlink.Outposts.StaffingPreview>Workers: {0}. Total: {1}/real hour; warehouse: {2} units. Cost: {3}; wallet after: {4}.</Rimlink.Outposts.StaffingPreview>
   <Rimlink.Outposts.CancelAdmission>Cancel pending staffing safely (server return only)</Rimlink.Outposts.CancelAdmission>
+  <Rimlink.Outposts.Title>Outposts</Rimlink.Outposts.Title>
+  <Rimlink.Outposts.Empty>No active outpost. Bring an eligible caravan to a free tile to found one.</Rimlink.Outposts.Empty>
+  <Rimlink.Outposts.Summary>Stored: {0}/{1} units · Production: {2}/real hour</Rimlink.Outposts.Summary>
+  <Rimlink.Outposts.Worker>{0} — {1}/real hour</Rimlink.Outposts.Worker>
+  <Rimlink.Outposts.Marker>Outpost — {0}</Rimlink.Outposts.Marker>
+  <Rimlink.Outposts.Tile>World tile {0}</Rimlink.Outposts.Tile>
+  <Rimlink.Outposts.NoMap>Passive worker site. No local map and no territorial rights.</Rimlink.Outposts.NoMap>
+  <Rimlink.Outposts.Refresh>Refresh</Rimlink.Outposts.Refresh>
+  <Rimlink.Outposts.Claim>Send stock to mailbox — free</Rimlink.Outposts.Claim>
+  <Rimlink.Outposts.Recall>Recall selected ({0}) — free</Rimlink.Outposts.Recall>
+  <Rimlink.Outposts.Close>Close outpost</Rimlink.Outposts.Close>
+  <Rimlink.Outposts.Switch>Switch to {0}</Rimlink.Outposts.Switch>
+  <Rimlink.Outposts.FractionWarning>Switch only with an empty store. Production is settled first; any fractional unit is discarded. Every worker and this tile must support the new resource. Continue?</Rimlink.Outposts.FractionWarning>
+  <Rimlink.Outposts.CloseWarning>All workers and whole stored units return through your home mailbox for free. Any fractional unit is discarded; the founding fee is not refunded. Close this outpost?</Rimlink.Outposts.CloseWarning>
+  <Rimlink.Outposts.Pending>Unresolved staffing operations: {0}. Do not return workers manually.</Rimlink.Outposts.Pending>
+  <Rimlink.Outposts.FractionPresent>A fractional unit is retained until the next production settlement.</Rimlink.Outposts.FractionPresent>
+  <Rimlink.Outposts.FractionEmpty>No fractional unit is currently retained.</Rimlink.Outposts.FractionEmpty>
+  <Rimlink.Outposts.CommandComplete>Outpost command completed. Returns, if any, are in your home mailbox.</Rimlink.Outposts.CommandComplete>
+  <Rimlink.Outposts.CommandHold>Operation is unresolved. Keep the original journal; do not create a replacement request.</Rimlink.Outposts.CommandHold>
+  <Rimlink.Outposts.DeliveryComplete>Outpost parcel received and its exact snapshot accepted.</Rimlink.Outposts.DeliveryComplete>
+  <Rimlink.Outposts.DeliveryHold>Parcel held for recovery. Do not spawn or restore its contents manually.</Rimlink.Outposts.DeliveryHold>
+  <Rimlink.Outposts.State.Active>Producing, including while offline</Rimlink.Outposts.State.Active>
+  <Rimlink.Outposts.State.SafetyHold>Production paused — compatibility/recovery hold</Rimlink.Outposts.State.SafetyHold>
+  <Rimlink.Outposts.State.Archived>Production paused — archived</Rimlink.Outposts.State.Archived>
+  <Rimlink.Outposts.State.Full>Storage full — production stopped</Rimlink.Outposts.State.Full>
+  <Rimlink.Outposts.State.Prepared>Staffing is prepared, not yet producing</Rimlink.Outposts.State.Prepared>
+  <Rimlink.Outposts.State.Aborted>Staffing cancelled</Rimlink.Outposts.State.Aborted>
+  <Rimlink.Outposts.State.Closed>Closed</Rimlink.Outposts.State.Closed>
 </LanguageData>

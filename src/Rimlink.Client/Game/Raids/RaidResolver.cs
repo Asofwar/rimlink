@@ -209,7 +209,11 @@ public static class RaidResolver
 
         report.GameTick = Find.TickManager.TicksGame;
         var outbox = RimlinkSession.Outbox;
-        var entry = outbox?.Prepare(report); // cannot replay before this map's removal snapshot is accepted
+        bool ordinary = report.Captives.Pawns.Any(p => p.Registry is { NonAuthoritativeMirror: false });
+        if (ordinary) report.ClientRequestId = Guid.NewGuid().ToString("N");
+        OutboxEntry? entry;
+        try { entry = ordinary ? Outgoing.PrepareOrdinaryRemoval(report) : outbox?.Prepare(report); }
+        catch (Exception error) { RimlinkLog.Instance.Warn("raid capture retained on the map: " + error.Message); return; }
         if (entry is null) return;
         component.RemovedOperations.Add(entry.Id);
         raid.Reported = true;
@@ -233,7 +237,7 @@ public static class RaidResolver
             foreach (var p in captives)
             {
                 RimlinkFactions.Raiders.kidnapped.RemoveKidnappedPawn(p);
-                if (p == captive) PawnExit.Leave(p);
+                if (ReferenceEquals(p, captive)) PawnExit.Leave(p, entry.Ordinary is null ? null : new(entry.Id, "ordinary-raid-report"));
                 else GenSpawn.Spawn(p, CellFinder.RandomEdgeCell(map), map);
             }
             raid.Lord?.Cleanup();
@@ -247,14 +251,23 @@ public static class RaidResolver
         Messages.Message("Rimlink.Raid.Resolved".Translate(raid.AttackerName, summary.Dead, summary.Captured, summary.Fled + summary.Alive, summary.LootValue), MessageTypeDefOf.NeutralEvent, historical: true);
         RimlinkLog.Instance.Info($"raid {raid.RaidId} resolved: dead {summary.Dead}, captured {summary.Captured}, fled {summary.Fled}, alive {summary.Alive}, loot {summary.LootValue}, captives {summary.Captives}");
 
+        // The protected report binds the exact immutable XML before it enters the upload queue.
+        Task<SaveSync.UploadResult>? exact = null;
+        if (entry.Ordinary is not null)
+        {
+            try { exact = SaveSync.SaveExactNow(snapshot => outbox!.BindOrdinarySnapshot(entry.Id, snapshot.Meta)); }
+            catch (Exception error) { RimlinkLog.Instance.Warn("raid exact capture failed: " + error.Message); SaveSync.BlockWrites(); RimlinkGameComponent.AbortToMenu(); return; }
+        }
         // The save without the loot and the survivors must reach the server before the report does.
-        if (!SaveSync.TriggerSave("raid-resolved"))
+        if (exact is null && !SaveSync.TriggerSave("raid-resolved"))
         {
             RimlinkLog.Instance.Warn("raid report waits in the outbox: no save could be made now");
             return;
         }
         SaveSync.UploadResult? uploaded = null;
-        LongEventHandler.QueueLongEvent(() => uploaded = SaveSync.WaitForSnapshot(TimeSpan.FromSeconds(60)), "Rimlink.Flow.Uploading", doAsynchronously: true, null, showExtraUIInfo: false, callback: () =>
+        LongEventHandler.QueueLongEvent(() => uploaded = exact is null ? SaveSync.WaitForSnapshot(TimeSpan.FromSeconds(60))
+            : exact.Wait(TimeSpan.FromSeconds(60)) ? exact.GetAwaiter().GetResult() : new(null, null, new TimeoutException("raid exact upload timed out")),
+            "Rimlink.Flow.Uploading", doAsynchronously: true, null, showExtraUIInfo: false, callback: () =>
         {
             if (RimlinkSession.Connection != connection || !ReferenceEquals(connection.Login, authentication)
                 || uploaded is not { Uploaded: true } || uploaded.Snapshot?.Meta.Recovery?.Removed.Contains(entry.Id) != true
@@ -279,6 +292,14 @@ public static class RaidResolver
         _ = Send(connection, connection.Login!, raids, outbox, outbox?.Add(report), report);
     }
 
+    /// <summary>Only after accepted local return: resolve original guests with a new, loot-less request identity.</summary>
+    internal static void ReportAfterOrdinaryReturn(RaidReport original)
+    {
+        var retry = original.Clone(); retry.ClientRequestId = Guid.NewGuid().ToString("N");
+        retry.Loot = new ItemList(); retry.Captives = new PawnList();
+        ReportOnly(retry);
+    }
+
     private static async Task Send(Rimlink.Client.Net.RimlinkConnection connection, LoginReply authentication,
         Rimlink.Client.Raids.RaidClient raids, TransferOutbox? outbox, OutboxEntry? entry, RaidReport report)
     {
@@ -295,6 +316,7 @@ public static class RaidResolver
             string reason = refusal.Message;
             RimlinkLog.Instance.Warn(report.Loot.Items.Count > 0 ? $"raid report refused ({reason}); the loot goes back to the colony" : $"raid report refused ({reason})");
             if (entry is not null) outbox!.Refuse(entry.Id, refusal);
+            if (entry?.Ordinary is not null) return; // First accept the causal local return; a stripped same-id retry is fenced.
             if (EconomyClient.CodeOf(ex) == ErrorCode.RaidGone || report.Loot.Items.Count == 0) return;
         }
         catch (Exception ex)

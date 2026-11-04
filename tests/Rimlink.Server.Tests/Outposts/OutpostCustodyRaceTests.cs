@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using Google.Protobuf;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Rimlink.Protocol;
 using Rimlink.Protocol.V1;
 using Rimlink.Server.Application.Economy;
 using Rimlink.Server.Application.Outposts;
@@ -32,8 +33,11 @@ public sealed class OutpostCustodyRaceTests
         metadata.WorkerCaptures.Clear(); metadata.WorkerCaptures.Add(worker); metadata.Caravans.Clear(); metadata.Caravans.Add(prepare.Caravan.Clone());
         var pre = h.F.F.H.Snapshot(metadata); await h.F.F.H.Accept(pre);
         prepare.PreRemoval = AssignmentHarness.SnapshotProof(pre); prepare.IntentDigest = OutpostRequestIdentity.Digest(prepare);
-        string sendId = Guid.NewGuid().ToString("N"); var removed = metadata.Clone(); removed.Registry[0].Tombstone = true; removed.Registry[0].PawnReferenceToken = "";
-        var post = h.F.F.H.Snapshot(removed, removed: [sendId]);
+        string sendId = Guid.NewGuid().ToString("N"), localId = Guid.NewGuid().ToString("N");
+        var send = new TransferRequest { ClientRequestId = sendId, ToPlayerId = 2, Items = new(), Pawns = new() { Pawns = { h.Blob.Clone() } }, GameTick = 1100 };
+        var removed = metadata.Clone(); removed.Registry[0].Tombstone = true;
+        removed.OrdinaryOutgoing.Add(OrdinaryCapture.Create(send, localId, metadata.Scope));
+        var post = h.F.F.H.Snapshot(removed, removed: [localId]);
         using var host = h.StartHost(); using var assignmentScope = host.Services.CreateScope(); using var sendScope = host.Services.CreateScope();
         var assignment = assignmentScope.ServiceProvider.GetRequiredService<OutpostAssignmentService>();
         var transfer = sendScope.ServiceProvider.GetRequiredService<TransferService>();
@@ -48,7 +52,7 @@ public sealed class OutpostCustodyRaceTests
             try
             {
                 await h.F.F.H.Accept(post);
-                await transfer.Send(1, new TransferRequest { ClientRequestId = sendId, ToPlayerId = 2, Items = new(), Pawns = new() { Pawns = { h.Blob.Clone() } }, GameTick = 1100 });
+                await transfer.Send(1, send);
                 return true;
             }
             catch (OutpostEvidenceUnavailableException) { return false; }

@@ -5,12 +5,16 @@ using Rimlink.Server.Application.Sessions;
 
 namespace Rimlink.Server.Grpc;
 
-public sealed class OutpostsGrpcService(OutpostAssignmentService assignments, OutpostService outposts, OutpostParcels parcels, OutpostFeature feature) : Protocol.V1.Outposts.OutpostsBase
+public sealed class OutpostsGrpcService(OutpostAssignmentService assignments, OutpostService outposts, OutpostParcels parcels, OrdinaryReturnService ordinary, OutpostFeature feature) : Protocol.V1.Outposts.OutpostsBase
 {
     private Session Ready(ServerCallContext context)
     {
         var session = context.GetSession(); OutpostRefusalKeys.RequireReady(session, feature); return session;
     }
+    public override Task<OrdinaryOperationReply> OrdinaryOperation(OrdinaryOperationQuery request, ServerCallContext context) =>
+        ordinary.ResolveAsync(Ready(context).PlayerId, request, context.CancellationToken);
+    public override Task<OrdinaryOperationReply> BeginOrdinaryReturn(OrdinaryCancelRequest request, ServerCallContext context) =>
+        ordinary.BeginReturnAsync(Ready(context).PlayerId, request, context.CancellationToken);
     public override Task<OutpostStateReply> State(OutpostStateQuery request, ServerCallContext context) =>
         outposts.StateAsync(Ready(context).PlayerId, request, context.CancellationToken);
     public override Task<OutpostOperationReply> Mutate(OutpostMutationRequest request, ServerCallContext context) =>

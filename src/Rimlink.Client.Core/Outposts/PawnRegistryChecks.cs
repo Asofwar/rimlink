@@ -4,7 +4,7 @@ namespace Rimlink.Client.Outposts;
 
 /// <summary>ObjectIdentity is a process-local reference key, never Thing.Equals or an authority coordinate.</summary>
 public sealed record RegistryObservation(PawnRegistryEnvelope Envelope, string? ObjectIdentity = null,
-    string? CurrentReferenceToken = null, bool KnownTombstone = false);
+    string? CurrentReferenceToken = null, bool KnownTombstone = false, bool AuthoritativeBinding = true);
 public sealed record RegistryIssue(string Kind, string CustodyId);
 public sealed record RegistryValidation(IReadOnlyList<PawnRegistryEnvelope> Registry, IReadOnlyList<RegistryIssue> Issues)
 {
@@ -24,6 +24,7 @@ public static class PawnRegistryChecks
         {
             var envelope = observation.Envelope;
             if (envelope.NonAuthoritativeMirror) continue; // a mirror cannot contribute authority, including a duplicate claim
+            if (!observation.AuthoritativeBinding) { issues.Add(new("unbound-transported-pawn", envelope.PawnCustodyId)); continue; }
             if (envelope.SchemaVersion != 1 || !Guid.TryParse(envelope.PawnCustodyId, out var custody)
                 || envelope.PawnCustodyId != custody.ToString("D") && envelope.PawnCustodyId != custody.ToString("N")
                 || !OutpostReconciliation.ValidScope(envelope.Scope) || envelope.PawnReferenceToken.Length > 128

@@ -31,7 +31,8 @@ public static class OutpostDomainDigest
         ("outpost_manifests", "Id"),
         ("outpost_restore_authorizations", "Id"),
         ("outpost_delivery_attempts", "Id"),
-        ("outpost_lifecycle_operations", "Id")
+        ("outpost_lifecycle_operations", "Id"),
+        ("outpost_ordinary_returns", "Id")
     ];
 
     public static async Task<ByteString> ComputeAsync(RimlinkDbContext db, CancellationToken ct)

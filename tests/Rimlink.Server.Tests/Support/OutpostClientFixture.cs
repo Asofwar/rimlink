@@ -22,7 +22,10 @@ public sealed class OutpostClientFixture : IDisposable
     private OutpostClientFixture(MutationHarness harness, ServerFixture server) { this.harness = harness; Server = server; }
     public static async Task<OutpostClientFixture> Create(bool admin = false, bool prepareOnly = false)
     {
-        var harness = await MutationHarness.Create(prepareOnly: prepareOnly);
+        return await Open(await MutationHarness.Create(prepareOnly: prepareOnly), admin);
+    }
+    private static async Task<OutpostClientFixture> Open(MutationHarness harness, bool admin)
+    {
         try
         {
             var account = await harness.Db.Accounts.SingleAsync(); account.Login = "outpost-client"; account.PasswordHash = PasswordHasher.Hash("pw");
@@ -42,6 +45,50 @@ public sealed class OutpostClientFixture : IDisposable
             catch { server.Dispose(); throw; }
         }
         catch { harness.Dispose(); throw; }
+    }
+    public static async Task<(OutpostClientFixture Fixture, OrdinaryCancelRequest Request)> CreateOrdinary()
+    {
+        var custody = await CustodyHarness.Returned(); CustodyTransferEvidence departure; TransferRequest original;
+        try
+        {
+            original = new TransferRequest { ToPlayerId = 2, Silver = 25, GameTick = 1000, ClientRequestId = Guid.NewGuid().ToString("N"),
+                Items = new() { Items = { EconomyFixtures.Item("Steel", 13) } }, Pawns = new() { Pawns = { custody.Blob.Clone() } } };
+            departure = await custody.Depart(original);
+        }
+        catch { custody.Dispose(); throw; }
+        var fixture = await Open(custody.F, false);
+        return (fixture, new() { Scope = fixture.Scope, Capture = departure.OrdinaryCapture.Clone(), OriginalRequest = original.ToByteString(),
+            RemovalSnapshot = departure.RemovalSnapshot.Clone(), CanonicalSnapshot = departure.RemovalSnapshot.Clone(), ReturnAttemptId = Guid.NewGuid().ToString("D") });
+    }
+    public async Task<byte[]> AcceptOrdinaryReturn(OrdinaryCancelRequest request, OrdinaryOperationReply reply)
+    {
+        var removed = await harness.Db.SaveVersions.AsNoTracking().SingleAsync(v => v.SnapshotId == request.RemovalSnapshot.SnapshotId);
+        var metadata = Rimlink.Server.Application.Saves.SaveStore.RecoveryOf(removed).Outposts.Metadata.Clone();
+        foreach (var pawn in request.Capture.Pawns)
+        {
+            var registry = metadata.Registry.Single(r => r.PawnCustodyId == pawn.Pawn.Registry.PawnCustodyId);
+            registry.Tombstone = false; registry.PawnReferenceToken = "Thing_HumanLocalReturn";
+        }
+        metadata.Receipts.Add(new OutpostTransitionReceipt { TransitionId = reply.ReturnProof.TransitionId,
+            PredecessorId = reply.ReturnProof.PredecessorId, TransitionDigest = reply.ReturnProof.TransitionDigest,
+            ClientRequestId = request.Capture.ClientRequestId, IntentDigest = ByteString.CopyFrom(System.Security.Cryptography.SHA256.HashData(request.ToByteArray())),
+            Snapshot = request.CanonicalSnapshot.Clone(), OrdinaryReturnAttemptId = request.ReturnAttemptId, OrdinaryLocalOperationId = request.Capture.LocalOperationId,
+            PawnCustodyIds = { request.Capture.Pawns.Select(p => p.Pawn.Registry.PawnCustodyId) },
+            AssignmentIds = { request.Capture.Pawns.Select(p => p.Pawn.Registry.AssignmentId).Where(id => id.Length > 0).Distinct() } });
+        metadata.Frontier.Add(new OutpostFrontierEntry { TransitionId = reply.ReturnProof.TransitionId,
+            TransitionDigest = reply.ReturnProof.TransitionDigest, PredecessorId = reply.ReturnProof.PredecessorId });
+        var saved = harness.F.H.Snapshot(metadata, tick: 1001, removed: [request.Capture.LocalOperationId], returned: [request.Capture.LocalOperationId]);
+        await harness.F.H.Accept(saved); return SaveFixtures.Decompress(saved.Packed);
+    }
+    public async Task AddOrdinaryRecipientAccount()
+    {
+        var player = new Rimlink.Server.Storage.Entities.Player { Id = 2, Name = "Receiver" };
+        harness.Db.Accounts.Add(new Rimlink.Server.Storage.Entities.Account { Login = "ordinary-recipient",
+            PasswordHash = PasswordHasher.Hash("pw"), Player = player });
+        await harness.Db.SaveChangesAsync();
+        var target = new OutpostSaveMetadata { SchemaVersion = 1, Scope = Scope };
+        target.Scope.OwnerPlayerId = player.Id; target.Scope.SaveGeneration = player.SaveGeneration; target.Scope.SaveWriteEpoch = player.SaveWriteEpoch;
+        await harness.F.H.Accept(harness.F.H.Snapshot(target));
     }
     public void SetAvailable(bool value) => Server.Services.GetRequiredService<OutpostFeature>().IsAvailable = value;
     public async Task<OutpostDeliveryRequest> CloseForDelivery()

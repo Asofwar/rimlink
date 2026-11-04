@@ -63,6 +63,21 @@ public sealed class OutpostMutationTests
     }
 
     [Fact]
+    public async Task Owner_preview_exposes_committed_roster_rates_capacity_and_pinned_geography()
+    {
+        using var h = await MutationHarness.Create(2); h.F.Time.Advance(TimeSpan.FromMinutes(1));
+        var view = await h.Service.StateAsync(1, new() { Scope = h.Scope.Clone() }, default);
+        var row = Assert.Single(view.Outposts);
+        Assert.Equal("Active", row.Lifecycle); Assert.Equal(1000, row.Capacity);
+        Assert.Equal(40d, row.UnitsPerHour); Assert.True(row.HasFraction);
+        Assert.Equal(h.F.Request.ManifestId, row.ManifestId); Assert.Equal(h.F.Request.ManifestDigest, row.ManifestDigest);
+        Assert.Equal(2, row.Workers.Count); Assert.All(row.Workers, worker => {
+            Assert.Contains(worker.PawnCustodyId, row.PawnCustodyIds);
+            Assert.Contains(worker.AssignmentId, row.AssignmentIds); Assert.Equal(20d, worker.UnitsPerHour);
+        });
+    }
+
+    [Fact]
     public async Task Close_keeps_history_and_does_not_refund_500()
     {
         using var h = await MutationHarness.Create(); var request = h.Request(OutpostMutationKind.Close);

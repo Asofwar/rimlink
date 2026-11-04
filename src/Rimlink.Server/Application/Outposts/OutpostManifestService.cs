@@ -3,6 +3,7 @@ using System.Text.Json;
 using Google.Protobuf;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
+using Rimlink.Protocol;
 using Rimlink.Protocol.V1;
 using Rimlink.Server.Application.Saves;
 using Rimlink.Server.Grpc;
@@ -126,8 +127,23 @@ public sealed class OutpostManifestService(RimlinkDbContext db, OutpostAuthority
     {
         lease.Require(authority);
         var row = await FindHeldAsync(request.ManifestId, request.ExpectedDigest, ct);
-        if (!row.Active || !row.Confirmed || row.WorldId != request.Scope.WorldInstanceId) throw Invalid("manifest-not-current-confirmed");
-        await ValidateHeldAsync(OutpostManifestDocument.Parser.ParseFrom(row.Document), ct);
+        if (!row.Confirmed || row.WorldId != request.Scope.WorldInstanceId) throw Invalid("manifest-not-confirmed");
+        if (request.ParcelId > 0)
+        {
+            var parcel = await db.OutpostParcelLinks.AsNoTracking().SingleOrDefaultAsync(p => p.ParcelId == request.ParcelId
+                && p.WorldId == request.Scope.WorldInstanceId && p.PlayerId == request.Scope.OwnerPlayerId
+                && p.SaveGeneration == request.Scope.SaveGeneration && p.RestoreBoundary == request.Scope.RestoreBoundary, ct);
+            if (parcel is null || parcel.Payload.Length > OutpostRecoveryData.MaxMetadataBytes
+                || !SHA256.HashData(parcel.Payload).AsSpan().SequenceEqual(parcel.PayloadDigest)) throw Invalid("manifest-parcel-mismatch");
+            var payload = OutpostParcelPayload.Parser.ParseFrom(parcel.Payload);
+            if (payload.ManifestId != row.Id || !payload.ManifestDigest.Span.SequenceEqual(row.Digest)) throw Invalid("manifest-parcel-mismatch");
+            // The immutable parcel pins its original confirmed document, not today's active catalog or valuation.
+        }
+        else
+        {
+            if (!row.Active) throw Invalid("manifest-not-current-confirmed");
+            await ValidateHeldAsync(OutpostManifestDocument.Parser.ParseFrom(row.Document), ct);
+        }
         if (request.Offset < 0 || request.Offset >= row.Document.Length) throw Invalid("manifest-page-range");
         return new() { Data = ByteString.CopyFrom(row.Document, request.Offset, Math.Min(MaxChunkBytes, row.Document.Length - request.Offset)),
             TotalBytes = row.Document.Length, Digest = Convert.ToHexStringLower(row.Digest) };

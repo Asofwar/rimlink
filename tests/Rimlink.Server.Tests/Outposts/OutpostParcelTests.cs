@@ -11,6 +11,71 @@ namespace Rimlink.Server.Tests.Outposts;
 
 public sealed class OutpostParcelTests
 {
+    [Theory]
+    [InlineData("pawn")][InlineData("items")][InlineData("silver")]
+    public async Task Protected_parcel_content_cannot_change_behind_its_anchored_payload(string changed)
+    {
+        using var h = await MutationHarness.Create();
+        long id = Assert.Single((await h.Service.MutateAsync(1, h.Request(OutpostMutationKind.Close), default)).ParcelIds);
+        var row = await h.Db.Parcels.AsNoTracking().SingleAsync(p => p.Id == id);
+        if (changed == "pawn")
+        {
+            var pawns = PawnList.Parser.ParseFrom(row.Pawns); pawns.Pawns[0].Label = "changed frozen worker";
+            await h.Db.Parcels.Where(p => p.Id == id).ExecuteUpdateAsync(s => s.SetProperty(p => p.Pawns, pawns.ToByteArray()));
+        }
+        else if (changed == "items")
+        {
+            var items = new ItemList { Items = { new ItemBlob { DefName = "Steel", Count = 1 } } };
+            await h.Db.Parcels.Where(p => p.Id == id).ExecuteUpdateAsync(s => s.SetProperty(p => p.Items, items.ToByteArray()));
+        }
+        else await h.Db.Parcels.Where(p => p.Id == id).ExecuteUpdateAsync(s => s.SetProperty(p => p.Silver, 1L));
+        Assert.Equal(OutpostStartupState.Maintenance, (await h.F.H.H.Authority.OpenAsync(default)).State);
+    }
+
+    [Fact]
+    public async Task Pending_return_reads_its_original_confirmed_manifest_after_replacement()
+    {
+        using var h = await MutationHarness.Create();
+        long parcelId = Assert.Single((await h.Service.MutateAsync(1, h.Request(OutpostMutationKind.Close), default)).ParcelIds);
+        var old = await h.Db.OutpostManifests.AsNoTracking().SingleAsync(m => m.Id == h.F.Request.ManifestId);
+        var service = new OutpostManifestService(h.Db, h.F.H.H.Authority, new(h.F.Time), h.F.H.H.Files);
+        var replacement = OutpostManifestDocument.Parser.ParseFrom(old.Document); replacement.ValuationVersion = "v2";
+        replacement.Resources[1].UnitValueX100 = 999;
+        var staged = await service.StageAsync(Rimlink.Server.Application.Admin.Actor.Api, replacement, default);
+        await service.ConfirmAsync(Rimlink.Server.Application.Admin.Actor.Api, staged.ManifestId, staged.Digest, default);
+        var request = new OutpostManifestReadRequest { Scope = h.Scope.Clone(), ManifestId = old.Id,
+            ExpectedDigest = Convert.ToHexStringLower(old.Digest), ParcelId = parcelId };
+        var page = await h.Service.ReadManifestAsync(1, request, default);
+        Assert.Equal(old.Document, page.Data.ToByteArray());
+        Assert.Equal(120, OutpostManifestDocument.Parser.ParseFrom(page.Data).Resources[1].UnitValueX100);
+        request.ParcelId++;
+        await Assert.ThrowsAsync<global::Grpc.Core.RpcException>(() => h.Service.ReadManifestAsync(1, request, default));
+    }
+
+    [Fact]
+    public async Task Own_return_wire_payload_is_supported_without_relabeling_it_as_a_gift()
+    {
+        using var h = await MutationHarness.Create();
+        var result = await h.Service.MutateAsync(1, h.Request(OutpostMutationKind.Close), default);
+        var parcel = await h.Mailbox.ToProto(await h.Mailbox.Get(1, Assert.Single(result.ParcelIds)));
+        Assert.Null(OutpostPayloadCompatibility.Refusal(parcel, 1));
+    }
+
+    [Fact]
+    public async Task Begin_reply_provides_exact_causal_evidence_for_a_local_receipt()
+    {
+        using var h = await MutationHarness.Create();
+        var close = await h.Service.MutateAsync(1, h.Request(OutpostMutationKind.Close), default);
+        var link = await h.Db.OutpostParcelLinks.AsNoTracking().SingleAsync();
+        var request = new OutpostDeliveryRequest { Scope = h.Scope.Clone(), ClientRequestId = Guid.NewGuid().ToString("N"),
+            ParcelId = Assert.Single(close.ParcelIds), PayloadDigest = ByteString.CopyFrom(link.PayloadDigest), CanonicalSnapshot = AssignmentHarness.SnapshotProof(h.Post) };
+        var reply = await h.Parcels.BeginDeliveryAsync(1, request, default);
+        var transition = await h.Db.OutpostTransitions.AsNoTracking().SingleAsync(t => t.Id == reply.AttemptId);
+        Assert.Equal(transition.Id, reply.TransitionId); Assert.Equal(ByteString.CopyFrom(transition.Digest), reply.TransitionDigest);
+        Assert.Equal(transition.PredecessorId, reply.PredecessorId);
+        Assert.Equal(reply, await h.Parcels.BeginDeliveryAsync(1, request, default));
+    }
+
     [Fact]
     public async Task Full_mailbox_does_not_destroy_own_returns()
     {

@@ -33,10 +33,24 @@ public sealed class OutpostService(RimlinkDbContext db, OutpostAuthority authori
         var reply = new OutpostStateReply { Scope = request.Scope.Clone(), AuthoritativeRevision = rows.Count == 0 ? 0 : rows.Max(o => o.Revision) };
         foreach (var row in rows)
         {
-            var workers = await db.OutpostAssignments.AsNoTracking().Where(a => a.OutpostId == row.Id && a.Active).OrderBy(a => a.PawnCustodyId).ToListAsync(ct);
-            reply.Outposts.Add(new OutpostSummary { OutpostId = row.Id, Profile = (OutpostProfile)row.Profile, SurfaceId = "planet", Tile = row.Tile,
+            var workers = await (from a in db.OutpostAssignments.AsNoTracking() join operation in db.OutpostOperations.AsNoTracking()
+                on a.PreparedOperationId equals operation.Id where a.OutpostId == row.Id && a.Active && operation.State == "Committed"
+                select a).OrderBy(a => a.PawnCustodyId).ToListAsync(ct);
+            var summary = new OutpostSummary { OutpostId = row.Id, Profile = (OutpostProfile)row.Profile, SurfaceId = "planet", Tile = row.Tile,
                 Revision = row.Revision, Stock = row.Stock, Archived = row.State == "Archived", RecoveryRequired = row.State == "SafetyHold",
-                PawnCustodyIds = { workers.Select(w => w.PawnCustodyId) }, AssignmentIds = { workers.Select(w => w.Id) }, HasFraction = row.FractionNumerator != "0" });
+                PawnCustodyIds = { workers.Select(w => w.PawnCustodyId) }, AssignmentIds = { workers.Select(w => w.Id) }, HasFraction = row.FractionNumerator != "0",
+                Lifecycle = row.State, Capacity = 1000, ManifestId = row.ManifestId, ManifestDigest = ByteString.CopyFrom(row.ManifestDigest) };
+            foreach (var worker in workers)
+            {
+                var capture = JsonParser.Default.Parse<OutpostWorkerCapture>(worker.FactsJson);
+                double health = Math.Clamp(Math.Min(capture.Consciousness, Math.Min(capture.Manipulation, capture.Moving)), 0, 1);
+                int skill = row.Profile == (int)OutpostProfile.Wood ? capture.Plants : capture.Mining;
+                double rate = (row.Profile == (int)OutpostProfile.Wood ? 20 : 10) * (0.5 + 0.05 * Math.Clamp(skill, 0, 20)) * health;
+                summary.Workers.Add(new OutpostWorkerSummary { PawnCustodyId = worker.PawnCustodyId, AssignmentId = worker.Id,
+                    Label = capture.Pawn.Label, UnitsPerHour = rate });
+                summary.UnitsPerHour += rate;
+            }
+            reply.Outposts.Add(summary);
         }
         foreach (var operation in await db.OutpostOperations.AsNoTracking().Where(o => o.PlayerId == playerId && o.WorldId == request.Scope.WorldInstanceId
             && o.SaveGeneration == request.Scope.SaveGeneration && o.RestoreBoundary == request.Scope.RestoreBoundary && (o.State == "Prepared" || o.State == "CancelFenced")).ToListAsync(ct))

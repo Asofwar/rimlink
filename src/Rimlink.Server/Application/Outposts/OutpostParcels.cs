@@ -72,7 +72,7 @@ public sealed class OutpostParcels(RimlinkDbContext db, OutpostAuthority authori
         if (repeated is not null)
         {
             if (!repeated.IntentDigest.AsSpan().SequenceEqual(digest)) throw Refuse(ErrorCode.RequestIntentMismatch, "delivery-intent-reused");
-            return Reply(repeated, request);
+            return await ReplyAsync(repeated, request, ct);
         }
         if (link.AcceptedSnapshotId is not null) throw Refuse(ErrorCode.OutpostConflict, "delivery-already-received");
         var parcel = await db.Parcels.AsNoTracking().SingleAsync(p => p.Id == link.ParcelId, ct);
@@ -92,15 +92,19 @@ public sealed class OutpostParcels(RimlinkDbContext db, OutpostAuthority authori
         await authority.CommitHeldAsync(lease, new(id, attempt.WorldId, playerId, attempt.SaveGeneration, attempt.RestoreBoundary,
             "BeginDelivery", "player:" + playerId.ToString(CultureInfo.InvariantCulture), new(head.HeadId, ByteString.CopyFrom(head.HeadDigest)), ByteString.CopyFrom(request.ToByteArray())),
             (_, _) => { db.OutpostDeliveryAttempts.Add(attempt); return Task.CompletedTask; }, ct);
-        return Reply(attempt, request);
+        return await ReplyAsync(attempt, request, ct);
     }
 
     internal async Task AnnounceAsync(IEnumerable<long> ids, CancellationToken ct)
     {
         foreach (long id in ids) await mailbox.Announce(await db.Parcels.AsNoTracking().SingleAsync(p => p.Id == id, ct));
     }
-    private static OutpostDeliveryReply Reply(OutpostDeliveryAttempt attempt, OutpostDeliveryRequest request) =>
-        new() { AttemptId = attempt.Id, Authorization = request.Clone(), AuthoritativeRevision = 1, AckOnly = attempt.State == "Accepted" };
+    private async Task<OutpostDeliveryReply> ReplyAsync(OutpostDeliveryAttempt attempt, OutpostDeliveryRequest request, CancellationToken ct)
+    {
+        var transition = await db.OutpostTransitions.AsNoTracking().SingleAsync(t => t.Id == attempt.TransitionId, ct);
+        return new() { AttemptId = attempt.Id, Authorization = request.Clone(), AuthoritativeRevision = 1, AckOnly = attempt.State == "Accepted",
+            TransitionId = transition.Id, TransitionDigest = ByteString.CopyFrom(transition.Digest), PredecessorId = transition.PredecessorId ?? "" };
+    }
 
     private sealed record Child(PawnList Pawns, OutpostParcelPayload Payload);
     private static List<Child> Split(OutpostReturnBatch batch)
@@ -129,6 +133,7 @@ public sealed class OutpostParcels(RimlinkDbContext db, OutpostAuthority authori
         {
             var payload = children[i].Payload; payload.ChildIndex = i; payload.ChildCount = children.Count;
             payload.Kind = payload.PawnCustodyIds.Count == 0 ? OutpostPayloadKind.Resources : payload.Resources.Count == 0 ? OutpostPayloadKind.Workers : OutpostPayloadKind.ReturnBatch;
+            OutpostParcelContents.Bind(payload, null, children[i].Pawns, 0);
         }
         return children;
     }

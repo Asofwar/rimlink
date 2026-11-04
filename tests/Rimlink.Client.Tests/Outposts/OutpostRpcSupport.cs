@@ -10,9 +10,9 @@ internal sealed class OutpostTraffic(HttpMessageHandler inner) : DelegatingHandl
     public ConcurrentQueue<string> Paths { get; } = new();
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
     { Paths.Enqueue(request.RequestUri!.AbsolutePath); return base.SendAsync(request, ct); }
-    public static async Task<OutpostTestSession> Connect(OutpostClientFixture fixture, OutpostTraffic traffic)
+    public static async Task<OutpostTestSession> Connect(OutpostClientFixture fixture, OutpostTraffic traffic, string? login = null)
     {
-        var connection = new RimlinkConnection(new ServerEndpoint("test", 1), new PasswordCredentials(fixture.LoginName, "pw"),
+        var connection = new RimlinkConnection(new ServerEndpoint("test", 1), new PasswordCredentials(login ?? fixture.LoginName, "pw"),
             new NoPrompt(), new ConsoleLog(), new ConnectionTransport(fixture.Server.Server.BaseAddress, traffic));
         try { await connection.ConnectAsync(default); return new(connection); }
         catch { await connection.DisposeAsync(); throw; }

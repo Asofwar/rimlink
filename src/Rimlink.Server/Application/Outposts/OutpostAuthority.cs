@@ -358,5 +358,5 @@ public sealed class OutpostAuthority(RimlinkDbContext db, OutpostAnchorStore anc
         await db.OutpostParcelLinks.AnyAsync(ct) || await db.OutpostSnapshotLinks.AnyAsync(ct) ||
         await db.OutpostManifests.AnyAsync(ct) || await db.OutpostAuthority.AnyAsync(ct) ||
         await db.OutpostRestoreAuthorizations.AnyAsync(ct) || await db.OutpostDeliveryAttempts.AnyAsync(ct) ||
-        await db.OutpostLifecycleOperations.AnyAsync(ct);
+        await db.OutpostLifecycleOperations.AnyAsync(ct) || await db.OutpostOrdinaryReturns.AnyAsync(ct);
 }

@@ -26,7 +26,7 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
     public async Task<Lot> Post(long sellerId, PostRequest request)
     {
         await using var tx = await custody.BeginOutgoingAsync(sellerId, 0, request.Pawn is null ? new PawnList() : new PawnList { Pawns = { request.Pawn } },
-            CustodyTransferKind.CustodyTransferMarketPost, request.ClientRequestId, RequestIdentity.Hash(request));
+            CustodyTransferKind.CustodyTransferMarketPost, request.ClientRequestId, RequestIdentity.Hash(request), requestKind: OrdinaryRequestKind.MarketPost);
         if (!string.IsNullOrEmpty(request.ClientRequestId) && await db.Lots.AsNoTracking()
             .FirstOrDefaultAsync(l => l.SellerPlayerId == sellerId && l.ClientRequestId == request.ClientRequestId) is { } existing)
         { RequestIdentity.Verify(existing.RequestIntent, request); return existing; }

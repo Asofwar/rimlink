@@ -19,10 +19,11 @@ public sealed partial class OutpostCustodyBridgeTests
         using var h = await CustodyHarness.Returned(); h.AddRecipient(1); await h.Db.SaveChangesAsync();
         var baseline = new OutpostSaveMetadata { SchemaVersion = 1, Scope = h.F.Scope.Clone() }; baseline.Scope.OwnerPlayerId = 2;
         var targetSave = h.F.F.H.Snapshot(baseline); await h.F.F.H.Accept(targetSave);
-        var evidence = await h.Depart();
+        var outgoing = new TransferRequest { ToPlayerId = 2, Items = new(), ClientRequestId = Guid.NewGuid().ToString("N"),
+            GameTick = 1000, Pawns = new() { Pawns = { h.Blob.Clone() } } };
+        await h.Depart(outgoing);
         using var host = h.StartHost(); using var scope = host.Services.CreateScope();
-        var parcel = await scope.ServiceProvider.GetRequiredService<TransferService>().Send(1, new TransferRequest { ToPlayerId = 2, Items = new(),
-            ClientRequestId = evidence.ClientRequestId, GameTick = 1000, Pawns = evidence.Pawns.Clone() });
+        var parcel = await scope.ServiceProvider.GetRequiredService<TransferService>().Send(1, outgoing);
         await scope.ServiceProvider.GetRequiredService<GiftService>().Answer(2, parcel.Id, true);
         if (started)
         {

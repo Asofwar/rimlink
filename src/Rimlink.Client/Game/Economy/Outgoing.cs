@@ -17,7 +17,7 @@ namespace Rimlink.Client.Game.Economy;
 /// <see cref="TransferOutbox"/> and is replayed with the same key at the next login or reconnect. Main thread entry
 /// points; the RPC runs in the background.
 /// </summary>
-public static class Outgoing
+public static partial class Outgoing
 {
     /// <summary>A serialised object and the way to put it back.</summary>
     private sealed record Taken(ItemBlob? Item, PawnBlob? Pawn, Action<Thing> PutBack, Thing Original, Action Commit)
@@ -340,7 +340,9 @@ public static class Outgoing
         var outbox = RimlinkSession.Outbox;
         if (outbox is null) return;
         var component = Current.Game.GetComponent<RimlinkGameComponent>();
-        foreach (var entry in outbox.Entries.Where(e => e.Phase == OutboxPhase.Returning && e.Refusal is not null))
+        foreach (var pending in outbox.Entries.Where(e => e.Ordinary is not null && (e.Refusal is not null || e.Ordinary.ReturnRequest is not null)))
+            StartOrdinaryReturn(pending);
+        foreach (var entry in outbox.Entries.Where(e => e.Ordinary is null && e.Phase == OutboxPhase.Returning && e.Refusal is not null))
         {
             if (entry.SaveGeneration != component.SaveGeneration || entry.SaveWriteEpoch != component.SaveWriteEpoch || component.ReturnedOperations.Contains(entry.Id)) continue;
             List<Thing> things;
@@ -483,6 +485,8 @@ public static class Outgoing
         // Silver from the wallet alone leaves nothing on the map: no save to secure and no tick to stamp (during a visit this
         // game is the host's copy, whose tick is not ours and which is never saved).
         var request = build(items, pawnList, taken.Count == 0 ? 0 : Find.TickManager.TicksGame);
+        if (pawnList.Pawns.Any(p => p.Registry is { NonAuthoritativeMirror: false }))
+        { RunOrdinary(taken, request, successMessage, call); return; }
         OutboxEntry entry;
         try { entry = taken.Count == 0 ? outbox.Add(request) : outbox.Prepare(request); }
         catch { Restore(taken); throw; }
@@ -573,7 +577,7 @@ public static class Outgoing
     }
 
     /// <summary>Puts everything back where it was taken from (main thread).</summary>
-    private static void Restore(List<Taken> taken)
+    private static void Restore(List<Taken> taken, bool authorizedOrdinaryReturn = false)
     {
         try
         {
@@ -583,7 +587,11 @@ public static class Outgoing
             foreach (var pair in restored)
             {
                 pair.Target.PutBack(pair.Thing);
+                if (authorizedOrdinaryReturn && pair.Thing is Pawn pawn && pair.Target.Pawn?.Registry is { NonAuthoritativeMirror: false } envelope)
+                    Outposts.PawnCustodyRegistry.CurrentRegistry!.Bind(pawn, envelope);
             }
+            if (authorizedOrdinaryReturn && Outposts.PawnCustodyRegistry.CurrentRegistry!.ValidateOwnGame().RecoveryRequired)
+                throw new InvalidDataException("ordinary return custody binding is ambiguous");
             taken.Clear();
         }
         catch { SaveSync.BlockWrites(); RimlinkGameComponent.AbortToMenu(); throw; }

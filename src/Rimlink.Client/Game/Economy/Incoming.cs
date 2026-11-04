@@ -23,6 +23,7 @@ public static class Incoming
     {
         spawnedThisSession.Clear();
         fetching.Clear();
+        Outposts.OutpostIncoming.Reset();
     }
 
     /// <summary>Called every frame by the game component; throttled, and only while on the colony map.</summary>
@@ -90,6 +91,7 @@ public static class Incoming
         long id = parcel.Id;
         fetching.Remove(id);
         if (!RimlinkSession.Active || Current.ProgramState != ProgramState.Playing || !Find.Maps.Contains(map) || spawnedThisSession.Contains(id)) return;
+        if (Outposts.OutpostIncoming.Protected(parcel)) { Outposts.OutpostIncoming.Receive(parcel, map); return; }
         var component = Current.Game.GetComponent<RimlinkGameComponent>();
         if (component.ParcelReceipts.Contains(id)) { PrepareConfirmation(id, outbox); RimlinkSession.State.Economy.MarkDelivered(id); return; }
         List<Thing> things;

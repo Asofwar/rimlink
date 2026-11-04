@@ -248,6 +248,7 @@ public sealed class RimlinkGameComponent : GameComponent
         RimlinkSession.Inbox.DrainTo(RimlinkSession.State.Apply);
         CommunitySync.Tick();
         Influence.InfluenceSync.Tick();
+        Outposts.OutpostSync.Tick();
         HandleConnectionState();
         HandleNotices();
         if (SaveSync.WritesBlocked) return;

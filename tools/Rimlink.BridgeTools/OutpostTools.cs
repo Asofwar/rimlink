@@ -16,7 +16,8 @@ public sealed class OutpostTools
     {
         success = true, capability = RimlinkSession.Connection?.Login?.OutpostVersion ?? 0,
         busy = OutpostOutgoing.Busy, status = OutpostOutgoing.StatusKey, error = OutpostOutgoing.LastFailure,
-        pendingAdmissions = OutpostOutgoing.PendingAdmissionIds,
+        pendingAdmissions = OutpostOutgoing.PendingAdmissionIds, deliveryError = OutpostIncoming.LastFailure, commandError = OutpostSync.LastFailure,
+        markers = Find.WorldObjects?.AllWorldObjects.OfType<OutpostWorldObject>().Count() ?? 0,
         outposts = RimlinkSession.State.Outposts.Outposts.Select(o => new { id = o.OutpostId, o.Tile, profile = o.Profile.ToString(), o.Stock, workers = o.PawnCustodyIds.Count, o.Archived }).ToArray(),
         manifest = Find.WindowStack?.Windows.OfType<Dialog_OutpostManifest>().LastOrDefault() is { } dialog
             ? new { busy = dialog.Busy, status = dialog.StatusKey, id = dialog.Staged?.ManifestId, digest = dialog.Staged?.Digest } : null
@@ -88,6 +89,42 @@ public sealed class OutpostTools
         if (action != "confirm" || dialog?.Busy != false || dialog.Staged is not { } preview || preview.ManifestId != manifestId || preview.Digest != digest)
             return Bridge.Fail("confirm requires the exact id and digest visible in an idle staged review");
         _ = dialog.ConfirmAsync(); return Targets.Started("explicit manifest confirmation started");
+    });
+
+    [Tool("rimlink/outpost_controls", Description = "Open native owner controls without creating an outpost, map or delivery")]
+    public Task<object> Controls(IRimBridgeContext ctx) => Bridge.OnMain(ctx, () =>
+    {
+        Find.WindowStack.Add(new Rimlink.Client.UI.Outposts.Dialog_Outpost()); return Targets.Started("native owner controls opened");
+    });
+
+    [Tool("rimlink/outpost_mutate", Description = "Claim, recall, close or switch through the same fresh exact snapshot and server CAS as native controls")]
+    public Task<object> Mutate(IRimBridgeContext ctx,
+        [ToolParameter(Description = "Existing owned outpost id", Required = true)] string outpost,
+        [ToolParameter(Description = "claim, recall, close, switch", Required = true)] string action,
+        [ToolParameter(Description = "Comma-separated exact custody ids for partial recall")] string workers = "",
+        [ToolParameter(Description = "wood or steel for switch")] string profile = "wood",
+        [ToolParameter(Description = "Explicit confirmation of fractional loss and closure warning")] bool confirmFractionDiscard = false) => Bridge.OnMain(ctx, () =>
+    {
+        if (!RimlinkSession.Active || RimlinkSession.Login?.OutpostVersion != 1 || OutpostSync.Busy) return Bridge.Fail("current idle outpost session required");
+        var row = RimlinkSession.State.Outposts.Outposts.SingleOrDefault(o => o.OutpostId == outpost);
+        if (row is null) return Bridge.Fail("owned outpost not found");
+        var kind = action switch { "claim" => OutpostMutationKind.Claim, "recall" => OutpostMutationKind.Recall, "close" => OutpostMutationKind.Close,
+            "switch" => OutpostMutationKind.Switch, _ => OutpostMutationKind.Unspecified };
+        if (kind == OutpostMutationKind.Unspecified) return Bridge.Fail("unknown outpost action");
+        string[] ids = workers.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (kind == OutpostMutationKind.Recall && (ids.Length == 0 || ids.Distinct().Count() != ids.Length || ids.Any(id => !row.PawnCustodyIds.Contains(id)))) return Bridge.Fail("exact owned worker ids required");
+        if ((kind is OutpostMutationKind.Close or OutpostMutationKind.Switch || kind == OutpostMutationKind.Recall && ids.Length == row.PawnCustodyIds.Count)
+            && !confirmFractionDiscard) return Bridge.Fail("explicit fraction/closure warning confirmation required");
+        var selected = profile switch { "wood" => OutpostProfile.Wood, "steel" => OutpostProfile.Steel, _ => OutpostProfile.Unspecified };
+        if (kind == OutpostMutationKind.Switch && selected == OutpostProfile.Unspecified) return Bridge.Fail("profile must be wood or steel");
+        OutpostSync.Mutate(row, kind, ids, selected, confirmFractionDiscard); return Targets.Started("exact owner command started");
+    });
+
+    [Tool("rimlink/outpost_deliver", Description = "Run the normal mailbox fetch/begin/receipt ingress; no fabricated authorization or local spawn shortcut")]
+    public Task<object> Deliver(IRimBridgeContext ctx) => Bridge.OnMain(ctx, () =>
+    {
+        if (!RimlinkSession.Active || Find.CurrentMap is not { IsPlayerHome: true }) return Bridge.Fail("current own home map required");
+        Rimlink.Client.Game.Economy.Incoming.DeliverPending(); return Targets.Started("normal protected delivery ingress requested");
     });
 
     private static Caravan? FindCaravan(string id) => Find.WorldObjects?.Caravans.FirstOrDefault(c => c.GetUniqueLoadID() == id || string.Equals(c.Name, id, StringComparison.OrdinalIgnoreCase));

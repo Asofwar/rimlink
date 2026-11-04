@@ -53,7 +53,8 @@ public sealed partial class OutpostSnapshotGuard
 
     private async Task StageAdmissionsAsync(OutpostSaveMetadata metadata, string transitionId, CancellationToken ct)
     {
-        foreach (var receipt in metadata.Receipts.Where(r => r.DeliveryAttemptId.Length == 0 && r.CancellationKind == OutpostCancelKind.Unspecified))
+        foreach (var receipt in metadata.Receipts.Where(r => r.DeliveryAttemptId.Length == 0 && r.OrdinaryReturnAttemptId.Length == 0
+            && r.CancellationKind == OutpostCancelKind.Unspecified))
         {
             var operation = await db.OutpostOperations.AsNoTracking().SingleAsync(o => o.Id == receipt.TransitionId, ct);
             foreach (var worker in OutpostAssignmentService.ParseIntent(operation).Workers)

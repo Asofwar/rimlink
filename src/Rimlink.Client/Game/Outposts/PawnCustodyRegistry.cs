@@ -97,7 +97,7 @@ public sealed class PawnCustodyRegistry : GameComponent
 
     public RegistryValidation ValidateOwnGame()
     {
-        if (!IsOwnGame || entries.Count == 0) return new([], []);
+        if (!IsOwnGame) return new([], []);
         var present = ScanPawns();
         var observations = new List<RegistryObservation>();
         foreach (var row in entries)
@@ -108,6 +108,11 @@ public sealed class PawnCustodyRegistry : GameComponent
             observations.Add(new(row.Envelope, exists ? references.GetValue(row.Pawn!, _ => new()).Value : null,
                 exists ? row.Pawn!.GetUniqueLoadID() : null, row.KnownTombstone));
         }
+        // A deserialized own pawn is visible evidence, not authority. In particular a definitive old
+        // outgoing restore must not silently hide behind the saved departure tombstone.
+        foreach (var pawn in present.Where(p => p.Faction == Faction.OfPlayer && entries.All(e => !ReferenceEquals(e.Pawn, p))))
+            if (transported.TryGetValue(pawn, out var envelope))
+                observations.Add(new(envelope, references.GetValue(pawn, _ => new()).Value, pawn.GetUniqueLoadID(), AuthoritativeBinding: false));
         return PawnRegistryChecks.Validate(observations);
     }
 

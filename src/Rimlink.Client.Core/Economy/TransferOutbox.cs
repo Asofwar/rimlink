@@ -31,6 +31,7 @@ public sealed class OutboxEntry
     public long SaveWriteEpoch { get; set; }
     public string? SnapshotId { get; set; }
     public OutpostJournal? Outpost { get; set; }
+    public OrdinaryJournal? Ordinary { get; set; }
 }
 
 public sealed record ReplayReport(int Completed, int Refused, int Pending);
@@ -83,16 +84,16 @@ public sealed partial class TransferOutbox
 
     public OutboxEntry Add(IMessage request) => Create(request, OutboxPhase.Ready);
     public OutboxEntry Prepare(IMessage request) => Create(request, OutboxPhase.Prepared);
-    private OutboxEntry Create(IMessage request, OutboxPhase phase) => request switch
+    private OutboxEntry Create(IMessage request, OutboxPhase phase, OutpostScopeMessage? ordinaryScope = null) => request switch
     {
-        TransferRequest => Add(OutboxKind.Send, request, phase), PostRequest => Add(OutboxKind.Post, request, phase),
+        TransferRequest => Add(OutboxKind.Send, request, phase, ordinaryScope), PostRequest => Add(OutboxKind.Post, request, phase, ordinaryScope),
         DepositRequest => Add(OutboxKind.Deposit, request, phase), DeliverRequest => Add(OutboxKind.Deliver, request, phase),
-        LaunchRequest => Add(OutboxKind.Launch, request, phase), RaidTick => Add(OutboxKind.Land, request, phase),
-        RaidReport => Add(OutboxKind.Report, request, phase), BuyRequest => Add(OutboxKind.Buy, request, phase),
-        RemovalAck => Add(OutboxKind.AckRemoval, request, phase), LiveProposal => Add(OutboxKind.Propose, request, phase),
+        LaunchRequest => Add(OutboxKind.Launch, request, phase, ordinaryScope), RaidTick => Add(OutboxKind.Land, request, phase),
+        RaidReport => Add(OutboxKind.Report, request, phase, ordinaryScope), BuyRequest => Add(OutboxKind.Buy, request, phase),
+        RemovalAck => Add(OutboxKind.AckRemoval, request, phase), LiveProposal => Add(OutboxKind.Propose, request, phase, ordinaryScope),
         ProcurementCreate => Add(OutboxKind.ProcurementCreate, request, phase), ProcurementSupply => Add(OutboxKind.ProcurementSupply, request, phase),
-        ProcurementCancel => Add(OutboxKind.ProcurementCancel, request, phase), TradeOpenRequest => Add(OutboxKind.TradeOpen, request, phase),
-        TradeSideRequest => Add(OutboxKind.TradeSetSide, request, phase), OrderIncidentRequest => Add(OutboxKind.IncidentOrder, request, phase),
+        ProcurementCancel => Add(OutboxKind.ProcurementCancel, request, phase), TradeOpenRequest => Add(OutboxKind.TradeOpen, request, phase, ordinaryScope),
+        TradeSideRequest => Add(OutboxKind.TradeSetSide, request, phase, ordinaryScope), OrderIncidentRequest => Add(OutboxKind.IncidentOrder, request, phase),
         AuctionPostRequest => Add(OutboxKind.AuctionPost, request, phase), AuctionBidRequest => Add(OutboxKind.AuctionBid, request, phase),
         AuctionCancelRequest => Add(OutboxKind.AuctionCancel, request, phase), CommunityRequest => Add(OutboxKind.Community, request, phase),
         InfluenceMutation => Add(OutboxKind.Influence, request, phase),
@@ -104,10 +105,13 @@ public sealed partial class TransferOutbox
         _ => throw new ArgumentException("not an outbox request: " + request.GetType().Name),
     };
 
-    private OutboxEntry Add(OutboxKind kind, IMessage request, OutboxPhase phase)
+    private OutboxEntry Add(OutboxKind kind, IMessage request, OutboxPhase phase, OutpostScopeMessage? ordinaryScope = null)
     {
+        bool ordinary = HasOrdinaryPawns(request);
+        if (ordinary && ordinaryScope is null) throw new InvalidDataException("ordinary custody requires a scoped journal");
         var entry = new OutboxEntry { Id = Guid.NewGuid().ToString("N"), Kind = kind, Payload = request.ToByteArray(), CreatedUtc = DateTime.UtcNow,
             Phase = phase, SaveGeneration = generation, SaveWriteEpoch = epoch, Outpost = IsOutpost(kind) ? NewOutpostJournal(request) : null };
+        if (ordinary) entry.Ordinary = new() { Capture = OrdinaryCapture.Create(request, entry.Id, ordinaryScope!).ToByteArray() };
         lock (gate)
         {
             entries.Add(entry);
@@ -127,6 +131,11 @@ public sealed partial class TransferOutbox
             foreach (var entry in entries.ToArray())
             {
                 if (IsOutpost(entry.Kind) || entry.Phase == OutboxPhase.RecoveryRequired) continue;
+                if (IsOrdinary(entry))
+                {
+                    if (entry.Ordinary is null && selected) entry.Phase = OutboxPhase.RecoveryRequired;
+                    continue; // Legacy Removed/Returned/tick never authorizes a protected ordinary operation.
+                }
                 if (entry.Phase == OutboxPhase.Legacy)
                 {
                     if (NeedsSnapshot(entry)) { if (selected) entry.Phase = OutboxPhase.RecoveryRequired; continue; }
@@ -190,6 +199,15 @@ public sealed partial class TransferOutbox
         {
             if (entries.FirstOrDefault(e => e.Id == id) is not { } entry) return false;
             if (IsOutpost(entry.Kind)) { HoldForRecovery(entry.Id, refusal); return true; }
+            if (IsOrdinary(entry))
+            {
+                // Record a business refusal without granting a return or downgrading an evidence hold.
+                var previous = (entry.Refusal, entry.RefusalKey, entry.RefusalArgs);
+                entry.Refusal = refusal.Message; entry.RefusalKey = refusal.Key;
+                entry.RefusalArgs = refusal.Key is null ? null : [.. refusal.Args];
+                try { Save(); } catch { (entry.Refusal, entry.RefusalKey, entry.RefusalArgs) = previous; throw; }
+                return true;
+            }
             if (!NothingToReturn(entry))
             {
                 var previous = (entry.Phase, entry.Refusal, entry.RefusalKey, entry.RefusalArgs);
@@ -293,11 +311,16 @@ public sealed partial class TransferOutbox
             { pending++; continue; }
             if (entry.Phase == OutboxPhase.Legacy && NeedsSnapshot(entry)) { pending++; continue; }
             if (entry.Phase is OutboxPhase.Prepared or OutboxPhase.RecoveryRequired) { pending++; continue; }
-            if (entry.Refusal is not null) { refused++; continue; }
-            if (!ReadyFor(entry, authentication)) { pending++; continue; }
-            if (!CanReplay(clients, entry.Kind)) { pending++; continue; }
-            var outcome = await Attempt(clients, entry, authentication!, ct);
-            if (outcome is null && !IsOutpost(entry.Kind))
+            bool? outcome;
+            if (entry.Ordinary is not null) outcome = await AttemptOrdinary(clients, entry, authentication, ct);
+            else
+            {
+                if (entry.Refusal is not null) { refused++; continue; }
+                if (!ReadyFor(entry, authentication)) { pending++; continue; }
+                if (!CanReplay(clients, entry.Kind)) { pending++; continue; }
+                outcome = await Attempt(clients, entry, authentication!, ct);
+            }
+            if (outcome is null && !IsOutpost(entry.Kind) && entry.Ordinary is null)
             {
                 await Task.Delay(TimeSpan.FromSeconds(2), ct);
                 outcome = await Attempt(clients, entry, authentication!, ct);
@@ -323,7 +346,8 @@ public sealed partial class TransferOutbox
     /// <summary>True: answered. False: refused for good (entry marked, or removed for a deliver). Null: still unknown.</summary>
     public static bool ReadyFor(OutboxEntry entry, LoginReply? login) => login is not null
         && entry.SaveGeneration == login.SaveGeneration && entry.SaveWriteEpoch == login.SaveWriteEpoch
-        && (IsOutpost(entry.Kind) ? OutpostReadyFor(entry, login) : entry.Phase == OutboxPhase.Ready || entry.Phase == OutboxPhase.Legacy && !NeedsSnapshot(entry));
+        && (IsOutpost(entry.Kind) ? OutpostReadyFor(entry, login) : IsOrdinary(entry) ? OrdinaryReadyFor(entry, login)
+            : entry.Phase == OutboxPhase.Ready || entry.Phase == OutboxPhase.Legacy && !NeedsSnapshot(entry));
 
     private static bool CanReplay(OutboxClients clients, OutboxKind kind) => kind switch
     {

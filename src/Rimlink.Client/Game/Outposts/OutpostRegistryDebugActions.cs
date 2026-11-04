@@ -65,6 +65,20 @@ public static class OutpostRegistryDebugActions
             throw new InvalidOperationException("custody roundtrip probe failed");
     }
 
+    [DebugAction("Rimlink", "Custody lab unbound return", allowedGameStates = AllowedGameStates.PlayingOnMap)]
+    public static void UnboundReturn()
+    {
+        RequireLab(); var pawn = FirstPawn(); var map = pawn.Map; var cell = pawn.Position;
+        _ = Registry.Capture(pawn) ?? throw new InvalidOperationException("bootstrap first");
+        var blob = Economy.ThingBlobs.SerializePawn(pawn);
+        Economy.PawnExit.Leave(pawn, new(Guid.NewGuid().ToString("N"), "offline-lab-refused-restore"));
+        var restored = Economy.ThingBlobs.DeserializePawn(blob, newIds: true);
+        Economy.RelationLedger.Rejoin(restored); GenSpawn.Spawn(restored, cell, map);
+        var result = Registry.ValidateOwnGame();
+        Log.Message("[Rimlink] custody-lab " + JsonSerializer.Serialize(new { kind = "unbound-return", result.RecoveryRequired, issues = result.Issues }));
+        if (!result.RecoveryRequired) throw new InvalidOperationException("unbound returned pawn escaped the save barrier");
+    }
+
     [DebugAction("Rimlink", "Custody lab inject duplicate", allowedGameStates = AllowedGameStates.PlayingOnMap)]
     public static void Duplicate()
     {

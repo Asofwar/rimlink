@@ -11,12 +11,12 @@ public sealed partial class PawnCustodyBridge
 {
     public sealed record CustodyRoute(long Actor, long Recipient, PawnList Pawns, CustodyTransferKind Kind,
         long SourceId, string RequestId, byte[] RequestIntent, bool FromEscrow, bool Mirror = false,
-        byte[]? SourcePayload = null, PawnList? ResultPawns = null, long SourceAuthorizer = 0);
+        byte[]? SourcePayload = null, PawnList? ResultPawns = null, long SourceAuthorizer = 0, OrdinaryRequestKind RequestKind = OrdinaryRequestKind.Unspecified);
 
     /// <summary>Outer entry only: A → sorted owners → S before the existing service stages its real rows.</summary>
     public Task<CustodyTransaction> BeginOutgoingAsync(long actor, long recipient, PawnList pawns, CustodyTransferKind kind,
-        string requestId, byte[] requestIntent, CancellationToken ct = default) => BeginRoutesAsync(
-            [new(actor, recipient, pawns, kind, 0, requestId, requestIntent, false)], ct);
+        string requestId, byte[] requestIntent, CancellationToken ct = default, OrdinaryRequestKind requestKind = OrdinaryRequestKind.Unspecified) => BeginRoutesAsync(
+            [new(actor, recipient, pawns, kind, 0, requestId, requestIntent, false, RequestKind: requestKind)], ct);
 
     public Task<CustodyTransaction> BeginSourceAsync(long actor, long recipient, PawnList pawns, CustodyTransferKind kind,
         long sourceId, string requestId, byte[] requestIntent, CancellationToken ct = default) => BeginRoutesAsync(
@@ -39,6 +39,7 @@ public sealed partial class PawnCustodyBridge
                 var legacy = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
                 try
                 {
+                    await RequireNoOrdinaryFenceAsync(routes, ct);
                     foreach (long actor in routes.Select(r => r.Actor).Distinct())
                         if (await db.PawnCustody.AsNoTracking().AnyAsync(p => p.PlayerId == actor, ct)) throw Invalid("custody-history-boundary-changed");
                     return new(this, legacy, []);
@@ -60,7 +61,15 @@ public sealed partial class PawnCustodyBridge
                 if (route.Pawns.Pawns.Any(p => p.Registry is not null)
                     || await db.PawnCustody.AsNoTracking().AnyAsync(p => p.PlayerId == route.Actor, ct)) protectedRoutes.Add(route);
             if (protectedRoutes.Count == 0)
-                return new(this, await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct), held);
+            {
+                var legacy = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+                try
+                {
+                    await RequireNoOrdinaryFenceAsync(routes, ct);
+                    return new(this, legacy, held);
+                }
+                catch { await legacy.DisposeAsync(); throw; }
+            }
             for (int i = held.Count - 1; i >= 0; i--) held[i].Dispose(); held.Clear();
             if (lease is null)
             {
@@ -68,6 +77,7 @@ public sealed partial class PawnCustodyBridge
                 lease = await authority.AcquireAsync(ownerIds, ct);
             }
             foreach (long ownerId in ownerIds) if (!lease.CoversOwner(ownerId)) throw new InvalidOperationException("custody-owner-lease-required");
+            await RequireNoOrdinaryFenceAsync(routes, ct);
             string id = Guid.NewGuid().ToString("D");
             var parts = new List<CustodyTransferEvidence>();
             foreach (var route in protectedRoutes)
@@ -80,6 +90,11 @@ public sealed partial class PawnCustodyBridge
                     Pawns = route.Pawns.Clone(), NonAuthoritativeMirror = route.Mirror, SourceRequestIntent = ByteString.CopyFrom(route.RequestIntent),
                     SourcePayload = ByteString.CopyFrom(route.SourcePayload ?? []), ResultPawns = route.ResultPawns?.Clone(), SourceAuthorizerPlayerId = route.SourceAuthorizer,
                     RemovalSnapshot = new() { Scope = metadata.Metadata.Scope.Clone(), SnapshotId = latest.SnapshotId, RawSha256 = ByteString.CopyFrom(latest.RawSha256) } };
+                if (!route.FromEscrow && !route.Mirror && route.Pawns.Pawns.Any(p => p.Registry is not null))
+                {
+                    evidence.OrdinaryRequestKind = route.RequestKind;
+                    evidence.OrdinaryCapture = RequireOrdinaryCapture(SaveStore.RecoveryOf(latest), route.RequestKind, route.RequestId, evidence.SourceRequestIntent).Clone();
+                }
                 if (route.FromEscrow && route.Pawns.Pawns.FirstOrDefault(p => p.Registry is not null) is { } tagged)
                 {
                     var current = await db.PawnCustody.AsNoTracking().SingleAsync(p => p.Id == tagged.Registry.PawnCustodyId, ct);
@@ -107,6 +122,13 @@ public sealed partial class PawnCustodyBridge
             for (int i = held.Count - 1; i >= 0; i--) held[i].Dispose();
             throw;
         }
+    }
+
+    private async Task RequireNoOrdinaryFenceAsync(IReadOnlyList<CustodyRoute> routes, CancellationToken ct)
+    {
+        foreach (var route in routes.Where(r => r.RequestKind != OrdinaryRequestKind.Unspecified))
+            await OrdinaryReturnService.RequireNoFenceAsync(db, route.SourceAuthorizer > 0 ? route.SourceAuthorizer : route.Actor,
+                route.RequestKind, route.RequestId, ct);
     }
 
     internal static IEnumerable<CustodyTransferEvidence> Parts(CustodyTransferEvidence root)

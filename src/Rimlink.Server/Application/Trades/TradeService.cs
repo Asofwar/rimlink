@@ -44,7 +44,7 @@ public sealed class TradeService(
 
         Trade trade;
         await using (var tx = await custody.BeginOutgoingAsync(playerId, r.PartnerId, r.Pawns ?? new PawnList(),
-            CustodyTransferKind.CustodyTransferTradeSide, r.ClientRequestId, RequestIdentity.Hash(r)))
+            CustodyTransferKind.CustodyTransferTradeSide, r.ClientRequestId, RequestIdentity.Hash(r), requestKind: OrdinaryRequestKind.TradeOpen))
         {
             if (requestId is not null && await db.Trades.AsNoTracking().FirstOrDefaultAsync(t => t.InitiatorPlayerId == playerId && t.ClientRequestId == requestId) is { } raced)
             { RequestIdentity.Verify(raced.RequestIntent, r); return await ToProto(raced); }
@@ -107,7 +107,7 @@ public sealed class TradeService(
 
         var before = await Party(playerId, r.TradeId);
         var routes = new List<PawnCustodyBridge.CustodyRoute> { new(playerId, before.InitiatorPlayerId == playerId ? before.PartnerPlayerId : before.InitiatorPlayerId,
-            r.Pawns ?? new PawnList(), CustodyTransferKind.CustodyTransferTradeSide, r.TradeId, r.ClientRequestId, RequestIdentity.Hash(r), false) };
+            r.Pawns ?? new PawnList(), CustodyTransferKind.CustodyTransferTradeSide, r.TradeId, r.ClientRequestId, RequestIdentity.Hash(r), false, RequestKind: OrdinaryRequestKind.TradeSide) };
         if (r.ReturnGoods) routes.Add(new(playerId, playerId, PawnList.Parser.ParseFrom(new Side(before, before.InitiatorPlayerId == playerId).Pawns),
             CustodyTransferKind.CustodyTransferTradeReturn, before.Id, r.ClientRequestId, RequestIdentity.Hash(r), true));
         Trade trade;

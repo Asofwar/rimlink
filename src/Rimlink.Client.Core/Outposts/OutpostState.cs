@@ -8,6 +8,7 @@ public sealed class OutpostState
     private readonly object gate = new();
     private OutpostStateReply? snapshot;
     private OutpostScopeMessage? scope;
+    public OutpostStateReply? Snapshot { get { lock (gate) return snapshot?.Clone(); } }
     public OutpostScopeMessage? Scope { get { lock (gate) return scope?.Clone(); } }
     public long AuthoritativeRevision { get { lock (gate) return snapshot?.AuthoritativeRevision ?? 0; } }
     public IReadOnlyList<OutpostSummary> Outposts { get { lock (gate) return snapshot?.Outposts.Select(o => o.Clone()).ToArray() ?? []; } }

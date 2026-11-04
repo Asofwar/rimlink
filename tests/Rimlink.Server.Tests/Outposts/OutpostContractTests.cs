@@ -45,7 +45,7 @@ public sealed class OutpostContractTests
     }
 
     [Fact]
-    public void Outposts_service_has_eight_typed_operations_including_confirmed_manifest_read()
+    public void Outposts_service_preserves_eight_operations_and_appends_two_ordinary_return_operations()
     {
         var service = Assert.Single(OutpostsReflection.Descriptor.Services);
         Assert.Equal("Outposts", service.Name);
@@ -54,7 +54,9 @@ public sealed class OutpostContractTests
             "Prepare:OutpostPrepareRequest:OutpostOperationReply",
             "Commit:OutpostProofRequest:OutpostOperationReply", "Cancel:OutpostCancelRequest:OutpostOperationReply",
             "Mutate:OutpostMutationRequest:OutpostOperationReply", "Operation:OutpostOperationQuery:OutpostOperationReply",
-            "BeginDelivery:OutpostDeliveryRequest:OutpostDeliveryReply"
+            "BeginDelivery:OutpostDeliveryRequest:OutpostDeliveryReply",
+            "OrdinaryOperation:OrdinaryOperationQuery:OrdinaryOperationReply",
+            "BeginOrdinaryReturn:OrdinaryCancelRequest:OrdinaryOperationReply"
         }, service.Methods.Select(m => $"{m.Name}:{m.InputType.Name}:{m.OutputType.Name}"));
         Assert.DoesNotContain(OutpostsReflection.Descriptor.Dependencies, d => d.Name == "events.proto");
     }

@@ -18,10 +18,10 @@ public sealed partial class OutpostCustodyBridgeTests
     public async Task Actual_raid_launch_preserves_one_authority_for_real_and_snapshot(bool mirror)
     {
         using var h = await CustodyHarness.Returned(); await PrepareRaidTarget(h);
-        var departure = mirror ? h.Evidence(h.HomeSave) : await h.Depart();
+        var request = RaidFixtures.Launch(2, 1, mirror ? PawnMode.PawnSnapshot : PawnMode.PawnReal, requestId: Guid.NewGuid().ToString("N"));
+        request.Pawns = new() { Pawns = { h.Blob.Clone() } }; request.Pawns.Pawns[0].Registry.NonAuthoritativeMirror = mirror;
+        if (!mirror) await h.Depart(request);
         using var host = h.StartHost(); using var scope = host.Services.CreateScope();
-        var request = RaidFixtures.Launch(2, 1, mirror ? PawnMode.PawnSnapshot : PawnMode.PawnReal, requestId: departure.ClientRequestId);
-        request.Pawns = departure.Pawns.Clone(); request.Pawns.Pawns[0].Registry.NonAuthoritativeMirror = mirror;
         var raids = scope.ServiceProvider.GetRequiredService<RaidService>();
         var raid = await raids.Launch(1, request);
         var row = await h.Row(); Assert.Equal(1, row.PlayerId); Assert.Equal(SnapshotHarness.Custody, row.Id);
@@ -37,14 +37,16 @@ public sealed partial class OutpostCustodyBridgeTests
     [InlineData(true)]
     public async Task Queued_tagged_raid_cancel_and_expiry_return_original_uuid_once(bool expired)
     {
-        using var h = await CustodyHarness.Returned(); await PrepareRaidTarget(h); var departure = await h.Depart();
+        using var h = await CustodyHarness.Returned(); await PrepareRaidTarget(h);
+        var request = RaidFixtures.Launch(2, 1, PawnMode.PawnReal, requestId: Guid.NewGuid().ToString("N")); request.Pawns = new() { Pawns = { h.Blob.Clone() } };
+        await h.Depart(request);
         using var host = h.StartHost(); using var scope = host.Services.CreateScope();
         var raids = scope.ServiceProvider.GetRequiredService<RaidService>();
-        var request = RaidFixtures.Launch(2, 1, PawnMode.PawnReal, requestId: departure.ClientRequestId); request.Pawns = departure.Pawns.Clone();
         var raid = await raids.Launch(1, request);
         if (expired) Assert.Equal(1, await raids.ExpireDue(DateTime.UtcNow.AddYears(1)));
         else Assert.True(await raids.Cancel(raid.Id, "test"));
         Assert.False(await raids.Cancel(raid.Id, "replay"));
+        await OrdinarySourceAssertions.Applied(h, scope.ServiceProvider, request, raid.Id);
         var row = await h.Row(); Assert.Equal("ReturnPending", row.LocationKind); Assert.Equal(1, row.PlayerId);
         long parcelId = long.Parse(row.LocationId, System.Globalization.CultureInfo.InvariantCulture);
         var link = await h.Db.OutpostParcelLinks.AsNoTracking().SingleAsync(l => l.ParcelId == parcelId);
@@ -58,10 +60,11 @@ public sealed partial class OutpostCustodyBridgeTests
     [InlineData(PawnOutcome.OutcomeCaptured)]
     public async Task Tagged_raid_report_moves_only_the_index_bound_original(PawnOutcome outcome)
     {
-        using var h = await CustodyHarness.Returned(); await PrepareRaidTarget(h); var departure = await h.Depart();
+        using var h = await CustodyHarness.Returned(); await PrepareRaidTarget(h);
+        var launch = RaidFixtures.Launch(2, 1, PawnMode.PawnReal, requestId: Guid.NewGuid().ToString("N")); launch.Pawns = new() { Pawns = { h.Blob.Clone() } };
+        await h.Depart(launch);
         using var host = h.StartHost(); using var scope = host.Services.CreateScope();
         var raids = scope.ServiceProvider.GetRequiredService<RaidService>();
-        var launch = RaidFixtures.Launch(2, 1, PawnMode.PawnReal, requestId: departure.ClientRequestId); launch.Pawns = departure.Pawns.Clone();
         var raid = await raids.Launch(1, launch); await raids.Announce(2, raid.Id, 1000); await raids.Land(2, raid.Id, 1000);
         var after = h.Blob.Clone(); after.ScribeXmlZstd = ByteString.CopyFromUtf8("changed-in-combat"); after.Registry.NonAuthoritativeMirror = true;
         var report = new RaidReport { RaidId = raid.Id, GameTick = 1100, ClientRequestId = Guid.NewGuid().ToString("N"),
@@ -89,9 +92,10 @@ public sealed partial class OutpostCustodyBridgeTests
     [InlineData("missing")]
     public async Task Tagged_raid_report_rejects_forged_or_stripped_survivor_before_effects(string fault)
     {
-        using var h = await CustodyHarness.Returned(); await PrepareRaidTarget(h); var departure = await h.Depart();
+        using var h = await CustodyHarness.Returned(); await PrepareRaidTarget(h);
+        var launch = RaidFixtures.Launch(2, 1, PawnMode.PawnReal, requestId: Guid.NewGuid().ToString("N")); launch.Pawns = new() { Pawns = { h.Blob.Clone() } };
+        await h.Depart(launch);
         using var host = h.StartHost(); using var scope = host.Services.CreateScope(); var raids = scope.ServiceProvider.GetRequiredService<RaidService>();
-        var launch = RaidFixtures.Launch(2, 1, PawnMode.PawnReal, requestId: departure.ClientRequestId); launch.Pawns = departure.Pawns.Clone();
         var raid = await raids.Launch(1, launch); await raids.Announce(2, raid.Id, 1000); await raids.Land(2, raid.Id, 1000);
         var after = h.Blob.Clone(); after.Registry.NonAuthoritativeMirror = true;
         if (fault == "uuid") after.Registry.PawnCustodyId = Guid.NewGuid().ToString("D");

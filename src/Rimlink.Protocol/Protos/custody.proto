@@ -4,6 +4,35 @@ option csharp_namespace = "Rimlink.Protocol.V1";
 import "economy.proto";
 import "common.proto";
 
+// Exact original RPC identity for ordinary (not worker-admission) captures.
+enum OrdinaryRequestKind {
+  ORDINARY_REQUEST_KIND_UNSPECIFIED = 0;
+  ORDINARY_REQUEST_KIND_TRANSFER_SEND = 1;
+  ORDINARY_REQUEST_KIND_MARKET_POST = 2;
+  ORDINARY_REQUEST_KIND_TRADE_OPEN = 3;
+  ORDINARY_REQUEST_KIND_TRADE_SIDE = 4;
+  ORDINARY_REQUEST_KIND_RAID_LAUNCH = 5;
+  ORDINARY_REQUEST_KIND_RAID_REPORT = 6;
+  ORDINARY_REQUEST_KIND_LIVE_PROPOSE = 7;
+  ORDINARY_REQUEST_KIND_LIVE_REPORT = 8;
+}
+message OrdinaryPawnCapture { PawnBlob pawn = 1; bytes blob_sha256 = 2; }
+message OrdinaryDerivedRoute {
+  OrdinaryRequestKind request_kind = 1;
+  string client_request_id = 2;
+  bytes request_intent_sha256 = 3;
+}
+message OrdinaryOutgoingCapture {
+  uint32 schema_version = 1;
+  OutpostScopeMessage scope = 2;
+  string local_operation_id = 3;
+  OrdinaryRequestKind request_kind = 4;
+  string client_request_id = 5;
+  bytes request_intent_sha256 = 6;
+  repeated OrdinaryPawnCapture pawns = 7;
+  OrdinaryDerivedRoute derived_route = 8;
+}
+
 // Server-authored evidence for a real existing escrow operation, not a client owner-change API.
 enum CustodyTransferKind {
   CUSTODY_TRANSFER_UNSPECIFIED = 0;
@@ -40,4 +69,39 @@ message CustodyTransferEvidence {
   PawnList result_pawns = 14;
   int64 source_authorizer_player_id = 15;
   string source_transition_id = 16;
+  // Actual ingress kind; derived live→raid is distinct from the original capture kind.
+  OrdinaryRequestKind ordinary_request_kind = 17;
+  OrdinaryOutgoingCapture ordinary_capture = 18;
+}
+// A cancelled ordinary operation is a distinct local source, never a fabricated mailbox parcel.
+enum OrdinaryOperationStatus {
+  ORDINARY_OPERATION_STATUS_UNSPECIFIED = 0;
+  ORDINARY_OPERATION_STATUS_UNKNOWN = 1;
+  ORDINARY_OPERATION_STATUS_APPLIED = 2;
+  ORDINARY_OPERATION_STATUS_RETURN_STARTED = 3;
+  ORDINARY_OPERATION_STATUS_RETURN_ACCEPTED = 4;
+  ORDINARY_OPERATION_STATUS_RECOVERY_REQUIRED = 5;
+}
+message OrdinaryCancelRequest {
+  OutpostScopeMessage scope = 1;
+  OrdinaryOutgoingCapture capture = 2;
+  bytes original_request = 3;
+  OutpostSnapshotProof removal_snapshot = 4;
+  OutpostSnapshotProof canonical_snapshot = 5;
+  string return_attempt_id = 6;
+}
+message OrdinaryOperationQuery { OrdinaryCancelRequest operation = 1; }
+message OrdinaryReturnPayload { ItemList items = 1; PawnList pawns = 2; }
+message OrdinaryReturnProof {
+  OrdinaryCancelRequest authorization = 1;
+  string transition_id = 2;
+  bytes transition_digest = 3;
+  string predecessor_id = 4;
+  OrdinaryReturnPayload payload = 5;
+  bytes payload_digest = 6;
+}
+message OrdinaryOperationReply {
+  OrdinaryOperationStatus status = 1;
+  OrdinaryReturnProof return_proof = 2;
+  int64 source_id = 3;
 }

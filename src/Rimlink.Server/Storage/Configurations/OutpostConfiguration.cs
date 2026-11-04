@@ -144,6 +144,18 @@ public sealed class OutpostDeliveryAttemptConfiguration : IEntityTypeConfigurati
     }
 }
 
+public sealed class OutpostOrdinaryReturnConfiguration : IEntityTypeConfiguration<OutpostOrdinaryReturn>
+{
+    public void Configure(EntityTypeBuilder<OutpostOrdinaryReturn> e)
+    {
+        e.ToTable("outpost_ordinary_returns"); e.HasKey(x => x.Id);
+        // No epoch in either identity: an old original key can never be re-used after a restore.
+        e.HasIndex(x => new { x.PlayerId, x.RequestKind, x.RequestId }).IsUnique();
+        e.HasIndex(x => new { x.PlayerId, x.LocalOperationId }).IsUnique();
+        e.HasIndex(x => new { x.PlayerId, x.DerivedRequestKind, x.DerivedRequestId }).IsUnique().HasFilter("DerivedRequestKind <> 0");
+    }
+}
+
 public sealed class OutpostLifecycleOperationConfiguration : IEntityTypeConfiguration<OutpostLifecycleOperation>
 {
     public void Configure(EntityTypeBuilder<OutpostLifecycleOperation> e)

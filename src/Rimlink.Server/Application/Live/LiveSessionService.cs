@@ -86,7 +86,8 @@ public sealed class LiveSessionService(RimlinkDbContext db, RaidService raids, R
             TargetPlayerId = host.Id, PawnMode = PawnMode.PawnReal, Timing = p.TimingFallback, Arrival = p.Arrival, GameTick = p.GameTick, Pawns = p.Pawns };
         var kind = p.Kind == LiveKind.LiveRaid ? CustodyTransferKind.CustodyTransferRaidLaunch : CustodyTransferKind.CustodyTransferLiveLaunch;
         await using var tx = await entry.BeginRoutesAsync([new(guestId, host.Id, p.Pawns, kind, 0, launch.ClientRequestId,
-            p.Kind == LiveKind.LiveRaid ? RequestIdentity.Hash(launch) : RequestIdentity.Hash(p), false, SourcePayload: p.Kind == LiveKind.LiveVisit ? p.ToByteArray() : null)]);
+            p.Kind == LiveKind.LiveRaid ? RequestIdentity.Hash(launch) : RequestIdentity.Hash(p), false, SourcePayload: p.Kind == LiveKind.LiveVisit ? p.ToByteArray() : null,
+            RequestKind: p.Kind == LiveKind.LiveRaid ? OrdinaryRequestKind.RaidLaunch : OrdinaryRequestKind.LivePropose)]);
         await tx.ValidateAsync();
         if (p.Kind == LiveKind.LiveRaid)
         {

@@ -322,12 +322,12 @@ internal sealed class SnapshotHarness : IDisposable
         Scope = new() { WorldInstanceId = "world-1", OwnerPlayerId = 1,
             RestoreBoundary = H.Db.OutpostAuthority.AsNoTracking().Single().RestoreBoundary }
     };
-    public EvidenceSave Snapshot(OutpostSaveMetadata? metadata = null, long tick = 1000, IEnumerable<string>? removed = null)
+    public EvidenceSave Snapshot(OutpostSaveMetadata? metadata = null, long tick = 1000, IEnumerable<string>? removed = null, IEnumerable<string>? returned = null)
     {
         string id = Guid.NewGuid().ToString("N");
         var section = new OutpostRecoveryData { Metadata = metadata ?? Metadata() };
         byte[] packed = RecoveryFixtures.Save(tick, id, generation: section.Metadata.Scope.SaveGeneration,
-            epoch: section.Metadata.Scope.SaveWriteEpoch, removed: removed, outposts: section);
+            epoch: section.Metadata.Scope.SaveWriteEpoch, removed: removed, returned: returned, outposts: section);
         var recovery = SaveRecoveryData.ReadXml(new MemoryStream(SaveFixtures.Decompress(packed)), out byte[] rawHash);
         var version = new SaveVersion { PlayerId = section.Metadata.Scope.OwnerPlayerId, Number = ++number, GameTick = tick, Size = packed.Length,
             Sha256 = SHA256.HashData(packed), RawSha256 = rawHash, SnapshotId = id, RecoveryVersion = 1,
@@ -349,6 +349,7 @@ internal sealed class SnapshotHarness : IDisposable
             "SnapshotAccepted", "snapshot", new(row.HeadId, ByteString.CopyFrom(row.HeadDigest)),
             ByteString.CopyFrom(save.Recovery.Outposts.Metadata.ToByteArray())), async (db, ct) =>
         {
+            await db.SaveVersions.Where(v => v.PlayerId == playerId && v.IsCurrent).ExecuteUpdateAsync(s => s.SetProperty(v => v.IsCurrent, false), ct);
             db.SaveVersions.Add(save.Version);
             await Guard.StageAcceptedHeldAsync(lease, save.Version, save.Recovery.Outposts, ct);
         }, default);
@@ -381,6 +382,7 @@ internal sealed class SnapshotHarness : IDisposable
         {
             var payload = new OutpostParcelPayload { SchemaVersion = 1, Kind = OutpostPayloadKind.Workers,
                 Scope = metadata.Scope.Clone(), PawnCustodyIds = { Custody }, AssignmentIds = { Assignment } };
+            OutpostParcelContents.Bind(payload, null, null, 0);
             byte[] bytes = payload.ToByteArray();
             db.Parcels.Add(new Rimlink.Server.Storage.Entities.Parcel { Id = 10, ToPlayerId = 1, CreatedAt = DateTime.UtcNow });
             db.OutpostParcelLinks.Add(new OutpostParcelLink { ParcelId = 10, PlayerId = 1, WorldId = "world-1",

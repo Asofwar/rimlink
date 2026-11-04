@@ -17,9 +17,9 @@ public sealed partial class OutpostCustodyBridgeTests
     public async Task Tagged_live_entry_acquires_authority_before_live_state_lock(LiveKind kind)
     {
         using var h = await CustodyHarness.Returned(); await PrepareRaidTarget(h); h.Sessions.ByPlayer(2)!.AtHome = true;
-        var departure = await h.Depart(); using var host = h.StartHost(); using var scope = host.Services.CreateScope();
+        var request = LiveFixtures.Propose(2, kind, 1, Guid.NewGuid().ToString("N"), 1100); request.Pawns = new() { Pawns = { h.Blob.Clone() } };
+        await h.Depart(request); using var host = h.StartHost(); using var scope = host.Services.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<LiveSessionService>();
-        var request = LiveFixtures.Propose(2, kind, 1, departure.ClientRequestId, 1100); request.Pawns = departure.Pawns.Clone();
         var authority = await h.Authority.AcquireAsync([1, 2], default);
         var pending = service.Propose(1, request);
         var probing = scope.ServiceProvider.GetRequiredService<LiveStateLock>().Hold();
@@ -35,6 +35,8 @@ public sealed partial class OutpostCustodyBridgeTests
             try { await pending; } finally { (await probing).Dispose(); }
         }
         Assert.Equal("Escrow", (await h.Row()).LocationKind);
+        var applied = await h.Db.LiveSessions.AsNoTracking().SingleAsync(s => s.GuestPlayerId == 1 && s.ClientRequestId == request.ClientRequestId);
+        await OrdinarySourceAssertions.Applied(h, scope.ServiceProvider, request, applied.Id);
         Assert.Equal(OutpostStartupState.Ready, (await h.Authority.OpenAsync(default)).State);
     }
 
@@ -46,9 +48,9 @@ public sealed partial class OutpostCustodyBridgeTests
     public async Task Tagged_live_visit_terminal_paths_return_one_receipt_owned_original(string ending)
     {
         using var h = await CustodyHarness.Returned(); await PrepareRaidTarget(h); h.Sessions.ByPlayer(2)!.AtHome = true;
-        var departure = await h.Depart(); using var host = h.StartHost(); using var scope = host.Services.CreateScope();
+        var request = LiveFixtures.Propose(2, LiveKind.LiveVisit, 1, Guid.NewGuid().ToString("N"), 1100); request.Pawns = new() { Pawns = { h.Blob.Clone() } };
+        await h.Depart(request); using var host = h.StartHost(); using var scope = host.Services.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<LiveSessionService>();
-        var request = LiveFixtures.Propose(2, LiveKind.LiveVisit, 1, departure.ClientRequestId, 1100); request.Pawns = departure.Pawns.Clone();
         var session = await service.Propose(1, request);
         switch (ending)
         {
@@ -61,6 +63,7 @@ public sealed partial class OutpostCustodyBridgeTests
         var parcelId = long.Parse(row.LocationId, System.Globalization.CultureInfo.InvariantCulture);
         Assert.Equal(SnapshotHarness.Custody, OutpostParcelPayload.Parser.ParseFrom((await h.Db.OutpostParcelLinks.AsNoTracking().SingleAsync(p => p.ParcelId == parcelId)).Payload).PawnCustodyIds.Single());
         await service.ExpireDue(DateTime.UtcNow.AddDays(3)); await service.CloseEnding(session.Id);
+        await OrdinarySourceAssertions.Applied(h, scope.ServiceProvider, request, session.Id);
         Assert.Single(await h.Db.OutpostParcelLinks.AsNoTracking().Where(p => p.ParcelId == parcelId).ToListAsync());
         Assert.Equal(OutpostStartupState.Ready, (await h.Authority.OpenAsync(default)).State);
     }
@@ -69,9 +72,9 @@ public sealed partial class OutpostCustodyBridgeTests
     public async Task Tagged_live_visit_report_keeps_combat_state_but_never_promotes_the_host_mirror()
     {
         using var h = await CustodyHarness.Returned(); await PrepareRaidTarget(h); h.Sessions.ByPlayer(2)!.AtHome = true;
-        var departure = await h.Depart(); using var host = h.StartHost(); using var scope = host.Services.CreateScope();
+        var request = LiveFixtures.Propose(2, LiveKind.LiveVisit, 1, Guid.NewGuid().ToString("N"), 1100); request.Pawns = new() { Pawns = { h.Blob.Clone() } };
+        await h.Depart(request); using var host = h.StartHost(); using var scope = host.Services.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<LiveSessionService>();
-        var request = LiveFixtures.Propose(2, LiveKind.LiveVisit, 1, departure.ClientRequestId, 1100); request.Pawns = departure.Pawns.Clone();
         var session = await service.Propose(1, request); await service.Respond(2, session.Id, true);
         var after = h.Blob.Clone(); after.Registry.NonAuthoritativeMirror = true; after.ScribeXmlZstd = ByteString.CopyFromUtf8("changed-in-visit");
         var report = new RaidReport { LiveSessionId = session.Id, ClientRequestId = Guid.NewGuid().ToString("N"), GameTick = 1200,
@@ -90,9 +93,9 @@ public sealed partial class OutpostCustodyBridgeTests
     public async Task Live_visit_dead_and_captured_outcomes_keep_lineage_until_exact_delivery_receipt(PawnOutcome outcome)
     {
         using var h = await CustodyHarness.Returned(); await PrepareRaidTarget(h); h.Sessions.ByPlayer(2)!.AtHome = true;
-        var departure = await h.Depart(); using var host = h.StartHost(); using var scope = host.Services.CreateScope();
+        var request = LiveFixtures.Propose(2, LiveKind.LiveVisit, 1, Guid.NewGuid().ToString("N"), 1100); request.Pawns = new() { Pawns = { h.Blob.Clone() } };
+        await h.Depart(request); using var host = h.StartHost(); using var scope = host.Services.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<LiveSessionService>();
-        var request = LiveFixtures.Propose(2, LiveKind.LiveVisit, 1, departure.ClientRequestId, 1100); request.Pawns = departure.Pawns.Clone();
         var session = await service.Propose(1, request); await service.Respond(2, session.Id, true);
         var after = h.Blob.Clone(); after.Registry.NonAuthoritativeMirror = true; after.ScribeXmlZstd = ByteString.CopyFromUtf8("captured-visitor");
         await service.ReportVisit(2, new RaidReport { LiveSessionId = session.Id, ClientRequestId = Guid.NewGuid().ToString("N"), GameTick = 1200,
@@ -132,9 +135,9 @@ public sealed partial class OutpostCustodyBridgeTests
     public async Task Live_visit_report_rejects_forged_or_stripped_host_mirror_before_effects(string fault)
     {
         using var h = await CustodyHarness.Returned(); await PrepareRaidTarget(h); h.Sessions.ByPlayer(2)!.AtHome = true;
-        var departure = await h.Depart(); using var host = h.StartHost(); using var scope = host.Services.CreateScope();
+        var request = LiveFixtures.Propose(2, LiveKind.LiveVisit, 1, Guid.NewGuid().ToString("N"), 1100); request.Pawns = new() { Pawns = { h.Blob.Clone() } };
+        await h.Depart(request); using var host = h.StartHost(); using var scope = host.Services.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<LiveSessionService>();
-        var request = LiveFixtures.Propose(2, LiveKind.LiveVisit, 1, departure.ClientRequestId, 1100); request.Pawns = departure.Pawns.Clone();
         var session = await service.Propose(1, request); await service.Respond(2, session.Id, true);
         var after = h.Blob.Clone(); after.Registry.NonAuthoritativeMirror = true;
         if (fault == "uuid") after.Registry.PawnCustodyId = Guid.NewGuid().ToString("D");
@@ -153,9 +156,9 @@ public sealed partial class OutpostCustodyBridgeTests
     public async Task Tagged_live_raid_returns_use_the_parent_commit_without_nested_transaction(bool afterStart)
     {
         using var h = await CustodyHarness.Returned(); await PrepareRaidTarget(h); h.Sessions.ByPlayer(2)!.AtHome = true;
-        var departure = await h.Depart(); using var host = h.StartHost(); using var scope = host.Services.CreateScope();
+        var request = LiveFixtures.Propose(2, LiveKind.LiveRaid, 1, Guid.NewGuid().ToString("N"), 1100); request.Pawns = new() { Pawns = { h.Blob.Clone() } };
+        await h.Depart(request); using var host = h.StartHost(); using var scope = host.Services.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<LiveSessionService>();
-        var request = LiveFixtures.Propose(2, LiveKind.LiveRaid, 1, departure.ClientRequestId, 1100); request.Pawns = departure.Pawns.Clone();
         var session = await service.Propose(1, request);
         if (afterStart) { await service.Respond(2, session.Id, true); await service.MarkEnding(session.Id, LiveEndReason.EndAdmin); await service.CloseEnding(session.Id); }
         else await service.Cancel(1, session.Id);
@@ -172,9 +175,9 @@ public sealed partial class OutpostCustodyBridgeTests
     public async Task Live_launch_and_return_roll_back_the_real_rows_with_their_custody_head(bool returning)
     {
         using var h = await CustodyHarness.Returned(); await PrepareRaidTarget(h); h.Sessions.ByPlayer(2)!.AtHome = true;
-        var departure = await h.Depart(); using var host = h.StartHost(); using var scope = host.Services.CreateScope();
+        var request = LiveFixtures.Propose(2, LiveKind.LiveRaid, 1, Guid.NewGuid().ToString("N"), 1100); request.Pawns = new() { Pawns = { h.Blob.Clone() } };
+        await h.Depart(request); using var host = h.StartHost(); using var scope = host.Services.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<LiveSessionService>();
-        var request = LiveFixtures.Propose(2, LiveKind.LiveRaid, 1, departure.ClientRequestId, 1100); request.Pawns = departure.Pawns.Clone();
         var session = returning ? await service.Propose(1, request) : null;
         var before = await h.Db.OutpostAuthority.AsNoTracking().SingleAsync();
         long parcelsBefore = await h.Db.Parcels.CountAsync();
@@ -201,9 +204,9 @@ public sealed partial class OutpostCustodyBridgeTests
     public async Task Lifecycle_cleanup_borrows_the_explicit_outer_lease_instead_of_waiting_for_itself(bool raid)
     {
         using var h = await CustodyHarness.Returned(); await PrepareRaidTarget(h); h.Sessions.ByPlayer(2)!.AtHome = true;
-        var departure = await h.Depart(); using var host = h.StartHost(); using var scope = host.Services.CreateScope();
+        var request = LiveFixtures.Propose(2, raid ? LiveKind.LiveRaid : LiveKind.LiveVisit, 1, Guid.NewGuid().ToString("N"), 1100); request.Pawns = new() { Pawns = { h.Blob.Clone() } };
+        await h.Depart(request); using var host = h.StartHost(); using var scope = host.Services.CreateScope();
         var live = scope.ServiceProvider.GetRequiredService<LiveSessionService>();
-        var request = LiveFixtures.Propose(2, raid ? LiveKind.LiveRaid : LiveKind.LiveVisit, 1, departure.ClientRequestId, 1100); request.Pawns = departure.Pawns.Clone();
         await live.Propose(1, request);
         var scopedAuthority = scope.ServiceProvider.GetRequiredService<Rimlink.Server.Application.Outposts.OutpostAuthority>();
         var held = await scopedAuthority.AcquireAsync([1, 2], default);

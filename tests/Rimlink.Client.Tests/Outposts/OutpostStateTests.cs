@@ -23,6 +23,17 @@ public sealed partial class OutpostStateTests
     }
 
     [Fact]
+    public void Complete_snapshot_keeps_pinned_manifest_and_is_detached_after_scope_reset()
+    {
+        var state = new OutpostState(); var source = Snapshot(); source.ManifestId = "manifest-1";
+        state.Load(source); var view = state.Snapshot!;
+        view.Scope.RestoreBoundary = "caller"; view.ManifestId = "wrong"; view.Outposts.Clear();
+        Assert.Equal("boundary-1", state.Snapshot!.Scope.RestoreBoundary);
+        Assert.Equal("manifest-1", state.Snapshot.ManifestId); Assert.Single(state.Snapshot.Outposts);
+        state.Reset(); Assert.Null(state.Snapshot);
+    }
+
+    [Fact]
     public void Older_revision_cannot_overwrite_newer_preview()
     {
         var state = new OutpostState(); state.Load(Snapshot()); var old = Snapshot(11); old.Outposts[0].Stock = 10;

@@ -58,6 +58,15 @@ public sealed record OutpostRecoveryData
         ValidateScope(Metadata.Scope);
         if (Metadata.Registry.Count > MaxEntries || Metadata.Receipts.Count > MaxEntries || Metadata.Frontier.Count > MaxEntries) throw Invalid();
         ValidateAdmissions();
+        if (Metadata.OrdinaryOutgoing.Count > MaxEntries) throw Invalid();
+        var operations = new HashSet<string>(StringComparer.Ordinal);
+        var ordinaryRequests = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var capture in Metadata.OrdinaryOutgoing)
+        {
+            OrdinaryCapture.Validate(capture);
+            if (!capture.Scope.Equals(Metadata.Scope) || !operations.Add(capture.LocalOperationId)
+                || !ordinaryRequests.Add(((int)capture.RequestKind) + ":" + capture.ClientRequestId)) throw Invalid();
+        }
         var custody = new HashSet<string>(StringComparer.Ordinal);
         var liveReferences = new HashSet<string>(StringComparer.Ordinal);
         foreach (var entry in Metadata.Registry)
@@ -80,7 +89,11 @@ public sealed record OutpostRecoveryData
                 || receipt.AssignmentIds.Any(id => !Uuid(id)) || receipt.ParcelIds.Any(id => id <= 0)
                 || receipt.PawnCustodyIds.Distinct(StringComparer.Ordinal).Count() != receipt.PawnCustodyIds.Count
                 || receipt.AssignmentIds.Distinct(StringComparer.Ordinal).Count() != receipt.AssignmentIds.Count
-                || receipt.ParcelIds.Distinct().Count() != receipt.ParcelIds.Count) throw Invalid();
+                || receipt.ParcelIds.Distinct().Count() != receipt.ParcelIds.Count
+                || !OptionalUuid(receipt.OrdinaryReturnAttemptId)
+                || (receipt.OrdinaryReturnAttemptId.Length == 0) != (receipt.OrdinaryLocalOperationId.Length == 0)
+                || receipt.OrdinaryLocalOperationId.Length > 0 && (!Guid.TryParseExact(receipt.OrdinaryLocalOperationId, "N", out var local)
+                    || local.ToString("N") != receipt.OrdinaryLocalOperationId)) throw Invalid();
             ValidateScope(receipt.Snapshot.Scope);
         }
         var frontier = new HashSet<string>(StringComparer.Ordinal);

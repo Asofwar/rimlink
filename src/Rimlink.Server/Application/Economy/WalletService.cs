@@ -76,6 +76,42 @@ public sealed class WalletService(RimlinkDbContext db, EventBus events)
         return entry;
     }
 
+    /// <summary>All ordinary delivery effects join the exact receipt transaction; the caller publishes events after the anchor commits.</summary>
+    internal static async Task<IReadOnlyList<WalletChanged>> StageReceiptDeliveryHeldAsync(RimlinkDbContext db, Parcel parcel,
+        long gameTick, DateTime at, Hosting.EconomyOptions options, CancellationToken ct)
+    {
+        if (db.Database.CurrentTransaction is null) throw new InvalidOperationException("receipt delivery requires an owned transaction");
+        var changes = new List<WalletChanged>();
+        async Task<Wallet> ReadWallet(long playerId)
+        {
+            var row = db.Wallets.Local.FirstOrDefault(w => w.PlayerId == playerId)
+                ?? await db.Wallets.SingleOrDefaultAsync(w => w.PlayerId == playerId, ct);
+            if (row is null) { row = new Wallet { PlayerId = playerId }; db.Wallets.Add(row); }
+            else if (db.Entry(row).State == EntityState.Unchanged) await db.Entry(row).ReloadAsync(ct);
+            return row;
+        }
+        void Write(Wallet row, long delta, string kind)
+        {
+            row.Balance = checked(row.Balance + delta); row.UpdatedAt = at;
+            db.WalletEntries.Add(new WalletEntry { PlayerId = row.PlayerId, Delta = delta, Kind = kind, RefId = parcel.Id, At = at });
+            if (row.PlayerId != BankPlayerId) changes.Add(new WalletChanged { Balance = row.Balance, Delta = delta, Kind = kind, RefId = parcel.Id });
+        }
+        var recipient = await ReadWallet(parcel.ToPlayerId);
+        if (parcel.Silver > 0 && parcel.Kind != ParcelKindDb.Withdraw) Write(recipient, parcel.Silver, "receive");
+        long storage = StorageFee.For(StorageFee.ParcelBase(parcel), parcel.CreatedAt, at, options.StorageFeePercentPerDay, options.StorageFreeDays);
+        long charged = Math.Min(storage, Math.Max(0, recipient.Balance));
+        if (charged > 0)
+        {
+            long reserved = await db.OutpostOperations.AsNoTracking().Where(o => o.PlayerId == parcel.ToPlayerId && o.ReservedSilver > 0).SumAsync(o => o.ReservedSilver, ct);
+            if (reserved > 0 && (System.Numerics.BigInteger)recipient.Balance - charged < reserved)
+                throw RpcErrors.Failed(ErrorCode.WalletInsufficient, RefusalKeys.EconomyWalletInsufficient,
+                    "storage fee would consume reserved outpost silver", recipient.Balance - reserved, charged);
+            Write(recipient, -charged, "storage"); Write(await ReadWallet(BankPlayerId), charged, "storage");
+        }
+        db.Transfers.Add(new Transfer { FromPlayerId = parcel.ToPlayerId, Kind = "deliver", GameTick = gameTick, Summary = $"parcel {parcel.Id}", At = at });
+        return changes;
+    }
+
     private async Task<WalletEntry> Write(Wallet wallet, long playerId, long delta, string kind, long refId)
     {
         wallet.Balance += delta;

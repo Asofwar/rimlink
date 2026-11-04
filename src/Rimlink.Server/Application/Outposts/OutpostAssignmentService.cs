@@ -176,9 +176,12 @@ public sealed class OutpostAssignmentService(RimlinkDbContext db, OutpostAuthori
                 var parcel = new Parcel { ToPlayerId = playerId, Kind = ParcelKindDb.LotReturn, Pawns = pawns.ToByteArray(),
                     SizeBytes = pawns.CalculateSize(), CreatedAt = now.Utc, ClientRequestId = request.ClientRequestId, RequestKind = "outpost-return" };
                 db.Parcels.Add(parcel); await db.SaveChangesAsync(token); parcelId = parcel.Id; parcelIds.Add(parcelId);
+                var manifest = await db.OutpostManifests.AsNoTracking().SingleAsync(m => m.Id == intent.ManifestId, token);
                 var payload = new OutpostParcelPayload { SchemaVersion = 1, Kind = OutpostPayloadKind.Workers, Scope = intent.Scope.Clone(),
-                    OutpostId = intent.OutpostId, BatchOperationId = id, ManifestId = intent.ManifestId, ManifestDigest = intent.ManifestDigest };
+                    OutpostId = intent.OutpostId, BatchOperationId = id, ManifestId = intent.ManifestId, ManifestDigest = intent.ManifestDigest,
+                    ValuationRevision = manifest.Revision, ChildCount = 1 };
                 payload.PawnCustodyIds.Add(intent.Workers.Select(w => w.PawnCustodyId)); payload.AssignmentIds.Add(intent.Workers.Select(w => w.AssignmentId));
+                OutpostParcelContents.Bind(payload, null, pawns, parcel.Silver);
                 byte[] bytes = payload.ToByteArray();
                 db.OutpostParcelLinks.Add(new() { ParcelId = parcelId, WorldId = operation.WorldId, PlayerId = playerId,
                     SaveGeneration = operation.SaveGeneration, RestoreBoundary = operation.RestoreBoundary, BatchId = id,

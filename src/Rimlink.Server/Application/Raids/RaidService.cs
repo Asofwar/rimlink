@@ -39,7 +39,7 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
         if (validator.Validate(null, r.Pawns) is { } reason) throw RpcErrors.Failed(reason.Code, reason.Key, reason.Message, reason.Args);
 
         await using var tx = parent?.Borrow() ?? await custody.BeginRoutesAsync([new(attackerId, r.TargetPlayerId, r.Pawns, CustodyTransferKind.CustodyTransferRaidLaunch,
-            0, r.ClientRequestId, RequestIdentity.Hash(r), false, r.PawnMode == PawnMode.PawnSnapshot)]);
+            0, r.ClientRequestId, RequestIdentity.Hash(r), false, r.PawnMode == PawnMode.PawnSnapshot, RequestKind: OrdinaryRequestKind.RaidLaunch)]);
         if (!string.IsNullOrEmpty(r.ClientRequestId))
         {
             var existing = await db.Raids.AsNoTracking().FirstOrDefaultAsync(x => x.AttackerPlayerId == attackerId && x.ClientRequestId == r.ClientRequestId);

@@ -161,6 +161,7 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
                         await StageVersion(ct);
                         await outpostGuard.StageAcceptedHeldAsync(outpostLease, version, recovery.Outposts, ct);
                     }, CancellationToken.None);
+                    outpostGuard.FlushReceiptEvents(events);
                 }
                 else
                 {

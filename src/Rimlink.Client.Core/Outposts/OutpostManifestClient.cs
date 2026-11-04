@@ -42,14 +42,14 @@ public sealed class OutpostManifestClient(RimlinkConnection connection)
         var login = Authentication;
         return Call(login, () => connection.World.ConfirmOutpostManifestAsync(request, deadline: Until, cancellationToken: ct).ResponseAsync);
     }
-    public async Task<OutpostManifestDocument> Read(OutpostStateReply state, CancellationToken ct)
+    public async Task<OutpostManifestDocument> Read(OutpostStateReply state, CancellationToken ct, long parcelId = 0)
     {
         state = state.Clone(); var login = Authentication;
         if (state.ManifestDigest.Length != 32 || !new OutpostClient(connection).Matches(state.Scope, login)) throw new InvalidDataException("manifest preview scope");
         string expected = Convert.ToHexStringLower(state.ManifestDigest.Span); using var bytes = new MemoryStream(); int total = 0;
         do
         {
-            var request = new OutpostManifestReadRequest { Scope = state.Scope.Clone(), ManifestId = state.ManifestId, ExpectedDigest = expected, Offset = (int)bytes.Length };
+            var request = new OutpostManifestReadRequest { Scope = state.Scope.Clone(), ManifestId = state.ManifestId, ExpectedDigest = expected, Offset = (int)bytes.Length, ParcelId = parcelId };
             var page = await Call(login, () => connection.OutpostsApi.ManifestAsync(request, deadline: Until, cancellationToken: ct).ResponseAsync);
             if (page.TotalBytes is < 1 or > MaxDocumentBytes || total != 0 && total != page.TotalBytes || page.Digest != expected
                 || page.Data.Length is < 1 or > ChunkBytes || bytes.Length + page.Data.Length > page.TotalBytes)

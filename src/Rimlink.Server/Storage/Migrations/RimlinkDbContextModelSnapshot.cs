@@ -1373,6 +1373,80 @@ namespace Rimlink.Server.Storage.Migrations
                     b.ToTable("outpost_operations", (string)null);
                 });
 
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.OutpostOrdinaryReturn", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AcceptedSnapshotId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DerivedRequestId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("DerivedRequestKind")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<byte[]>("Intent")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("LocalOperationId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("Payload")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<byte[]>("PayloadDigest")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<long>("PlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RequestId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("RequestKind")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RestoreBoundary")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("SaveGeneration")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("SaveWriteEpoch")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("WorldId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlayerId", "LocalOperationId")
+                        .IsUnique();
+
+                    b.HasIndex("PlayerId", "DerivedRequestKind", "DerivedRequestId")
+                        .IsUnique()
+                        .HasFilter("DerivedRequestKind <> 0");
+
+                    b.HasIndex("PlayerId", "RequestKind", "RequestId")
+                        .IsUnique();
+
+                    b.ToTable("outpost_ordinary_returns", (string)null);
+                });
+
             modelBuilder.Entity("Rimlink.Server.Storage.Entities.OutpostParcelLink", b =>
                 {
                     b.Property<long>("ParcelId")

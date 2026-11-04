@@ -51,8 +51,15 @@ public sealed partial class PawnCustodyBridge(RimlinkDbContext db, OutpostAuthor
         bool mirror = evidence.NonAuthoritativeMirror;
         if (mirror && evidence.Kind is not (TransferKind.CustodyTransferRaidLaunch or TransferKind.CustodyTransferLiveLaunch))
             throw Invalid("custody-mirror-route");
-        if (!mirror && (!Guid.TryParseExact(evidence.ClientRequestId, "N", out _) || !recovery.Removed.Contains(evidence.ClientRequestId)))
-            throw Invalid("custody-removal-receipt");
+        OrdinaryOutgoingCapture? ordinary = null;
+        if (!mirror && pawns.Pawns.Any(p => p.Registry is not null))
+        {
+            if (!OrdinaryRouteMatches(evidence.Kind, evidence.OrdinaryRequestKind)) throw Invalid("custody-ordinary-route-mismatch");
+            ordinary = RequireOrdinaryCapture(recovery, evidence.OrdinaryRequestKind, evidence.ClientRequestId, evidence.SourceRequestIntent);
+            if (evidence.OrdinaryCapture is null || !ordinary.Equals(evidence.OrdinaryCapture)
+                || !ordinary.Scope.Equals(scope) || !ordinary.Pawns.Select(p => p.Pawn).SequenceEqual(pawns.Pawns.Where(p => p.Registry is not null)))
+                throw Invalid("custody-ordinary-capture-mismatch");
+        }
         var captures = recovery.Outposts.Metadata.WorkerCaptures;
         var ids = new HashSet<string>(StringComparer.Ordinal);
         foreach (var pawn in pawns.Pawns)
@@ -60,7 +67,8 @@ public sealed partial class PawnCustodyBridge(RimlinkDbContext db, OutpostAuthor
             if (pawn.Registry is not { } registry)
             {
                 byte[] identity = BlobIdentity(pawn);
-                if (captures.Any(c => BlobIdentity(c.Pawn).AsSpan().SequenceEqual(identity)))
+                if (captures.Any(c => BlobIdentity(c.Pawn).AsSpan().SequenceEqual(identity))
+                    || recovery.Outposts.Metadata.OrdinaryOutgoing.SelectMany(c => c.Pawns).Any(c => BlobIdentity(c.Pawn).AsSpan().SequenceEqual(identity)))
                     throw Invalid("custody-known-envelope-missing");
                 continue;
             }
@@ -70,14 +78,15 @@ public sealed partial class PawnCustodyBridge(RimlinkDbContext db, OutpostAuthor
             var custody = await db.PawnCustody.AsNoTracking().SingleOrDefaultAsync(p => p.Id == registry.PawnCustodyId, ct);
             var recorded = recovery.Outposts.Metadata.Registry.SingleOrDefault(e => e.PawnCustodyId == registry.PawnCustodyId && !e.NonAuthoritativeMirror);
             var capture = captures.SingleOrDefault(c => c.PawnCustodyId == registry.PawnCustodyId);
-            var expected = capture?.Pawn.Clone();
-            if (expected?.Registry is not null) expected.Registry.NonAuthoritativeMirror = mirror;
+            var expected = mirror ? capture?.Pawn.Clone() : ordinary?.Pawns.SingleOrDefault(c => c.Pawn.Registry.PawnCustodyId == registry.PawnCustodyId)?.Pawn;
+            if (mirror && expected?.Registry is not null) expected.Registry.NonAuthoritativeMirror = true;
             if (custody is null || recorded is null || expected is null || !expected.Equals(pawn)
                 || custody.PlayerId != actorId || custody.WorldId != scope.WorldInstanceId || custody.SaveGeneration != scope.SaveGeneration
                 || custody.RestoreBoundary != scope.RestoreBoundary || !registry.Scope.Equals(recorded.Scope)
                 || registry.AssignmentId != (custody.AssignmentId ?? "") || custody.LocationKind != "Home"
                 || recorded.Tombstone == mirror || custody.Tombstone == mirror
-                || registry.PawnReferenceToken != custody.LocationId)
+                || registry.PawnReferenceToken != custody.LocationId
+                || recorded.PawnReferenceToken != registry.PawnReferenceToken || recorded.AssignmentId != registry.AssignmentId)
                 throw Invalid("custody-capture-or-location-mismatch");
         }
         if (ids.Count > 0 && evidence.RecipientPlayerId > 0 && evidence.RecipientPlayerId != actorId)

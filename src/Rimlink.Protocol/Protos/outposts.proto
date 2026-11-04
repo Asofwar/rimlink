@@ -6,6 +6,7 @@ option csharp_namespace = "Rimlink.Protocol.V1";
 import "common.proto";
 import "economy.proto";
 import "world.proto";
+import "custody.proto";
 
 // Definitions alone do not register a handler or advertise feature readiness.
 service Outposts {
@@ -17,6 +18,8 @@ service Outposts {
   rpc Mutate (OutpostMutationRequest) returns (OutpostOperationReply);
   rpc Operation (OutpostOperationQuery) returns (OutpostOperationReply);
   rpc BeginDelivery (OutpostDeliveryRequest) returns (OutpostDeliveryReply);
+  rpc OrdinaryOperation (OrdinaryOperationQuery) returns (OrdinaryOperationReply);
+  rpc BeginOrdinaryReturn (OrdinaryCancelRequest) returns (OrdinaryOperationReply);
 }
 
 enum OutpostProfile {
@@ -150,7 +153,7 @@ message OutpostOperationReply {
   OutpostPrepareRequest prepared_intent = 10;
   string predecessor_id = 11; // Original transition predecessor for the exact snapshot receipt.
 }
-message OutpostManifestReadRequest { OutpostScopeMessage scope = 1; string manifest_id = 2; string expected_digest = 3; int32 offset = 4; }
+message OutpostManifestReadRequest { OutpostScopeMessage scope = 1; string manifest_id = 2; string expected_digest = 3; int32 offset = 4; int64 parcel_id = 5; }
 message OutpostStateQuery { OutpostScopeMessage scope = 1; }
 message OutpostStateReply {
   OutpostScopeMessage scope = 1;
@@ -172,6 +175,18 @@ message OutpostSummary {
   bool archived = 9;
   bool recovery_required = 10;
   bool has_fraction = 11;
+  repeated OutpostWorkerSummary workers = 12;
+  double units_per_hour = 13;
+  string lifecycle = 14;
+  int32 capacity = 15;
+  string manifest_id = 16;
+  bytes manifest_digest = 17;
+}
+message OutpostWorkerSummary {
+  string pawn_custody_id = 1;
+  string assignment_id = 2;
+  string label = 3;
+  double units_per_hour = 4;
 }
 message OutpostDeliveryRequest {
   OutpostScopeMessage scope = 1;
@@ -185,6 +200,9 @@ message OutpostDeliveryReply {
   OutpostDeliveryRequest authorization = 2;
   int64 authoritative_revision = 3;
   bool ack_only = 4; // Receipt already in canonical snapshot: never spawn again.
+  string transition_id = 5;
+  bytes transition_digest = 6;
+  string predecessor_id = 7;
 }
 
 // Versioned exact-save metadata; absence is only legacy when there is no protected history.
@@ -196,6 +214,7 @@ message OutpostSaveMetadata {
   repeated OutpostFrontierEntry frontier = 5;
   repeated OutpostWorkerCapture worker_captures = 6;
   repeated OutpostCaravanAttestation caravans = 7;
+  repeated OrdinaryOutgoingCapture ordinary_outgoing = 8;
 }
 message OutpostTransitionReceipt {
   string transition_id = 1;
@@ -210,6 +229,8 @@ message OutpostTransitionReceipt {
   string delivery_attempt_id = 10;
   OutpostCancelKind cancellation_kind = 11;
   string no_removal_branch_id = 12;
+  string ordinary_return_attempt_id = 13;
+  string ordinary_local_operation_id = 14;
 }
 message OutpostFrontierEntry {
   string transition_id = 1;

@@ -38,16 +38,19 @@ public static class SaveSync
     /// <summary>Main-thread file capture; durable journal callback runs before any bytes can be uploaded.</summary>
     public static async Task<UploadResult> SaveExactAsync(Action<SaveSnapshot>? journal = null)
     {
-        var waiting = await MainThread.Get(() =>
-        {
-            if (!HasColonyToSave || IsSaving || writesBlocked || beforeExactUpload is not null)
-                throw new InvalidOperationException("an exact own snapshot cannot be written now");
-            IsSaving = true; upload = null; beforeExactUpload = journal;
-            try { GameDataSaveLoader.SaveGame(SaveFileName); }
-            finally { beforeExactUpload = null; IsSaving = false; }
-            return upload ?? Task.FromResult(new UploadResult(null, null, new IOException("the exact snapshot was not written")));
-        });
+        var waiting = await MainThread.Get(() => SaveExactNow(journal));
         return await waiting;
+    }
+
+    /// <summary>Main thread only: capture immediately, without an await gap after a protected departure.</summary>
+    public static Task<UploadResult> SaveExactNow(Action<SaveSnapshot>? journal = null)
+    {
+        if (!HasColonyToSave || IsSaving || writesBlocked || beforeExactUpload is not null)
+            throw new InvalidOperationException("an exact own snapshot cannot be written now");
+        IsSaving = true; upload = null; beforeExactUpload = journal;
+        try { GameDataSaveLoader.SaveGame(SaveFileName); }
+        finally { beforeExactUpload = null; IsSaving = false; }
+        return upload ?? Task.FromResult(new UploadResult(null, null, new IOException("the exact snapshot was not written")));
     }
     private static SaveUploadQueue uploads = new();
     private static CancellationTokenSource uploadLifetime = new();

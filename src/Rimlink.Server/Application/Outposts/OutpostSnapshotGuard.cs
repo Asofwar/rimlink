@@ -13,8 +13,17 @@ namespace Rimlink.Server.Application.Outposts;
 public sealed record SnapshotDecision(bool Protected, bool Replay = false);
 
 /// <summary>Exact immutable evidence only. Callers own A → O → S (startup owns A → S).</summary>
-public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles files)
+public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles files,
+    Microsoft.Extensions.Options.IOptions<Hosting.EconomyOptions>? economyOptions = null)
 {
+    private readonly List<(long PlayerId, WalletChanged Change)> receiptEvents = [];
+    private int acceptedDeliveries;
+    internal void FlushReceiptEvents(Events.EventBus events)
+    {
+        foreach (var (playerId, change) in receiptEvents) events.SendTo(playerId, new ServerEvent { WalletChanged = change });
+        for (int n = 0; n < acceptedDeliveries; n++) Economy.EconomyMetrics.Trade("deliver");
+        receiptEvents.Clear(); acceptedDeliveries = 0;
+    }
     internal static readonly string[] SnapshotIndependentKinds = ["Initialize", "Production", "StageManifest", "ConfirmManifest"];
     public const int MaxSnapshots = 10_000; // No history GC: refuse new evidence before any pawn can be removed.
     public const long MaxRetainedMetadataBytes = 256L * 1024 * 1024;
@@ -64,6 +73,7 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
     public async Task StageAcceptedHeldAsync(OutpostLease lease, SaveVersion snapshot, OutpostRecoveryData recovery, CancellationToken ct)
     {
         RequireOwner(lease, snapshot.PlayerId);
+        receiptEvents.Clear(); acceptedDeliveries = 0;
         if (db.Database.CurrentTransaction is null) throw new InvalidOperationException("snapshot-acceptance-transaction-required");
         recovery.Validate();
         if (!recovery.Present || snapshot.RawSha256?.Length != 32 || snapshot.SnapshotId is null) throw Unavailable("snapshot-acceptance-invalid");
@@ -95,6 +105,7 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
         }
         await StageAdmissionsAsync(recovery.Metadata, transition, ct);
         await StageDeliveriesAsync(lease, snapshot, recovery.Metadata, transition, ct);
+        await StageOrdinaryReturnsAsync(lease, snapshot, recovery.Metadata, transition, ct);
     }
 
     private async Task StageDeliveriesAsync(OutpostLease lease, SaveVersion snapshot, OutpostSaveMetadata metadata, string transitionId, CancellationToken ct)
@@ -108,6 +119,9 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
             attempt.Active = false; attempt.State = "Accepted"; link.AcceptedSnapshotId = snapshot.SnapshotId;
             parcel.DeliveredAt = snapshot.CreatedAt; parcel.DeliveredTick = snapshot.GameTick;
             parcel.DeliveryRecoveryVersion = snapshot.RecoveryVersion; parcel.DeliveredGeneration = snapshot.SaveGeneration;
+            var changes = await Economy.WalletService.StageReceiptDeliveryHeldAsync(db, parcel, snapshot.GameTick, snapshot.CreatedAt,
+                economyOptions?.Value ?? new Hosting.EconomyOptions(), ct);
+            receiptEvents.AddRange(changes.Select(change => (metadata.Scope.OwnerPlayerId, change))); acceptedDeliveries++;
             foreach (string id in receipt.PawnCustodyIds)
             {
                 var envelope = metadata.Registry.Single(e => e.PawnCustodyId == id && !e.NonAuthoritativeMirror);
@@ -208,6 +222,14 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
                 || parcel.PayloadDigest.Length != 32 || !SHA256.HashData(parcel.Payload).AsSpan().SequenceEqual(parcel.PayloadDigest)
                 || !await db.Parcels.AnyAsync(p => p.Id == parcel.ParcelId && p.ToPlayerId == parcel.PlayerId, ct))
                 throw Unavailable("required-parcel-evidence-unavailable");
+            try
+            {
+                var content = await db.Parcels.AsNoTracking().SingleAsync(p => p.Id == parcel.ParcelId, ct);
+                if (!OutpostParcelContents.Match(OutpostParcelPayload.Parser.ParseFrom(parcel.Payload),
+                        ItemList.Parser.ParseFrom(content.Items), PawnList.Parser.ParseFrom(content.Pawns), content.Silver))
+                    throw Unavailable("parcel-content-digest-mismatch");
+            }
+            catch (InvalidProtocolBufferException) { throw Unavailable("parcel-content-bytes-invalid"); }
         }
         foreach (var attempt in await db.OutpostDeliveryAttempts.AsNoTracking().ToListAsync(ct))
         {
@@ -223,6 +245,7 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
         await ValidateAdmissionStoredAsync(transitions, links, ct);
         await ValidateMutationsStoredAsync(transitions, links, ct);
         await PawnCustodyBridge.ValidateStoredEvidenceAsync(db, transitions.Values, ct);
+        await ValidateOrdinaryReturnsStoredAsync(transitions, links, ct);
         // Lifecycle/restore codecs are introduced by their own later tasks, never inferred from an unrelated link.
         if (await db.OutpostRestoreAuthorizations.AnyAsync(ct) || await db.OutpostLifecycleOperations.AnyAsync(ct))
             throw Unavailable("required-snapshot-evidence-unavailable");
@@ -261,7 +284,9 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
             bool delivered = custody.LocationKind == "ReturnPending" && await db.OutpostDeliveryAttempts.AsNoTracking().AnyAsync(a =>
                 a.Active && a.State == "Started" && a.PlayerId == scope.OwnerPlayerId && a.ParcelId.ToString() == custody.LocationId
                 && deliveryIds.Contains(a.Id), ct);
-            if (!envelope.Tombstone && (custody.Tombstone || custody.LocationKind is not ("Home" or "Prepared")) && !delivered)
+            bool locallyReturned = custody.LocationKind == "LocalReturnPending" && metadata.Receipts.Any(r =>
+                r.OrdinaryReturnAttemptId == custody.LocationId && r.PawnCustodyIds.Contains(custody.Id));
+            if (!envelope.Tombstone && (custody.Tombstone || custody.LocationKind is not ("Home" or "Prepared")) && !delivered && !locallyReturned)
                 throw Unavailable("snapshot-server-held-pawn-reappeared");
             if (!envelope.Tombstone && custody.LocationKind == "Home" && envelope.PawnReferenceToken != custody.LocationId)
                 throw Unavailable("snapshot-registry-reference-changed");
@@ -308,6 +333,8 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
     private async Task ValidateReceiptAsync(OutpostSaveMetadata metadata, OutpostTransitionReceipt receipt,
         OutpostTransition transition, CancellationToken ct)
     {
+        if (receipt.OrdinaryReturnAttemptId.Length > 0 || transition.Kind == "OrdinaryReturnStarted")
+        { await ValidateOrdinaryReturnReceiptAsync(metadata, receipt, transition, ct); return; }
         if (receipt.DeliveryAttemptId.Length == 0 && transition.Kind is "Prepare" or "CancelFence")
         { await ValidateAdmissionReceiptAsync(metadata, receipt, transition, ct); return; }
         if (receipt.DeliveryAttemptId.Length == 0 || transition.Kind != "BeginDelivery")

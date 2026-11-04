@@ -17,6 +17,8 @@ public sealed class OutpostJournal
     public byte[]? AcceptedReceipt { get; set; }
     public byte[]? DeliveryReply { get; set; }
     public bool ReplyUnknown { get; set; }
+    public string? DeliveryBranchId { get; set; }
+    public bool SpawnStarted { get; set; }
 }
 
 public sealed partial class TransferOutbox
@@ -75,6 +77,7 @@ public sealed partial class TransferOutbox
     {
         if (snapshot.Recovery is not { } recovery) return;
         ReconcileSnapshot(recovery, accepted, snapshot.GameTick, selected);
+        ReconcileOrdinarySnapshot(snapshot, accepted, selected);
         if (!accepted || !recovery.Outposts.Present || snapshot.RawSha256?.Length != 32) return;
         var scope = recovery.Outposts.Metadata.Scope;
         var proof = new OutpostSnapshotProof { Scope = scope.Clone(), SnapshotId = recovery.SnapshotId, RawSha256 = ByteString.CopyFrom(snapshot.RawSha256) };
@@ -100,7 +103,8 @@ public sealed partial class TransferOutbox
         if (!OutpostReconciliation.ValidScope(scope)) throw new InvalidDataException("invalid current outpost boundary");
         lock (gate)
         {
-            var old = entries.Where(e => IsOutpost(e.Kind) && !OutpostReconciliation.SameScope(Evidence(e).Scope, scope)).ToArray();
+            var old = entries.Where(e => IsOutpost(e.Kind) && !OutpostReconciliation.SameScope(Evidence(e).Scope, scope)
+                || e.Ordinary is not null && !OutpostReconciliation.SameScope(ReadOrdinary(e).Scope, scope)).ToArray();
             if (old.Length == 0) return null;
             string kept = path + $".before-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}.json";
             WriteDocument(kept, File.ReadAllBytes(path)); // Preserve the original document byte for byte before removing old work.
@@ -121,6 +125,31 @@ public sealed partial class TransferOutbox
         }
         catch (Exception error) when (error is InvalidDataException or InvalidProtocolBufferException or ArgumentException)
         { HoldForRecovery(entry.Id, new Refusal(null, "outpost journal evidence is invalid", null, [])); return true; }
+    }
+    public void ArmOutpostDelivery(string id, string gameBranchId)
+    {
+        lock (gate)
+        {
+            var entry = entries.Single(e => e.Id == id); var journal = entry.Outpost;
+            if (entry.Kind != OutboxKind.OutpostBeginDelivery || entry.Phase == OutboxPhase.RecoveryRequired || journal is null
+                || !Guid.TryParseExact(gameBranchId, "D", out var branch) || branch == Guid.Empty
+                || journal.DeliveryBranchId is not null && journal.DeliveryBranchId != gameBranchId || journal.SpawnStarted)
+                throw new InvalidDataException("delivery branch cannot prove absence of a prior spawn");
+            var prior = journal.DeliveryBranchId; journal.DeliveryBranchId = gameBranchId;
+            try { Save(); } catch { journal.DeliveryBranchId = prior; throw; }
+        }
+    }
+    public void MarkOutpostSpawnStarted(string id, string gameBranchId)
+    {
+        lock (gate)
+        {
+            var entry = entries.Single(e => e.Id == id); var journal = entry.Outpost;
+            if (entry.Kind != OutboxKind.OutpostBeginDelivery || entry.Phase != OutboxPhase.Ready || journal is null
+                || journal.DeliveryBranchId != gameBranchId || journal.DeliveryReply is null || journal.SpawnStarted)
+                throw new InvalidDataException("delivery has no continuous durable pre-spawn authorization");
+            journal.SpawnStarted = true;
+            try { Save(); } catch { journal.SpawnStarted = false; throw; }
+        }
     }
     public void MarkReplyUnknown(string id)
     {

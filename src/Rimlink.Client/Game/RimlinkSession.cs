@@ -65,6 +65,7 @@ public static class RimlinkSession
             action => MainThread.Get(() => { action(); return true; }), () => Connection == connection);
         Live = new Rimlink.Client.Live.LiveClient(connection, RimlinkLog.Instance);
         State.Reset();
+        Game.Outposts.OutpostSync.Reset();
         Inbox.Clear();
         connection.EventReceived += Inbox.Enqueue;
         connection.StateChanged += s => LastState = s;
@@ -77,7 +78,7 @@ public static class RimlinkSession
         SaveSync.Detach(); PendingDownload = null; RecoveryNeeded = false; RecoveryNeedsSave = false;
         recoveryLifetime.Cancel(); Recovery = null;
         var ending = Connection;
-        MainThread.Post(() => { if (Connection is null || ReferenceEquals(Connection, ending)) Game.Influence.InfluenceSync.Reset(); });
+        MainThread.Post(() => { if (Connection is null || ReferenceEquals(Connection, ending)) { Game.Influence.InfluenceSync.Reset(); Game.Outposts.OutpostSync.Reset(); } });
         if (Connection is { } c) c.EventReceived -= Inbox.Enqueue;
         if (Live is { } live) _ = live.Close();
         Live = null;

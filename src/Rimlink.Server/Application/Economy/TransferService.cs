@@ -16,7 +16,7 @@ public sealed class TransferService(RimlinkDbContext db, WalletService wallet, M
     public async Task<Parcel> Send(long fromPlayerId, TransferRequest request)
     {
         await using var tx = await custody.BeginOutgoingAsync(fromPlayerId, request.ToPlayerId, request.Pawns,
-            CustodyTransferKind.CustodyTransferSend, request.ClientRequestId, RequestIdentity.Hash(request));
+            CustodyTransferKind.CustodyTransferSend, request.ClientRequestId, RequestIdentity.Hash(request), requestKind: OrdinaryRequestKind.TransferSend);
         if (await RequestIdentity.Parcel(db, fromPlayerId, "transfer.send", request.ClientRequestId, request) is { } existing) return existing;
         gate.RequireOpen();
         if (request.ToPlayerId == fromPlayerId) throw RpcErrors.Failed(ErrorCode.SelfTrade, RefusalKeys.EconomySelfSend, "you cannot send to yourself");

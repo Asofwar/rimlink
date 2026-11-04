@@ -9,6 +9,9 @@ namespace Rimlink.Client.Game.Outposts;
 /// <summary>Developer menu delegates to the same guarded production UI and original-operation cancellation.</summary>
 public static class OutpostDebugActions
 {
+    [DebugAction("Rimlink", "Outposts: owner controls", allowedGameStates = AllowedGameStates.PlayingOnMap)]
+    public static void Controls() => Find.WindowStack.Add(new UI.Outposts.Dialog_Outpost());
+
     [DebugAction("Rimlink", "Outposts: staff arrived caravan", allowedGameStates = AllowedGameStates.PlayingOnMap)]
     public static void Staffing()
     {

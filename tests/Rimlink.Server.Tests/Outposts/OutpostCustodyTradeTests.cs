@@ -19,11 +19,12 @@ public sealed partial class OutpostCustodyBridgeTests
     {
         using var h = await CustodyHarness.Returned();
         h.AddRecipient(1); await h.Db.SaveChangesAsync();
-        var evidence = await h.Depart();
+        var outgoing = new TradeOpenRequest { PartnerId = 2, ClientRequestId = Guid.NewGuid().ToString("N"),
+            GameTick = 1000, Pawns = new() { Pawns = { h.Blob.Clone() } } };
+        await h.Depart(outgoing);
         using var host = h.StartHost(); using var scope = host.Services.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<TradeService>();
-        var trade = await service.Open(1, new TradeOpenRequest { PartnerId = 2, ClientRequestId = evidence.ClientRequestId,
-            GameTick = 1000, Pawns = evidence.Pawns.Clone() });
+        var trade = await service.Open(1, outgoing);
         var custody = await h.Row();
         Assert.Equal("Escrow", custody.LocationKind); Assert.Equal("trade:" + trade.Id, custody.LocationId);
         if (path == "cancel") await service.Cancel(2, trade.Id);
@@ -34,6 +35,7 @@ public sealed partial class OutpostCustodyBridgeTests
         }
         else await service.SetSide(1, new TradeSideRequest { TradeId = trade.Id, BaseRevision = trade.Revision,
             ClientRequestId = Guid.NewGuid().ToString("N"), ReturnGoods = true });
+        await OrdinarySourceAssertions.Applied(h, scope.ServiceProvider, outgoing, trade.Id);
         custody = await h.Row(); Assert.Equal("ReturnPending", custody.LocationKind); Assert.Equal(1, custody.PlayerId);
         var parcel = await h.Db.Parcels.AsNoTracking().SingleAsync(p => p.ToPlayerId == 1 && p.DeliveredAt == null);
         var payload = OutpostParcelPayload.Parser.ParseFrom((await h.Db.OutpostParcelLinks.AsNoTracking().SingleAsync(p => p.ParcelId == parcel.Id)).Payload);
@@ -59,15 +61,19 @@ public sealed partial class OutpostCustodyBridgeTests
         capture.BlobSha256 = ByteString.CopyFrom(SHA256.HashData(other.ToByteArray()));
         baseline.Registry.Add(registry); baseline.WorkerCaptures.Add(capture);
         await h.F.F.H.Accept(h.F.F.H.Snapshot(baseline));
-        var evidence = await h.Depart(); string otherRequestId = Guid.NewGuid().ToString("N");
-        var removed = baseline.Clone(); removed.Registry[0].Tombstone = true; removed.Registry[0].PawnReferenceToken = "";
-        await h.F.F.H.Accept(h.F.F.H.Snapshot(removed, removed: [otherRequestId]));
+        var outgoing = new TradeOpenRequest { PartnerId = 2, ClientRequestId = Guid.NewGuid().ToString("N"),
+            GameTick = 1000, Pawns = new() { Pawns = { h.Blob.Clone() } } };
+        await h.Depart(outgoing);
         using var host = h.StartHost(); using var scope = host.Services.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<TradeService>();
-        var trade = await service.Open(1, new TradeOpenRequest { PartnerId = 2, ClientRequestId = evidence.ClientRequestId,
-            GameTick = 1000, Pawns = evidence.Pawns.Clone() });
-        trade = await service.SetSide(2, new TradeSideRequest { TradeId = trade.Id, BaseRevision = trade.Revision,
-            ClientRequestId = otherRequestId, GameTick = 1000, Pawns = new PawnList { Pawns = { other } } });
+        var trade = await service.Open(1, outgoing);
+        var side = new TradeSideRequest { TradeId = trade.Id, BaseRevision = trade.Revision,
+            ClientRequestId = Guid.NewGuid().ToString("N"), GameTick = 1000, Pawns = new PawnList { Pawns = { other } } };
+        var removed = baseline.Clone(); removed.Registry[0].Tombstone = true;
+        var ordinary = Rimlink.Protocol.OrdinaryCapture.Create(side, Guid.NewGuid().ToString("N"), removed.Scope);
+        removed.OrdinaryOutgoing.Add(ordinary);
+        await h.F.F.H.Accept(h.F.F.H.Snapshot(removed, removed: [ordinary.LocalOperationId]));
+        trade = await service.SetSide(2, side);
         var before = await h.Db.OutpostAuthority.AsNoTracking().SingleAsync();
         var authority = scope.ServiceProvider.GetRequiredService<Rimlink.Server.Application.Outposts.OutpostAuthority>();
         authority.CommitCheckpoint = point => { if (point == "BeforePending") throw new IOException("two-sided-before-pending"); };
@@ -88,6 +94,8 @@ public sealed partial class OutpostCustodyBridgeTests
         Assert.Equal(2, parcels.Count);
         Assert.All(parcels, p => Assert.DoesNotContain("", OutpostParcelPayload.Parser.ParseFrom(p.Payload).AssignmentIds));
         Assert.Single(rows.Select(p => p.FrontierTransitionId).Distinct());
+        await OrdinarySourceAssertions.Applied(h, scope.ServiceProvider, outgoing, trade.Id);
+        await OrdinarySourceAssertions.Applied(h, scope.ServiceProvider, side, trade.Id, actor: 2);
         await using var lease = await h.Authority.AcquireAsync([1, 2], default);
         Assert.Equal(OutpostStartupState.Ready, (await h.Authority.CheckHeldAsync(lease, default)).State);
     }
@@ -99,11 +107,12 @@ public sealed partial class OutpostCustodyBridgeTests
         var baseline = h.HomeSave.Recovery.Outposts.Metadata.Clone(); baseline.Scope.OwnerPlayerId = 2;
         baseline.Registry.Clear(); baseline.Receipts.Clear(); baseline.Frontier.Clear(); baseline.WorkerCaptures.Clear(); baseline.Caravans.Clear();
         await h.F.F.H.Accept(h.F.F.H.Snapshot(baseline));
-        var evidence = await h.Depart();
+        var outgoing = new TradeOpenRequest { PartnerId = 2, ClientRequestId = Guid.NewGuid().ToString("N"),
+            GameTick = 1000, Pawns = new() { Pawns = { h.Blob.Clone() } } };
+        await h.Depart(outgoing);
         using var host = h.StartHost(); using var scope = host.Services.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<TradeService>();
-        var trade = await service.Open(1, new TradeOpenRequest { PartnerId = 2, ClientRequestId = evidence.ClientRequestId,
-            GameTick = 1000, Pawns = evidence.Pawns.Clone() });
+        var trade = await service.Open(1, outgoing);
         await service.Confirm(1, trade.Id, trade.Revision); await service.Confirm(2, trade.Id, trade.Revision);
         var row = await h.Row(); Assert.Equal(1, row.PlayerId); Assert.Equal("TransferPending", row.LocationKind);
         var parcel = await h.Db.Parcels.AsNoTracking().SingleAsync(p => p.ToPlayerId == 2 && p.DeliveredAt == null);

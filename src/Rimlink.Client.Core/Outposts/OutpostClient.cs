@@ -25,6 +25,10 @@ public sealed class OutpostClient(RimlinkConnection connection)
         if (login is null || !Matches(value, login)) throw new InvalidDataException("outpost call belongs to another authentication boundary");
         return connection.ForAuthentication(login, send);
     }
+    public Task<OrdinaryOperationReply> OrdinaryOperation(OrdinaryOperationQuery request, CancellationToken ct)
+    { var r = request.Clone(); return Call(r.Operation.Scope, () => connection.OutpostsApi.OrdinaryOperationAsync(r, deadline: Until, cancellationToken: ct).ResponseAsync, ct); }
+    public Task<OrdinaryOperationReply> BeginOrdinaryReturn(OrdinaryCancelRequest request, CancellationToken ct)
+    { var r = request.Clone(); return Call(r.Scope, () => connection.OutpostsApi.BeginOrdinaryReturnAsync(r, deadline: Until, cancellationToken: ct).ResponseAsync, ct); }
     private static DateTime Until => DateTime.UtcNow + EconomyClient.Deadline;
     public Task<OutpostStateReply> State(OutpostStateQuery request, CancellationToken ct)
     { var r = request.Clone(); return Call(r.Scope, () => connection.OutpostsApi.StateAsync(r, deadline: Until, cancellationToken: ct).ResponseAsync, ct); }

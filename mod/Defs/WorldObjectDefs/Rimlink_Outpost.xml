@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <WorldObjectDef ParentName="StaticWorldObjectBase">
+    <defName>Rimlink_Outpost</defName>
+    <label>passive outpost</label>
+    <description>Private passive outpost marker. No map or territorial rights.</description>
+    <worldObjectClass>Rimlink.Client.Game.Outposts.OutpostWorldObject</worldObjectClass>
+    <texture>World/WorldObjects/Expanding/Town</texture>
+    <expandingIcon>true</expandingIcon>
+    <expandingIconTexture>World/WorldObjects/Expanding/Town</expandingIconTexture>
+    <canHaveFaction>false</canHaveFaction>
+    <saved>false</saved>
+    <selectable>true</selectable>
+  </WorldObjectDef>
+</Defs>

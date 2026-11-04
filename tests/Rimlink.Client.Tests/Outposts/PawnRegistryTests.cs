@@ -24,6 +24,23 @@ public sealed class PawnRegistryTests
         Assert.Contains(value.Issues, p => p.Kind == "duplicate-custody" && p.CustodyId == First);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Transported_unbound_own_pawn_never_becomes_authority_or_disappears_behind_a_departure_tombstone(bool knownDeparture)
+    {
+        var restored = new RegistryObservation(Envelope(), "restored-object", "Thing_Human12", AuthoritativeBinding: false);
+        var observations = new List<RegistryObservation> { restored };
+        if (knownDeparture)
+        {
+            var tombstone = Envelope(); tombstone.Tombstone = true;
+            observations.Add(new(tombstone, KnownTombstone: true));
+        }
+        var value = PawnRegistryChecks.Validate(observations);
+        Assert.True(value.RecoveryRequired); Assert.Empty(value.Registry);
+        Assert.Contains(value.Issues, p => p.Kind == "unbound-transported-pawn" && p.CustodyId == First);
+    }
+
     [Fact]
     public void Same_reference_seen_in_two_containers_is_one_pawn()
     {
