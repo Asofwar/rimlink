@@ -110,6 +110,8 @@ public class AdminFeedRestTests
     {
         using var fixture = Server().WithSetting("Admin:FeedBufferSize", "10");
 
-        Assert.Contains("FeedBufferSize", Assert.ThrowsAny<Exception>(() => fixture.CreateClient()).ToString());
+        var exception = Assert.ThrowsAny<Exception>(() => fixture.CreateClient());
+        string diagnostic = fixture.StartupFailureDiagnostic(exception);
+        Assert.True(diagnostic.Contains("FeedBufferSize", StringComparison.Ordinal), diagnostic);
     }
 }

@@ -8,7 +8,7 @@ namespace Rimlink.Server.Tests.Support;
 public static class RecoveryFixtures
 {
     public static byte[] Save(long tick, string? id = null, long epoch = 0, long generation = 0, IEnumerable<long>? parcels = null,
-        IEnumerable<string>? removed = null, IEnumerable<string>? returned = null, int padding = 0)
+        IEnumerable<string>? removed = null, IEnumerable<string>? returned = null, int padding = 0, OutpostRecoveryData? outposts = null)
     {
         var document = XDocument.Parse(Encoding.UTF8.GetString(SaveFixtures.Decompress(SaveFixtures.MakeSave(ServerFixture.WorldSeed, "Nova", tick, paddingBytes: padding))));
         var component = new XElement("li", new XAttribute("Class", SaveRecoveryData.ComponentClass),
@@ -17,6 +17,12 @@ public static class RecoveryFixtures
             new XElement(SaveRecoveryData.ParcelsNode, (parcels ?? []).Select(value => new XElement("li", value))),
             new XElement(SaveRecoveryData.RemovedNode, (removed ?? []).Select(value => new XElement("li", value))),
             new XElement(SaveRecoveryData.ReturnedNode, (returned ?? []).Select(value => new XElement("li", value))));
+        if (outposts is { Present: true })
+        {
+            using var text = new StringWriter();
+            using (var writer = System.Xml.XmlWriter.Create(text, new() { OmitXmlDeclaration = true })) outposts.WriteSection(writer);
+            component.Add(XElement.Parse(text.ToString()));
+        }
         document.Root!.Element("game")!.Add(new XElement("components", component));
         return SaveFixtures.Compress(Encoding.UTF8.GetBytes(document.ToString()));
     }

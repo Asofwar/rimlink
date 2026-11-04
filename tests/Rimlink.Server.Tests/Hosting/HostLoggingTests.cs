@@ -31,6 +31,27 @@ public sealed class HostLoggingTests
         Assert.Contains("HTTP GET /health", string.Join("\n", Directory.GetFiles(Path.Combine(second.DataDir, "logs"), "server-*.log").Select(ReadLiveLog)));
     }
 
+    [Theory]
+    [InlineData("Admin:FeedBufferSize", "10", "FeedBufferSize")]
+    [InlineData("Admin:Tokens:0:Token", "short", "Admin:Tokens[0]")]
+    public async Task Invalid_startup_preserves_original_failure_after_host_cleanup(string key, string value, string expected)
+    {
+        await Task.WhenAll(Enumerable.Range(0, 32).Select(_ => Task.Run(() =>
+        {
+            using var fixture = new ServerFixture()
+                .WithToken(0, "bot", "bot-token-0123456789abcdefgh", "read")
+                .WithSetting(key, value);
+            var exception = Assert.ThrowsAny<Exception>(() => fixture.CreateClient());
+            string diagnostic = fixture.StartupFailureDiagnostic(exception);
+            Assert.True(diagnostic.Contains(expected, StringComparison.Ordinal), diagnostic);
+            Assert.Contains("Server initialization failed", fixture.ReadStartupLog());
+            foreach (string file in Directory.GetFiles(Path.Combine(fixture.DataDir, "logs"), "server-*.log"))
+            {
+                using var exclusive = new FileStream(file, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+            }
+        })));
+    }
+
     private static string ReadLiveLog(string path)
     {
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);

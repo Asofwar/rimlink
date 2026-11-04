@@ -10,6 +10,7 @@ public sealed record SaveRecoveryData
     public const string ComponentClass = "Rimlink.Client.Game.RimlinkGameComponent";
     public const string VersionNode = "rimlinkRecoveryVersion", SnapshotNode = "rimlinkSnapshotId", EpochNode = "rimlinkSaveWriteEpoch";
     public const string ParcelsNode = "rimlinkParcelReceipts", RemovedNode = "rimlinkRemovedOperations", ReturnedNode = "rimlinkReturnedOperations";
+    public OutpostRecoveryData Outposts { get; init; } = new();
     public uint Version { get; init; }
     public string SnapshotId { get; init; } = "";
     public long Generation { get; init; }
@@ -20,6 +21,9 @@ public sealed record SaveRecoveryData
 
     public void Validate()
     {
+        Outposts.Validate();
+        if (Outposts.Present && (Version != CurrentVersion || Outposts.Metadata.Scope.SaveGeneration != Generation || Outposts.Metadata.Scope.SaveWriteEpoch != WriteEpoch))
+            throw new InvalidDataException("outpost recovery scope differs from snapshot identity");
         if (Version == 0 && SnapshotId.Length == 0 && ParcelIds.Length + Removed.Length + Returned.Length == 0) return;
         if (Version != CurrentVersion || !Guid.TryParseExact(SnapshotId, "N", out _) || Generation < 0 || WriteEpoch < 0)
             throw new InvalidDataException("invalid save recovery identity");
@@ -64,13 +68,19 @@ public sealed record SaveRecoveryData
     {
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
         var lists = new Dictionary<string, string[]>(StringComparer.Ordinal);
+        OutpostRecoveryData? outposts = null;
         bool advance = true;
         while (!advance || reader.Read())
         {
             advance = true;
             if (reader.NodeType != XmlNodeType.Element || reader.Depth != 1) continue;
             string name = reader.Name;
-            if (name is VersionNode or SnapshotNode or EpochNode or "rimlinkSaveGeneration")
+            if (name == OutpostRecoveryData.SectionNode)
+            {
+                if (outposts is not null) throw new InvalidDataException("duplicate outpost recovery section");
+                outposts = OutpostRecoveryData.ReadSection(reader);
+            }
+            else if (name is VersionNode or SnapshotNode or EpochNode or "rimlinkSaveGeneration")
             {
                 if (!values.TryAdd(name, reader.ReadElementContentAsString())) throw new InvalidDataException("duplicate recovery field");
                 advance = false;
@@ -94,6 +104,7 @@ public sealed record SaveRecoveryData
         {
             return new SaveRecoveryData
             {
+                Outposts = outposts ?? new(),
                 Version = values.TryGetValue(VersionNode, out var version) ? uint.Parse(version, System.Globalization.CultureInfo.InvariantCulture) : 0,
                 SnapshotId = values.GetValueOrDefault(SnapshotNode, ""),
                 Generation = values.TryGetValue("rimlinkSaveGeneration", out var generation) ? long.Parse(generation, System.Globalization.CultureInfo.InvariantCulture) : 0,

@@ -71,7 +71,7 @@ public sealed class OutpostAuthority(RimlinkDbContext db, OutpostAnchorStore anc
             transition.PredecessorId = row.TransitionId;
             await stage(db, ct);
             await db.SaveChangesAsync(ct);
-            if (await UnsupportedEvidenceReasonAsync(ct, transition.Kind, transition.PawnCustodyId) is { } evidenceReason)
+            if (await UnsupportedEvidenceReasonAsync(ct, transition) is { } evidenceReason)
             {
                 feature.Startup = new(OutpostStartupState.Maintenance, evidenceReason);
                 throw new OutpostEvidenceUnavailableException(evidenceReason);
@@ -177,6 +177,12 @@ public sealed class OutpostAuthority(RimlinkDbContext db, OutpostAnchorStore anc
         }
     }
 
+    public Task<OutpostStartupResult> CheckHeldAsync(OutpostLease lease, CancellationToken ct)
+    {
+        lease.Require(this);
+        return OpenHeldAsync(lease.Anchor, ct);
+    }
+
     public async Task<OutpostStartupResult> OpenAsync(CancellationToken ct)
     {
         try
@@ -278,22 +284,14 @@ public sealed class OutpostAuthority(RimlinkDbContext db, OutpostAnchorStore anc
         feature.LastDomainBackend = OutpostSqliteBackend.Validate(connection, OutpostDatabaseRole.Domain);
     }
 
-    // Conservative Task2 milestone: Task5 replaces this seam with exact stored-byte validation.
-    // Reject all proof-bearing projections, including dangling references without a link row.
-    private static readonly string[] SnapshotIndependentKinds = ["Initialize", "Production", "StageManifest", "ConfirmManifest"];
-
-    private async Task<string?> UnsupportedEvidenceReasonAsync(CancellationToken ct, string? stagedKind = null, string? stagedCustody = null)
+    private async Task<string?> UnsupportedEvidenceReasonAsync(CancellationToken ct, OutpostTransition? staged = null)
     {
-        if (await db.OutpostSnapshotLinks.AnyAsync(ct)) return "snapshot-byte-verification-required";
-        if (stagedCustody is not null || (stagedKind is not null && !SnapshotIndependentKinds.Contains(stagedKind)) ||
-            await db.OutpostOperations.AnyAsync(ct) || await db.OutpostLifecycleOperations.AnyAsync(ct) ||
-            await db.OutpostTransitions.AnyAsync(t => !SnapshotIndependentKinds.Contains(t.Kind), ct) ||
-            await db.PawnCustody.AnyAsync(ct) || await db.OutpostAssignments.AnyAsync(ct) ||
-            await db.OutpostParcelLinks.AnyAsync(ct) || await db.OutpostDeliveryAttempts.AnyAsync(ct) ||
-            await db.OutpostRestoreAuthorizations.AnyAsync(ct) ||
-            await db.OutpostTransitions.AnyAsync(t => t.PawnCustodyId != null, ct))
-            return "required-snapshot-evidence-unavailable";
-        return null;
+        try
+        {
+            await new OutpostSnapshotGuard(db, files).ValidateStoredEvidenceCoreAsync(ct, staged);
+            return null;
+        }
+        catch (OutpostEvidenceUnavailableException error) { return error.Message; }
     }
 
     internal async Task<bool> HasHistoryAsync(CancellationToken ct) =>

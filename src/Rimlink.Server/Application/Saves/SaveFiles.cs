@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using Rimlink.Server.Storage;
+using Rimlink.Server.Storage.Entities;
 using ZstdSharp;
 
 namespace Rimlink.Server.Application.Saves;
@@ -110,6 +111,41 @@ public sealed class SaveFiles(DataDirectory data)
         {
             if (File.Exists(temp)) File.Delete(temp);
         }
+    }
+
+    /// <summary>Read-only evidence resolution; never rebuilds, repairs metadata or chooses the latest version.</summary>
+    public byte[] ReadEvidence(SaveVersion version, string? archiveDirectory = null)
+    {
+        if (version.Number <= 0 || version.PlayerId <= 0 || version.Size <= 0 || version.Size > Rimlink.Protocol.Limits.MaxSaveBytes
+            || version.Sha256.Length != 32) throw new InvalidDataException("invalid evidence version");
+        string dir = archiveDirectory ?? Path.Combine(data.SavesRoot, version.PlayerId.ToString());
+        string full = Path.Combine(dir, $"{version.Number}.rws.zst");
+        if (File.Exists(full))
+        {
+            using (var stream = File.OpenRead(full))
+                if (stream.Length != version.Size || !SHA256.HashData(stream).AsSpan().SequenceEqual(version.Sha256))
+                    throw new InvalidDataException("evidence packed hash or size mismatch");
+            return ReadRaw(full) ?? throw new InvalidDataException("evidence raw size limit");
+        }
+        if (!Directory.Exists(dir)) throw new FileNotFoundException("evidence directory missing");
+        string[] deltas = Directory.GetFiles(dir, $"{version.Number}.d*.zst");
+        if (deltas.Length != 1) throw new InvalidDataException("evidence delta is missing or ambiguous");
+        int baseNumber = BaseNumberOf(deltas[0]);
+        string basis = Path.Combine(dir, $"base-{baseNumber}.rws.zst");
+        if (new FileInfo(deltas[0]).Length > Rimlink.Protocol.Limits.MaxSaveBytes
+            || new FileInfo(basis).Length > Rimlink.Protocol.Limits.MaxSaveBytes) throw new InvalidDataException("evidence packed size limit");
+        // Compaction changes the compressed representation; the immutable raw hash is checked by the caller.
+        byte[] reference = ReadRaw(basis) ?? throw new InvalidDataException("evidence base size limit");
+        return SaveDelta.Decompress(reference, File.ReadAllBytes(deltas[0]));
+    }
+
+    public string EvidenceArchiveDirectory(string relative)
+    {
+        string directory = Path.GetFullPath(Path.Combine(data.Root, relative));
+        string prefix = Path.GetFullPath(data.Archive) + Path.DirectorySeparatorChar;
+        if (Path.IsPathRooted(relative) || !directory.StartsWith(prefix, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+            throw new InvalidDataException("evidence archive path is outside archive root");
+        return directory;
     }
 
     public void DeleteDeltas(long playerId, int number)

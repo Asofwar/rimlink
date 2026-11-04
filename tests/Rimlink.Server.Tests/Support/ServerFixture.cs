@@ -102,6 +102,15 @@ public class ServerFixture : WebApplicationFactory<Program>
         return host;
     }
 
+    /// <summary>Minimal-host test startup can race host disposal; preserve the durable initialization diagnostic too.</summary>
+    public string StartupFailureDiagnostic(Exception error) => error + "\n" + ReadStartupLog();
+
+    public string ReadStartupLog()
+    {
+        string logs = Path.Combine(DataDir, "logs");
+        return Directory.Exists(logs) ? string.Join("\n", Directory.GetFiles(logs, "server-*.log").Select(File.ReadAllText)) : "";
+    }
+
     public GrpcChannel CreateChannel() =>
         GrpcChannel.ForAddress(Server.BaseAddress, new GrpcChannelOptions { HttpClient = CreateDefaultClient() });
 

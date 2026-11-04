@@ -215,7 +215,7 @@ public sealed class OutpostAuthorityTests
     }
 
     [Theory]
-    [InlineData("SnapshotLink", "snapshot-byte-verification-required")]
+    [InlineData("SnapshotLink", "snapshot-version-missing")]
     [InlineData("CustodyWithoutLink", "required-snapshot-evidence-unavailable")]
     [InlineData("ReceiptWithoutLink", "required-snapshot-evidence-unavailable")]
     public async Task Pending_next_with_unverified_or_missing_snapshot_proof_is_preserved(string proof, string reason)

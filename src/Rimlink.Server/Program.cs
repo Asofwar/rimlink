@@ -173,8 +173,10 @@ try
     app.Services.GetRequiredService<SessionEndRecorder>(); // subscribes to session ends
     app.Services.GetRequiredService<Rimlink.Server.Application.Feed.AdminFeed>(); // server.started is the feed's first event
 }
-catch
+catch (Exception error)
 {
+    // Persist the original refusal before cleanup (test minimal-host startup can race a disposed provider).
+    app.Logger.LogCritical(error, "Server initialization failed");
     await app.DisposeAsync();
     throw;
 }

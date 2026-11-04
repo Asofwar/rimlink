@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text.Json;
+using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
@@ -7,6 +8,7 @@ using Rimlink.Protocol;
 using Rimlink.Protocol.V1;
 using Rimlink.Server.Application.Events;
 using Rimlink.Server.Application.Influence;
+using Rimlink.Server.Application.Outposts;
 using Rimlink.Server.Grpc;
 using Rimlink.Server.Storage;
 using Rimlink.Server.Storage.Entities;
@@ -21,7 +23,7 @@ public sealed class SaveRejected(string key, string reason, params object[] args
 }
 
 /// <summary>Versioned save storage: blobs under &lt;data&gt;/saves/&lt;playerId&gt; (see <see cref="SaveFiles"/>), metadata in save_versions.</summary>
-public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles files, SaveCompactor compactor, EventBus events, Integrity.IntegrityService integrity, World.WorldService worlds, ILogger<SaveStore> log, InfluenceService influence)
+public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles files, SaveCompactor compactor, EventBus events, Integrity.IntegrityService integrity, World.WorldService worlds, ILogger<SaveStore> log, InfluenceService influence, Outposts.OutpostAuthority outpostAuthority, OutpostSnapshotGuard outpostGuard)
 {
     public async Task<SaveVersion> Store(long playerId, SaveHeader header, IAsyncEnumerable<ReadOnlyMemory<byte>> chunks, CancellationToken cancellationToken,
         long? sessionEpoch = null, Func<bool>? sessionIsCurrent = null)
@@ -50,6 +52,7 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
                 }
                 if (written != header.TotalSize) throw new SaveRejected(RefusalKeys.SavesWrongSize, $"expected {header.TotalSize} bytes, got {written}", header.TotalSize, written);
                 if (!sha.GetHashAndReset().AsSpan().SequenceEqual(header.Sha256.Span)) throw new SaveRejected(RefusalKeys.SavesHashMismatch, "SHA-256 does not match");
+                file.Flush(flushToDisk: true);
             }
 
             if (SaveValidator.Validate(temp, world.Seed, out string? factionName) is { } reason) throw reason;
@@ -68,7 +71,7 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
             { throw new SaveRejected(RefusalKeys.SavesUnreadable, "invalid recovery metadata: " + ex.Message, ex.Message); }
             // From here on the upload is complete: finish without the call token, so a client that drops right
             // after its last chunk does not leave a file without a row (or a row without a file).
-            await files.PerStoreLock.WaitAsync(CancellationToken.None);
+            OutpostLease? outpostLease = await AcquireUploadLockAsync(playerId, recovery.Outposts.Present);
             try
             {
                 // Reset may have completed while the chunks arrived: compare a fresh row under the archive/write lock.
@@ -83,6 +86,12 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
                 if (player.RecoveryVersion > header.RecoveryVersion)
                     throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.RecoveryClientRequired,
                         RefusalKeys.RecoveryClientRequired, "the colony requires snapshot recovery support");
+                if (outpostLease is not null)
+                {
+                    if ((await outpostAuthority.CheckHeldAsync(outpostLease, CancellationToken.None)).State != OutpostStartupState.Ready)
+                        throw new OutpostEvidenceUnavailableException("outpost-authority-not-ready");
+                    await outpostGuard.ValidateHeldAsync(outpostLease, playerId, header, recovery.Outposts, rawHash, CancellationToken.None);
+                }
                 if (recovery.Version > 0 && await db.SaveVersions.AsNoTracking().FirstOrDefaultAsync(v => v.PlayerId == playerId && v.SnapshotId == recovery.SnapshotId) is { } repeated)
                 {
                     if (repeated.RawSha256 is null || !repeated.RawSha256.AsSpan().SequenceEqual(rawHash))
@@ -101,8 +110,6 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
                         "this save is older than the current snapshot", header.GameTick, baseVersion.GameTick);
                 string final = files.FullPath(playerId, number);
 
-                await using var tx = await db.Database.BeginTransactionAsync();
-                await db.SaveVersions.Where(v => v.PlayerId == playerId && v.IsCurrent).ExecuteUpdateAsync(s => s.SetProperty(v => v.IsCurrent, false));
                 var version = new SaveVersion
                 {
                     PlayerId = playerId,
@@ -119,26 +126,49 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
                     RecoveryVersion = recovery.Version, SaveGeneration = header.SaveGeneration, SaveWriteEpoch = header.SaveWriteEpoch,
                     RawSha256 = rawHash, RecoveryJson = recovery.Version == 0 ? null : JsonSerializer.Serialize(recovery),
                 };
-                db.SaveVersions.Add(version);
-                if (recovery.Version > player.RecoveryVersion)
-                    await db.Players.Where(p => p.Id == playerId).ExecuteUpdateAsync(s => s.SetProperty(p => p.RecoveryVersion, recovery.Version));
-                // The faction name the player chose in game is the one others should see on the map.
-                if (factionName is not null && factionName != player.FactionName && Names.IsValid(factionName))
-                    await db.Players.Where(p => p.Id == playerId).ExecuteUpdateAsync(s => s.SetProperty(p => p.FactionName, factionName));
-                // Raid protection reads these: age of the colony on this server and its wealth as of the last save.
-                // A header without wealth (the pending-upload path, no home map) reports 0: keep what the last save said.
-                var now = DateTime.UtcNow;
-                if (header.WealthTotal > 0)
-                    await db.Players.Where(p => p.Id == playerId).ExecuteUpdateAsync(s => s
-                        .SetProperty(p => p.WealthTotal, header.WealthTotal)
-                        .SetProperty(p => p.WealthItems, header.WealthItems)
-                        .SetProperty(p => p.FirstSaveAt, p => p.FirstSaveAt ?? now));
+                async Task StageVersion(CancellationToken ct)
+                {
+                    await db.SaveVersions.Where(v => v.PlayerId == playerId && v.IsCurrent).ExecuteUpdateAsync(s => s.SetProperty(v => v.IsCurrent, false), ct);
+                    db.SaveVersions.Add(version);
+                    if (recovery.Version > player.RecoveryVersion)
+                        await db.Players.Where(p => p.Id == playerId).ExecuteUpdateAsync(s => s.SetProperty(p => p.RecoveryVersion, recovery.Version));
+                    // The faction name the player chose in game is the one others should see on the map.
+                    if (factionName is not null && factionName != player.FactionName && Names.IsValid(factionName))
+                        await db.Players.Where(p => p.Id == playerId).ExecuteUpdateAsync(s => s.SetProperty(p => p.FactionName, factionName));
+                    // Raid protection reads these: age of the colony on this server and its wealth as of the last save.
+                    // A header without wealth (the pending-upload path, no home map) reports 0: keep what the last save said.
+                    var now = DateTime.UtcNow;
+                    if (header.WealthTotal > 0)
+                        await db.Players.Where(p => p.Id == playerId).ExecuteUpdateAsync(s => s
+                            .SetProperty(p => p.WealthTotal, header.WealthTotal)
+                            .SetProperty(p => p.WealthItems, header.WealthItems)
+                            .SetProperty(p => p.FirstSaveAt, p => p.FirstSaveAt ?? now));
+                    else
+                        await db.Players.Where(p => p.Id == playerId).ExecuteUpdateAsync(s => s.SetProperty(p => p.FirstSaveAt, p => p.FirstSaveAt ?? now));
+                    await db.SaveChangesAsync(ct);
+                }
+                // Bytes are flushed before their immutable link, custody and head become one protected decision.
+                if (outpostLease is not null)
+                {
+                    File.Move(temp, final, overwrite: true);
+                    var authority = await db.OutpostAuthority.AsNoTracking().SingleAsync();
+                    await outpostAuthority.CommitHeldAsync(outpostLease, new TransitionIntent(
+                        Guid.ParseExact(recovery.SnapshotId, "N").ToString("D"), authority.WorldId, playerId, header.SaveGeneration,
+                        authority.RestoreBoundary, "SnapshotAccepted", $"save:{playerId}",
+                        new(authority.HeadId, Google.Protobuf.ByteString.CopyFrom(authority.HeadDigest)),
+                        Google.Protobuf.ByteString.CopyFrom(recovery.Outposts.Metadata.ToByteArray())), async (_, ct) =>
+                    {
+                        await StageVersion(ct);
+                        await outpostGuard.StageAcceptedHeldAsync(outpostLease, version, recovery.Outposts, ct);
+                    }, CancellationToken.None);
+                }
                 else
-                    await db.Players.Where(p => p.Id == playerId).ExecuteUpdateAsync(s => s.SetProperty(p => p.FirstSaveAt, p => p.FirstSaveAt ?? now));
-                await db.SaveChangesAsync();
-                // An orphan file of this number (crash between move and commit in an older run) is overwritten.
-                File.Move(temp, final, overwrite: true);
-                await tx.CommitAsync();
+                {
+                    await using var tx = await db.Database.BeginTransactionAsync();
+                    await StageVersion(CancellationToken.None);
+                    File.Move(temp, final, overwrite: true);
+                    await tx.CommitAsync();
+                }
 
                 await ApplyRetention(playerId);
                 // Others see a tier and an age on the map: tell them when either moved.
@@ -155,13 +185,30 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
             }
             finally
             {
-                files.PerStoreLock.Release();
+                if (outpostLease is not null) await outpostLease.DisposeAsync();
+                else files.PerStoreLock.Release();
             }
         }
+        catch (OutpostEvidenceUnavailableException ex)
+        { throw RpcErrors.Failed(ErrorCode.RecoveryRequired, RefusalKeys.RecoveryRequired, "protected snapshot evidence is unavailable: " + ex.Message); }
         finally
         {
             if (File.Exists(temp)) File.Delete(temp);
         }
+    }
+
+    private async Task<OutpostLease?> AcquireUploadLockAsync(long playerId, bool hasSection)
+    {
+        if (hasSection || await outpostGuard.RequiresProtectionAsync(playerId, CancellationToken.None))
+            return await outpostAuthority.AcquireAsync([playerId], CancellationToken.None);
+        await files.PerStoreLock.WaitAsync();
+        try
+        {
+            if (!await outpostGuard.RequiresProtectionAsync(playerId, CancellationToken.None)) return null;
+        }
+        catch { files.PerStoreLock.Release(); throw; }
+        files.PerStoreLock.Release();
+        return await outpostAuthority.AcquireAsync([playerId], CancellationToken.None);
     }
 
     public async Task<(SaveVersion Version, Stream Content, long Generation, long WriteEpoch)?> OpenCurrent(long playerId)
@@ -364,7 +411,8 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
     private async Task ApplyRetention(long playerId)
     {
         var all = await db.SaveVersions.Where(v => v.PlayerId == playerId).ToListAsync();
-        foreach (var old in SaveRetention.Select(all, DateTime.UtcNow))
+        var protectedIds = await db.OutpostSnapshotLinks.Where(l => l.PlayerId == playerId).Select(l => l.SnapshotId).ToListAsync();
+        foreach (var old in SaveRetention.Select(all, DateTime.UtcNow).Where(v => v.SnapshotId is null || !protectedIds.Contains(v.SnapshotId)))
         {
             files.Delete(playerId, old.Number);
             db.SaveVersions.Remove(old);

@@ -36,9 +36,11 @@ public sealed class SaveCompactor(RimlinkDbContext db, SaveFiles files, ColonyLo
     {
         if (!options.Value.CompactOldVersions) return;
         var versions = await db.SaveVersions.AsNoTracking().Where(v => v.PlayerId == playerId).OrderBy(v => v.Number).ToListAsync();
+        var protectedIds = await db.OutpostSnapshotLinks.AsNoTracking().Where(l => l.PlayerId == playerId).Select(l => l.SnapshotId).ToListAsync();
         Reference? reference = null;
         foreach (var version in versions)
         {
+            if (version.SnapshotId is not null && protectedIds.Contains(version.SnapshotId)) continue;
             if (!File.Exists(files.FullPath(playerId, version.Number))) continue;
             try
             {

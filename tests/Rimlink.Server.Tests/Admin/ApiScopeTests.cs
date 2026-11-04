@@ -76,8 +76,9 @@ public class ApiScopeTests
 
         var ex = Assert.ThrowsAny<Exception>(() => fixture.CreateClient());
 
-        Assert.Contains(entry, ex.ToString());
-        Assert.DoesNotContain(token, ex.ToString());
+        string diagnostic = fixture.StartupFailureDiagnostic(ex);
+        Assert.True(diagnostic.Contains(entry, StringComparison.Ordinal), diagnostic);
+        Assert.DoesNotContain(token, diagnostic);
     }
 
     [Fact]

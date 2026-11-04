@@ -30,6 +30,7 @@ public sealed class OutpostFeature
         services.AddSingleton<OutpostFeature>();
         services.AddSingleton<OutpostAnchorStore>();
         services.AddScoped<OutpostAuthority>();
+        services.AddScoped<OutpostSnapshotGuard>();
         services.AddSingleton<OutpostClock>();
         services.AddScoped<OutpostManifestService>();
         services.AddSingleton<OutpostManifestUploads>();
