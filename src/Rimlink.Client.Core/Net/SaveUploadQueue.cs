@@ -14,6 +14,7 @@ public sealed class SaveUploadQueue
     }
     public Task<SaveInfo> Enqueue(SaveSnapshot snapshot, Func<SaveSnapshot, CancellationToken, Task<SaveInfo>> send, CancellationToken cancellationToken)
     {
+        snapshot = snapshot with { Meta = snapshot.Meta.Detached() };
         lock (gate)
         {
             var previous = tail;

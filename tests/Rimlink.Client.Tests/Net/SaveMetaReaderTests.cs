@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Rimlink.Client.Net;
 using Xunit;
 
@@ -48,15 +49,18 @@ public class SaveMetaReaderTests : IDisposable
 
         var meta = SaveMetaReader.Read(path);
 
-        Assert.Equal(new SaveMeta("greengrow", "Nova's", 4321, 123456, 65432, DevMode: true), meta);
+        Assert.Equal(new SaveMeta("greengrow", "Nova's", 4321, 123456, 65432, DevMode: true), meta with { RawSha256 = null });
+        Assert.Equal(SHA256.HashData(File.ReadAllBytes(path)), meta.RawSha256);
     }
 
     [Fact]
     public void AnOlderSaveHasNoWealthAndNoFlag()
     {
-        var meta = SaveMetaReader.Read(Rws(""));
+        string path = Rws("");
+        var meta = SaveMetaReader.Read(path);
 
-        Assert.Equal(new SaveMeta("greengrow", "Nova's", 4321), meta);
+        Assert.Equal(new SaveMeta("greengrow", "Nova's", 4321), meta with { RawSha256 = null });
+        Assert.Equal(SHA256.HashData(File.ReadAllBytes(path)), meta.RawSha256);
     }
 
     [Theory]

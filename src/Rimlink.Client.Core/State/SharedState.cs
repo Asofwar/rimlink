@@ -17,6 +17,7 @@ public sealed class SharedState
     public Social.SocialState Social { get; } = new();
     public Social.CommunityCache Community { get; } = new();
     public Influence.InfluenceCache Influence { get; } = new();
+    public Outposts.OutpostState Outposts { get; } = new();
     public List<Notice> Notices { get; } = [];
     public int? PendingRollbackVersion { get; private set; }
     public ServerShutdown? PendingShutdown { get; private set; }
@@ -149,6 +150,7 @@ public sealed class SharedState
         Social.Reset();
         Community.Reset();
         Influence.Reset();
+        Outposts.Reset();
         Raids.Reset();
         Live.Reset();
         Incidents.Reset();

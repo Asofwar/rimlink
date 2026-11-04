@@ -23,10 +23,14 @@ public sealed class RecoveryCoordinator
         this.connection = connection; this.state = state; this.outbox = outbox; this.log = log; this.apply = apply; this.isCurrent = isCurrent ?? (() => true);
         Clients = new(new EconomyClient(connection), new Raids.RaidClient(connection), new Visits.ShopClient(connection), new Live.LiveClient(connection, log),
             new Social.TradesClient(connection), new Incidents.IncidentClient(connection), new Procurement.ProcurementClient(connection),
-            new Social.CommunityClient(connection), new Influence.InfluenceClient(connection));
+            new Social.CommunityClient(connection), new Influence.InfluenceClient(connection), new Outposts.OutpostClient(connection));
     }
 
-    public Task<ReplayReport> ReplayReadyAsync(CancellationToken ct) => outbox?.Replay(Clients, ct) ?? Task.FromResult(new ReplayReport(0, 0, 0));
+    public Task<ReplayReport> ReplayReadyAsync(CancellationToken ct)
+    {
+        if (state.Outposts.Scope is { } scope) Clients.Outposts!.BindScope(scope);
+        return outbox?.Replay(Clients, ct) ?? Task.FromResult(new ReplayReport(0, 0, 0));
+    }
 
     public async Task<bool> LoadStatesAsync(CancellationToken ct)
     {
@@ -79,6 +83,21 @@ public sealed class RecoveryCoordinator
                     else state.Live.SetCurrent(current);
                 };
             });
+            if (login?.OutpostVersion == 1)
+                await Part("outposts", async () =>
+                {
+                    // The first view has no scope yet. Obtain the world coordinate from the authenticated server,
+                    // not a prior preview or local save, and keep it bound to this exact login like every state reply.
+                    var world = await connection.ForAuthentication(login, () => connection.World.GetAsync(new Empty(),
+                        deadline: DateTime.UtcNow + EconomyClient.Deadline, cancellationToken: ct).ResponseAsync);
+                    if (!world.Exists || world.WorldInstanceId.Length == 0) throw new InvalidDataException("outpost world context is unavailable");
+                    var scope = new OutpostScopeMessage { WorldInstanceId = world.WorldInstanceId,
+                        OwnerPlayerId = login.Player.PlayerId, SaveGeneration = login.SaveGeneration,
+                        SaveWriteEpoch = login.SaveWriteEpoch, RestoreBoundary = login.OutpostRestoreBoundary };
+                    Clients.Outposts!.BindScope(scope);
+                    var value = await Clients.Outposts.State(new OutpostStateQuery { Scope = scope }, ct);
+                    return () => { state.Outposts.BindScope(scope); state.Outposts.Load(value); };
+                });
             return complete;
         }
         finally { loading.Release(); }

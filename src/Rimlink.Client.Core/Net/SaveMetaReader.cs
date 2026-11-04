@@ -42,8 +42,8 @@ public static class SaveMetaReader
             }
         }
         using var source = File.OpenRead(rwsPath);
-        var recovery = SaveRecoveryData.ReadXml(source, out _);
+        var recovery = SaveRecoveryData.ReadXml(source, out byte[] rawHash);
         return new SaveMeta(seed, faction, tick, wealthTotal, wealthItems, devMode,
-            recovery.Version > 0 ? recovery.Generation : saveGeneration, recovery.Version > 0 ? recovery : null);
+            recovery.Version > 0 ? recovery.Generation : saveGeneration, recovery.Version > 0 ? recovery : null, rawHash);
     }
 }

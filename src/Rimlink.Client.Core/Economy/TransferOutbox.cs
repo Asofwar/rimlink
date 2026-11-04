@@ -8,11 +8,11 @@ using Rimlink.Protocol;
 
 namespace Rimlink.Client.Economy;
 
-public enum OutboxKind { Send, Post, Deposit, Deliver, Launch, Land, Report, Buy, AckRemoval, Propose, TradeOpen, TradeSetSide, IncidentOrder, ProcurementCreate, ProcurementSupply, ProcurementCancel, AuctionPost, AuctionBid, AuctionCancel, Community, Influence }
+public enum OutboxKind { Send, Post, Deposit, Deliver, Launch, Land, Report, Buy, AckRemoval, Propose, TradeOpen, TradeSetSide, IncidentOrder, ProcurementCreate, ProcurementSupply, ProcurementCancel, AuctionPost, AuctionBid, AuctionCancel, Community, Influence, OutpostPrepare, OutpostCommit, OutpostCancel, OutpostMutate, OutpostBeginDelivery }
 public enum OutboxPhase { Legacy, Prepared, Ready, Returning, RecoveryRequired }
 
 /// <summary>The typed clients a replay needs; a null client leaves entries of its kinds waiting.</summary>
-public sealed record OutboxClients(EconomyClient Economy, Raids.RaidClient? Raids, Visits.ShopClient? Shop, Live.LiveClient? Live = null, Social.TradesClient? Trades = null, Incidents.IncidentClient? Incidents = null, Procurement.ProcurementClient? Procurement = null, Social.CommunityClient? Community = null, Influence.InfluenceClient? Influence = null);
+public sealed record OutboxClients(EconomyClient Economy, Raids.RaidClient? Raids, Visits.ShopClient? Shop, Live.LiveClient? Live = null, Social.TradesClient? Trades = null, Incidents.IncidentClient? Incidents = null, Procurement.ProcurementClient? Procurement = null, Social.CommunityClient? Community = null, Influence.InfluenceClient? Influence = null, Outposts.OutpostClient? Outposts = null);
 
 /// <summary>One request whose answer has not been seen yet. The payload is the request itself, so it can be replayed or its contents returned.</summary>
 public sealed class OutboxEntry
@@ -30,6 +30,7 @@ public sealed class OutboxEntry
     public long SaveGeneration { get; set; }
     public long SaveWriteEpoch { get; set; }
     public string? SnapshotId { get; set; }
+    public OutpostJournal? Outpost { get; set; }
 }
 
 public sealed record ReplayReport(int Completed, int Refused, int Pending);
@@ -40,7 +41,7 @@ public sealed record ReplayReport(int Completed, int Refused, int Pending);
 /// the next login with the same client_request_id, which the server treats as the same request. Nothing is guessed:
 /// an unanswered transfer is neither restored nor forgotten until the server says what became of it.
 /// </summary>
-public sealed class TransferOutbox
+public sealed partial class TransferOutbox
 {
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = true, Converters = { new JsonStringEnumConverter() } };
     private readonly string path;
@@ -62,7 +63,10 @@ public sealed class TransferOutbox
     {
         get { lock (gate) return entries.ToList(); }
     }
-    public bool HasUnresolved { get { lock (gate) return entries.Any(e => e.Phase == OutboxPhase.RecoveryRequired || e.Phase == OutboxPhase.Legacy && NeedsSnapshot(e)); } }
+    public bool HasUnresolved { get { lock (gate) return entries.Any(e => e.Phase == OutboxPhase.RecoveryRequired
+        || e.Phase == OutboxPhase.Legacy && NeedsSnapshot(e) || IsOutpost(e.Kind) && (e.Phase == OutboxPhase.Prepared
+            || e.Outpost?.ReplyUnknown == true || e.Kind == OutboxKind.OutpostBeginDelivery && e.Outpost?.DeliveryReply is not null
+                && e.Outpost.AcceptedReceipt is null)); } }
     public string? QuarantineOutsideScope(long saveGeneration, long saveWriteEpoch)
     {
         lock (gate)
@@ -92,13 +96,18 @@ public sealed class TransferOutbox
         AuctionPostRequest => Add(OutboxKind.AuctionPost, request, phase), AuctionBidRequest => Add(OutboxKind.AuctionBid, request, phase),
         AuctionCancelRequest => Add(OutboxKind.AuctionCancel, request, phase), CommunityRequest => Add(OutboxKind.Community, request, phase),
         InfluenceMutation => Add(OutboxKind.Influence, request, phase),
+        OutpostPrepareRequest => Add(OutboxKind.OutpostPrepare, request, OutboxPhase.Prepared),
+        OutpostProofRequest => Add(OutboxKind.OutpostCommit, request, OutboxPhase.Prepared),
+        OutpostCancelRequest => Add(OutboxKind.OutpostCancel, request, OutboxPhase.Prepared),
+        OutpostMutationRequest => Add(OutboxKind.OutpostMutate, request, OutboxPhase.Prepared),
+        OutpostDeliveryRequest => Add(OutboxKind.OutpostBeginDelivery, request, OutboxPhase.Prepared),
         _ => throw new ArgumentException("not an outbox request: " + request.GetType().Name),
     };
 
     private OutboxEntry Add(OutboxKind kind, IMessage request, OutboxPhase phase)
     {
         var entry = new OutboxEntry { Id = Guid.NewGuid().ToString("N"), Kind = kind, Payload = request.ToByteArray(), CreatedUtc = DateTime.UtcNow,
-            Phase = phase, SaveGeneration = generation, SaveWriteEpoch = epoch };
+            Phase = phase, SaveGeneration = generation, SaveWriteEpoch = epoch, Outpost = IsOutpost(kind) ? NewOutpostJournal(request) : null };
         lock (gate)
         {
             entries.Add(entry);
@@ -117,7 +126,7 @@ public sealed class TransferOutbox
         {
             foreach (var entry in entries.ToArray())
             {
-                if (entry.Phase == OutboxPhase.RecoveryRequired) continue;
+                if (IsOutpost(entry.Kind) || entry.Phase == OutboxPhase.RecoveryRequired) continue;
                 if (entry.Phase == OutboxPhase.Legacy)
                 {
                     if (NeedsSnapshot(entry)) { if (selected) entry.Phase = OutboxPhase.RecoveryRequired; continue; }
@@ -180,6 +189,7 @@ public sealed class TransferOutbox
         lock (gate)
         {
             if (entries.FirstOrDefault(e => e.Id == id) is not { } entry) return false;
+            if (IsOutpost(entry.Kind)) { HoldForRecovery(entry.Id, refusal); return true; }
             if (!NothingToReturn(entry))
             {
                 var previous = (entry.Phase, entry.Refusal, entry.RefusalKey, entry.RefusalArgs);
@@ -213,6 +223,11 @@ public sealed class TransferOutbox
 
     public static IMessage Decode(OutboxEntry entry) => entry.Kind switch
     {
+        OutboxKind.OutpostPrepare => OutpostPrepareRequest.Parser.ParseFrom(entry.Payload),
+        OutboxKind.OutpostCommit => OutpostProofRequest.Parser.ParseFrom(entry.Payload),
+        OutboxKind.OutpostCancel => OutpostCancelRequest.Parser.ParseFrom(entry.Payload),
+        OutboxKind.OutpostMutate => OutpostMutationRequest.Parser.ParseFrom(entry.Payload),
+        OutboxKind.OutpostBeginDelivery => OutpostDeliveryRequest.Parser.ParseFrom(entry.Payload),
         OutboxKind.Community => CommunityRequest.Parser.ParseFrom(entry.Payload),
         OutboxKind.Influence => InfluenceMutation.Parser.ParseFrom(entry.Payload),
         OutboxKind.Send => TransferRequest.Parser.ParseFrom(entry.Payload),
@@ -249,7 +264,7 @@ public sealed class TransferOutbox
         // replay lookup, so a request applied before the freeze still returns its result and a refused one was never applied.
         if (ex.StatusCode == StatusCode.ResourceExhausted) return false;
         if (EconomyClient.CodeOf(ex) is { } code) return code is not (ErrorCode.EconomyFrozen or ErrorCode.InfluenceUnavailable or ErrorCode.RecoveryRequired
-            or ErrorCode.RequestIntentMismatch or ErrorCode.SaveWriteEpochMismatch or ErrorCode.RecoveryClientRequired);
+            or ErrorCode.RequestIntentMismatch or ErrorCode.SaveWriteEpochMismatch or ErrorCode.RecoveryClientRequired or ErrorCode.OutpostUnavailable);
         return ex.StatusCode is StatusCode.InvalidArgument or StatusCode.FailedPrecondition or StatusCode.NotFound
             or StatusCode.PermissionDenied or StatusCode.AlreadyExists or StatusCode.OutOfRange or StatusCode.Unimplemented;
     }
@@ -273,13 +288,16 @@ public sealed class TransferOutbox
         int completed = 0, refused = 0, pending = 0;
         foreach (var entry in Entries)
         {
+            if (IsOutpost(entry.Kind) && QuarantineForLogin(entry, authentication, clients.Outposts)) { pending++; continue; }
+            if (IsOutpost(entry.Kind) && entry.Outpost?.DeliveryReply is not null && entry.Outpost.AcceptedReceipt is null)
+            { pending++; continue; }
             if (entry.Phase == OutboxPhase.Legacy && NeedsSnapshot(entry)) { pending++; continue; }
             if (entry.Phase is OutboxPhase.Prepared or OutboxPhase.RecoveryRequired) { pending++; continue; }
             if (entry.Refusal is not null) { refused++; continue; }
             if (!ReadyFor(entry, authentication)) { pending++; continue; }
             if (!CanReplay(clients, entry.Kind)) { pending++; continue; }
             var outcome = await Attempt(clients, entry, authentication!, ct);
-            if (outcome is null)
+            if (outcome is null && !IsOutpost(entry.Kind))
             {
                 await Task.Delay(TimeSpan.FromSeconds(2), ct);
                 outcome = await Attempt(clients, entry, authentication!, ct);
@@ -305,10 +323,12 @@ public sealed class TransferOutbox
     /// <summary>True: answered. False: refused for good (entry marked, or removed for a deliver). Null: still unknown.</summary>
     public static bool ReadyFor(OutboxEntry entry, LoginReply? login) => login is not null
         && entry.SaveGeneration == login.SaveGeneration && entry.SaveWriteEpoch == login.SaveWriteEpoch
-        && (entry.Phase == OutboxPhase.Ready || entry.Phase == OutboxPhase.Legacy && !NeedsSnapshot(entry));
+        && (IsOutpost(entry.Kind) ? OutpostReadyFor(entry, login) : entry.Phase == OutboxPhase.Ready || entry.Phase == OutboxPhase.Legacy && !NeedsSnapshot(entry));
 
     private static bool CanReplay(OutboxClients clients, OutboxKind kind) => kind switch
     {
+        OutboxKind.OutpostPrepare or OutboxKind.OutpostCommit or OutboxKind.OutpostCancel or OutboxKind.OutpostMutate
+            or OutboxKind.OutpostBeginDelivery => clients.Outposts is not null,
         OutboxKind.Launch or OutboxKind.Land or OutboxKind.Report => clients.Raids is not null,
         OutboxKind.Buy or OutboxKind.AckRemoval => clients.Shop is not null,
         OutboxKind.Propose => clients.Live is not null,
@@ -355,6 +375,8 @@ public sealed class TransferOutbox
         if (!ReferenceEquals(economy.Connection.Login, authentication) || !ReadyFor(entry, authentication)) return null;
         try
         {
+            if (IsOutpost(entry.Kind)) return await economy.Connection.ForAuthentication(authentication,
+                () => AttemptOutpost(clients.Outposts!, entry, ct));
             await economy.Connection.ForAuthentication(authentication, async () =>
             {
                 switch (entry.Kind)
@@ -413,6 +435,7 @@ public sealed class TransferOutbox
         }
         catch (Exception ex)
         {
+            if (IsOutpost(entry.Kind)) MarkReplyUnknown(entry.Id);
             log.Warn($"outbox: {entry.Kind} {entry.Id} still unanswered: {ex.Message}");
             return null;
         }

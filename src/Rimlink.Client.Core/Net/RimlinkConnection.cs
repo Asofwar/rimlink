@@ -95,6 +95,7 @@ public sealed class RimlinkConnection : IAsyncDisposable
         AwayApi = new Protocol.V1.Away.AwayClient(channel);
         IncidentsApi = new Protocol.V1.Incidents.IncidentsClient(channel);
         ColoniesApi = new Protocol.V1.Colonies.ColoniesClient(channel);
+        OutpostsApi = new Protocol.V1.Outposts.OutpostsClient(channel);
     }
 
     /// <summary>Pins live next to the game's config; the game layer sets the path before the first connection.</summary>
@@ -148,6 +149,7 @@ public sealed class RimlinkConnection : IAsyncDisposable
     public Protocol.V1.Away.AwayClient AwayApi { get; }
     public Protocol.V1.Incidents.IncidentsClient IncidentsApi { get; }
     public Protocol.V1.Colonies.ColoniesClient ColoniesApi { get; }
+    public Protocol.V1.Outposts.OutpostsClient OutpostsApi { get; }
 
     /// <summary>A queued map operation must keep the authorization of its snapshot, even if this connection reconnects.</summary>
     public async Task<T> ForAuthentication<T>(LoginReply authentication, Func<Task<T>> call)
@@ -202,11 +204,13 @@ public sealed class RimlinkConnection : IAsyncDisposable
         var request = await credentials.BuildLogin(cancellationToken);
         request.ProtocolVersion = ClientInfo.ProtocolVersion;
         request.RecoveryVersion = Rimlink.Protocol.SaveRecoveryData.CurrentVersion;
+        request.OutpostVersion = Rimlink.Protocol.OutpostRecoveryData.CurrentVersion;
         steamLogin = request.CredentialCase == LoginRequest.CredentialOneofCase.SteamTicket;
         var registration = credentials.TakeRegistration();
         if (registration is not null)
         {
             registration.RecoveryVersion = Rimlink.Protocol.SaveRecoveryData.CurrentVersion;
+            registration.OutpostVersion = Rimlink.Protocol.OutpostRecoveryData.CurrentVersion;
             registration.ServerPassword = request.ServerPassword;
         }
         if (registration is not null && registration.Mods.Count == 0) registration.Mods.AddRange(request.Mods);

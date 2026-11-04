@@ -9,7 +9,12 @@ namespace Rimlink.Client.Net;
 
 /// <param name="DevMode">Dev mode was on in this game since the previous upload (integrity spec §3).</param>
 public sealed record SaveMeta(string WorldSeed, string FactionName, long GameTick, long WealthTotal = 0, long WealthItems = 0, bool DevMode = false,
-    long SaveGeneration = 0, SaveRecoveryData? Recovery = null);
+    long SaveGeneration = 0, SaveRecoveryData? Recovery = null, byte[]? RawSha256 = null)
+{
+    internal SaveMeta Detached() => this with { RawSha256 = RawSha256?.ToArray(), Recovery = Recovery is not { } recovery ? null
+        : recovery with { ParcelIds = recovery.ParcelIds.ToArray(), Removed = recovery.Removed.ToArray(), Returned = recovery.Returned.ToArray(),
+            Outposts = new OutpostRecoveryData { Metadata = recovery.Outposts.Metadata.Clone() } } };
+}
 public sealed record DownloadedSave(string Path, SaveHeader Header, byte[] RawSha256)
 {
     public bool MatchesFile(string path)
@@ -40,11 +45,25 @@ public sealed class SaveTransfer(RimlinkConnection connection)
 
     private async Task<SaveInfo> UploadCore(string rwsPath, SaveMeta meta, CancellationToken cancellationToken)
     {
-        byte[] compressed;
-        using (var compressor = new Compressor(3))
+        meta = meta.Detached(); var authentication = connection.Login;
+        byte[] raw = await File.ReadAllBytesAsync(rwsPath, cancellationToken);
+        if (meta.Recovery?.Outposts.Present == true)
         {
-            compressed = compressor.Wrap(await File.ReadAllBytesAsync(rwsPath, cancellationToken)).ToArray();
+            meta.Recovery.Validate(); var scope = meta.Recovery.Outposts.Metadata.Scope;
+            if (authentication is null || authentication.OutpostVersion != 1 || scope.OwnerPlayerId != authentication.Player.PlayerId
+                || scope.SaveGeneration != authentication.SaveGeneration || scope.SaveWriteEpoch != authentication.SaveWriteEpoch
+                || scope.RestoreBoundary != authentication.OutpostRestoreBoundary || meta.RawSha256 is not { Length: 32 }
+                || !SHA256.HashData(raw).AsSpan().SequenceEqual(meta.RawSha256))
+                throw new InvalidDataException("outpost upload belongs to another authentication or raw snapshot boundary");
+            using var source = new MemoryStream(raw, writable: false); var actual = SaveRecoveryData.ReadXml(source, out _);
+            if (actual.SnapshotId != meta.Recovery.SnapshotId || actual.Generation != meta.SaveGeneration || actual.WriteEpoch != meta.Recovery.WriteEpoch
+                || !actual.Outposts.Metadata.Equals(meta.Recovery.Outposts.Metadata))
+                throw new InvalidDataException("outpost upload metadata differs from its immutable bytes");
         }
+        byte[] compressed;
+        using (var compressor = new Compressor(3)) compressed = compressor.Wrap(raw).ToArray();
+        if (meta.Recovery?.Outposts.Present == true && !ReferenceEquals(connection.Login, authentication))
+            throw new OperationCanceledException("authentication changed before outpost snapshot upload");
         if (compressed.Length > Limits.MaxSaveBytes)
             throw new RpcException(new Status(StatusCode.InvalidArgument, $"compressed save is {compressed.Length / 1024 / 1024} MB, the limit is {Limits.MaxSaveBytes / 1024 / 1024} MB"));
 
