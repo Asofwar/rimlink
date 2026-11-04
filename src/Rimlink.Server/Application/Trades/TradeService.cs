@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using Rimlink.Protocol.V1;
 using Rimlink.Server.Application.Economy;
 using Rimlink.Server.Application.Events;
+using Rimlink.Server.Application.Outposts;
 using Rimlink.Server.Application.Social;
 using Rimlink.Server.Grpc;
 using Rimlink.Server.Hosting;
@@ -25,7 +26,7 @@ namespace Rimlink.Server.Application.Trades;
 /// </summary>
 public sealed class TradeService(
     RimlinkDbContext db, WalletService wallet, MailboxService mailbox, TransferService transfers, ParcelValidator validator, EconomyGate gate,
-    EconomyGuard guard, EventBus events, IOptions<EconomyOptions> options, ILogger<TradeService> log)
+    EconomyGuard guard, EventBus events, IOptions<EconomyOptions> options, ILogger<TradeService> log, PawnCustodyBridge custody)
 {
     public const int MaxNoteLength = 200;
     private static readonly TimeSpan ListClosedFor = TimeSpan.FromDays(7);
@@ -42,7 +43,8 @@ public sealed class TradeService(
         CheckGoods(r.Items, r.Pawns, r.Silver);
 
         Trade trade;
-        await using (var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable))
+        await using (var tx = await custody.BeginOutgoingAsync(playerId, r.PartnerId, r.Pawns ?? new PawnList(),
+            CustodyTransferKind.CustodyTransferTradeSide, r.ClientRequestId, RequestIdentity.Hash(r)))
         {
             if (requestId is not null && await db.Trades.AsNoTracking().FirstOrDefaultAsync(t => t.InitiatorPlayerId == playerId && t.ClientRequestId == requestId) is { } raced)
             { RequestIdentity.Verify(raced.RequestIntent, r); return await ToProto(raced); }
@@ -57,6 +59,7 @@ public sealed class TradeService(
             if (await OpenCount(playerId) >= max) throw RpcErrors.Failed(ErrorCode.TradeLimit, RefusalKeys.TradesLimitOwn, $"you already have {max} open trades", max);
             if (await OpenCount(partner.Id) >= max) throw RpcErrors.Failed(ErrorCode.TradeLimit, RefusalKeys.TradesLimitPartner, $"{partner.Name} already has {max} open trades", partner.Name, max);
 
+            await tx.ValidateAsync();
             var now = DateTime.UtcNow;
             trade = new Trade
             {
@@ -81,8 +84,10 @@ public sealed class TradeService(
             await db.SaveChangesAsync();
             if (r.Silver > 0) await wallet.Apply(playerId, -r.Silver, "trade", trade.Id);
             if (HasGoods(r.Items, r.Pawns)) await transfers.StampOutgoing(playerId, r.GameTick);
-            db.Transfers.Add(new Transfer { FromPlayerId = playerId, ToPlayerId = partner.Id, Kind = "trade-open", GameTick = r.GameTick, Summary = $"trade {trade.Id}: {TransferService.Summary(r.Items, r.Pawns, r.Silver)}", At = now });
+            db.Transfers.Add(new Transfer { FromPlayerId = playerId, ToPlayerId = partner.Id, Kind = "trade-open", GameTick = r.GameTick, Summary = $"trade {trade.Id}: {TransferService.Summary(r.Items, r.Pawns, r.Silver)}", At = now,
+                ClientRequestId = requestId, RequestIntent = RequestIdentity.Hash(r), RequestTargetId = trade.Id });
             await db.SaveChangesAsync();
+            tx.Bind(trade.Id);
             await tx.CommitAsync();
         }
         wallet.FlushEvents();
@@ -100,12 +105,19 @@ public sealed class TradeService(
         string note = CleanNote(r.Note);
         CheckGoods(r.Items, r.Pawns, r.Silver);
 
+        var before = await Party(playerId, r.TradeId);
+        var routes = new List<PawnCustodyBridge.CustodyRoute> { new(playerId, before.InitiatorPlayerId == playerId ? before.PartnerPlayerId : before.InitiatorPlayerId,
+            r.Pawns ?? new PawnList(), CustodyTransferKind.CustodyTransferTradeSide, r.TradeId, r.ClientRequestId, RequestIdentity.Hash(r), false) };
+        if (r.ReturnGoods) routes.Add(new(playerId, playerId, PawnList.Parser.ParseFrom(new Side(before, before.InitiatorPlayerId == playerId).Pawns),
+            CustodyTransferKind.CustodyTransferTradeReturn, before.Id, r.ClientRequestId, RequestIdentity.Hash(r), true));
         Trade trade;
         Parcel? back = null;
-        await using (var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable))
+        await using (var tx = await custody.BeginRoutesAsync(routes))
         {
             if (await FindSideReplay(playerId, r) is { } raced) return await ToProto(raced);
             trade = await Party(playerId, r.TradeId, tracked: true);
+            await db.Entry(trade).ReloadAsync(); RequireSameSources(before, trade);
+            await tx.ValidateAsync();
             if (trade.Status != TradeStatusDb.Open) throw Gone();
             await gate.RequireNotFrozen(playerId); // a frozen player can only cancel: the goods go back to their owners
             var side = new Side(trade, trade.InitiatorPlayerId == playerId);
@@ -154,6 +166,8 @@ public sealed class TradeService(
                 RequestIntent = RequestIdentity.Hash(r), RequestTargetId = trade.Id,
             });
             await db.SaveChangesAsync();
+            tx.BindFor(playerId, CustodyTransferKind.CustodyTransferTradeSide, trade.Id);
+            if (back is not null) tx.BindFor(playerId, CustodyTransferKind.CustodyTransferTradeReturn, trade.Id, back.Id);
             await tx.CommitAsync();
         }
         wallet.FlushEvents();
@@ -173,11 +187,15 @@ public sealed class TradeService(
 
     public async Task<Protocol.V1.Trade> Confirm(long playerId, long tradeId, int revision)
     {
+        var before = await Party(playerId, tradeId);
+        string requestId = Guid.NewGuid().ToString("N");
+        byte[] requestIntent = RequestIdentity.Hash(new TradeConfirmRequest { TradeId = tradeId, Revision = revision });
         Trade trade;
         var parcels = new List<Parcel>();
-        await using (var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable))
+        await using (var tx = await custody.BeginRoutesAsync(TradeRoutes(before, CustodyTransferKind.CustodyTransferTradeFinish, requestId, requestIntent)))
         {
             trade = await Party(playerId, tradeId, tracked: true);
+            await db.Entry(trade).ReloadAsync(); RequireSameSources(before, trade);
             if (trade.Status == TradeStatusDb.Completed) return await ToProto(trade); // a second press after the exchange
             if (trade.Status != TradeStatusDb.Open) throw Gone();
             gate.RequireOpen();
@@ -188,6 +206,7 @@ public sealed class TradeService(
             var side = new Side(trade, trade.InitiatorPlayerId == playerId);
             var other = new Side(trade, trade.InitiatorPlayerId != playerId);
             if (side.Confirmed) return await ToProto(trade);
+            await tx.ValidateAsync();
             side.Confirmed = true;
 
             if (other.Confirmed)
@@ -198,12 +217,20 @@ public sealed class TradeService(
                     var items = ItemList.Parser.ParseFrom(from.Items);
                     var pawns = PawnList.Parser.ParseFrom(from.Pawns);
                     if (HasGoods(items, pawns) || from.Silver > 0)
-                        parcels.Add(await mailbox.Create(to.PlayerId, from.PlayerId, ParcelKindDb.Trade, items, pawns, from.Silver, null, ignoreMailboxLimit: true));
+                    {
+                        var parcel = await mailbox.Create(to.PlayerId, from.PlayerId, ParcelKindDb.Trade, items, pawns, from.Silver, null, ignoreMailboxLimit: true);
+                        parcels.Add(parcel);
+                        tx.BindFor(from.PlayerId, CustodyTransferKind.CustodyTransferTradeFinish, trade.Id, parcel.Id);
+                    }
                     db.Transfers.Add(new Transfer { FromPlayerId = from.PlayerId, ToPlayerId = to.PlayerId, Kind = "trade", GameTick = 0, Summary = $"trade {trade.Id}: {TransferService.Summary(items, pawns, from.Silver)}", At = DateTime.UtcNow });
                 }
                 trade.Status = TradeStatusDb.Completed;
                 trade.ClosedAt = DateTime.UtcNow;
             }
+            else if (tx.HasEvidence)
+                foreach (var route in TradeRoutes(before, CustodyTransferKind.CustodyTransferTradeFinish, requestId, requestIntent).Where(r => r.Pawns.Pawns.Any(p => p.Registry is not null)))
+                    db.Transfers.Add(new Transfer { FromPlayerId = route.Actor, ToPlayerId = route.Recipient, Kind = "trade-custody-confirm",
+                        ClientRequestId = requestId, RequestIntent = requestIntent, RequestTargetId = trade.Id, At = DateTime.UtcNow });
             await db.SaveChangesAsync();
             await tx.CommitAsync();
         }
@@ -270,18 +297,26 @@ public sealed class TradeService(
     /// <summary>Sends each side's goods back by parcel and its silver to the wallet; false when the trade was not open anymore.</summary>
     private async Task<bool> Close(long tradeId, TradeStatusDb status, string reason)
     {
+        var before = await db.Trades.AsNoTracking().FirstOrDefaultAsync(t => t.Id == tradeId && t.Status == TradeStatusDb.Open);
+        if (before is null) return false;
         Trade? trade;
         var parcels = new List<Parcel>();
-        await using (var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable))
+        await using (var tx = await custody.BeginRoutesAsync(TradeRoutes(before, CustodyTransferKind.CustodyTransferTradeReturn, "", RequestIdentity.Hash(new TradeRef { TradeId = tradeId }))))
         {
             trade = await db.Trades.FirstOrDefaultAsync(t => t.Id == tradeId && t.Status == TradeStatusDb.Open);
             if (trade is null) return false;
+            await db.Entry(trade).ReloadAsync(); RequireSameSources(before, trade);
+            if (trade.Status != TradeStatusDb.Open) return false;
+            await tx.ValidateAsync();
             foreach (var side in new[] { new Side(trade, true), new Side(trade, false) })
             {
                 var items = ItemList.Parser.ParseFrom(side.Items);
                 var pawns = PawnList.Parser.ParseFrom(side.Pawns);
                 if (HasGoods(items, pawns))
-                    parcels.Add(await mailbox.Create(side.PlayerId, null, ParcelKindDb.TradeReturn, items, pawns, 0, null, ignoreMailboxLimit: true));
+                {
+                    var parcel = await mailbox.Create(side.PlayerId, null, ParcelKindDb.TradeReturn, items, pawns, 0, null, ignoreMailboxLimit: true);
+                    parcels.Add(parcel); tx.BindFor(side.PlayerId, CustodyTransferKind.CustodyTransferTradeReturn, trade.Id, parcel.Id);
+                }
                 if (side.Silver > 0) await wallet.Apply(side.PlayerId, side.Silver, "refund", trade.Id);
                 side.Confirmed = false;
                 db.Transfers.Add(new Transfer { FromPlayerId = side.PlayerId, ToPlayerId = side.PlayerId, Kind = "trade-return", GameTick = 0, Summary = $"trade {trade.Id}: {TransferService.Summary(items, pawns, side.Silver)}", At = DateTime.UtcNow });
@@ -298,6 +333,18 @@ public sealed class TradeService(
         log.LogInformation("Trade {Trade} closed ({Status}): {Reason}", trade.Id, status, reason);
         await Publish(trade);
         return true;
+    }
+
+    private static IReadOnlyList<PawnCustodyBridge.CustodyRoute> TradeRoutes(Trade trade, CustodyTransferKind kind, string requestId, byte[] intent) =>
+        new[] { new Side(trade, true), new Side(trade, false) }.Select(side => new PawnCustodyBridge.CustodyRoute(side.PlayerId,
+            kind == CustodyTransferKind.CustodyTransferTradeReturn ? side.PlayerId : side.PlayerId == trade.InitiatorPlayerId ? trade.PartnerPlayerId : trade.InitiatorPlayerId,
+            PawnList.Parser.ParseFrom(side.Pawns), kind, trade.Id, requestId, intent, true)).ToArray();
+
+    private static void RequireSameSources(Trade before, Trade current)
+    {
+        if (before.Revision != current.Revision || before.InitiatorPlayerId != current.InitiatorPlayerId || before.PartnerPlayerId != current.PartnerPlayerId
+            || !before.InitiatorPawns.AsSpan().SequenceEqual(current.InitiatorPawns) || !before.PartnerPawns.AsSpan().SequenceEqual(current.PartnerPawns))
+            throw RpcErrors.Failed(ErrorCode.TradeChanged, RefusalKeys.TradesChanged, "the trade changed; look at it again");
     }
 
     private Task<int> OpenCount(long playerId) =>

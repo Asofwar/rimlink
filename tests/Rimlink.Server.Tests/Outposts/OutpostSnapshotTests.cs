@@ -322,14 +322,14 @@ internal sealed class SnapshotHarness : IDisposable
         Scope = new() { WorldInstanceId = "world-1", OwnerPlayerId = 1,
             RestoreBoundary = H.Db.OutpostAuthority.AsNoTracking().Single().RestoreBoundary }
     };
-    public EvidenceSave Snapshot(OutpostSaveMetadata? metadata = null, long tick = 1000)
+    public EvidenceSave Snapshot(OutpostSaveMetadata? metadata = null, long tick = 1000, IEnumerable<string>? removed = null)
     {
         string id = Guid.NewGuid().ToString("N");
         var section = new OutpostRecoveryData { Metadata = metadata ?? Metadata() };
         byte[] packed = RecoveryFixtures.Save(tick, id, generation: section.Metadata.Scope.SaveGeneration,
-            epoch: section.Metadata.Scope.SaveWriteEpoch, outposts: section);
+            epoch: section.Metadata.Scope.SaveWriteEpoch, removed: removed, outposts: section);
         var recovery = SaveRecoveryData.ReadXml(new MemoryStream(SaveFixtures.Decompress(packed)), out byte[] rawHash);
-        var version = new SaveVersion { PlayerId = 1, Number = ++number, GameTick = tick, Size = packed.Length,
+        var version = new SaveVersion { PlayerId = section.Metadata.Scope.OwnerPlayerId, Number = ++number, GameTick = tick, Size = packed.Length,
             Sha256 = SHA256.HashData(packed), RawSha256 = rawHash, SnapshotId = id, RecoveryVersion = 1,
             SaveGeneration = recovery.Generation, SaveWriteEpoch = recovery.WriteEpoch,
             RecoveryJson = JsonSerializer.Serialize(recovery), CreatedAt = DateTime.UtcNow, IsCurrent = true };
@@ -337,12 +337,15 @@ internal sealed class SnapshotHarness : IDisposable
     }
     public async Task Accept(EvidenceSave save)
     {
-        var row = await H.Db.OutpostAuthority.AsNoTracking().SingleAsync();
         string id = Guid.ParseExact(save.Version.SnapshotId!, "N").ToString("D");
-        await using var lease = await H.Authority.AcquireAsync([1], default);
-        await Guard.ValidateHeldAsync(lease, 1, save.Header, save.Recovery.Outposts, save.Version.RawSha256!, default);
-        H.Files.WriteAtomically(H.Files.FullPath(1, save.Version.Number), save.Packed);
-        await H.Authority.CommitHeldAsync(lease, new(id, "world-1", 1, 0, row.RestoreBoundary,
+        long playerId = save.Version.PlayerId;
+        string[] ids = save.Recovery.Outposts.Metadata.Registry.Select(r => r.PawnCustodyId).ToArray();
+        var owners = await H.Db.PawnCustody.AsNoTracking().Where(p => ids.Contains(p.Id)).Select(p => p.PlayerId).ToListAsync();
+        await using var lease = await H.Authority.AcquireAsync(owners.Append(playerId).ToArray(), default);
+        await Guard.ValidateHeldAsync(lease, playerId, save.Header, save.Recovery.Outposts, save.Version.RawSha256!, default);
+        var row = await H.Db.OutpostAuthority.AsNoTracking().SingleAsync();
+        H.Files.WriteAtomically(H.Files.FullPath(playerId, save.Version.Number), save.Packed);
+        await H.Authority.CommitHeldAsync(lease, new(id, "world-1", playerId, save.Version.SaveGeneration, row.RestoreBoundary,
             "SnapshotAccepted", "snapshot", new(row.HeadId, ByteString.CopyFrom(row.HeadDigest)),
             ByteString.CopyFrom(save.Recovery.Outposts.Metadata.ToByteArray())), async (db, ct) =>
         {

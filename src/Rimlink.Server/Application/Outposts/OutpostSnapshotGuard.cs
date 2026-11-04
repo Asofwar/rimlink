@@ -88,15 +88,16 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
             else
             {
                 await db.Entry(custody).ReloadAsync(ct);
-                if (custody.LocationKind == "Home" && envelope.Tombstone && !custody.Tombstone)
+                if (custody.PlayerId == scope.OwnerPlayerId && custody.SaveGeneration == scope.SaveGeneration
+                    && custody.RestoreBoundary == scope.RestoreBoundary && custody.LocationKind == "Home" && envelope.Tombstone && !custody.Tombstone)
                 { custody.Tombstone = true; custody.FrontierTransitionId = transition; custody.Revision++; }
             }
         }
         await StageAdmissionsAsync(recovery.Metadata, transition, ct);
-        await StageDeliveriesAsync(snapshot, recovery.Metadata, transition, ct);
+        await StageDeliveriesAsync(lease, snapshot, recovery.Metadata, transition, ct);
     }
 
-    private async Task StageDeliveriesAsync(SaveVersion snapshot, OutpostSaveMetadata metadata, string transitionId, CancellationToken ct)
+    private async Task StageDeliveriesAsync(OutpostLease lease, SaveVersion snapshot, OutpostSaveMetadata metadata, string transitionId, CancellationToken ct)
     {
         foreach (var receipt in metadata.Receipts.Where(r => r.DeliveryAttemptId.Length > 0))
         {
@@ -112,6 +113,9 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
                 var envelope = metadata.Registry.Single(e => e.PawnCustodyId == id && !e.NonAuthoritativeMirror);
                 var custody = await db.PawnCustody.SingleAsync(p => p.Id == id, ct);
                 await db.Entry(custody).ReloadAsync(ct);
+                RequireOwner(lease, custody.PlayerId);
+                custody.PlayerId = metadata.Scope.OwnerPlayerId; custody.SaveGeneration = metadata.Scope.SaveGeneration;
+                custody.RestoreBoundary = metadata.Scope.RestoreBoundary;
                 custody.LocationKind = "Home"; custody.LocationId = envelope.PawnReferenceToken; custody.Tombstone = false;
                 custody.FrontierTransitionId = transitionId; custody.Revision++;
             }
@@ -189,8 +193,7 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
         foreach (var custody in await db.PawnCustody.AsNoTracking().ToListAsync(ct))
             if (!registrations.Contains((custody.WorldId, custody.PlayerId, custody.SaveGeneration, custody.Id))
                 || !transitions.TryGetValue(custody.FrontierTransitionId, out var source) || source.WorldId != custody.WorldId
-                || source.PlayerId != custody.PlayerId || source.SaveGeneration != custody.SaveGeneration
-                || source.RestoreBoundary != custody.RestoreBoundary)
+                || !PawnCustodyBridge.CustodyFrontierMatches(source, custody))
                 throw Unavailable("required-snapshot-evidence-unavailable");
         foreach (var transition in transitions.Values.Where(t => !SnapshotIndependentKinds.Contains(t.Kind)))
             if (!links.Any(l => l.WorldId == transition.WorldId && l.PlayerId == transition.PlayerId && l.SaveGeneration == transition.SaveGeneration))
@@ -199,8 +202,9 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
         {
             if (!links.Any(l => l.WorldId == parcel.WorldId && l.PlayerId == parcel.PlayerId && l.SaveGeneration == parcel.SaveGeneration)
                 || !transitions.TryGetValue(parcel.TransitionId, out var source) || source.WorldId != parcel.WorldId
-                || source.PlayerId != parcel.PlayerId || source.SaveGeneration != parcel.SaveGeneration
-                || source.RestoreBoundary != parcel.RestoreBoundary || parcel.Payload.Length > OutpostRecoveryData.MaxMetadataBytes
+                || (source.PlayerId != parcel.PlayerId || source.SaveGeneration != parcel.SaveGeneration
+                    || source.RestoreBoundary != parcel.RestoreBoundary) && !await PawnCustodyBridge.IsHandoffSourceAsync(db, source, parcel, ct)
+                || parcel.Payload.Length > OutpostRecoveryData.MaxMetadataBytes
                 || parcel.PayloadDigest.Length != 32 || !SHA256.HashData(parcel.Payload).AsSpan().SequenceEqual(parcel.PayloadDigest)
                 || !await db.Parcels.AnyAsync(p => p.Id == parcel.ParcelId && p.ToPlayerId == parcel.PlayerId, ct))
                 throw Unavailable("required-parcel-evidence-unavailable");
@@ -218,6 +222,7 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
         }
         await ValidateAdmissionStoredAsync(transitions, links, ct);
         await ValidateMutationsStoredAsync(transitions, links, ct);
+        await PawnCustodyBridge.ValidateStoredEvidenceAsync(db, transitions.Values, ct);
         // Lifecycle/restore codecs are introduced by their own later tasks, never inferred from an unrelated link.
         if (await db.OutpostRestoreAuthorizations.AnyAsync(ct) || await db.OutpostLifecycleOperations.AnyAsync(ct))
             throw Unavailable("required-snapshot-evidence-unavailable");
@@ -263,8 +268,10 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
         }
         foreach (var envelope in registry.Values.Where(e => known.All(p => p.Id != e.PawnCustodyId)))
         {
-            if (!envelope.Scope.Equals(scope) || envelope.Tombstone || envelope.AssignmentId.Length != 0
-                || await db.PawnCustody.AnyAsync(p => p.Id == envelope.PawnCustodyId, ct))
+            var retained = await db.PawnCustody.AsNoTracking().SingleOrDefaultAsync(p => p.Id == envelope.PawnCustodyId, ct);
+            if (retained is not null && (await IncomingHandoffAsync(metadata, envelope, retained, ct)
+                || envelope.Tombstone && oldLinks.Any(l => ParseMetadata(l.Metadata).Registry.Any(e => e.Equals(envelope))))) continue;
+            if (!envelope.Scope.Equals(scope) || envelope.Tombstone || envelope.AssignmentId.Length != 0 || retained is not null)
                 throw Unavailable("snapshot-bootstrap-conflict");
         }
     }

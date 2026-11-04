@@ -82,6 +82,8 @@ message RaidReport {
   PawnList captives = 5;
   // Live sessions (3b): the session this report ends; raid_id is 0 for a live visit.
   int64 live_session_id = 6;
+  // Stable removal/report intent for custody-aware clients.
+  string client_request_id = 7;
 }
 
 message PeacefulRequest { bool peaceful = 1; }

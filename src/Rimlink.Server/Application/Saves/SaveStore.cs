@@ -71,7 +71,7 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
             { throw new SaveRejected(RefusalKeys.SavesUnreadable, "invalid recovery metadata: " + ex.Message, ex.Message); }
             // From here on the upload is complete: finish without the call token, so a client that drops right
             // after its last chunk does not leave a file without a row (or a row without a file).
-            OutpostLease? outpostLease = await AcquireUploadLockAsync(playerId, recovery.Outposts.Present);
+            OutpostLease? outpostLease = await AcquireUploadLockAsync(playerId, recovery.Outposts);
             try
             {
                 // Reset may have completed while the chunks arrived: compare a fresh row under the archive/write lock.
@@ -197,10 +197,14 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
         }
     }
 
-    private async Task<OutpostLease?> AcquireUploadLockAsync(long playerId, bool hasSection)
+    private async Task<OutpostLease?> AcquireUploadLockAsync(long playerId, OutpostRecoveryData metadata)
     {
-        if (hasSection || await outpostGuard.RequiresProtectionAsync(playerId, CancellationToken.None))
-            return await outpostAuthority.AcquireAsync([playerId], CancellationToken.None);
+        if (metadata.Present || await outpostGuard.RequiresProtectionAsync(playerId, CancellationToken.None))
+        {
+            string[] ids = metadata.Metadata.Registry.Select(r => r.PawnCustodyId).ToArray();
+            var sourceOwners = await db.PawnCustody.AsNoTracking().Where(p => ids.Contains(p.Id)).Select(p => p.PlayerId).ToListAsync();
+            return await outpostAuthority.AcquireAsync(sourceOwners.Append(playerId).Distinct().ToArray(), CancellationToken.None);
+        }
         await files.PerStoreLock.WaitAsync();
         try
         {

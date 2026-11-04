@@ -38,6 +38,7 @@ public sealed class OutpostFeature
         services.AddScoped<OutpostAssignmentService>();
         services.AddScoped<OutpostService>();
         services.AddScoped<OutpostParcels>();
+        services.AddScoped<PawnCustodyBridge>();
     }
 
     // Invoked before any hosted service, compactor, expiry sweep or request can run.

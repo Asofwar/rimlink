@@ -183,7 +183,7 @@ internal sealed class AssignmentHarness : IDisposable
     public static async Task<AssignmentHarness> Create(string? fault = null)
     {
         var f = new AssignmentHarness(await SnapshotHarness.Create());
-        f.Db.ModpackDefs.AddRange(new[] { "TemperateForest", "Steel", "WoodLog" }.Select(d => new ModpackDef { DefName = d }));
+        f.Db.ModpackDefs.AddRange(new[] { "TemperateForest", "Steel", "WoodLog", "Colonist" }.Select(d => new ModpackDef { DefName = d }));
         f.Db.Wallets.Add(new Rimlink.Server.Storage.Entities.Wallet { PlayerId = 1, Balance = 700 }); await f.Db.SaveChangesAsync();
         var manifests = new OutpostManifestService(f.Db, f.H.H.Authority, new(f.Time), f.H.H.Files);
         var document = new OutpostManifestDocument { SchemaVersion = 1, Binding = await manifests.BindingAsync(Actor.Api, default),

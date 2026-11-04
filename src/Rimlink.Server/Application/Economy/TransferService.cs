@@ -11,11 +11,12 @@ namespace Rimlink.Server.Application.Economy;
 
 /// <summary>Direct player-to-player transfers: items and pawns leave the sender's game, silver leaves their wallet, all into a parcel.</summary>
 public sealed class TransferService(RimlinkDbContext db, WalletService wallet, MailboxService mailbox, ParcelValidator validator, EconomyGate gate, EconomyGuard guard,
-    ILogger<TransferService> log, IHttpContextAccessor http)
+    ILogger<TransferService> log, IHttpContextAccessor http, Application.Outposts.PawnCustodyBridge custody)
 {
     public async Task<Parcel> Send(long fromPlayerId, TransferRequest request)
     {
-        await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+        await using var tx = await custody.BeginOutgoingAsync(fromPlayerId, request.ToPlayerId, request.Pawns,
+            CustodyTransferKind.CustodyTransferSend, request.ClientRequestId, RequestIdentity.Hash(request));
         if (await RequestIdentity.Parcel(db, fromPlayerId, "transfer.send", request.ClientRequestId, request) is { } existing) return existing;
         gate.RequireOpen();
         if (request.ToPlayerId == fromPlayerId) throw RpcErrors.Failed(ErrorCode.SelfTrade, RefusalKeys.EconomySelfSend, "you cannot send to yourself");
@@ -33,6 +34,7 @@ public sealed class TransferService(RimlinkDbContext db, WalletService wallet, M
         if (fromMap || request.Silver > 0) await guard.RequireNoThreat(fromPlayerId);
         await guard.RequireNoDebt(fromPlayerId);
 
+        await tx.ValidateAsync();
         var parcel = await mailbox.Create(request.ToPlayerId, fromPlayerId, ParcelKindDb.Gift, request.Items, request.Pawns, request.Silver,
             string.IsNullOrEmpty(request.ClientRequestId) ? null : request.ClientRequestId);
         parcel.RequestIntent = RequestIdentity.Hash(request);
@@ -48,6 +50,7 @@ public sealed class TransferService(RimlinkDbContext db, WalletService wallet, M
             At = DateTime.UtcNow,
         });
         await db.SaveChangesAsync();
+        tx.Bind(parcel.Id, parcel.Id);
         await tx.CommitAsync();
         wallet.FlushEvents();
 

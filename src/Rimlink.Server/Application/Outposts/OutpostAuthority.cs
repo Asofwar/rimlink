@@ -36,12 +36,10 @@ public sealed class OutpostAuthority(RimlinkDbContext db, OutpostAnchorStore anc
         }
     }
 
-    // Stage runs inside this transaction; it must neither own a transaction nor publish externally.
-    public async Task<AuthorityHead> CommitHeldAsync(OutpostLease lease, TransitionIntent intent,
-        Func<RimlinkDbContext, CancellationToken, Task> stage, CancellationToken ct)
+    /// <summary>Owns the only domain transaction; legacy stages can obtain generated source ids before final evidence is bound.</summary>
+    public async Task<OutpostDomainTransaction> BeginHeldAsync(OutpostLease lease, TransitionIntent intent, CancellationToken ct)
     {
         lease.Require(this);
-        ArgumentNullException.ThrowIfNull(stage);
         if (intent.PlayerId < 0 || (intent.PlayerId > 0 && !lease.CoversOwner(intent.PlayerId)))
             throw new InvalidOperationException("outpost-owner-lease-required");
         if (db.Database.CurrentTransaction is not null || db.ChangeTracker.HasChanges())
@@ -58,54 +56,113 @@ public sealed class OutpostAuthority(RimlinkDbContext db, OutpostAnchorStore anc
             OldHeadId = current.Committed.Id, NextHeadId = Guid.NewGuid().ToString("D"), CreatedAt = DateTime.UtcNow,
             PawnCustodyId = intent.PawnCustodyId, OutpostId = intent.OutpostId, Intent = intent.Intent.ToByteArray()
         };
-        // Validate immutable caller fields and their bounds before invoking the domain stage.
         OutpostTransitionDigest.Compute(current.Committed, transition);
         bool opened = db.Database.GetDbConnection().State != ConnectionState.Open;
-        bool pendingWritten = false;
+        Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? transaction = null;
         try
         {
             await OpenDurableDomainAsync(ct);
-            await using var transaction = await db.Database.BeginTransactionAsync(ct);
+            transaction = await db.Database.BeginTransactionAsync(ct);
             var row = await db.OutpostAuthority.SingleAsync(ct);
             await db.Entry(row).ReloadAsync(ct);
             transition.PredecessorId = row.TransitionId;
-            await stage(db, ct);
-            await db.SaveChangesAsync(ct);
-            if (await UnsupportedEvidenceReasonAsync(ct, transition) is { } evidenceReason)
-            {
-                feature.Startup = new(OutpostStartupState.Maintenance, evidenceReason);
-                throw new OutpostEvidenceUnavailableException(evidenceReason);
-            }
-            transition.Effects = (await OutpostDomainDigest.ComputeAsync(db, ct)).ToByteArray();
-            transition.Digest = OutpostTransitionDigest.Compute(current.Committed, transition).ToByteArray();
-            var next = new AuthorityHead(transition.NextHeadId, ByteString.CopyFrom(transition.Digest));
-            db.OutpostTransitions.Add(transition);
-            row.HeadId = next.Id;
-            row.HeadDigest = next.Digest.ToByteArray();
-            row.TransitionId = transition.Id;
-            await db.SaveChangesAsync(ct);
-            ct.ThrowIfCancellationRequested();
-            CommitCheckpoint?.Invoke("BeforePending");
-            // A write failure may itself have committed: every attempt from here requires reconciliation.
-            pendingWritten = true;
-            anchor.WriteDurable(lease.Anchor, current with { Pending = new(transition.Id, next) }, ct);
-            CommitCheckpoint?.Invoke("AfterPending");
-            await transaction.CommitAsync(CancellationToken.None);
-            CommitCheckpoint?.Invoke("AfterDomainCommit");
-            anchor.WriteDurable(lease.Anchor, current with { Committed = next }, CancellationToken.None);
-            CommitCheckpoint?.Invoke("AfterExternalCommit");
-            return next;
+            return new(this, db, anchor, feature, lease, current, transition, row, transaction, opened);
         }
         catch
         {
-            if (pendingWritten) feature.Startup = new(OutpostStartupState.Maintenance, "protected-commit-reconciliation-required");
+            if (transaction is not null) await transaction.DisposeAsync();
             db.ChangeTracker.Clear();
+            if (opened) await db.Database.CloseConnectionAsync();
             throw;
         }
-        finally
+    }
+
+    public sealed class OutpostDomainTransaction : IAsyncDisposable
+    {
+        private readonly OutpostAuthority owner;
+        private readonly RimlinkDbContext db;
+        private readonly OutpostAnchorStore anchor;
+        private readonly OutpostFeature feature;
+        private readonly OutpostLease lease;
+        private readonly AnchorRecord current;
+        private readonly OutpostTransition transition;
+        private readonly Storage.Entities.OutpostAuthority row;
+        private readonly Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction;
+        private readonly bool opened;
+        private bool attempted, completed, disposed;
+
+        internal OutpostDomainTransaction(OutpostAuthority owner, RimlinkDbContext db, OutpostAnchorStore anchor, OutpostFeature feature,
+            OutpostLease lease, AnchorRecord current, OutpostTransition transition, Storage.Entities.OutpostAuthority row,
+            Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction, bool opened)
         {
-            if (opened) await db.Database.CloseConnectionAsync();
+            this.owner = owner; this.db = db; this.anchor = anchor; this.feature = feature; this.lease = lease;
+            this.current = current; this.transition = transition; this.row = row; this.transaction = transaction; this.opened = opened;
         }
+
+        public async Task<AuthorityHead> CompleteAsync(ByteString finalIntent, CancellationToken ct)
+        {
+            lease.Require(owner);
+            if (disposed || attempted) throw new InvalidOperationException("outpost-commit-already-attempted");
+            attempted = true;
+            bool pendingWritten = false;
+            try
+            {
+                transition.Intent = finalIntent.ToByteArray();
+                OutpostTransitionDigest.Compute(current.Committed, transition);
+                await db.SaveChangesAsync(ct);
+                if (await owner.UnsupportedEvidenceReasonAsync(ct, transition) is { } evidenceReason)
+                {
+                    feature.Startup = new(OutpostStartupState.Maintenance, evidenceReason);
+                    throw new OutpostEvidenceUnavailableException(evidenceReason);
+                }
+                transition.Effects = (await OutpostDomainDigest.ComputeAsync(db, ct)).ToByteArray();
+                transition.Digest = OutpostTransitionDigest.Compute(current.Committed, transition).ToByteArray();
+                var next = new AuthorityHead(transition.NextHeadId, ByteString.CopyFrom(transition.Digest));
+                db.OutpostTransitions.Add(transition);
+                row.HeadId = next.Id; row.HeadDigest = next.Digest.ToByteArray(); row.TransitionId = transition.Id;
+                await db.SaveChangesAsync(ct);
+                ct.ThrowIfCancellationRequested();
+                owner.CommitCheckpoint?.Invoke("BeforePending");
+                // Every write attempt may already be durable: from here cancellation cannot compensate.
+                pendingWritten = true;
+                anchor.WriteDurable(lease.Anchor, current with { Pending = new(transition.Id, next) }, ct);
+                owner.CommitCheckpoint?.Invoke("AfterPending");
+                await transaction.CommitAsync(CancellationToken.None);
+                owner.CommitCheckpoint?.Invoke("AfterDomainCommit");
+                anchor.WriteDurable(lease.Anchor, current with { Committed = next }, CancellationToken.None);
+                owner.CommitCheckpoint?.Invoke("AfterExternalCommit");
+                completed = true;
+                return next;
+            }
+            catch
+            {
+                if (pendingWritten) feature.Startup = new(OutpostStartupState.Maintenance, "protected-commit-reconciliation-required");
+                db.ChangeTracker.Clear();
+                throw;
+            }
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            if (disposed) return;
+            disposed = true;
+            try { await transaction.DisposeAsync(); }
+            finally
+            {
+                if (!completed) db.ChangeTracker.Clear();
+                if (opened) await db.Database.CloseConnectionAsync();
+            }
+        }
+    }
+
+    // Stage neither owns another transaction nor publishes before the external authority commit.
+    public async Task<AuthorityHead> CommitHeldAsync(OutpostLease lease, TransitionIntent intent,
+        Func<RimlinkDbContext, CancellationToken, Task> stage, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(stage);
+        await using var transaction = await BeginHeldAsync(lease, intent, ct);
+        await stage(db, ct);
+        return await transaction.CompleteAsync(intent.Intent, ct);
     }
 
     public async Task<OutpostStartupResult> InitializeAsync(AuthorityInitialization request, CancellationToken ct)

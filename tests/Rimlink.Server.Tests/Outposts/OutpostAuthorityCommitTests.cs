@@ -195,6 +195,62 @@ public sealed class OutpostAuthorityCommitTests
         Assert.Single(h.Db.OutpostTransitions);
     }
 
+    [Fact]
+    public async Task Caller_staged_transaction_binds_generated_source_before_durable_decision()
+    {
+        using var h = await Initialized();
+        var intent = Intent(h.Db.OutpostAuthority.Single());
+        await using (var lease = await h.Authority.AcquireAsync([1], CancellationToken.None))
+        await using (var transaction = await h.Authority.BeginHeldAsync(lease, intent, CancellationToken.None))
+        {
+            Assert.NotNull(h.Db.Database.CurrentTransaction);
+            h.Db.Outposts.Add(new OutpostRow { Id = intent.OutpostId!, PlayerId = 1, WorldId = "world-1", State = "Active" });
+            await h.Db.SaveChangesAsync();
+            await transaction.CompleteAsync(ByteString.CopyFromUtf8("generated-source-77"), CancellationToken.None);
+        }
+        Assert.Equal("generated-source-77", ByteString.CopyFrom((await h.Db.OutpostTransitions.SingleAsync(t => t.Id == intent.Id)).Intent).ToStringUtf8());
+        Assert.Equal(OutpostStartupState.Ready, (await h.Authority.OpenAsync(CancellationToken.None)).State);
+    }
+
+    [Fact]
+    public async Task Uncompleted_caller_stage_rolls_back_saved_rows_and_tracker()
+    {
+        using var h = await Initialized();
+        var intent = Intent(h.Db.OutpostAuthority.Single());
+        await using (var lease = await h.Authority.AcquireAsync([1], CancellationToken.None))
+        await using (var transaction = await h.Authority.BeginHeldAsync(lease, intent, CancellationToken.None))
+        {
+            h.Db.Outposts.Add(new OutpostRow { Id = intent.OutpostId!, PlayerId = 1, WorldId = "world-1", State = "Active" });
+            await h.Db.SaveChangesAsync();
+        }
+        Assert.Empty(h.Db.ChangeTracker.Entries());
+        Assert.Empty(await h.Db.Outposts.AsNoTracking().ToListAsync());
+        Assert.Single(await h.Db.OutpostTransitions.AsNoTracking().ToListAsync());
+        Assert.Equal(OutpostStartupState.Ready, (await h.Authority.OpenAsync(CancellationToken.None)).State);
+    }
+
+    [Theory]
+    [InlineData("BeforePending", false)]
+    [InlineData("AfterPending", false)]
+    [InlineData("AfterDomainCommit", true)]
+    [InlineData("AfterExternalCommit", true)]
+    public async Task Caller_staged_commit_preserves_existing_interruption_boundaries(string point, bool committed)
+    {
+        using var h = await Initialized();
+        var intent = Intent(h.Db.OutpostAuthority.Single());
+        h.Authority.CommitCheckpoint = current => { if (current == point) throw new IOException("injected-caller-stage-interruption"); };
+        await using (var lease = await h.Authority.AcquireAsync([1], CancellationToken.None))
+        await using (var transaction = await h.Authority.BeginHeldAsync(lease, intent, CancellationToken.None))
+        {
+            h.Db.Outposts.Add(new OutpostRow { Id = intent.OutpostId!, PlayerId = 1, WorldId = "world-1", State = "Active" });
+            await Assert.ThrowsAsync<IOException>(() => transaction.CompleteAsync(ByteString.CopyFromUtf8("generated-source-77"), CancellationToken.None));
+        }
+        h.Authority.CommitCheckpoint = null;
+        Assert.Equal(OutpostStartupState.Ready, (await h.Authority.OpenAsync(CancellationToken.None)).State);
+        Assert.Equal(committed ? 1 : 0, await h.Db.Outposts.CountAsync());
+        Assert.Equal(committed ? 2 : 1, await h.Db.OutpostTransitions.CountAsync());
+    }
+
     private static TransitionIntent Intent(Rimlink.Server.Storage.Entities.OutpostAuthority row) =>
         new(Guid.NewGuid().ToString("D"), row.WorldId, 1, 0, row.RestoreBoundary, "Production", "test-admin",
             new(row.HeadId, ByteString.CopyFrom(row.HeadDigest)), ByteString.CopyFromUtf8("bounded-intent"),

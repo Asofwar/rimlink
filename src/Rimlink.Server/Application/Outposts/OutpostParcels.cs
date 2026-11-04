@@ -75,6 +75,9 @@ public sealed class OutpostParcels(RimlinkDbContext db, OutpostAuthority authori
             return Reply(repeated, request);
         }
         if (link.AcceptedSnapshotId is not null) throw Refuse(ErrorCode.OutpostConflict, "delivery-already-received");
+        var parcel = await db.Parcels.AsNoTracking().SingleAsync(p => p.Id == link.ParcelId, ct);
+        if (parcel.DeliveredAt is not null || parcel.Decision is ParcelDecisionDb.Awaiting or ParcelDecisionDb.Refused)
+            throw Refuse(ErrorCode.OutpostConflict, "delivery-parcel-not-open");
         await assignments.ProofAsync(request.Scope, request.CanonicalSnapshot, true, ct);
         if (await db.ArchivedColonies.AnyAsync(a => a.PlayerId == playerId && a.SaveGeneration == request.Scope.SaveGeneration && a.State == ArchiveState.Archived, ct)
             || await db.OutpostDeliveryAttempts.AnyAsync(a => a.ParcelId == request.ParcelId && a.Active, ct))

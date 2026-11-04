@@ -1,0 +1,43 @@
+syntax = "proto3";
+package rimlink.v1;
+option csharp_namespace = "Rimlink.Protocol.V1";
+import "economy.proto";
+import "common.proto";
+
+// Server-authored evidence for a real existing escrow operation, not a client owner-change API.
+enum CustodyTransferKind {
+  CUSTODY_TRANSFER_UNSPECIFIED = 0;
+  CUSTODY_TRANSFER_SEND = 1;
+  CUSTODY_TRANSFER_MARKET_POST = 2;
+  CUSTODY_TRANSFER_MARKET_BUY = 3;
+  CUSTODY_TRANSFER_MARKET_RETURN = 4;
+  CUSTODY_TRANSFER_GIFT_RETURN = 5;
+  CUSTODY_TRANSFER_TRADE_SIDE = 6;
+  CUSTODY_TRANSFER_TRADE_RETURN = 7;
+  CUSTODY_TRANSFER_TRADE_FINISH = 8;
+  CUSTODY_TRANSFER_RAID_LAUNCH = 9;
+  CUSTODY_TRANSFER_RAID_RETURN = 10;
+  CUSTODY_TRANSFER_RAID_REPORT = 11;
+  CUSTODY_TRANSFER_LIVE_LAUNCH = 12;
+  CUSTODY_TRANSFER_LIVE_RETURN = 13;
+  CUSTODY_TRANSFER_ADMIN_REFUND = 14;
+}
+message CustodyTransferEvidence {
+  string transition_id = 1;
+  CustodyTransferKind kind = 2;
+  int64 source_id = 3;
+  string client_request_id = 4;
+  int64 actor_player_id = 5;
+  int64 recipient_player_id = 6;
+  PawnList pawns = 7;
+  OutpostSnapshotProof removal_snapshot = 8;
+  repeated int64 parcel_ids = 9;
+  bool non_authoritative_mirror = 10;
+  bytes source_request_intent = 11;
+  // One authority transaction may move both existing sides of a trade. Children never nest.
+  repeated CustodyTransferEvidence related_transfers = 12;
+  bytes source_payload = 13;
+  PawnList result_pawns = 14;
+  int64 source_authorizer_player_id = 15;
+  string source_transition_id = 16;
+}

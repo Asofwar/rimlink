@@ -18,13 +18,15 @@ namespace Rimlink.Server.Application.Economy;
 
 /// <summary>The board: a lot holds the seller's items in escrow until bought, withdrawn or expired.</summary>
 public sealed class MarketService(RimlinkDbContext db, WalletService wallet, MailboxService mailbox, ParcelValidator validator, EconomyGate gate, EconomyGuard guard,
-    TransferService transfers, EventBus events, AdminFeed feed, IOptions<EconomyOptions> options, ILogger<MarketService> log)
+    TransferService transfers, EventBus events, AdminFeed feed, IOptions<EconomyOptions> options, ILogger<MarketService> log,
+    Application.Outposts.PawnCustodyBridge custody)
 {
     public const int PageSize = 50;
 
     public async Task<Lot> Post(long sellerId, PostRequest request)
     {
-        await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+        await using var tx = await custody.BeginOutgoingAsync(sellerId, 0, request.Pawn is null ? new PawnList() : new PawnList { Pawns = { request.Pawn } },
+            CustodyTransferKind.CustodyTransferMarketPost, request.ClientRequestId, RequestIdentity.Hash(request));
         if (!string.IsNullOrEmpty(request.ClientRequestId) && await db.Lots.AsNoTracking()
             .FirstOrDefaultAsync(l => l.SellerPlayerId == sellerId && l.ClientRequestId == request.ClientRequestId) is { } existing)
         { RequestIdentity.Verify(existing.RequestIntent, request); return existing; }
@@ -44,6 +46,7 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
         if (open >= options.Value.MaxLotsPerPlayer)
             throw RpcErrors.Failed(ErrorCode.Unspecified, RefusalKeys.EconomyLotLimit, $"you already have {open} open lots (limit {options.Value.MaxLotsPerPlayer})", open, options.Value.MaxLotsPerPlayer);
 
+        await tx.ValidateAsync();
         var now = DateTime.UtcNow;
         var lot = new Lot
         {
@@ -61,6 +64,7 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
         await transfers.StampOutgoing(sellerId, request.GameTick);
         db.Transfers.Add(new Transfer { FromPlayerId = sellerId, Kind = "post", GameTick = request.GameTick, Summary = TransferService.Summary(hasItems ? request.Items : null, pawns, 0) + $" @ {request.Price}", At = now });
         await db.SaveChangesAsync();
+        tx.Bind(lot.Id);
         await tx.CommitAsync();
         EconomyMetrics.Trade("post");
         string sellerName = await db.Players.AsNoTracking().Where(p => p.Id == sellerId).Select(p => p.Name).FirstAsync();
@@ -96,10 +100,16 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
     public async Task<Parcel> Withdraw(long sellerId, long lotId, bool bypassGate = false, bool chargeStorage = true)
     {
         if (!bypassGate) gate.RequireOpen();
-        await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+        var source = await db.Lots.AsNoTracking().FirstOrDefaultAsync(l => l.Id == lotId && l.SellerPlayerId == sellerId && l.Status == LotStatusDb.Open)
+            ?? throw RpcErrors.Failed(ErrorCode.LotGone, RefusalKeys.EconomyLotClosed, "this lot is no longer open");
+        var sourcePawns = source.Pawn is null ? new PawnList() : new PawnList { Pawns = { PawnBlob.Parser.ParseFrom(source.Pawn) } };
+        await using var tx = await custody.BeginSourceAsync(sellerId, sellerId, sourcePawns, CustodyTransferKind.CustodyTransferMarketReturn,
+            lotId, "market-return:" + lotId, System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes($"{lotId}:return")));
         var lot = await db.Lots.FirstOrDefaultAsync(l => l.Id == lotId && l.SellerPlayerId == sellerId && l.Status == LotStatusDb.Open)
             ?? throw RpcErrors.Failed(ErrorCode.LotGone, RefusalKeys.EconomyLotClosed, "this lot is no longer open");
+        await tx.ValidateAsync();
         var (parcel, _) = await Close(lot, LotStatusDb.Withdrawn, ParcelKindDb.LotReturn, "withdraw", chargeStorage);
+        tx.Bind(lot.Id, parcel.Id);
         await tx.CommitAsync();
         wallet.FlushEvents();
         await mailbox.Announce(parcel);
@@ -114,13 +124,18 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
         LotSold sold;
         long sellerId;
         string lotSummary;
-        await using (var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable))
+        var source = await db.Lots.AsNoTracking().FirstOrDefaultAsync(l => l.Id == lotId)
+            ?? throw RpcErrors.Failed(ErrorCode.LotGone, RefusalKeys.EconomyLotUnknown, "no such lot");
+        var sourcePawns = source.Pawn is null ? new PawnList() : new PawnList { Pawns = { PawnBlob.Parser.ParseFrom(source.Pawn) } };
+        await using (var tx = await custody.BeginSourceAsync(source.SellerPlayerId, buyerId, sourcePawns, CustodyTransferKind.CustodyTransferMarketBuy,
+            lotId, "market-buy:" + lotId, System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes($"{lotId}:{buyerId}"))))
         {
             var lot = await db.Lots.FirstOrDefaultAsync(l => l.Id == lotId) ?? throw RpcErrors.Failed(ErrorCode.LotGone, RefusalKeys.EconomyLotUnknown, "no such lot");
             if (lot.SellerPlayerId == buyerId) throw RpcErrors.Failed(ErrorCode.SelfTrade, RefusalKeys.EconomySelfBuy, "you cannot buy your own lot");
             if (lot.Status != LotStatusDb.Open) throw RpcErrors.Failed(ErrorCode.LotGone, RefusalKeys.EconomyLotGone, "this lot was already sold or withdrawn");
             await gate.RequireSellerOpen(lot.SellerPlayerId);
             await guard.RequireNoDebt(buyerId);
+            await tx.ValidateAsync();
 
             long fee = lot.Price * Math.Clamp(options.Value.MarketFeePercent, 0, 100) / 100;
             await wallet.Apply(buyerId, -lot.Price, "purchase", lot.Id);
@@ -141,6 +156,7 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
             string summary = TransferService.Summary(items, pawns, 0) + $" @ {lot.Price}";
             db.Transfers.Add(new Transfer { FromPlayerId = buyerId, ToPlayerId = lot.SellerPlayerId, Kind = "buy", GameTick = 0, Summary = summary, At = DateTime.UtcNow });
             await db.SaveChangesAsync();
+            tx.Bind(lot.Id, parcel.Id);
             await tx.CommitAsync();
             wallet.FlushEvents();
 
@@ -166,10 +182,16 @@ public sealed class MarketService(RimlinkDbContext db, WalletService wallet, Mai
         {
             try
             {
-                await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+                var source = await db.Lots.AsNoTracking().FirstOrDefaultAsync(l => l.Id == lotId && l.Status == LotStatusDb.Open);
+                if (source is null) continue;
+                var sourcePawns = source.Pawn is null ? new PawnList() : new PawnList { Pawns = { PawnBlob.Parser.ParseFrom(source.Pawn) } };
+                await using var tx = await custody.BeginSourceAsync(source.SellerPlayerId, source.SellerPlayerId, sourcePawns, CustodyTransferKind.CustodyTransferMarketReturn,
+                    lotId, "market-expire:" + lotId, System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes($"{lotId}:expire")));
                 var lot = await db.Lots.FirstOrDefaultAsync(l => l.Id == lotId && l.Status == LotStatusDb.Open);
                 if (lot is null) continue;
+                await tx.ValidateAsync();
                 var (parcel, storage) = await Close(lot, LotStatusDb.Expired, ParcelKindDb.LotReturn, "expire", chargeStorage: true);
+                tx.Bind(lot.Id, parcel.Id);
                 await tx.CommitAsync();
                 wallet.FlushEvents();
                 announcements.Add((parcel, lot.SellerPlayerId, lot.Id, storage));

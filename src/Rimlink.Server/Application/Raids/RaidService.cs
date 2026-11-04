@@ -1,4 +1,5 @@
 using Google.Protobuf;
+using Rimlink.Server.Application.Outposts;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
@@ -22,13 +23,13 @@ namespace Rimlink.Server.Application.Raids;
 /// became of them; the server only validates and moves parcels.
 /// </summary>
 public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, RaidReportValidator reports, MailboxService mailbox, RaidGate gate, RaidRules rules,
-    Economy.PlayerFreeze freezes, EventBus events, AdminFeed feed, IOptions<RaidOptions> options, ILogger<RaidService> log, ServerWealth wealth, TransferService transfers)
+    Economy.PlayerFreeze freezes, EventBus events, AdminFeed feed, IOptions<RaidOptions> options, ILogger<RaidService> log, ServerWealth wealth, TransferService transfers, Application.Outposts.PawnCustodyBridge custody)
 {
-    private static readonly RaidStateDb[] FinalStates = [RaidStateDb.Resolved, RaidStateDb.Expired, RaidStateDb.Cancelled];
+    internal static readonly RaidStateDb[] FinalStates = [RaidStateDb.Resolved, RaidStateDb.Expired, RaidStateDb.Cancelled];
     private static readonly RaidStateDb[] PendingStates = [RaidStateDb.Queued, RaidStateDb.Announced];
 
     /// <param name="controller">Live raids (3b) stay invisible to the target's 3a pipeline until <see cref="HandOverToAi"/>.</param>
-    public async Task<Raid> Launch(long attackerId, LaunchRequest r, RaidController controller = RaidController.ControllerAi)
+    public async Task<Raid> Launch(long attackerId, LaunchRequest r, RaidController controller = RaidController.ControllerAi, PawnCustodyBridge.CustodyTransaction? parent = null)
     {
         gate.RequireOpen();
         var o = options.Value;
@@ -37,12 +38,21 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
         if (r.Pawns.Pawns.Count > o.MaxRaiders) throw RpcErrors.Failed(ErrorCode.ParcelTooBig, RefusalKeys.RaidsTooManyPawns, $"too many raiders ({r.Pawns.Pawns.Count} > {o.MaxRaiders})", r.Pawns.Pawns.Count, o.MaxRaiders);
         if (validator.Validate(null, r.Pawns) is { } reason) throw RpcErrors.Failed(reason.Code, reason.Key, reason.Message, reason.Args);
 
-        await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+        await using var tx = parent?.Borrow() ?? await custody.BeginRoutesAsync([new(attackerId, r.TargetPlayerId, r.Pawns, CustodyTransferKind.CustodyTransferRaidLaunch,
+            0, r.ClientRequestId, RequestIdentity.Hash(r), false, r.PawnMode == PawnMode.PawnSnapshot)]);
         if (!string.IsNullOrEmpty(r.ClientRequestId))
         {
             var existing = await db.Raids.AsNoTracking().FirstOrDefaultAsync(x => x.AttackerPlayerId == attackerId && x.ClientRequestId == r.ClientRequestId);
-            if (existing is not null) return existing;
+            if (existing is not null)
+            {
+                var receipt = await db.Transfers.AsNoTracking().FirstOrDefaultAsync(t => t.Kind == "raid" && t.FromPlayerId == attackerId && t.RequestTargetId == existing.Id);
+                // Legacy fixture/client pawn blobs may be reserialized on replay. Protected intents remain byte-exact.
+                if (tx.HasEvidence || PawnList.Parser.ParseFrom(existing.Pawns).Pawns.Any(p => p.Registry is not null))
+                    RequestIdentity.Verify(receipt?.RequestIntent, r);
+                return existing;
+            }
         }
+        await tx.ValidateAsync();
         await freezes.Require(attackerId); // raiders carry loot home: a frozen player starts none (after the replay lookup, as in EconomyGate)
         await transfers.RequireCurrentSession(attackerId);
         var attacker = await db.Players.FirstAsync(p => p.Id == attackerId);
@@ -69,13 +79,19 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
         db.Raids.Add(raid);
         // Real pawns left the attacker's game: a save older than this one would bring them back.
         if (r.PawnMode == PawnMode.PawnReal) await transfers.StampOutgoing(attackerId, r.GameTick);
-        db.Transfers.Add(new Transfer { FromPlayerId = attackerId, ToPlayerId = target.Id, Kind = "raid", GameTick = r.GameTick, Summary = TransferService.Summary(null, r.Pawns, 0), At = now });
         await db.SaveChangesAsync();
-        await tx.CommitAsync();
+        db.Transfers.Add(new Transfer { FromPlayerId = attackerId, ToPlayerId = target.Id, Kind = "raid", GameTick = r.GameTick, Summary = TransferService.Summary(null, r.Pawns, 0), At = now,
+            ClientRequestId = raid.ClientRequestId, RequestIntent = RequestIdentity.Hash(r), RequestTargetId = raid.Id });
+        await db.SaveChangesAsync();
+        tx.Bind(raid.Id); await tx.CommitAsync();
 
-        RaidMetrics.Outcome("launched");
-        if (controller == RaidController.ControllerAi) events.SendTo(target.Id, new ServerEvent { RaidQueued = new RaidQueued { Raid = ToProto(raid, attacker, target, includeBlobs: false) } });
-        log.LogInformation("Player {Attacker} launched raid {Raid} at player {Target}: {Count} pawns, {Mode}/{Timing}/{Arrival}", attackerId, raid.Id, target.Id, r.Pawns.Pawns.Count, r.PawnMode, r.Timing, r.Arrival);
+        await tx.AfterCommitAsync(() =>
+        {
+            RaidMetrics.Outcome("launched");
+            if (controller == RaidController.ControllerAi) events.SendTo(target.Id, new ServerEvent { RaidQueued = new RaidQueued { Raid = ToProto(raid, attacker, target, includeBlobs: false) } });
+            log.LogInformation("Player {Attacker} launched raid {Raid} at player {Target}: {Count} pawns, {Mode}/{Timing}/{Arrival}", attackerId, raid.Id, target.Id, r.Pawns.Pawns.Count, r.PawnMode, r.Timing, r.Arrival);
+            return Task.CompletedTask;
+        });
         return raid;
     }
 
@@ -163,31 +179,35 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
     /// <summary>The defender's game is done with the raid: survivors, loot and captives become parcels for the attacker. Returns the raid (null when it was already resolved).</summary>
     public async Task<Raid?> Report(long targetId, RaidReport r)
     {
-        var parcels = new List<Parcel>();
-        RaidSummary summary;
-        long attackerId;
-        Raid reported;
-        await using (var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable))
+        var candidate = await db.Raids.AsNoTracking().SingleOrDefaultAsync(x => x.Id == r.RaidId)
+            ?? throw RpcErrors.Failed(ErrorCode.RaidGone, RefusalKeys.RaidsGone, "that raid is over");
+        if (candidate.TargetPlayerId != targetId) throw RpcErrors.With(StatusCode.NotFound, ErrorCode.Unspecified, RefusalKeys.RaidsNoSuchRaid, "no such raid");
+        if (candidate.State == RaidStateDb.Resolved) return null;
+        r = r.Clone();
+        if (candidate.Controller == (int)RaidController.ControllerLive && candidate.State == RaidStateDb.Queued)
+        {
+            var escrow = PawnList.Parser.ParseFrom(candidate.Pawns); var known = r.Outcomes.Select(o => o.Index).ToHashSet();
+            for (int i = 0; i < escrow.Pawns.Count; i++)
+                if (!known.Contains(i)) r.Outcomes.Add(new PawnOutcomeMsg { Index = i, Outcome = PawnOutcome.OutcomeAlive, Blob = escrow.Pawns[i] });
+        }
+        reports.Validate(candidate, r); // Includes index bounds before deriving any custody routes.
+        await using var tx = await custody.BeginRoutesAsync(PawnCustodyBridge.RaidReportRoutes(candidate, r));
+        var parcels = new List<Parcel>(); RaidSummary summary; long attackerId; Raid reported;
         {
             var raid = await TargetRaid(targetId, r.RaidId, allowResolved: true);
             if (raid.State == RaidStateDb.Resolved) return null;
             await transfers.RequireCurrentSession(targetId);
-            // A live raid never lands through the 3a pipeline: its guests were spawned by the host's game straight from Queued.
             bool live = raid.Controller == (int)RaidController.ControllerLive && raid.State == RaidStateDb.Queued;
             if (raid.State != RaidStateDb.Landed && !live) throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.Unspecified, RefusalKeys.RaidsNotLanded, "the raid has not landed");
-            if (live)
-            {
-                // Guests the host's save does not know (it predates their arrival) come home as they left, from the escrow.
-                r = r.Clone();
-                var escrow = PawnList.Parser.ParseFrom(raid.Pawns);
-                var known = r.Outcomes.Select(o => o.Index).ToHashSet();
-                for (int i = 0; i < escrow.Pawns.Count; i++)
-                    if (!known.Contains(i)) r.Outcomes.Add(new PawnOutcomeMsg { Index = i, Outcome = PawnOutcome.OutcomeAlive, Blob = escrow.Pawns[i] });
-            }
             long lootValue = reports.Validate(raid, r);
-
+            await tx.ValidateAsync();
             summary = new RaidSummary { LootValue = lootValue, Captives = r.Captives?.Pawns.Count ?? 0 };
-            var survivors = new PawnList();
+            var survivors = raid.PawnMode == (int)PawnMode.PawnReal
+                ? PawnCustodyBridge.RaidOutcomePawns(raid, r, PawnOutcome.OutcomeAlive, PawnOutcome.OutcomeFled) : new PawnList();
+            var capturedOriginals = raid.PawnMode == (int)PawnMode.PawnReal
+                ? PawnCustodyBridge.RaidOutcomePawns(raid, r, PawnOutcome.OutcomeCaptured) : new PawnList();
+            // Untagged captured raiders keep the legacy host-map path; a tagged copy is only a mirror until its receipt.
+            var captured = new PawnList(); captured.Pawns.Add(capturedOriginals.Pawns.Where(p => p.Registry is not null));
             foreach (var o in r.Outcomes)
             {
                 db.RaidOutcomes.Add(new RaidOutcome { RaidId = raid.Id, Index = o.Index, Outcome = (int)o.Outcome });
@@ -195,28 +215,33 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
                 {
                     case PawnOutcome.OutcomeDead: summary.Dead++; break;
                     case PawnOutcome.OutcomeCaptured: summary.Captured++; break;
-                    case PawnOutcome.OutcomeFled: summary.Fled++; if (raid.PawnMode == (int)PawnMode.PawnReal) survivors.Pawns.Add(o.Blob); break;
-                    case PawnOutcome.OutcomeAlive: summary.Alive++; if (raid.PawnMode == (int)PawnMode.PawnReal) survivors.Pawns.Add(o.Blob); break;
+                    case PawnOutcome.OutcomeFled: summary.Fled++; break;
+                    case PawnOutcome.OutcomeAlive: summary.Alive++; break;
                 }
             }
-            raid.State = RaidStateDb.Resolved;
-            raid.ResolvedAt = DateTime.UtcNow;
-            raid.SummaryJson = JsonFormatter.Default.Format(summary);
-            attackerId = raid.AttackerPlayerId;
-            reported = raid;
-
-            if (r.Loot is { Items.Count: > 0 })
-                parcels.Add(await mailbox.Create(attackerId, targetId, ParcelKindDb.Loot, r.Loot, null, 0, null, ignoreMailboxLimit: true));
+            raid.State = RaidStateDb.Resolved; raid.ResolvedAt = DateTime.UtcNow; raid.SummaryJson = JsonFormatter.Default.Format(summary);
+            attackerId = raid.AttackerPlayerId; reported = raid;
+            if (r.Loot is { Items.Count: > 0 }) parcels.Add(await mailbox.Create(attackerId, targetId, ParcelKindDb.Loot, r.Loot, null, 0, null, ignoreMailboxLimit: true));
             if (survivors.Pawns.Count > 0)
-                parcels.Add(await mailbox.Create(attackerId, null, ParcelKindDb.RaidReturn, null, survivors, 0, null, ignoreMailboxLimit: true));
+            {
+                var parcel = await mailbox.Create(attackerId, null, ParcelKindDb.RaidReturn, null, survivors, 0, null, ignoreMailboxLimit: true); parcels.Add(parcel);
+                tx.BindRoute(attackerId, attackerId, CustodyTransferKind.CustodyTransferRaidReturn, raid.Id, parcel.Id);
+            }
+            if (captured.Pawns.Count > 0)
+            {
+                var parcel = await mailbox.Create(targetId, attackerId, ParcelKindDb.Captive, null, captured, 0, null, ignoreMailboxLimit: true); parcels.Add(parcel);
+                tx.BindRoute(attackerId, targetId, CustodyTransferKind.CustodyTransferRaidReport, raid.Id, parcel.Id);
+            }
             if (r.Captives is { Pawns.Count: > 0 })
-                parcels.Add(await mailbox.Create(attackerId, targetId, ParcelKindDb.Captive, null, r.Captives, 0, null, ignoreMailboxLimit: true));
-
-            // Loot and survivors left the defender's game: a save older than this one would bring them back.
+            {
+                var parcel = await mailbox.Create(attackerId, targetId, ParcelKindDb.Captive, null, r.Captives, 0, null, ignoreMailboxLimit: true); parcels.Add(parcel);
+                tx.BindRoute(targetId, attackerId, CustodyTransferKind.CustodyTransferRaidReport, raid.Id, parcel.Id);
+            }
             await transfers.StampOutgoing(targetId, r.GameTick);
-            db.Transfers.Add(new Transfer { FromPlayerId = targetId, ToPlayerId = attackerId, Kind = "raid-report", GameTick = r.GameTick, Summary = $"raid {raid.Id}: {summary}", At = DateTime.UtcNow });
-            await db.SaveChangesAsync();
-            await tx.CommitAsync();
+            db.Transfers.Add(new Transfer { FromPlayerId = targetId, ToPlayerId = attackerId, Kind = "raid-report", GameTick = r.GameTick,
+                Summary = $"raid {raid.Id}: {summary}", At = DateTime.UtcNow, ClientRequestId = r.ClientRequestId,
+                RequestTargetId = raid.Id, RequestIntent = System.Security.Cryptography.SHA256.HashData(r.ToByteArray()) });
+            await db.SaveChangesAsync(); await tx.CommitAsync();
             log.LogInformation("Raid {Raid} resolved by player {Target}: {Summary}", raid.Id, targetId, summary);
         }
         RaidMetrics.Outcome("resolved");
@@ -227,6 +252,7 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
         foreach (var parcel in parcels) await mailbox.Announce(parcel);
         return reported;
     }
+
 
     /// <summary>
     /// Raids past their expiry go back to the attacker (Real pawns as a parcel): queued and announced ones the defender never
@@ -255,32 +281,36 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
     /// Admin cancellation. Pawns still in escrow (not landed) go back; a landed raid's copies stay with the defender's map
     /// unless <paramref name="returnPawns"/> says the originals go home too (a raid stuck on a map nobody plays).
     /// </summary>
-    public async Task<bool> Cancel(long raidId, string reason, bool returnPawns = false)
+    public async Task<bool> Cancel(long raidId, string reason, bool returnPawns = false, PawnCustodyBridge.CustodyTransaction? parent = null)
     {
         var raid = await db.Raids.FirstOrDefaultAsync(r => r.Id == raidId);
         if (raid is null || FinalStates.Contains(raid.State)) return false;
-        return await Close(raid, RaidStateDb.Cancelled, returnPawns: returnPawns || raid.State != RaidStateDb.Landed, reason);
+        return await Close(raid, RaidStateDb.Cancelled, returnPawns: returnPawns || raid.State != RaidStateDb.Landed, reason, parent);
     }
 
     /// <summary>
     /// The player's colony is gone: raids at them give the pawns back to their attackers. Their own raids are dropped on a reset,
     /// or return the pawns to them (<paramref name="returnOwnPawns"/>) when the colony goes to the archive and may come back.
     /// </summary>
-    public async Task CancelAllOf(long playerId, string reason, bool returnOwnPawns = false)
+    public async Task CancelAllOf(long playerId, string reason, bool returnOwnPawns = false, PawnCustodyBridge.CustodyEntry? sharedEntry = null)
     {
         foreach (var raid in await db.Raids.Where(r => (r.TargetPlayerId == playerId || r.AttackerPlayerId == playerId) && !FinalStates.Contains(r.State)).ToListAsync())
-            await Close(raid, RaidStateDb.Cancelled, returnPawns: returnOwnPawns || raid.TargetPlayerId == playerId, reason);
+            await Close(raid, RaidStateDb.Cancelled, returnPawns: returnOwnPawns || raid.TargetPlayerId == playerId, reason, sharedEntry: sharedEntry);
     }
 
     /// <summary>False when the raid reached a final state between the caller's read and this transaction (a report that came in meanwhile).</summary>
-    private async Task<bool> Close(Raid raid, RaidStateDb state, bool returnPawns, string reason)
+    private async Task<bool> Close(Raid raid, RaidStateDb state, bool returnPawns, string reason, PawnCustodyBridge.CustodyTransaction? parent = null, PawnCustodyBridge.CustodyEntry? sharedEntry = null)
     {
         Parcel? back = null;
         bool wasIncoming;
-        await using (var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable))
+        var originalPawns = raid.PawnMode == (int)PawnMode.PawnReal ? PawnList.Parser.ParseFrom(raid.Pawns) : new PawnList();
+        var routes = new PawnCustodyBridge.CustodyRoute[] { new(raid.AttackerPlayerId, raid.AttackerPlayerId, originalPawns, CustodyTransferKind.CustodyTransferRaidReturn,
+            raid.Id, raid.ClientRequestId ?? "", RequestIdentity.Hash(new RaidRef { RaidId = raid.Id }), true) };
+        await using var tx = parent?.Borrow() ?? (sharedEntry is null ? await custody.BeginRoutesAsync(routes) : await sharedEntry.BeginRoutesAsync(routes));
         {
             await db.Entry(raid).ReloadAsync();
             if (FinalStates.Contains(raid.State)) return false;
+            await tx.ValidateAsync();
             wasIncoming = raid.State is RaidStateDb.Queued or RaidStateDb.Announced;
             raid.State = state;
             raid.ResolvedAt = DateTime.UtcNow;
@@ -288,8 +318,11 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
                 back = await mailbox.Create(raid.AttackerPlayerId, null, ParcelKindDb.RaidReturn, null, PawnList.Parser.ParseFrom(raid.Pawns), 0, null, ignoreMailboxLimit: true);
             db.Transfers.Add(new Transfer { FromPlayerId = raid.AttackerPlayerId, ToPlayerId = raid.TargetPlayerId, Kind = "raid-" + state.ToString().ToLowerInvariant(), GameTick = 0, Summary = $"raid {raid.Id}: {reason}", At = DateTime.UtcNow });
             await db.SaveChangesAsync();
+            if (back is not null) tx.Bind(raid.Id, back.Id);
             await tx.CommitAsync();
         }
+        await tx.AfterCommitAsync(async () =>
+        {
         RaidMetrics.Outcome(state.ToString().ToLowerInvariant());
         if (state == RaidStateDb.Expired) events.SendTo(raid.AttackerPlayerId, new ServerEvent { RaidExpired = new RaidExpired { RaidId = raid.Id } });
         else events.SendTo(raid.AttackerPlayerId, new ServerEvent { Notice = new Notice { Text = $"Your raid was cancelled: {reason}" } });
@@ -297,6 +330,7 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
         if (wasIncoming) events.SendTo(raid.TargetPlayerId, new ServerEvent { RaidExpired = new RaidExpired { RaidId = raid.Id } });
         if (back is not null) await mailbox.Announce(back);
         log.LogInformation("Raid {Raid} {State}: {Reason}", raid.Id, state, reason);
+        });
         return true;
     }
 

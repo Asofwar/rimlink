@@ -61,7 +61,8 @@ public sealed class ColonyArchive(
     ILogger<ColonyArchive> log,
     InfluenceService influence,
     Outposts.OutpostTileClaims outpostTiles,
-    Outposts.OutpostAuthority outpostAuthority)
+    Outposts.OutpostAuthority outpostAuthority,
+    Outposts.PawnCustodyBridge custody)
 {
     private const int SqliteConstraint = 19;
 
@@ -83,9 +84,10 @@ public sealed class ColonyArchive(
         var versions = await db.SaveVersions.Where(v => v.PlayerId == playerId).OrderBy(v => v.Number).ToListAsync();
         files.EnsureFilesExist(playerId, versions); // before any side effect: a colony whose saves are gone stays as it is
 
-        await raids.CancelAllOf(playerId, "colony archived", returnOwnPawns: true);
+        await using var cleanup = held.Authority is null ? null : custody.UseHeldEntry(held.Authority);
+        await raids.CancelAllOf(playerId, "colony archived", returnOwnPawns: true, cleanup);
         await visits.EndAllOf(playerId);
-        await live.EndAllOf(playerId, LiveEndReason.EndAdmin);
+        await live.EndAllOf(playerId, LiveEndReason.EndAdmin, cleanup);
         await incidents.CancelAllOf(playerId, "colony archived");
         await procurement.CancelAllOf(playerId);
 
@@ -154,14 +156,35 @@ public sealed class ColonyArchive(
         try
         {
             storage = await saveFiles.PerStoreLock.HoldAsync();
-            bool protectedHistory = await db.OutpostSnapshotLinks.AnyAsync(p => p.PlayerId == playerId)
-                || await db.PawnCustody.AnyAsync(p => p.PlayerId == playerId)
-                || await db.OutpostDeliveryAttempts.AnyAsync(p => p.PlayerId == playerId);
+            long[] affected = await CleanupOwners(playerId);
+            bool protectedHistory = await db.OutpostSnapshotLinks.AnyAsync(p => affected.Contains(p.PlayerId))
+                || await db.PawnCustody.AnyAsync(p => affected.Contains(p.PlayerId))
+                || await db.OutpostDeliveryAttempts.AnyAsync(p => affected.Contains(p.PlayerId));
             if (!protectedHistory) return new(owner, storage, null);
             storage.Dispose(); storage = null; owner.Dispose(); owner = null;
-            return new(null, null, await outpostAuthority.AcquireAsync([playerId], default));
+            while (true)
+            {
+                var lease = await outpostAuthority.AcquireAsync(affected, default);
+                long[] current;
+                try
+                {
+                    current = await CleanupOwners(playerId);
+                    if (current.All(lease.CoversOwner)) return new(null, null, lease);
+                }
+                catch { await lease.DisposeAsync(); throw; }
+                await lease.DisposeAsync(); affected = current; // A is never acquired or expanded while O/S is held.
+            }
         }
         catch { storage?.Dispose(); owner?.Dispose(); throw; }
+    }
+
+    private async Task<long[]> CleanupOwners(long playerId)
+    {
+        var raidOwners = await db.Raids.AsNoTracking().Where(r => (r.AttackerPlayerId == playerId || r.TargetPlayerId == playerId) && !RaidService.FinalStates.Contains(r.State))
+            .Select(r => new { Actor = r.AttackerPlayerId, Other = r.TargetPlayerId }).ToListAsync();
+        var liveOwners = await db.LiveSessions.AsNoTracking().Where(s => (s.GuestPlayerId == playerId || s.HostPlayerId == playerId) && !LiveSessionService.FinalStates.Contains(s.State))
+            .Select(s => new { Actor = s.GuestPlayerId, Other = s.HostPlayerId }).ToListAsync();
+        return raidOwners.Concat(liveOwners).SelectMany(p => new[] { p.Actor, p.Other }).Append(playerId).Where(id => id > 0).Distinct().Order().ToArray();
     }
 
     private sealed class ArchiveLock(IDisposable? owner, IDisposable? storage, Outposts.OutpostLease? authority) : IAsyncDisposable

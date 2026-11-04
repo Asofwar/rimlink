@@ -64,7 +64,8 @@ public sealed class AdminOperations(
     ForbiddenDefsService forbiddenStore,
     ForbiddenDefs forbidden,
     Incidents.IncidentService incidents,
-    Auctions.AuctionService auctions)
+    Auctions.AuctionService auctions,
+    Application.Outposts.PawnCustodyBridge custody)
 {
     /// <summary>Archived colonies, newest first (at most 500); <paramref name="state"/> is archived, restored or all.</summary>
     public async Task<List<ArchivedRow>> ListArchived(Actor actor, string state)
@@ -300,9 +301,17 @@ public sealed class AdminOperations(
     public async Task<bool> RefundParcel(Actor actor, long parcelId)
     {
         actor.Require(Role.Admin);
-        await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+        var source = await db.Parcels.AsNoTracking().FirstOrDefaultAsync(p => p.Id == parcelId && p.DeliveredAt == null);
+        if (source is null) return false;
+        await using var tx = await custody.BeginSourceAsync(source.FromPlayerId ?? source.ToPlayerId, source.FromPlayerId ?? source.ToPlayerId,
+            source.Kind == ParcelKindDb.Gift ? PawnList.Parser.ParseFrom(source.Pawns) : new PawnList(),
+            CustodyTransferKind.CustodyTransferAdminRefund, parcelId, source.ClientRequestId ?? "",
+            System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes("admin-refund:" + parcelId.ToString(System.Globalization.CultureInfo.InvariantCulture))));
         var parcel = await db.Parcels.FirstOrDefaultAsync(p => p.Id == parcelId && p.DeliveredAt == null);
         if (parcel is null) return false;
+        await db.Entry(parcel).ReloadAsync();
+        if (parcel.DeliveredAt is not null) return false;
+        await tx.ValidateAsync();
         // Only what can be undone cleanly: a gift goes back to its sender, a withdrawal back into the wallet.
         // A purchase or lot return has a paid counterpart; reversing it is wallet work for the admin.
         Parcel? back = null;
@@ -327,8 +336,9 @@ public sealed class AdminOperations(
         // Marked delivered at tick 0 so no save can be "older" than it: it never drops again.
         parcel.DeliveredAt = DateTime.UtcNow;
         parcel.DeliveredTick = 0;
-        db.Transfers.Add(new Transfer { FromPlayerId = parcel.ToPlayerId, ToPlayerId = target, Kind = "refund", GameTick = 0, Summary = $"parcel {parcel.Id}", At = DateTime.UtcNow });
+        db.Transfers.Add(new Transfer { FromPlayerId = parcel.ToPlayerId, ToPlayerId = target, Kind = "refund", GameTick = 0, Summary = $"parcel {parcel.Id}", At = DateTime.UtcNow, RequestTargetId = parcel.Id });
         await db.SaveChangesAsync();
+        if (back is not null) tx.Bind(parcelId, back.Id);
         await tx.CommitAsync();
         wallet.FlushEvents();
         if (back is not null) await mailbox.Announce(back);

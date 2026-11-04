@@ -17,7 +17,7 @@ namespace Rimlink.Server.Application.Economy;
 /// <c>Economy:GiftDecisionDays</c>), its items and pawns go back to the sender as a <c>GiftReturn</c> parcel and its silver to
 /// the sender's wallet, in one transaction. Nothing is destroyed.
 /// </summary>
-public sealed class GiftService(RimlinkDbContext db, MailboxService mailbox, WalletService wallet, EventBus events, IOptions<EconomyOptions> options, ILogger<GiftService> log)
+public sealed class GiftService(RimlinkDbContext db, MailboxService mailbox, WalletService wallet, EventBus events, IOptions<EconomyOptions> options, ILogger<GiftService> log, Application.Outposts.PawnCustodyBridge custody)
 {
     public async Task Answer(long playerId, long parcelId, bool accept)
     {
@@ -57,11 +57,16 @@ public sealed class GiftService(RimlinkDbContext db, MailboxService mailbox, Wal
     {
         Parcel? back = null;
         Parcel parcel;
-        await using (var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable))
+        var source = await db.Parcels.AsNoTracking().FirstOrDefaultAsync(p => p.Id == parcelId && p.Decision == ParcelDecisionDb.Awaiting && p.DeliveredAt == null);
+        if (source is null) return false;
+        long sourceOwner = source.FromPlayerId ?? throw new InvalidOperationException($"gift {source.Id} has no sender");
+        await using (var tx = await custody.BeginSourceAsync(sourceOwner, sourceOwner, PawnList.Parser.ParseFrom(source.Pawns), CustodyTransferKind.CustodyTransferGiftReturn,
+            parcelId, "gift-return:" + parcelId, System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes($"{parcelId}:refuse"))))
         {
             var found = await db.Parcels.FirstOrDefaultAsync(p => p.Id == parcelId && p.Decision == ParcelDecisionDb.Awaiting && p.DeliveredAt == null);
             if (found is null) return false; // answered meanwhile
             parcel = found;
+            await tx.ValidateAsync();
             long sender = parcel.FromPlayerId ?? throw new InvalidOperationException($"gift {parcel.Id} has no sender");
             var items = ItemList.Parser.ParseFrom(parcel.Items);
             var pawns = PawnList.Parser.ParseFrom(parcel.Pawns);
@@ -75,6 +80,7 @@ public sealed class GiftService(RimlinkDbContext db, MailboxService mailbox, Wal
             if (parcel.Silver > 0) await wallet.Apply(sender, parcel.Silver, "refund", parcel.Id);
             db.Transfers.Add(new Transfer { FromPlayerId = parcel.ToPlayerId, ToPlayerId = sender, Kind = "gift-refuse", GameTick = 0, Summary = $"parcel {parcel.Id}", At = DateTime.UtcNow });
             await db.SaveChangesAsync();
+            tx.Bind(parcel.Id, back is null ? [] : [back.Id]);
             await tx.CommitAsync();
         }
         wallet.FlushEvents();
