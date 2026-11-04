@@ -7,4 +7,37 @@
   <Rimlink.Refusal.Outposts.Unavailable>Outposts are not available until their recovery and lifecycle protections are ready.</Rimlink.Refusal.Outposts.Unavailable>
   <Rimlink.Outposts.WorkerIdentity>This pawn has no authoritative custody identity for this colony.</Rimlink.Outposts.WorkerIdentity>
   <Rimlink.Outposts.WorkerIneligible>This pawn is not eligible for the selected outpost work.</Rimlink.Outposts.WorkerIneligible>
+  <Rimlink.Outposts.StaffingTitle>Staff outpost</Rimlink.Outposts.StaffingTitle>
+  <Rimlink.Outposts.StaffingDescription>Staff a passive outpost on the tile this caravan has actually reached.</Rimlink.Outposts.StaffingDescription>
+  <Rimlink.Outposts.StaffingHelp>Tile {0}. Select 1–4 adult colonists. Their equipment and inventory travel with them. The remaining caravan must stay mobile.</Rimlink.Outposts.StaffingHelp>
+  <Rimlink.Outposts.StaffingCost>Selected: {0}. Founding reserves 500 server-wallet silver; staffing is free. Workers remain frozen while away.</Rimlink.Outposts.StaffingCost>
+  <Rimlink.Outposts.Wood>Wood — Plants</Rimlink.Outposts.Wood>
+  <Rimlink.Outposts.Steel>Steel — Mining</Rimlink.Outposts.Steel>
+  <Rimlink.Outposts.Found>Found here — 500 silver</Rimlink.Outposts.Found>
+  <Rimlink.Outposts.Assign>Assign to outpost here</Rimlink.Outposts.Assign>
+  <Rimlink.Outposts.ArrivalRequired>The caravan must arrive and stop before staffing.</Rimlink.Outposts.ArrivalRequired>
+  <Rimlink.Outposts.Preflight>Checking world and geography…</Rimlink.Outposts.Preflight>
+  <Rimlink.Outposts.PreSnapshot>Saving the exact caravan before departure…</Rimlink.Outposts.PreSnapshot>
+  <Rimlink.Outposts.Preparing>Reserving the outpost and workers…</Rimlink.Outposts.Preparing>
+  <Rimlink.Outposts.PostSnapshot>Saving workers’ departure…</Rimlink.Outposts.PostSnapshot>
+  <Rimlink.Outposts.Complete>Workers assigned. Passive production is active.</Rimlink.Outposts.Complete>
+  <Rimlink.Outposts.Cancelled>Staffing cancelled. If workers had already left, collect their server return in the mailbox.</Rimlink.Outposts.Cancelled>
+  <Rimlink.Outposts.RecoveryHold>Staffing requires recovery. Do not restore workers locally; refresh the same operation after reconnecting.</Rimlink.Outposts.RecoveryHold>
+  <Rimlink.Outposts.ManifestTitle>Outpost geography</Rimlink.Outposts.ManifestTitle>
+  <Rimlink.Outposts.ManifestHelp>Administrator: export the complete main planet and gameplay fingerprints. Review the staged digest before explicitly confirming. Staging alone does not activate geography.</Rimlink.Outposts.ManifestHelp>
+  <Rimlink.Outposts.ManifestStage>Capture and stage geography</Rimlink.Outposts.ManifestStage>
+  <Rimlink.Outposts.ManifestConfirm>Confirm the reviewed manifest</Rimlink.Outposts.ManifestConfirm>
+  <Rimlink.Outposts.ManifestWorking>Capturing and uploading complete geography…</Rimlink.Outposts.ManifestWorking>
+  <Rimlink.Outposts.ManifestReview>Export staged, not yet active. Check its identity before confirming.</Rimlink.Outposts.ManifestReview>
+  <Rimlink.Outposts.ManifestConfirmed>Manifest confirmed for this world and gameplay setup.</Rimlink.Outposts.ManifestConfirmed>
+  <Rimlink.Outposts.ManifestFailed>The manifest could not be safely staged or confirmed. Check world compatibility and server diagnostics.</Rimlink.Outposts.ManifestFailed>
+  <Rimlink.Outposts.ManifestDetails>Manifest: {0}
+Revision: {1}
+SHA-256: {2}
+Tiles: {3}
+Game: {4}
+Gameplay fingerprint: {5}
+DLC: {6}</Rimlink.Outposts.ManifestDetails>
+  <Rimlink.Outposts.StaffingPreview>Workers: {0}. Total: {1}/real hour; warehouse: {2} units. Cost: {3}; wallet after: {4}.</Rimlink.Outposts.StaffingPreview>
+  <Rimlink.Outposts.CancelAdmission>Cancel pending staffing safely (server return only)</Rimlink.Outposts.CancelAdmission>
 </LanguageData>

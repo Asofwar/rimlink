@@ -25,6 +25,8 @@ public sealed class OutpostAssignmentTests
         using var f = await AssignmentHarness.Create();
         var reply = await f.Service.PrepareAsync(1, f.Request, default);
         Assert.Equal(OutpostOperationStatus.Prepared, reply.Status);
+        var transition = await f.Db.OutpostTransitions.AsNoTracking().SingleAsync(t => t.Id == reply.TransitionId);
+        Assert.NotEmpty(transition.PredecessorId!); Assert.Equal(transition.PredecessorId, reply.PredecessorId);
         Assert.Equal(700, await f.Wallet.Balance(1)); Assert.Equal(200, await f.Wallet.Available(1));
         Assert.Empty(await f.Wallet.History(1));
         var outpost = Assert.Single(await f.Db.Outposts.AsNoTracking().ToListAsync());
@@ -32,6 +34,20 @@ public sealed class OutpostAssignmentTests
         Assert.True(Assert.Single(await f.Db.OutpostReservations.AsNoTracking().ToListAsync()).Active);
         Assert.Equal(f.Request.Workers[0].Pawn.ToByteArray(), Assert.Single(await f.Db.OutpostAssignments.AsNoTracking().ToListAsync()).Blob);
         Assert.Equal(OutpostStartupState.Ready, (await f.H.H.Authority.OpenAsync(default)).State);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Personal_inventory_must_be_captured_not_silently_discarded(bool captured)
+    {
+        using var f = await AssignmentHarness.Create();
+        f.Request.Caravan.SelectedCargoEmpty = false; f.Request.Caravan.SelectedCargoCaptured = captured;
+        var metadata = f.Pre.Recovery.Outposts.Metadata.Clone(); metadata.Caravans[0] = f.Request.Caravan.Clone();
+        var pre = f.H.Snapshot(metadata); await f.H.Accept(pre); f.Request.PreRemoval = AssignmentHarness.SnapshotProof(pre);
+        f.Request.IntentDigest = OutpostRequestIdentity.Digest(f.Request);
+        if (captured) Assert.Equal(OutpostOperationStatus.Prepared, (await f.Service.PrepareAsync(1, f.Request, default)).Status);
+        else await Assert.ThrowsAsync<RpcException>(() => f.Service.PrepareAsync(1, f.Request, default));
     }
 
     [Fact]

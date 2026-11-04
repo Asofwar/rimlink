@@ -122,6 +122,17 @@ public sealed class OutpostManifestService(RimlinkDbContext db, OutpostAuthority
             TotalBytes = row.Document.Length, Digest = Convert.ToHexStringLower(row.Digest) };
     }
 
+    public async Task<OutpostManifestPage> ReadConfirmedHeldAsync(OutpostLease lease, OutpostManifestReadRequest request, CancellationToken ct)
+    {
+        lease.Require(authority);
+        var row = await FindHeldAsync(request.ManifestId, request.ExpectedDigest, ct);
+        if (!row.Active || !row.Confirmed || row.WorldId != request.Scope.WorldInstanceId) throw Invalid("manifest-not-current-confirmed");
+        await ValidateHeldAsync(OutpostManifestDocument.Parser.ParseFrom(row.Document), ct);
+        if (request.Offset < 0 || request.Offset >= row.Document.Length) throw Invalid("manifest-page-range");
+        return new() { Data = ByteString.CopyFrom(row.Document, request.Offset, Math.Min(MaxChunkBytes, row.Document.Length - request.Offset)),
+            TotalBytes = row.Document.Length, Digest = Convert.ToHexStringLower(row.Digest) };
+    }
+
     private async Task ValidateHeldAsync(OutpostManifestDocument doc, CancellationToken ct)
     {
         if (doc.SchemaVersion != 1 || doc.Binding is null || !doc.Binding.Equals(await BindingHeldAsync(ct)) ||

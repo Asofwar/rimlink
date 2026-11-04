@@ -146,7 +146,7 @@ internal sealed class MutationHarness : IDisposable
         Parcels = new(Db, F.H.H.Authority, F.Service, Mailbox, clock);
         Service = new(Db, F.H.H.Authority, F.Service, new(Db, F.H.H.Authority, clock, F.H.H.Files), Parcels, clock);
     }
-    public static async Task<MutationHarness> Create(int count = 1, bool secondCanMine = true)
+    public static async Task<MutationHarness> Create(int count = 1, bool secondCanMine = true, bool prepareOnly = false)
     {
         var h = new MutationHarness(await AssignmentHarness.Create());
         var metadata = h.F.Pre.Recovery.Outposts.Metadata.Clone(); metadata.WorkerCaptures.Clear(); metadata.Caravans.Clear();
@@ -169,6 +169,7 @@ internal sealed class MutationHarness : IDisposable
         var pre = h.F.H.Snapshot(metadata); await h.F.H.Accept(pre);
         h.F.Request.PreRemoval = AssignmentHarness.SnapshotProof(pre); h.F.Request.IntentDigest = OutpostRequestIdentity.Digest(h.F.Request);
         var prepared = await h.F.Service.PrepareAsync(1, h.F.Request, default);
+        if (prepareOnly) { h.Post = pre; return h; }
         foreach (var registry in metadata.Registry)
         { registry.Tombstone = true; registry.PawnReferenceToken = ""; registry.AssignmentId = h.Workers.Single(w => w.PawnCustodyId == registry.PawnCustodyId).AssignmentId; }
         var transition = await h.Db.OutpostTransitions.AsNoTracking().SingleAsync(t => t.Id == prepared.TransitionId);

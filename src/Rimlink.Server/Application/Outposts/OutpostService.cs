@@ -46,6 +46,13 @@ public sealed class OutpostService(RimlinkDbContext db, OutpostAuthority authori
         return reply;
     }
 
+    public async Task<OutpostManifestPage> ReadManifestAsync(long playerId, OutpostManifestReadRequest request, CancellationToken ct)
+    {
+        await using var lease = await authority.AcquireAsync([playerId], ct);
+        await assignments.ScopeAsync(lease, playerId, request.Scope, ct);
+        return await manifests.ReadConfirmedHeldAsync(lease, request, ct);
+    }
+
     public async Task<OutpostOperationReply> MutateAsync(long playerId, OutpostMutationRequest request, CancellationToken ct)
     {
         if (request is null || request.CalculateSize() > Limits.MaxMessageBytes) throw Refuse(ErrorCode.OutpostPayloadInvalid, "mutation-size");

@@ -8,7 +8,7 @@ using Verse;
 
 namespace Rimlink.Client.Game.Outposts;
 
-public sealed record CustodyDepartureEvidence(string OperationId, string Kind);
+public sealed record CustodyDepartureEvidence(string OperationId, string Kind, string AssignmentId = "", bool ClearReference = false);
 
 /// <summary>Real Scribe references, never a thing-id lookup. Only explicit proof-bearing ingress calls Bind.</summary>
 public sealed class PawnCustodyRegistry : GameComponent
@@ -81,6 +81,12 @@ public sealed class PawnCustodyRegistry : GameComponent
         if (row is null) return;
         if (string.IsNullOrEmpty(evidence.OperationId) || evidence.OperationId.Length > 128 || string.IsNullOrEmpty(evidence.Kind))
             throw new InvalidDataException("departure requires its actual durable operation identity");
+        if (!string.IsNullOrEmpty(evidence.AssignmentId))
+        {
+            if (!Guid.TryParse(evidence.AssignmentId, out _)) throw new InvalidDataException("invalid departure assignment");
+            row.Envelope.AssignmentId = evidence.AssignmentId;
+        }
+        if (evidence.ClearReference) row.Envelope.PawnReferenceToken = "";
         row.Envelope.Tombstone = true; row.KnownTombstone = true; row.DepartureId = evidence.OperationId; row.Pawn = null;
     }
 

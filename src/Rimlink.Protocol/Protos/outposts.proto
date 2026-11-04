@@ -5,10 +5,12 @@ option csharp_namespace = "Rimlink.Protocol.V1";
 
 import "common.proto";
 import "economy.proto";
+import "world.proto";
 
 // Definitions alone do not register a handler or advertise feature readiness.
 service Outposts {
   rpc State (OutpostStateQuery) returns (OutpostStateReply);
+  rpc Manifest (OutpostManifestReadRequest) returns (OutpostManifestPage);
   rpc Prepare (OutpostPrepareRequest) returns (OutpostOperationReply);
   rpc Commit (OutpostProofRequest) returns (OutpostOperationReply);
   rpc Cancel (OutpostCancelRequest) returns (OutpostOperationReply);
@@ -79,6 +81,7 @@ message OutpostCaravanAttestation {
   bytes manifest_digest = 9;
   string client_request_id = 10;
   string game_branch_id = 11; // New for each cold game load; never restored from the save.
+  bool selected_cargo_captured = 12; // Personal gear/inventory is included in every selected pawn blob.
 }
 message OutpostPrepareRequest {
   OutpostScopeMessage scope = 1;
@@ -145,7 +148,9 @@ message OutpostOperationReply {
   bytes transition_digest = 8;
   ErrorDetail refusal = 9;
   OutpostPrepareRequest prepared_intent = 10;
+  string predecessor_id = 11; // Original transition predecessor for the exact snapshot receipt.
 }
+message OutpostManifestReadRequest { OutpostScopeMessage scope = 1; string manifest_id = 2; string expected_digest = 3; int32 offset = 4; }
 message OutpostStateQuery { OutpostScopeMessage scope = 1; }
 message OutpostStateReply {
   OutpostScopeMessage scope = 1;

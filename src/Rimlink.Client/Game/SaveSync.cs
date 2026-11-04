@@ -33,6 +33,22 @@ public static class SaveSync
         public bool Uploaded => Info is not null && Error is null;
     }
     private static Task<UploadResult>? upload;
+    private static Action<SaveSnapshot>? beforeExactUpload;
+
+    /// <summary>Main-thread file capture; durable journal callback runs before any bytes can be uploaded.</summary>
+    public static async Task<UploadResult> SaveExactAsync(Action<SaveSnapshot>? journal = null)
+    {
+        var waiting = await MainThread.Get(() =>
+        {
+            if (!HasColonyToSave || IsSaving || writesBlocked || beforeExactUpload is not null)
+                throw new InvalidOperationException("an exact own snapshot cannot be written now");
+            IsSaving = true; upload = null; beforeExactUpload = journal;
+            try { GameDataSaveLoader.SaveGame(SaveFileName); }
+            finally { beforeExactUpload = null; IsSaving = false; }
+            return upload ?? Task.FromResult(new UploadResult(null, null, new IOException("the exact snapshot was not written")));
+        });
+        return await waiting;
+    }
     private static SaveUploadQueue uploads = new();
     private static CancellationTokenSource uploadLifetime = new();
     private static RimlinkConnection? owner;
@@ -152,6 +168,14 @@ public static class SaveSync
             RimlinkLog.Instance.Warn("the prepared game snapshot was not written: " + ex.Message);
             return;
         }
+        try { beforeExactUpload?.Invoke(snapshot); }
+        catch (Exception ex)
+        {
+            lastFailure = ex.Message; lastRefusal = null;
+            upload = Task.FromResult(new UploadResult(snapshot, null, ex));
+            RimlinkLog.Instance.Warn("exact snapshot retained; journal was not durable: " + ex.Message);
+            return; // Never upload a removal whose corresponding immutable intent could not be journaled.
+        }
         var shopList = Shop.ShopSync.Build(snapshot.Meta.GameTick);
         var outbox = RimlinkSession.Outbox;
         var task = uploads.Enqueue(snapshot, async (copy, cancellation) =>
@@ -168,7 +192,7 @@ public static class SaveSync
                 var info = await task;
                 if (owner != connection || RimlinkSession.Connection != connection || !ReferenceEquals(connection.Login, authentication) || writesBlocked)
                     return new(snapshot, info, new OperationCanceledException("snapshot accepted under a previous login; recovery evidence retained"));
-                outbox?.ReconcileSnapshot(snapshot.Meta.Recovery!, accepted: true, snapshot.Meta.GameTick);
+                outbox?.ReconcileSnapshot(snapshot.Meta, accepted: true);
                 pending.CompleteSnapshot(snapshot);
                 try { uploads.PruneSnapshots(pending, outbox?.Entries.Select(e => e.SnapshotId) ?? []); }
                 catch (IOException ex) { RimlinkLog.Instance.Warn("stored snapshot; obsolete local copies retained: " + ex.Message); }

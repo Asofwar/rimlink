@@ -17,6 +17,8 @@ public sealed class OutpostsGrpcService(OutpostAssignmentService assignments, Ou
         outposts.MutateAsync(Ready(context).PlayerId, request, context.CancellationToken);
     public override Task<OutpostDeliveryReply> BeginDelivery(OutpostDeliveryRequest request, ServerCallContext context) =>
         parcels.BeginDeliveryAsync(Ready(context).PlayerId, request, context.CancellationToken);
+    public override Task<OutpostManifestPage> Manifest(OutpostManifestReadRequest request, ServerCallContext context) =>
+        outposts.ReadManifestAsync(Ready(context).PlayerId, request, context.CancellationToken);
     public override Task<OutpostOperationReply> Prepare(OutpostPrepareRequest request, ServerCallContext context) =>
         assignments.PrepareAsync(Ready(context).PlayerId, request, context.CancellationToken);
     public override Task<OutpostOperationReply> Commit(OutpostProofRequest request, ServerCallContext context) =>

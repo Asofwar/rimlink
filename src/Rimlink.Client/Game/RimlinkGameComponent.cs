@@ -1,3 +1,4 @@
+using Google.Protobuf;
 using RimWorld;
 using Rimlink.Client.Net;
 using Rimlink.Protocol.V1;
@@ -28,6 +29,7 @@ public sealed class RimlinkGameComponent : GameComponent
     public uint RecoveryVersion;
     public string SnapshotId = "";
     public OutpostRecoveryData OutpostRecovery = new();
+    public string OutpostWorldGenerationParams = "";
     public string? OutpostLoadFailure; // non-Scribed: malformed evidence must never become an empty bootstrap
     public List<long> ParcelReceipts = [];
     public List<string> RemovedOperations = [];
@@ -37,6 +39,7 @@ public sealed class RimlinkGameComponent : GameComponent
 
     public override void StartedNewGame()
     {
+        OutpostWorldGenerationParams = Convert.ToBase64String(WorldSetup.CollectParams(Find.World).Params.ToByteArray());
         // The constructor and FinalizeInit also run on load: only this callback creates a new colony.
         if (RimlinkSession.Active)
         {
@@ -76,6 +79,7 @@ public sealed class RimlinkGameComponent : GameComponent
             var writer = HarmonyLib.Traverse.Create(Scribe.saver).Field("writer").GetValue<System.Xml.XmlWriter>();
             OutpostRecovery.WriteSection(writer);
         }
+        Scribe_Values.Look(ref OutpostWorldGenerationParams, "rimlinkOutpostWorldGenerationParams", "");
         Scribe_Collections.Look(ref ActiveRaids, "rimlinkActiveRaids", LookMode.Deep);
         ActiveRaids ??= [];
         Scribe_Collections.Look(ref FiredIncidents, "rimlinkFiredIncidents", LookMode.Value);

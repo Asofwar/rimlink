@@ -255,7 +255,7 @@ public sealed class OutpostAssignmentService(RimlinkDbContext db, OutpostAuthori
         var caravan = request.Caravan;
         var selected = request.Workers.Select(w => w.Pawn.Registry?.PawnReferenceToken ?? "").ToArray();
         if (caravan is null || caravan.CaravanId.Length is < 1 or > 256 || !Uuid(caravan.GameBranchId) || caravan.SurfaceId != request.SurfaceId || caravan.Tile != request.Tile
-            || !caravan.ManifestDigest.Equals(request.ManifestDigest) || caravan.ClientRequestId != request.ClientRequestId || !caravan.SelectedCargoEmpty
+            || !caravan.ManifestDigest.Equals(request.ManifestDigest) || caravan.ClientRequestId != request.ClientRequestId || !caravan.SelectedCargoEmpty && !caravan.SelectedCargoCaptured
             || !pre.Caravans.Any(c => c.Equals(caravan)) || !caravan.SelectedCustodyIds.Order().SequenceEqual(request.Workers.Select(w => w.PawnCustodyId).Order())
             || caravan.RosterReferenceTokens.Count > 1024 || caravan.RosterReferenceTokens.Distinct().Count() != caravan.RosterReferenceTokens.Count
             || caravan.RemainingReferenceTokens.Distinct().Count() != caravan.RemainingReferenceTokens.Count || selected.Distinct().Count() != selected.Length
@@ -310,7 +310,8 @@ public sealed class OutpostAssignmentService(RimlinkDbContext db, OutpostAuthori
     internal async Task<OutpostOperationReply> ReplyAsync(OutpostOperation operation, CancellationToken ct)
     {
         var reply = OutpostOperationReply.Parser.ParseFrom(operation.Result);
-        reply.TransitionDigest = ByteString.CopyFrom(await db.OutpostTransitions.AsNoTracking().Where(t => t.Id == reply.TransitionId).Select(t => t.Digest).SingleAsync(ct));
+        var transition = await db.OutpostTransitions.AsNoTracking().SingleAsync(t => t.Id == reply.TransitionId, ct);
+        reply.TransitionDigest = ByteString.CopyFrom(transition.Digest); reply.PredecessorId = transition.PredecessorId ?? "";
         return reply;
     }
     private async Task<OutpostOperationReply> RecoveryAsync(OutpostOperation operation, CancellationToken ct)

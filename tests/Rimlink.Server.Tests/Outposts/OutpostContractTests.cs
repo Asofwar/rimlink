@@ -45,12 +45,13 @@ public sealed class OutpostContractTests
     }
 
     [Fact]
-    public void Outposts_service_has_exact_seven_typed_operations()
+    public void Outposts_service_has_eight_typed_operations_including_confirmed_manifest_read()
     {
         var service = Assert.Single(OutpostsReflection.Descriptor.Services);
         Assert.Equal("Outposts", service.Name);
         Assert.Equal(new[] {
-            "State:OutpostStateQuery:OutpostStateReply", "Prepare:OutpostPrepareRequest:OutpostOperationReply",
+            "State:OutpostStateQuery:OutpostStateReply", "Manifest:OutpostManifestReadRequest:OutpostManifestPage",
+            "Prepare:OutpostPrepareRequest:OutpostOperationReply",
             "Commit:OutpostProofRequest:OutpostOperationReply", "Cancel:OutpostCancelRequest:OutpostOperationReply",
             "Mutate:OutpostMutationRequest:OutpostOperationReply", "Operation:OutpostOperationQuery:OutpostOperationReply",
             "BeginDelivery:OutpostDeliveryRequest:OutpostDeliveryReply"

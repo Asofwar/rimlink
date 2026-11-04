@@ -20,12 +20,13 @@ public sealed class OutpostClientFixture : IDisposable
     public OutpostMutationRequest CloseRequest => harness.Request(OutpostMutationKind.Close);
     public byte[] RawSave => SaveFixtures.Decompress(harness.Post.Packed);
     private OutpostClientFixture(MutationHarness harness, ServerFixture server) { this.harness = harness; Server = server; }
-    public static async Task<OutpostClientFixture> Create()
+    public static async Task<OutpostClientFixture> Create(bool admin = false, bool prepareOnly = false)
     {
-        var harness = await MutationHarness.Create();
+        var harness = await MutationHarness.Create(prepareOnly: prepareOnly);
         try
         {
             var account = await harness.Db.Accounts.SingleAsync(); account.Login = "outpost-client"; account.PasswordHash = PasswordHasher.Hash("pw");
+            if (admin) account.Role = Rimlink.Server.Storage.Entities.Role.Admin;
             await harness.Db.SaveChangesAsync(); var shared = harness.F.H.H;
             var server = HygieneFixtures.HygieneServer().WithoutWorld().WithDataDir(shared.Data.Root).KeepDataDir()
                 .WithSetting("Outposts:AnchorDirectory", Path.Combine(shared.Root, "external"))

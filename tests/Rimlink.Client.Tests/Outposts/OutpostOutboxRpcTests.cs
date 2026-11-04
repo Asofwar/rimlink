@@ -31,6 +31,31 @@ public sealed partial class OutpostOutboxTests
         Assert.DoesNotContain("/rimlink.v1.Outposts/Commit", traffic.Paths);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Prepared_reply_keeps_original_intent_until_canonical_commit_or_cancel(bool replyLost)
+    {
+        using var fixture = await OutpostClientFixture.Create(prepareOnly: true);
+        using var traffic = new OutpostTraffic(fixture.Server.Server.CreateHandler());
+        await using var session = await OutpostTraffic.Connect(fixture, traffic); var connection = session.Connection;
+        var outbox = new TransferOutbox(PathName, new ConsoleLog(), fixture.Scope.SaveGeneration, fixture.Scope.SaveWriteEpoch);
+        var entry = outbox.Prepare(fixture.PrepareRequest); byte[] original = entry.Payload.ToArray();
+        outbox.ReconcileSnapshot(AcceptedMeta(fixture), accepted: true);
+        if (replyLost) outbox.MarkReplyUnknown(entry.Id);
+        var clients = new OutboxClients(new EconomyClient(connection), null, null,
+            Outposts: new Rimlink.Client.Outposts.OutpostClient(connection));
+        var report = await outbox.Replay(clients, default);
+        Assert.Equal(0, report.Completed); Assert.Equal(1, report.Pending);
+        Assert.Equal(original, Assert.Single(outbox.Entries).Payload); Assert.True(outbox.HasUnresolved);
+        var reopened = new TransferOutbox(PathName, new ConsoleLog(), fixture.Scope.SaveGeneration, fixture.Scope.SaveWriteEpoch);
+        traffic.Paths.Clear();
+        Assert.Equal(1, (await reopened.Replay(clients, default)).Pending);
+        Assert.Equal(original, Assert.Single(reopened.Entries).Payload); Assert.True(reopened.HasUnresolved);
+        Assert.Single(traffic.Paths, path => path == "/rimlink.v1.Outposts/Operation");
+        Assert.DoesNotContain("/rimlink.v1.Outposts/Prepare", traffic.Paths);
+    }
+
     [Fact]
     public async Task Old_boundary_is_quarantined_before_any_rpc()
     {

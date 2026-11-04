@@ -7,4 +7,37 @@
   <Rimlink.Refusal.Outposts.Unavailable>Аванпосты недоступны, пока не готовы механизмы восстановления и жизненного цикла.</Rimlink.Refusal.Outposts.Unavailable>
   <Rimlink.Outposts.WorkerIdentity>У этой пешки нет подтверждённой идентичности хранения для данной колонии.</Rimlink.Outposts.WorkerIdentity>
   <Rimlink.Outposts.WorkerIneligible>Эта пешка не подходит для выбранной работы в аванпосте.</Rimlink.Outposts.WorkerIneligible>
+  <Rimlink.Outposts.StaffingTitle>Назначить работников</Rimlink.Outposts.StaffingTitle>
+  <Rimlink.Outposts.StaffingDescription>Назначить работников в пассивный аванпост на клетке, куда действительно прибыл караван.</Rimlink.Outposts.StaffingDescription>
+  <Rimlink.Outposts.StaffingHelp>Клетка {0}. Выбери 1–4 взрослых колонистов. Их снаряжение и инвентарь сохранятся вместе с ними. Оставшийся караван должен сохранить подвижность.</Rimlink.Outposts.StaffingHelp>
+  <Rimlink.Outposts.StaffingCost>Выбрано: {0}. Основание резервирует 500 серебра серверного кошелька; пополнение бесплатно. Состояние работников заморожено.</Rimlink.Outposts.StaffingCost>
+  <Rimlink.Outposts.Wood>Древесина — Растениеводство</Rimlink.Outposts.Wood>
+  <Rimlink.Outposts.Steel>Сталь — Горное дело</Rimlink.Outposts.Steel>
+  <Rimlink.Outposts.Found>Основать здесь — 500 серебра</Rimlink.Outposts.Found>
+  <Rimlink.Outposts.Assign>Назначить в аванпост здесь</Rimlink.Outposts.Assign>
+  <Rimlink.Outposts.ArrivalRequired>Сначала караван должен прибыть и остановиться.</Rimlink.Outposts.ArrivalRequired>
+  <Rimlink.Outposts.Preflight>Проверяем мир и географию…</Rimlink.Outposts.Preflight>
+  <Rimlink.Outposts.PreSnapshot>Сохраняем точное состояние каравана до отправки…</Rimlink.Outposts.PreSnapshot>
+  <Rimlink.Outposts.Preparing>Резервируем аванпост и работников…</Rimlink.Outposts.Preparing>
+  <Rimlink.Outposts.PostSnapshot>Сохраняем отправку работников…</Rimlink.Outposts.PostSnapshot>
+  <Rimlink.Outposts.Complete>Работники назначены. Пассивная добыча началась.</Rimlink.Outposts.Complete>
+  <Rimlink.Outposts.Cancelled>Назначение отменено. Если работники уже отправились, забери их серверный возврат из почты.</Rimlink.Outposts.Cancelled>
+  <Rimlink.Outposts.RecoveryHold>Нужно восстановить операцию. Не возвращай работников вручную; после подключения обнови состояние той же операции.</Rimlink.Outposts.RecoveryHold>
+  <Rimlink.Outposts.ManifestTitle>География аванпостов</Rimlink.Outposts.ManifestTitle>
+  <Rimlink.Outposts.ManifestHelp>Администратор: экспортируй всю основную планету и отпечатки игровых данных. Проверь хеш перед отдельным подтверждением. Одна загрузка географию не активирует.</Rimlink.Outposts.ManifestHelp>
+  <Rimlink.Outposts.ManifestStage>Экспортировать и загрузить географию</Rimlink.Outposts.ManifestStage>
+  <Rimlink.Outposts.ManifestConfirm>Подтвердить проверенный манифест</Rimlink.Outposts.ManifestConfirm>
+  <Rimlink.Outposts.ManifestWorking>Экспортируем и загружаем полную географию…</Rimlink.Outposts.ManifestWorking>
+  <Rimlink.Outposts.ManifestReview>Экспорт загружен, но ещё не активен. Проверь его идентичность перед подтверждением.</Rimlink.Outposts.ManifestReview>
+  <Rimlink.Outposts.ManifestConfirmed>Манифест подтверждён для этого мира и набора игровых данных.</Rimlink.Outposts.ManifestConfirmed>
+  <Rimlink.Outposts.ManifestFailed>Не удалось безопасно загрузить или подтвердить манифест. Проверь совместимость мира и диагностику сервера.</Rimlink.Outposts.ManifestFailed>
+  <Rimlink.Outposts.ManifestDetails>Манифест: {0}
+Ревизия: {1}
+SHA-256: {2}
+Клеток: {3}
+Игра: {4}
+Отпечаток игровых данных: {5}
+DLC: {6}</Rimlink.Outposts.ManifestDetails>
+  <Rimlink.Outposts.StaffingPreview>Пешек: {0}. Итого: {1}/реальный час; склад: {2} ед. Цена: {3}; останется в кошельке: {4}.</Rimlink.Outposts.StaffingPreview>
+  <Rimlink.Outposts.CancelAdmission>Безопасно отменить передачу (возврат только через сервер)</Rimlink.Outposts.CancelAdmission>
 </LanguageData>

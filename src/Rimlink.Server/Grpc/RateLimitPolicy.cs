@@ -7,6 +7,9 @@ public static class RateLimitPolicy
 
     private static readonly Dictionary<string, (int, TimeSpan)> Table = new()
     {
+        ["/rimlink.v1.World/StageOutpostManifest"] = (128, TimeSpan.FromSeconds(10)),
+        ["/rimlink.v1.World/ReadOutpostManifest"] = (128, TimeSpan.FromSeconds(10)),
+        ["/rimlink.v1.Outposts/Manifest"] = (128, TimeSpan.FromSeconds(10)),
         ["/rimlink.v1.Outposts/Prepare"] = (5, TimeSpan.FromSeconds(5)),
         ["/rimlink.v1.Outposts/Commit"] = (5, TimeSpan.FromSeconds(5)),
         ["/rimlink.v1.Outposts/Cancel"] = (5, TimeSpan.FromSeconds(5)),
