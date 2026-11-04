@@ -17,6 +17,8 @@ public sealed class OutpostConfiguration : IEntityTypeConfiguration<OutpostRow>
         e.HasKey(x => x.Id);
         e.HasIndex(x => new { x.WorldId, x.PlayerId, x.SaveGeneration }).IsUnique().HasFilter("OccupiesSlot = 1");
         e.HasIndex(x => new { x.WorldId, x.Tile }).IsUnique().HasFilter("OccupiesSlot = 1");
+        // SQLite does not retain DateTime.Kind; persisted production coordinates are always UTC.
+        e.Property(x => x.CheckpointUtc).HasConversion(value => value, value => DateTime.SpecifyKind(value, DateTimeKind.Utc));
         e.Property(x => x.FractionNumerator).HasMaxLength(256);
         e.Property(x => x.FractionDenominator).HasMaxLength(256);
         e.Property(x => x.Revision).IsConcurrencyToken();

@@ -12,6 +12,7 @@ public sealed class Session
     public required string Ip { get; init; }
     public required string PlayerName { get; init; }
     public long SaveWriteEpoch { get; init; }
+    public uint OutpostVersion { get; internal set; }
     public CancellationTokenSource Cts { get; } = new();
     public Events.EventQueue Events { get; } = new();
     public DateTime StartedAt { get; } = DateTime.UtcNow;

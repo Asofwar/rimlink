@@ -139,6 +139,9 @@ public static class RefusalKeys
     public const string RaidsTargetCooldown = "Raids.TargetCooldown";
     public const string RaidsPairCooldown = "Raids.PairCooldown";
 
+    public const string OutpostsOperation = "Outposts.Operation";
+    public const string OutpostsClient = "Outposts.Client";
+    public const string OutpostsUnavailable = "Outposts.Unavailable";
     public const string OutpostsManifest = "Outposts.Manifest";
     public const string OutpostsUploadBusy = "Outposts.UploadBusy";
 

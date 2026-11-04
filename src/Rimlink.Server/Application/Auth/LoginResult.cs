@@ -11,9 +11,10 @@ public sealed record LoginContext(int ProtocolVersion, string? ServerPassword, I
     /// <summary>The settings file hashes of the client's Mod classes (newer clients); empty = settings are not compared.</summary>
     public IReadOnlyList<ModSettingsHash> ModSettings { get; init; } = [];
     public uint RecoveryVersion { get; init; }
+    public uint OutpostVersion { get; init; }
 
     public static LoginContext From(LoginRequest request, string ip) =>
-        new(request.ProtocolVersion, request.ServerPassword, request.Mods, ip) { ModSettings = request.ModSettings, RecoveryVersion = request.RecoveryVersion };
+        new(request.ProtocolVersion, request.ServerPassword, request.Mods, ip) { ModSettings = request.ModSettings, RecoveryVersion = request.RecoveryVersion, OutpostVersion = request.OutpostVersion };
 }
 
 public abstract record LoginResult

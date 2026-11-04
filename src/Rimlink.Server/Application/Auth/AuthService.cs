@@ -121,7 +121,12 @@ public sealed class AuthService(
             (player.RecoveryVersion > 0 || player.SaveWriteEpoch > 0) && ctx.RecoveryVersion != SaveRecoveryData.CurrentVersion)
             return LoginResult.Failed(StatusCode.FailedPrecondition, ErrorCode.RecoveryClientRequired, RefusalKeys.RecoveryClientRequired,
                 "this colony requires a client with snapshot recovery support");
+        if ((ctx.OutpostVersion != OutpostRecoveryData.CurrentVersion || ctx.RecoveryVersion != SaveRecoveryData.CurrentVersion)
+            && await db.PawnCustody.AnyAsync(p => p.PlayerId == player.Id))
+            return LoginResult.Failed(StatusCode.FailedPrecondition, ErrorCode.OutpostClientRequired, RefusalKeys.OutpostsClient,
+                "this colony requires a client with outpost custody support");
         var session = sessions.Start(account, player, ctx.Ip, out var replaced);
+        session.OutpostVersion = ctx.RecoveryVersion == SaveRecoveryData.CurrentVersion ? ctx.OutpostVersion : 0;
         if (replaced is not null) log.LogInformation("Session of {Player} replaced by a new login from {Ip}", player.Name, ctx.Ip);
 
         session.AwaySince = Activity.Of(account);

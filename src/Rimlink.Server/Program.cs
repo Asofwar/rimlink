@@ -191,6 +191,7 @@ app.MapGrpcService<LiveGrpcService>();
 app.MapGrpcService<ColoniesGrpcService>();
 app.MapGrpcService<EventsGrpcService>();
 app.MapGrpcService<WorldGrpcService>();
+app.MapGrpcService<OutpostsGrpcService>();
 app.MapGrpcService<SavesGrpcService>();
 app.MapGrpcService<ModpackGrpcService>();
 app.MapGrpcService<ChatGrpcService>();

@@ -2,4 +2,7 @@
 <LanguageData>
   <Rimlink.Refusal.Outposts.Manifest>The outpost geography manifest is missing, incompatible or invalid. Ask an administrator to check and confirm the export for this world.</Rimlink.Refusal.Outposts.Manifest>
   <Rimlink.Refusal.Outposts.UploadBusy>The outpost manifest upload slots are busy. Finish the current upload or try again later.</Rimlink.Refusal.Outposts.UploadBusy>
+  <Rimlink.Refusal.Outposts.Operation>The outpost operation cannot be safely completed. Refresh its status; do not restore workers locally.</Rimlink.Refusal.Outposts.Operation>
+  <Rimlink.Refusal.Outposts.Client>This colony requires a client with outpost custody support.</Rimlink.Refusal.Outposts.Client>
+  <Rimlink.Refusal.Outposts.Unavailable>Outposts are not available until their recovery and lifecycle protections are ready.</Rimlink.Refusal.Outposts.Unavailable>
 </LanguageData>

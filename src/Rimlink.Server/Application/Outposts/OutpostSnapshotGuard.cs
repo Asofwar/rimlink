@@ -13,7 +13,7 @@ namespace Rimlink.Server.Application.Outposts;
 public sealed record SnapshotDecision(bool Protected, bool Replay = false);
 
 /// <summary>Exact immutable evidence only. Callers own A → O → S (startup owns A → S).</summary>
-public sealed class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles files)
+public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles files)
 {
     internal static readonly string[] SnapshotIndependentKinds = ["Initialize", "Production", "StageManifest", "ConfirmManifest"];
     public const int MaxSnapshots = 10_000; // No history GC: refuse new evidence before any pawn can be removed.
@@ -92,6 +92,7 @@ public sealed class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles files)
                 { custody.Tombstone = true; custody.FrontierTransitionId = transition; custody.Revision++; }
             }
         }
+        await StageAdmissionsAsync(recovery.Metadata, transition, ct);
         await StageDeliveriesAsync(snapshot, recovery.Metadata, transition, ct);
     }
 
@@ -215,9 +216,9 @@ public sealed class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles files)
                 || !await db.OutpostParcelLinks.AnyAsync(p => p.ParcelId == attempt.ParcelId && p.PlayerId == attempt.PlayerId, ct))
                 throw Unavailable("required-delivery-evidence-unavailable");
         }
-        // These proof-bearing projections acquire their explicit codecs in the subsequent lifecycle/admission tasks.
-        if (await db.OutpostOperations.AnyAsync(ct) || await db.OutpostAssignments.AnyAsync(ct)
-            || await db.OutpostRestoreAuthorizations.AnyAsync(ct) || await db.OutpostLifecycleOperations.AnyAsync(ct))
+        await ValidateAdmissionStoredAsync(transitions, links, ct);
+        // Lifecycle/restore codecs are introduced by their own later tasks, never inferred from an unrelated link.
+        if (await db.OutpostRestoreAuthorizations.AnyAsync(ct) || await db.OutpostLifecycleOperations.AnyAsync(ct))
             throw Unavailable("required-snapshot-evidence-unavailable");
     }
 
@@ -247,7 +248,8 @@ public sealed class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles files)
         {
             if (!registry.TryGetValue(custody.Id, out var envelope) || envelope.Scope.WorldInstanceId != custody.WorldId
                 || envelope.Scope.OwnerPlayerId != custody.PlayerId || envelope.Scope.SaveGeneration != custody.SaveGeneration
-                || envelope.Scope.RestoreBoundary != custody.RestoreBoundary || envelope.AssignmentId != (custody.AssignmentId ?? ""))
+                || envelope.Scope.RestoreBoundary != custody.RestoreBoundary
+                || envelope.AssignmentId != (custody.AssignmentId ?? "") && !await AdmissionChangesAssignmentAsync(metadata, custody, envelope, ct))
                 throw Unavailable("snapshot-registry-lineage-missing");
             string[] deliveryIds = metadata.Receipts.Where(r => r.PawnCustodyIds.Contains(custody.Id)).Select(r => r.DeliveryAttemptId).ToArray();
             bool delivered = custody.LocationKind == "ReturnPending" && await db.OutpostDeliveryAttempts.AsNoTracking().AnyAsync(a =>
@@ -298,6 +300,8 @@ public sealed class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles files)
     private async Task ValidateReceiptAsync(OutpostSaveMetadata metadata, OutpostTransitionReceipt receipt,
         OutpostTransition transition, CancellationToken ct)
     {
+        if (receipt.DeliveryAttemptId.Length == 0 && transition.Kind is "Prepare" or "CancelFence")
+        { await ValidateAdmissionReceiptAsync(metadata, receipt, transition, ct); return; }
         if (receipt.DeliveryAttemptId.Length == 0 || transition.Kind != "BeginDelivery")
             throw Unavailable("snapshot-receipt-kind-unavailable");
         var attempt = await db.OutpostDeliveryAttempts.AsNoTracking().SingleOrDefaultAsync(a => a.Id == receipt.DeliveryAttemptId, ct);

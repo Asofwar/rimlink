@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -56,6 +57,7 @@ public sealed record OutpostRecoveryData
         if (Metadata.SchemaVersion != CurrentVersion) throw Invalid();
         ValidateScope(Metadata.Scope);
         if (Metadata.Registry.Count > MaxEntries || Metadata.Receipts.Count > MaxEntries || Metadata.Frontier.Count > MaxEntries) throw Invalid();
+        ValidateAdmissions();
         var custody = new HashSet<string>(StringComparer.Ordinal);
         var liveReferences = new HashSet<string>(StringComparer.Ordinal);
         foreach (var entry in Metadata.Registry)
@@ -71,7 +73,7 @@ public sealed record OutpostRecoveryData
         {
             if (!Uuid(receipt.TransitionId) || !receipts.Add(receipt.TransitionId) || !OptionalUuid(receipt.PredecessorId)
                 || !Uuid(receipt.ClientRequestId) || !Hash(receipt.TransitionDigest) || !Hash(receipt.IntentDigest)
-                || !OptionalUuid(receipt.DeliveryAttemptId) || !Enum.IsDefined(receipt.CancellationKind)
+                || !OptionalUuid(receipt.DeliveryAttemptId) || !OptionalUuid(receipt.NoRemovalBranchId) || !Enum.IsDefined(receipt.CancellationKind)
                 || receipt.Snapshot is null || !Guid.TryParseExact(receipt.Snapshot.SnapshotId, "N", out _)
                 || !Hash(receipt.Snapshot.RawSha256) || receipt.PawnCustodyIds.Count > MaxEntries || receipt.AssignmentIds.Count > MaxEntries
                 || receipt.ParcelIds.Count > MaxEntries || receipt.PawnCustodyIds.Any(id => !Uuid(id))
@@ -85,6 +87,35 @@ public sealed record OutpostRecoveryData
         foreach (var entry in Metadata.Frontier)
             if (!Uuid(entry.TransitionId) || !frontier.Add(entry.TransitionId) || !OptionalUuid(entry.PredecessorId) || !Hash(entry.TransitionDigest)) throw Invalid();
     }
+
+    private void ValidateAdmissions()
+    {
+        if (Metadata.WorkerCaptures.Count > MaxEntries || Metadata.Caravans.Count > MaxEntries) throw Invalid();
+        var workers = new HashSet<string>(StringComparer.Ordinal); var assignments = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var worker in Metadata.WorkerCaptures)
+        {
+            if (!Uuid(worker.PawnCustodyId) || !Uuid(worker.AssignmentId) || !workers.Add(worker.PawnCustodyId) || !assignments.Add(worker.AssignmentId)
+                || worker.Pawn?.Registry is not { } registry || registry.SchemaVersion != CurrentVersion || registry.PawnCustodyId != worker.PawnCustodyId
+                || !Text(registry.PawnReferenceToken, 256) || !Hash(worker.BlobSha256) || worker.Pawn.ScribeXmlZstd.Length == 0
+                || !SHA256.HashData(worker.Pawn.ToByteArray()).AsSpan().SequenceEqual(worker.BlobSha256.Span)
+                || !float.IsFinite(worker.Consciousness) || !float.IsFinite(worker.Manipulation) || !float.IsFinite(worker.Moving)) throw Invalid();
+            ValidateScope(registry.Scope);
+        }
+        var requests = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var caravan in Metadata.Caravans)
+        {
+            if (!Text(caravan.CaravanId, 256) || !Text(caravan.SurfaceId, 128) || caravan.Tile < 0 || !Uuid(caravan.GameBranchId)
+                || !Uuid(caravan.ClientRequestId) || !requests.Add(caravan.ClientRequestId) || !Hash(caravan.ManifestDigest)
+                || caravan.RosterReferenceTokens.Count is < 1 or > 1024 || caravan.RemainingReferenceTokens.Count > 1024
+                || caravan.SelectedCustodyIds.Count is < 1 or > 4 || caravan.SelectedCustodyIds.Any(id => !Uuid(id))
+                || caravan.SelectedCustodyIds.Distinct(StringComparer.Ordinal).Count() != caravan.SelectedCustodyIds.Count
+                || caravan.RosterReferenceTokens.Any(token => !Text(token, 256)) || caravan.RemainingReferenceTokens.Any(token => !Text(token, 256))
+                || caravan.RosterReferenceTokens.Distinct(StringComparer.Ordinal).Count() != caravan.RosterReferenceTokens.Count
+                || caravan.RemainingReferenceTokens.Distinct(StringComparer.Ordinal).Count() != caravan.RemainingReferenceTokens.Count
+                || caravan.RemainingReferenceTokens.Any(token => !caravan.RosterReferenceTokens.Contains(token))) throw Invalid();
+        }
+    }
+    private static bool Text(string value, int maximum) => value.Length is > 0 && value.Length <= maximum && !value.Any(char.IsControl);
 
     public void WriteSection(XmlWriter writer)
     {

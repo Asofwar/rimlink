@@ -90,6 +90,32 @@ public sealed class OutpostRecoveryDataTests
         }
         Assert.Throws<InvalidDataException>(() => Read(Xml(Section(metadata))));
     }
+    [Theory]
+    [InlineData("worker-digest")][InlineData("worker-custody")][InlineData("worker-duplicate")]
+    [InlineData("caravan-branch")][InlineData("caravan-duplicate")][InlineData("caravan-request")]
+    [InlineData("caravan-roster")][InlineData("cancel-branch")]
+    public void Admission_attestation_shape_is_bounded_and_unambiguous(string fault)
+    {
+        var metadata = Metadata();
+        var worker = new OutpostWorkerCapture { PawnCustodyId = Custody, AssignmentId = Assignment,
+            Pawn = new PawnBlob { Registry = metadata.Registry[0].Clone(), ScribeXmlZstd = ByteString.CopyFromUtf8("blob") } };
+        worker.BlobSha256 = ByteString.CopyFrom(SHA256.HashData(worker.Pawn.ToByteArray())); metadata.WorkerCaptures.Add(worker);
+        var caravan = new OutpostCaravanAttestation { CaravanId = "Caravan_1", SurfaceId = "planet", GameBranchId = Transition,
+            ClientRequestId = Request, ManifestDigest = Digest, RosterReferenceTokens = { "Thing_Human42" }, SelectedCustodyIds = { Custody } };
+        metadata.Caravans.Add(caravan);
+        switch (fault)
+        {
+            case "worker-digest": worker.BlobSha256 = ByteString.Empty; break;
+            case "worker-custody": worker.PawnCustodyId = "bad"; break;
+            case "worker-duplicate": metadata.WorkerCaptures.Add(worker.Clone()); break;
+            case "caravan-branch": caravan.GameBranchId = "bad"; break;
+            case "caravan-duplicate": metadata.Caravans.Add(caravan.Clone()); break;
+            case "caravan-request": caravan.ClientRequestId = "bad"; break;
+            case "caravan-roster": caravan.RosterReferenceTokens.Add("Thing_Human42"); break;
+            case "cancel-branch": metadata.Receipts[0].NoRemovalBranchId = "bad"; break;
+        }
+        Assert.Throws<InvalidDataException>(() => Read(Xml(Section(metadata))));
+    }
     [Fact]
     public void Excessive_counts_and_bytes_are_refused_before_publication()
     {

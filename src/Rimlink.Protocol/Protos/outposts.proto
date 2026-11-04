@@ -60,6 +60,12 @@ message OutpostWorkerCapture {
   float moving = 9;
   bool plants_capable = 10;
   bool mining_capable = 11;
+  bool adult_life_stage = 12;
+  bool free_colonist = 13;
+  bool player_owned = 14;
+  bool baseline_human = 15;
+  bool downed = 16;
+  bool mental_state = 17;
 }
 message OutpostCaravanAttestation {
   string caravan_id = 1;
@@ -72,6 +78,7 @@ message OutpostCaravanAttestation {
   bool selected_cargo_empty = 8;
   bytes manifest_digest = 9;
   string client_request_id = 10;
+  string game_branch_id = 11; // New for each cold game load; never restored from the save.
 }
 message OutpostPrepareRequest {
   OutpostScopeMessage scope = 1;
@@ -103,6 +110,7 @@ message OutpostCancelRequest {
   OutpostCancelKind kind = 4;
   OutpostSnapshotProof cancellation_proof = 5;
   int64 expected_revision = 6;
+  string continuous_branch_id = 7;
 }
 message OutpostMutationRequest {
   OutpostScopeMessage scope = 1;
@@ -179,6 +187,8 @@ message OutpostSaveMetadata {
   repeated PawnRegistryEnvelope registry = 3;
   repeated OutpostTransitionReceipt receipts = 4;
   repeated OutpostFrontierEntry frontier = 5;
+  repeated OutpostWorkerCapture worker_captures = 6;
+  repeated OutpostCaravanAttestation caravans = 7;
 }
 message OutpostTransitionReceipt {
   string transition_id = 1;
@@ -192,6 +202,7 @@ message OutpostTransitionReceipt {
   repeated int64 parcel_ids = 9;
   string delivery_attempt_id = 10;
   OutpostCancelKind cancellation_kind = 11;
+  string no_removal_branch_id = 12;
 }
 message OutpostFrontierEntry {
   string transition_id = 1;

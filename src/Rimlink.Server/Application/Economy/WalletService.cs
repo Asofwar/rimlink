@@ -30,6 +30,12 @@ public sealed class WalletService(RimlinkDbContext db, EventBus events)
     public async Task<long> Balance(long playerId) =>
         (await db.Wallets.AsNoTracking().FirstOrDefaultAsync(w => w.PlayerId == playerId))?.Balance ?? 0;
 
+    /// <summary>Reservations are obligations, not ledger debits; all ordinary outflows share this balance.</summary>
+    public async Task<long> Available(long playerId) => await Balance(playerId) - await Reserved(playerId);
+
+    private Task<long> Reserved(long playerId) => db.OutpostOperations.AsNoTracking()
+        .Where(o => o.PlayerId == playerId && o.ReservedSilver > 0).SumAsync(o => o.ReservedSilver);
+
     /// <summary>
     /// Applies a signed delta inside the caller's transaction (or on its own when there is none) and saves.
     /// A debit that would take the balance below zero is refused with WALLET_INSUFFICIENT before anything is written; a
@@ -43,8 +49,9 @@ public sealed class WalletService(RimlinkDbContext db, EventBus events)
             wallet = new Wallet { PlayerId = playerId, Balance = 0, UpdatedAt = DateTime.UtcNow };
             db.Wallets.Add(wallet);
         }
-        if (delta < 0 && wallet.Balance + delta < 0)
-            throw RpcErrors.Failed(ErrorCode.WalletInsufficient, RefusalKeys.EconomyWalletInsufficient, $"not enough silver: balance {wallet.Balance}, needed {-delta}", wallet.Balance, -delta);
+        long available = wallet.Balance - await Reserved(playerId);
+        if (delta < 0 && (System.Numerics.BigInteger)available + delta < 0)
+            throw RpcErrors.Failed(ErrorCode.WalletInsufficient, RefusalKeys.EconomyWalletInsufficient, $"not enough silver: available {available}, needed {-delta}", available, -delta);
         return await Write(wallet, playerId, delta, kind, refId);
     }
 
@@ -60,6 +67,10 @@ public sealed class WalletService(RimlinkDbContext db, EventBus events)
             wallet = new Wallet { PlayerId = playerId, Balance = 0, UpdatedAt = DateTime.UtcNow };
             db.Wallets.Add(wallet);
         }
+        long reserved = await Reserved(playerId);
+        if (reserved > 0 && (System.Numerics.BigInteger)wallet.Balance - amount < reserved)
+            throw RpcErrors.Failed(ErrorCode.WalletInsufficient, RefusalKeys.EconomyWalletInsufficient,
+                "storage fee would consume reserved outpost silver", wallet.Balance - reserved, amount);
         var entry = await Write(wallet, playerId, -amount, kind, refId);
         await Apply(BankPlayerId, amount, kind, refId);
         return entry;

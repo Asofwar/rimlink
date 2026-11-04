@@ -12,7 +12,7 @@ using Rimlink.Server.Storage.Entities;
 namespace Rimlink.Server.Grpc;
 
 public sealed class AuthGrpcService(AuthService auth, WorldService worlds, SaveStore saves, SessionRegistry sessions, RimlinkDbContext db, Application.Live.LiveSessionService live, Microsoft.Extensions.Options.IOptions<IntegrityOptions> integrity,
-    Application.World.ColonyArchive archive) : Protocol.V1.Auth.AuthBase
+    Application.World.ColonyArchive archive, Application.Outposts.OutpostFeature outposts) : Protocol.V1.Auth.AuthBase
 {
     public override async Task<LoginReply> Login(LoginRequest request, ServerCallContext context)
     {
@@ -28,7 +28,7 @@ public sealed class AuthGrpcService(AuthService auth, WorldService worlds, SaveS
 
     public override async Task<LoginReply> Register(RegisterRequest request, ServerCallContext context)
     {
-        var ctx = new LoginContext(Protocol.ProtocolVersion.Current, request.ServerPassword, request.Mods, context.ClientIp()) { ModSettings = request.ModSettings, RecoveryVersion = request.RecoveryVersion };
+        var ctx = new LoginContext(Protocol.ProtocolVersion.Current, request.ServerPassword, request.Mods, context.ClientIp()) { ModSettings = request.ModSettings, RecoveryVersion = request.RecoveryVersion, OutpostVersion = request.OutpostVersion };
         return await ToReply(await auth.Register(request.Login, request.Password, request.PlayerName, ctx), context);
     }
 
@@ -70,7 +70,11 @@ public sealed class AuthGrpcService(AuthService auth, WorldService worlds, SaveS
                     RecoveryVersion = Protocol.SaveRecoveryData.CurrentVersion,
                     DevModeAllowed = integrity.Value.DevModeAllowed(s.Account.Role),
                     ColonyRestore = s.Session.ColonyRestore,
+                    OutpostVersion = outposts.IsAvailable && outposts.Startup.State == Application.Outposts.OutpostStartupState.Ready
+                        && s.Session.OutpostVersion == Protocol.OutpostRecoveryData.CurrentVersion ? Protocol.OutpostRecoveryData.CurrentVersion : 0,
                 };
+                if (reply.OutpostVersion != 0)
+                    reply.OutpostRestoreBoundary = await db.OutpostAuthority.Select(a => a.RestoreBoundary).SingleAsync();
                 var onlineIds = sessions.All.Select(x => x.PlayerId).Distinct().ToList();
                 reply.Online.AddRange((await db.Players.AsNoTracking().Where(p => onlineIds.Contains(p.Id)).ToListAsync()).Select(p => p.ToRef()));
                 foreach (var pending in await live.PendingEnds(s.Player.Id)) reply.PendingLiveEnds.Add(await live.ToProto(pending));
