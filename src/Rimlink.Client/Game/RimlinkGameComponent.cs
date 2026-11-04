@@ -27,6 +27,8 @@ public sealed class RimlinkGameComponent : GameComponent
     public long SaveWriteEpoch;
     public uint RecoveryVersion;
     public string SnapshotId = "";
+    public OutpostRecoveryData OutpostRecovery = new();
+    public string? OutpostLoadFailure; // non-Scribed: malformed evidence must never become an empty bootstrap
     public List<long> ParcelReceipts = [];
     public List<string> RemovedOperations = [];
     public List<string> ReturnedOperations = [];
@@ -46,6 +48,34 @@ public sealed class RimlinkGameComponent : GameComponent
     public override void ExposeData()
     {
         base.ExposeData();
+        if (Scribe.mode == LoadSaveMode.LoadingVars)
+        {
+            try
+            {
+                var sections = Scribe.loader.curXmlParent?.SelectNodes(OutpostRecoveryData.SectionNode);
+                if (sections?.Count > 1) throw new InvalidDataException("duplicate outpost recovery section");
+                if (sections?.Count == 1)
+                {
+                    using var reader = new System.Xml.XmlNodeReader(sections[0]!);
+                    reader.MoveToContent(); OutpostRecovery = OutpostRecoveryData.ReadSection(reader);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Vanilla swallows ExposeData exceptions; retain the component and an explicit fail-closed hold instead.
+                OutpostLoadFailure = ex.Message;
+                RimlinkLog.Instance.Warn("outpost recovery metadata requires recovery: " + ex.Message);
+            }
+        }
+        if (Scribe.mode == LoadSaveMode.Saving && OutpostRecovery.Present && Outposts.PawnCustodyRegistry.IsOwnGame)
+        {
+            var validation = Current.Game.GetComponent<Outposts.PawnCustodyRegistry>().ValidateOwnGame();
+            if (validation.RecoveryRequired) throw new InvalidDataException("ambiguous own pawn custody registry");
+            OutpostRecovery.Metadata.Registry.Clear(); OutpostRecovery.Metadata.Registry.Add(validation.Registry);
+            OutpostRecovery.Validate();
+            var writer = HarmonyLib.Traverse.Create(Scribe.saver).Field("writer").GetValue<System.Xml.XmlWriter>();
+            OutpostRecovery.WriteSection(writer);
+        }
         Scribe_Collections.Look(ref ActiveRaids, "rimlinkActiveRaids", LookMode.Deep);
         ActiveRaids ??= [];
         Scribe_Collections.Look(ref FiredIncidents, "rimlinkFiredIncidents", LookMode.Value);

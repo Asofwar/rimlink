@@ -115,6 +115,7 @@ public sealed class RelationLedger : GameComponent
                 ThingBlobs.RenameOwnVerbs(pawn);
                 index[pawn.thingIDNumber] = pawn;
             }
+            foreach (var pawn in pawns) Outposts.PawnCustodyRegistry.CurrentRegistry?.RefreshBoundReference(pawn);
             var world = new VerseWorld(index);
             foreach (var (pawn, entry) in back)
             {

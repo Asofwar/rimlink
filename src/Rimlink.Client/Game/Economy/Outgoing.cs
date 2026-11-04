@@ -489,7 +489,11 @@ public static class Outgoing
         if (taken.Count == 0) { Submit(); return; }
         try
         {
-            foreach (var item in taken) { item.Commit(); item.Committed = true; }
+            foreach (var item in taken)
+            {
+                if (item.Original is Pawn pawn) Outposts.PawnCustodyRegistry.CurrentRegistry?.RecordDeparture(pawn, new(entry.Id, "ordinary-outgoing"));
+                item.Commit(); item.Committed = true;
+            }
         }
         catch
         {

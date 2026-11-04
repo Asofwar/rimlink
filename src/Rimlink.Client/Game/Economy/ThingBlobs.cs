@@ -42,6 +42,7 @@ public static class ThingBlobs
         var blob = new PawnBlob
         {
             KindDef = p.kindDef.defName,
+            Registry = Outposts.PawnCustodyRegistry.CurrentRegistry?.Capture(p),
             Name = p.Name?.ToStringFull ?? p.LabelShort,
             MarketValueX100 = (long)(p.MarketValue * 100f),
             Humanlike = p.RaceProps.Humanlike,
@@ -83,7 +84,12 @@ public static class ThingBlobs
     }
 
     /// <summary>A pawn exactly as serialised (same ids, faction untouched): for the live mirror, where the host's ids and factions are the truth.</summary>
-    public static Pawn DeserializePawnRaw(PawnBlob b) => Load<Pawn>(b.ScribeXmlZstd.ToByteArray());
+    public static Pawn DeserializePawnRaw(PawnBlob b)
+    {
+        var pawn = Load<Pawn>(b.ScribeXmlZstd.ToByteArray());
+        Outposts.PawnCustodyRegistry.CurrentRegistry?.TrackBlob(pawn, b.Registry, mirror: true);
+        return pawn;
+    }
 
     /// <summary>A thing serialised while spawned remembers its map; it must forget it before it is spawned on the mirror.</summary>
     public static void ResetMapIndex(Thing t) => HarmonyLib.Traverse.Create(t).Field("mapIndexOrState").SetValue((sbyte)-1);
@@ -92,7 +98,7 @@ public static class ThingBlobs
     public static Ideo? ArrivalIdeo { get; private set; }
 
     /// <param name="joins">The faction the pawn arrives in (the player's by default); the pawn also takes its primary ideo.</param>
-    public static Pawn DeserializePawn(PawnBlob b, bool newIds = false, Faction? joins = null)
+    public static Pawn DeserializePawn(PawnBlob b, bool newIds = false, Faction? joins = null, bool nonAuthoritativeMirror = false)
     {
         joins ??= Faction.OfPlayer;
         // The pawn's ideo reference never resolves (no ideo travels in a blob), so the game assigns a fallback while loading: the primary ideo
@@ -116,6 +122,7 @@ public static class ThingBlobs
         if (pawn.outfits is not null && pawn.outfits.CurrentApparelPolicy is null) pawn.outfits.CurrentApparelPolicy = Current.Game.outfitDatabase.DefaultOutfit();
         if (pawn.drugs is not null && pawn.drugs.CurrentPolicy is null) pawn.drugs.CurrentPolicy = Current.Game.drugPolicyDatabase.DefaultDrugPolicy();
         if (pawn.foodRestriction is not null && pawn.foodRestriction.CurrentFoodPolicy is null) pawn.foodRestriction.CurrentFoodPolicy = Current.Game.foodRestrictionDatabase.DefaultFoodRestriction();
+        Outposts.PawnCustodyRegistry.CurrentRegistry?.TrackBlob(pawn, b.Registry, nonAuthoritativeMirror);
         return pawn;
     }
 

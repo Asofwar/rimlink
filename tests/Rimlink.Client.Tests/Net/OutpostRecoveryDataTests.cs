@@ -46,6 +46,25 @@ public sealed class OutpostRecoveryDataTests
         Assert.Equal(SHA256.HashData(Encoding.UTF8.GetBytes(xml)), rawHash);
     }
     [Fact]
+    public void Game_xml_node_reader_preserves_the_same_bounded_metadata()
+    {
+        var expected = Metadata(); var document = new XmlDocument(); document.LoadXml(Section(expected));
+        using var reader = new XmlNodeReader(document.DocumentElement!); reader.MoveToContent();
+        Assert.False(reader.CanReadValueChunk);
+        Assert.Equal(expected, OutpostRecoveryData.ReadSection(reader).Metadata);
+    }
+
+    [Fact]
+    public void Game_xml_node_reader_cannot_bypass_the_metadata_bound()
+    {
+        var document = new XmlDocument();
+        string oversized = new('A', ((OutpostRecoveryData.MaxMetadataBytes + 2) / 3) * 4 + 1);
+        document.LoadXml("<rimlinkOutposts><version>1</version><metadata>" + oversized + "</metadata></rimlinkOutposts>");
+        using var reader = new XmlNodeReader(document.DocumentElement!); reader.MoveToContent();
+        Assert.Throws<InvalidDataException>(() => OutpostRecoveryData.ReadSection(reader));
+    }
+
+    [Fact]
     public void Missing_section_is_legacy_but_other_mods_section_is_ignored()
     {
         Assert.False(Read(Xml("")).Outposts.Present);

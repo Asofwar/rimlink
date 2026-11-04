@@ -9,7 +9,10 @@ namespace Rimlink.Client.Game.Patches;
 public static class Patch_GameDataSaveLoader_SaveGame
 {
     public static bool Prefix(string fileName) => SaveSync.BeforeSave(fileName);
-    public static void Postfix(string fileName) => SaveSync.OnSaved(fileName);
+    public static void Postfix(string fileName, bool __runOriginal)
+    {
+        if (__runOriginal) SaveSync.OnSaved(fileName); // a refused prefix must not upload an older file
+    }
 }
 
 /// <summary>

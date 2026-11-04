@@ -52,10 +52,21 @@ public static class SaveSync
     /// <summary>The durable intent must exist before vanilla can replace the own-colony file.</summary>
     public static bool BeforeSave(string fileName)
     {
-        if (!IsOurs(fileName) || Visits.VisitSession.Active) return true;
-        if (writesBlocked) return false;
         try
         {
+            if (Outposts.PawnCustodyRegistry.IsOwnGame && Current.Game is { } own)
+            {
+                var evidence = own.GetComponent<RimlinkGameComponent>();
+                var registry = own.GetComponent<Outposts.PawnCustodyRegistry>();
+                var validation = registry.ValidateOwnGame();
+                if (evidence.OutpostLoadFailure is not null || registry.HasRecords && !evidence.OutpostRecovery.Present
+                    || validation.RecoveryRequired || evidence.OutpostRecovery.Metadata.Registry.Any(known =>
+                        !validation.Registry.Any(current => current.PawnCustodyId == known.PawnCustodyId)))
+                    throw new InvalidDataException("own pawn custody requires recovery before saving");
+                evidence.OutpostRecovery.Validate();
+            }
+            if (!IsOurs(fileName) || Visits.VisitSession.Active) return true;
+            if (writesBlocked) return false;
             var component = Current.Game.GetComponent<RimlinkGameComponent>();
             string id = Guid.NewGuid().ToString("N");
             Pending.RecoverSnapshot(SaveFilePath); // resolve a previous failed write without trusting its older cache
@@ -67,7 +78,7 @@ public static class SaveSync
         {
             lastFailure = ex.Message; lastRefusal = null; LastSavedSnapshot = null;
             upload = Task.FromResult(new UploadResult(null, null, ex));
-            RimlinkLog.Instance.Warn("save recovery intent could not be written: " + ex.Message);
+            RimlinkLog.Instance.Warn("save preflight refused: " + ex.Message);
             return false;
         }
     }

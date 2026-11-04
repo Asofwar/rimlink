@@ -5,4 +5,6 @@
   <Rimlink.Refusal.Outposts.Operation>The outpost operation cannot be safely completed. Refresh its status; do not restore workers locally.</Rimlink.Refusal.Outposts.Operation>
   <Rimlink.Refusal.Outposts.Client>This colony requires a client with outpost custody support.</Rimlink.Refusal.Outposts.Client>
   <Rimlink.Refusal.Outposts.Unavailable>Outposts are not available until their recovery and lifecycle protections are ready.</Rimlink.Refusal.Outposts.Unavailable>
+  <Rimlink.Outposts.WorkerIdentity>This pawn has no authoritative custody identity for this colony.</Rimlink.Outposts.WorkerIdentity>
+  <Rimlink.Outposts.WorkerIneligible>This pawn is not eligible for the selected outpost work.</Rimlink.Outposts.WorkerIneligible>
 </LanguageData>

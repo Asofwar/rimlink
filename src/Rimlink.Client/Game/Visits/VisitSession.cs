@@ -378,7 +378,7 @@ public static class VisitLoader
         foreach (var blob in pending.Guests)
         {
             // The visitor's ideo did not travel: guests take this save's player ideo, the host's.
-            var guest = ThingBlobs.DeserializePawn(blob, newIds: true, joins: player);
+            var guest = ThingBlobs.DeserializePawn(blob, newIds: true, joins: player, nonAuthoritativeMirror: true);
             GenSpawn.Spawn(guest, CellFinder.RandomClosewalkCellNear(entry, target, 4), target);
         }
         Find.TickManager.Pause();

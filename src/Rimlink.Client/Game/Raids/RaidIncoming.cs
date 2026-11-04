@@ -142,7 +142,7 @@ public static class RaidIncoming
         {
             faction = RimlinkFactions.Raiders;
             if (Economy.Incoming.MissingDefs(null, raid.Pawns) is { } missing) throw new InvalidDataException(missing);
-            pawns = raid.Pawns.Pawns.Select(b => ThingBlobs.DeserializePawn(b, newIds: true, joins: faction)).ToList();
+            pawns = raid.Pawns.Pawns.Select(b => ThingBlobs.DeserializePawn(b, newIds: true, joins: faction, nonAuthoritativeMirror: raid.PawnMode == PawnMode.PawnSnapshot)).ToList();
         }
         catch (Exception ex)
         {

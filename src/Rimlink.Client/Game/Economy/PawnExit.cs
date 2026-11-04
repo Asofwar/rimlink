@@ -22,8 +22,9 @@ public static class PawnExit
     /// A pawn of this colony leaving for good: its relations are recorded first, so they come back with it
     /// (<see cref="RelationLedger"/>). Foreign pawns and copies leave through <see cref="Remove"/>.
     /// </summary>
-    public static void Leave(Pawn pawn)
+    public static void Leave(Pawn pawn, Outposts.CustodyDepartureEvidence? custody = null)
     {
+        if (custody is not null) Outposts.PawnCustodyRegistry.CurrentRegistry?.RecordDeparture(pawn, custody);
         RelationLedger.Record(pawn);
         Remove(pawn);
     }

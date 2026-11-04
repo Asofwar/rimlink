@@ -167,11 +167,21 @@ public sealed record OutpostRecoveryData
         {
             if (reader.NodeType == XmlNodeType.EndElement && reader.Depth == depth) return text.ToString();
             if (reader.NodeType is not (XmlNodeType.Text or XmlNodeType.CDATA or XmlNodeType.Whitespace or XmlNodeType.SignificantWhitespace)) throw Invalid();
-            int count;
-            while ((count = reader.ReadValueChunk(buffer, 0, buffer.Length)) != 0)
+            if (!reader.CanReadValueChunk)
             {
-                if (text.Length > maximum - count) throw Invalid();
-                text.Append(buffer, 0, count);
+                // XmlNodeReader (the game's already-loaded Scribe tree) exposes an existing value, not a chunk API.
+                string value = reader.Value;
+                if (value.Length > maximum - text.Length) throw Invalid();
+                text.Append(value);
+            }
+            else
+            {
+                int count;
+                while ((count = reader.ReadValueChunk(buffer, 0, buffer.Length)) != 0)
+                {
+                    if (text.Length > maximum - count) throw Invalid();
+                    text.Append(buffer, 0, count);
+                }
             }
         }
         throw Invalid();

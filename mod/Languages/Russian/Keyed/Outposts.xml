@@ -5,4 +5,6 @@
   <Rimlink.Refusal.Outposts.Operation>Операцию аванпоста нельзя безопасно завершить. Обнови её состояние; не восстанавливай работников локально.</Rimlink.Refusal.Outposts.Operation>
   <Rimlink.Refusal.Outposts.Client>Для этой колонии нужен клиент с поддержкой хранения пешек аванпостов.</Rimlink.Refusal.Outposts.Client>
   <Rimlink.Refusal.Outposts.Unavailable>Аванпосты недоступны, пока не готовы механизмы восстановления и жизненного цикла.</Rimlink.Refusal.Outposts.Unavailable>
+  <Rimlink.Outposts.WorkerIdentity>У этой пешки нет подтверждённой идентичности хранения для данной колонии.</Rimlink.Outposts.WorkerIdentity>
+  <Rimlink.Outposts.WorkerIneligible>Эта пешка не подходит для выбранной работы в аванпосте.</Rimlink.Outposts.WorkerIneligible>
 </LanguageData>

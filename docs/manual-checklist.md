@@ -12,6 +12,13 @@
 Отмечать при каждом релизе. Прогон 2026-10-28 (RimWorld 1.7.4990, локальный сервер, два аккаунта на одном
 клиенте): отмечено `[x]`; `[ ]` — не проверялось в этом прогоне.
 
+## Пассивные аванпосты — локальный registry, 2026-11-04
+
+- [x] Настоящие Scribe-ссылки трёх пешек, blob roundtrip со сменой thing ID без смены UUID, mirror без authority, холодная загрузка metadata.
+- [x] Duplicate UUID у разных объектов блокирует запись до Scribe; новый файл не создаётся, старый checkpoint сохраняет SHA-256.
+- [ ] Полные G1/G4 с server admission/recall и двумя клиентами — Task16, не заменены локальным registry probe.
+- Evidence: [локальный игровой прогон](<verification/2026-11-04-passive-outposts-registry.md>).
+
 ## Сервер
 
 - [x] **Импорт модпака.** `rimlink-tools modpack import --from <Config>/ModsConfig.xml --mods-dir <RimWorld>/Data <RimWorld>/Mods <workshop>/294100 --server https://host:25560 --token <Admin:ApiToken> --insecure`

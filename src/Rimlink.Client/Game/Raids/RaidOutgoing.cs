@@ -104,7 +104,12 @@ public static class RaidOutgoing
         var list = new PawnList();
         try
         {
-            foreach (var pawn in pawns) list.Pawns.Add(ThingBlobs.SerializePawn(pawn));
+            foreach (var pawn in pawns)
+            {
+                var blob = ThingBlobs.SerializePawn(pawn);
+                if (blob.Registry is { } registry) registry.NonAuthoritativeMirror = true;
+                list.Pawns.Add(blob);
+            }
         }
         catch (Exception ex)
         {
