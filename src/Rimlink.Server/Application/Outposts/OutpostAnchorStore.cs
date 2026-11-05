@@ -6,11 +6,24 @@ using Rimlink.Server.Storage;
 
 namespace Rimlink.Server.Application.Outposts;
 
-public class OutpostAnchorStore(DataDirectory data, IOptions<OutpostOptions> options)
+public class OutpostAnchorStore
 {
+    private readonly string dataRoot;
+    private readonly IOptions<OutpostOptions> options;
+    private readonly SaveStorageLock gate;
+
+    public OutpostAnchorStore(DataDirectory data, IOptions<OutpostOptions> options) : this(data.Root, options) { }
+
+    // Stopped-server procedures need the real owned lease without creating a destination DataDirectory.
+    internal OutpostAnchorStore(string dataRoot, IOptions<OutpostOptions> options)
+    {
+        this.dataRoot = Path.GetFullPath(dataRoot);
+        this.options = options;
+        gate = new(options.Value.AnchorDirectory);
+    }
+
     internal Action<string>? RecoveryCheckpoint { get; set; }
     internal OutpostSqliteReport? LastBackendReport { get; private set; }
-    private readonly SaveStorageLock gate = new(options.Value.AnchorDirectory);
 
     internal async Task<OutpostAnchorLease> AcquireAsync(CancellationToken ct)
     {
@@ -18,17 +31,22 @@ public class OutpostAnchorStore(DataDirectory data, IOptions<OutpostOptions> opt
         return new(this, await gate.HoldAsync(ct));
     }
 
+    internal AnchorEnvelope? ReadEnvelope(OutpostAnchorLease lease) => ReadEnvelopeRecord(lease);
+
     internal AnchorRecord? Read(OutpostAnchorLease lease)
     {
         lease.Require(this);
-        return ReadRecord(lease);
+        return KnownRecord(ReadEnvelopeRecord(lease));
     }
 
     internal void WriteDurable(OutpostAnchorLease lease, AnchorRecord record, CancellationToken ct)
+        => WriteEnvelopeDurable(lease, new KnownAnchorEnvelope(record), ct);
+
+    internal void WriteEnvelopeDurable(OutpostAnchorLease lease, AnchorEnvelope envelope, CancellationToken ct)
     {
         lease.Require(this);
         ct.ThrowIfCancellationRequested();
-        byte[] bytes = AnchorRecordCodec.Encode(record);
+        byte[] bytes = AnchorEnvelopeCodec.Encode(envelope);
         if (JournalRefusal() is { } refusal) throw new InvalidDataException(refusal);
         using (var connection = OpenConnection())
         {
@@ -41,7 +59,7 @@ public class OutpostAnchorStore(DataDirectory data, IOptions<OutpostOptions> opt
             // A caller disconnect after this point cannot turn a durable decision into business rejection.
             transaction.Commit();
         }
-        if (ReadRecord(lease) is not { } readback || !AnchorRecordCodec.Encode(readback).AsSpan().SequenceEqual(bytes))
+        if (ReadEnvelopeRecord(lease) is not { } readback || !AnchorEnvelopeCodec.Encode(readback).AsSpan().SequenceEqual(bytes))
             throw new InvalidDataException("anchor-write-readback-mismatch");
     }
 
@@ -82,16 +100,16 @@ public class OutpostAnchorStore(DataDirectory data, IOptions<OutpostOptions> opt
         if (JournalRefusal() is { } refusal) throw new InvalidDataException(refusal);
     }
 
-    internal bool IsPhysicallyUninitialized(OutpostAnchorLease lease) => ReadRecord(lease) is null;
+    internal bool IsPhysicallyUninitialized(OutpostAnchorLease lease) => ReadEnvelopeRecord(lease) is null;
 
-    private AnchorRecord? ReadRecord(OutpostAnchorLease lease)
+    private AnchorEnvelope? ReadEnvelopeRecord(OutpostAnchorLease lease)
     {
         lease.Require(this);
         if (JournalRefusal() is { } refusal) throw new InvalidDataException(refusal);
         bool hot;
         using (var journal = File.OpenRead(DatabasePath + "-journal")) hot = journal.ReadByte() != 0;
-        AnchorRecord? record;
-        using (var connection = OpenConnection()) record = ReadChecked(connection);
+        AnchorEnvelope? record;
+        using (var connection = OpenConnection()) record = ReadCheckedEnvelope(connection);
         if (hot)
         {
             // SQLite, not us, rolls back a hot journal. Its recovery can remove the journal
@@ -100,7 +118,7 @@ public class OutpostAnchorStore(DataDirectory data, IOptions<OutpostOptions> opt
             RecoveryCheckpoint?.Invoke("AfterRecoveryRead");
             using (var connection = OpenConnection())
             {
-                if (ReadChecked(connection) != record) throw new InvalidDataException("anchor-recovery-identity-mismatch");
+                if (ReadCheckedEnvelope(connection) != record) throw new InvalidDataException("anchor-recovery-identity-mismatch");
                 using var transaction = connection.BeginTransaction();
                 using var command = connection.CreateCommand();
                 command.Transaction = transaction;
@@ -113,12 +131,20 @@ public class OutpostAnchorStore(DataDirectory data, IOptions<OutpostOptions> opt
             }
             if (JournalRefusal() is { } recoveredRefusal) throw new InvalidDataException(recoveredRefusal);
             using var verified = OpenConnection();
-            if (ReadChecked(verified) != record) throw new InvalidDataException("anchor-recovery-identity-mismatch");
+            if (ReadCheckedEnvelope(verified) != record) throw new InvalidDataException("anchor-recovery-identity-mismatch");
         }
         return record;
     }
 
-    private static AnchorRecord? ReadChecked(SqliteConnection connection)
+    internal static AnchorRecord? ReadChecked(SqliteConnection connection) => KnownRecord(ReadCheckedEnvelope(connection));
+
+    private static AnchorRecord? KnownRecord(AnchorEnvelope? envelope) => envelope switch
+    {
+        null => null, KnownAnchorEnvelope known => known.Record,
+        _ => throw new InvalidDataException("anchor-fresh-fence-requires-restore")
+    };
+
+    internal static AnchorEnvelope? ReadCheckedEnvelope(SqliteConnection connection)
     {
         if (!Equals(Scalar(connection, "PRAGMA integrity_check;"), "ok") ||
             Convert.ToInt64(Scalar(connection, "PRAGMA application_id;")) != 1380732737 ||
@@ -129,12 +155,12 @@ public class OutpostAnchorStore(DataDirectory data, IOptions<OutpostOptions> opt
         using var reader = command.ExecuteReader();
         if (!reader.Read() || reader.GetInt64(0) != 1)
             throw new InvalidDataException("anchor-schema-or-integrity-mismatch");
-        AnchorRecord? record = null;
+        AnchorEnvelope? record = null;
         if (!reader.IsDBNull(2))
         {
             if (reader.GetString(1) != "blob" || reader.GetInt64(2) is < 1 or > 4096)
                 throw new InvalidDataException("anchor-record-invalid");
-            record = AnchorRecordCodec.Decode((byte[])reader.GetValue(3));
+            record = AnchorEnvelopeCodec.Decode((byte[])reader.GetValue(3));
         }
         if (reader.Read()) throw new InvalidDataException("anchor-schema-or-integrity-mismatch");
         return record;
@@ -199,7 +225,7 @@ public class OutpostAnchorStore(DataDirectory data, IOptions<OutpostOptions> opt
         if (string.IsNullOrWhiteSpace(configured) || !Path.IsPathFullyQualified(configured) || configured.StartsWith(@"\\", StringComparison.Ordinal))
             throw new InvalidDataException("authority path must be an explicit local absolute directory");
         string path = Path.TrimEndingDirectorySeparator(Path.GetFullPath(configured));
-        string root = Path.TrimEndingDirectorySeparator(data.Root);
+        string root = Path.TrimEndingDirectorySeparator(dataRoot);
         var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
         if (Within(path, root, comparison) || Within(root, path, comparison))
             throw new InvalidDataException("authority path overlaps protected data");
@@ -207,7 +233,7 @@ public class OutpostAnchorStore(DataDirectory data, IOptions<OutpostOptions> opt
         RejectLinks(root);
         if (!Directory.Exists(path))
             throw new InvalidDataException("authority directory is not provisioned");
-        OutpostStorageProfile.Validate(data.Root, path, options.Value.StorageContract, options.Value.QualifiedLinuxFileSystem);
+        OutpostStorageProfile.Validate(dataRoot, path, options.Value.StorageContract, options.Value.QualifiedLinuxFileSystem);
         return path;
     }
 

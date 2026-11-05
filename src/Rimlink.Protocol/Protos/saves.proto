@@ -47,6 +47,8 @@ message SaveHeader {
   bytes raw_sha256 = 15;
   OutpostSaveMetadata outpost_metadata = 16;
   OutpostRollbackBridge outpost_rollback_bridge = 17;
+  OutpostRestoreBridge outpost_restore_bridge = 18;
+  OutpostRollbackFromViewBridge outpost_rollback_from_view_bridge = 19;
 }
 
 message SaveInfo {

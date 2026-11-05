@@ -102,6 +102,29 @@ public sealed class PawnCustodyRegistry : GameComponent
         for (int i = 0; i < entries.Count; i++) entries[i].Envelope = replacements[i];
     }
 
+    /// <summary>Main thread only, after verified download: stage every replacement before changing a Scribe binding.</summary>
+    internal void ApplyDownloadedScopePlan(IReadOnlyList<PawnRegistryEnvelope> original, IReadOnlyList<PawnRegistryEnvelope> proposed)
+    {
+        if (!IsOwnGame) throw new InvalidDataException("download bridge has no own game");
+        var validation = ValidateOwnGame();
+        if (validation.RecoveryRequired || validation.Registry.Count != entries.Count || original.Count != entries.Count || proposed.Count != entries.Count)
+            throw new InvalidDataException("download bridge has an ambiguous live registry");
+        var replacements = new PawnRegistryEnvelope[entries.Count];
+        for (int i = 0; i < entries.Count; i++)
+        {
+            string id = entries[i].Envelope.PawnCustodyId;
+            var before = original.Single(r => r.PawnCustodyId == id);
+            var after = proposed.Single(r => r.PawnCustodyId == id);
+            if (!validation.Registry.Single(r => r.PawnCustodyId == id).Equals(before))
+                throw new InvalidDataException("download bridge differs from the loaded live registry");
+            var expected = before.Clone();
+            if (!before.Tombstone && !before.NonAuthoritativeMirror) expected.Scope = after.Scope.Clone();
+            if (!expected.Equals(after)) throw new InvalidDataException("download bridge changes immutable pawn identity");
+            replacements[i] = after.Clone();
+        }
+        for (int i = 0; i < entries.Count; i++) entries[i].Envelope = replacements[i];
+    }
+
     public void RefreshBoundReference(Pawn pawn)
     {
         foreach (var row in entries.Where(e => ReferenceEquals(e.Pawn, pawn))) row.Envelope.PawnReferenceToken = pawn.GetUniqueLoadID();

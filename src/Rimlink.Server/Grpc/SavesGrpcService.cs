@@ -42,7 +42,11 @@ public sealed class SavesGrpcService(SaveStore store, Rimlink.Server.Application
     private async Task Stream(long playerId, IServerStreamWriter<SaveChunk> responseStream, ServerCallContext context)
     {
         var current = await store.OpenCurrent(playerId) ?? throw RpcErrors.With(StatusCode.NotFound, ErrorCode.Unspecified, RefusalKeys.SavesNone, "no save stored for this player");
-        var (version, content, generation, writeEpoch, rollbackBridge) = current;
+        var (version, content, generation, writeEpoch, rollbackBridge, restoreBridge, fromViewBridge) = current;
+        var metadata = SaveStore.RecoveryOf(version).Outposts;
+        string boundary = fromViewBridge is not null ? OutpostSourceGraph.ValidateRoot(fromViewBridge).EffectiveScope.RestoreBoundary
+            : restoreBridge is not null ? OutpostSourceGraph.ValidateRoot(restoreBridge).EffectiveScope.RestoreBoundary
+            : rollbackBridge?.CurrentScope.RestoreBoundary ?? metadata.Metadata.Scope?.RestoreBoundary ?? "";
 
         await using (content)
         {
@@ -50,7 +54,8 @@ public sealed class SavesGrpcService(SaveStore store, Rimlink.Server.Application
             {
                 Header = new SaveHeader { GameTick = version.GameTick, TotalSize = version.Size, Sha256 = ByteString.CopyFrom(version.Sha256),
                     SnapshotId = version.SnapshotId ?? "", SaveWriteEpoch = writeEpoch, RecoveryVersion = version.RecoveryVersion, SaveGeneration = generation,
-                    OutpostRollbackBridge = rollbackBridge },
+                    OutpostRollbackBridge = rollbackBridge, OutpostRestoreBridge = restoreBridge, OutpostRollbackFromViewBridge = fromViewBridge,
+                    OutpostVersion = metadata.Present ? 1u : 0u, OutpostRestoreBoundary = boundary },
             }, context.CancellationToken);
 
             byte[] buffer = new byte[Limits.SaveChunkBytes];

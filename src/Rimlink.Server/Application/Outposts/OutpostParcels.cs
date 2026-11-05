@@ -18,7 +18,7 @@ public sealed record OutpostReturnBatch(string Id, string TransitionId, OutpostS
 
 /// <summary>Stage durable own mail inside the caller's transaction; physical import needs a separate durable start.</summary>
 public sealed class OutpostParcels(RimlinkDbContext db, OutpostAuthority authority,
-    OutpostAssignmentService assignments, MailboxService mailbox, OutpostClock clock)
+    OutpostAssignmentService assignments, MailboxService mailbox, OutpostClock clock, Saves.SaveFiles files)
 {
     public async Task<IReadOnlyList<long>> StageHeldAsync(OutpostLease lease, OutpostReturnBatch batch, CancellationToken ct)
     {
@@ -65,8 +65,9 @@ public sealed class OutpostParcels(RimlinkDbContext db, OutpostAuthority authori
         byte[] digest = SHA256.HashData(request.ToByteArray());
         var link = await db.OutpostParcelLinks.AsNoTracking().SingleOrDefaultAsync(p => p.ParcelId == request.ParcelId && p.PlayerId == playerId, ct);
         if (link is null || link.WorldId != request.Scope.WorldInstanceId || link.SaveGeneration != request.Scope.SaveGeneration
-            || link.RestoreBoundary != request.Scope.RestoreBoundary || !link.PayloadDigest.AsSpan().SequenceEqual(request.PayloadDigest.Span))
+            || !link.PayloadDigest.AsSpan().SequenceEqual(request.PayloadDigest.Span))
             throw Refuse(ErrorCode.OutpostConflict, "delivery-payload-mismatch");
+        await OutpostRestoreEvidence.ValidateDeliveryRequestAsync(db, files, link, request, ct);
         var repeated = await db.OutpostDeliveryAttempts.AsNoTracking().SingleOrDefaultAsync(a => a.PlayerId == playerId && a.WorldId == request.Scope.WorldInstanceId
             && a.SaveGeneration == request.Scope.SaveGeneration && a.RestoreBoundary == request.Scope.RestoreBoundary && a.RequestId == request.ClientRequestId, ct);
         if (repeated is not null)
@@ -102,8 +103,10 @@ public sealed class OutpostParcels(RimlinkDbContext db, OutpostAuthority authori
     private async Task<OutpostDeliveryReply> ReplyAsync(OutpostDeliveryAttempt attempt, OutpostDeliveryRequest request, CancellationToken ct)
     {
         var transition = await db.OutpostTransitions.AsNoTracking().SingleAsync(t => t.Id == attempt.TransitionId, ct);
+        var link = await db.OutpostParcelLinks.AsNoTracking().SingleAsync(p => p.ParcelId == attempt.ParcelId, ct);
+        var restore = await OutpostRestoreEvidence.ValidateDeliveryRequestAsync(db, files, link, request, ct);
         return new() { AttemptId = attempt.Id, Authorization = request.Clone(), AuthoritativeRevision = 1, AckOnly = attempt.State == "Accepted",
-            TransitionId = transition.Id, TransitionDigest = ByteString.CopyFrom(transition.Digest), PredecessorId = transition.PredecessorId ?? "" };
+            TransitionId = transition.Id, TransitionDigest = ByteString.CopyFrom(transition.Digest), PredecessorId = transition.PredecessorId ?? "", RestoreAuthorization = restore };
     }
 
     private sealed record Child(PawnList Pawns, OutpostParcelPayload Payload);

@@ -175,7 +175,7 @@ public sealed class OutpostAssignmentTests
         Assert.Single(PawnList.Parser.ParseFrom(parcel.Pawns).Pawns);
         Assert.Equal(parcel.Id, Assert.Single(result.ParcelIds));
         var link = await f.Db.OutpostParcelLinks.AsNoTracking().SingleAsync();
-        var mailbox = new MailboxService(f.Db, new EventBus(new SessionRegistry(), NullLogger<EventBus>.Instance), f.Wallet, Options.Create(new EconomyOptions()));
+        var mailbox = new MailboxService(f.Db, new EventBus(new SessionRegistry(), NullLogger<EventBus>.Instance), f.Wallet, Options.Create(new EconomyOptions()), f.H.H.Files);
         var wire = await mailbox.ToProto(parcel);
         Assert.Null(OutpostPayloadCompatibility.Refusal(wire, 1));
         Assert.Equal(1, wire.OutpostPayload.ChildCount); Assert.True(wire.OutpostPayload.ValuationRevision > 0);

@@ -28,7 +28,7 @@ public static class OutpostIncoming
         var metadata = Current.Game?.GetComponent<RimlinkGameComponent>().OutpostRecovery.Metadata;
         if (!SafeHome(Find.CurrentMap) || metadata?.SchemaVersion != 1 || parcel.CalculateSize() > Limits.MaxMessageBytes
             || parcel.AwaitingDecision || OutpostPayloadCompatibility.Refusal(parcel, RimlinkSession.Login?.OutpostVersion ?? 0) is not null
-            || parcel.OutpostPayload is not { ChildCount: > 0 } payload || !payload.Scope.Equals(metadata.Scope)
+            || parcel.OutpostPayload is not { ChildCount: > 0 } payload || !OutpostDeliveryEvidence.MatchesScope(parcel, metadata.Scope)
             || !OutpostParcelContents.Match(payload, parcel.Items, parcel.Pawns, parcel.Silver)
             || Incoming.MissingDefs(parcel.Items, parcel.Pawns) is not null) return No();
         var original = payload.Clone(); original.PayloadDigest = ByteString.Empty;
@@ -128,7 +128,7 @@ public static class OutpostIncoming
                 if (entry is null)
                 {
                     request = new() { Scope = scope.Clone(), ClientRequestId = Guid.NewGuid().ToString("N"), ParcelId = parcel.Id,
-                        PayloadDigest = parcel.OutpostPayload.PayloadDigest };
+                        PayloadDigest = parcel.OutpostPayload.PayloadDigest, RestoreAuthorizationId = parcel.OutpostRestoreAuthorization?.AuthorizationId ?? "" };
                     RequireUploaded(await SaveSync.SaveExactAsync(snapshot =>
                     {
                         Check(); request.CanonicalSnapshot = OutpostOutgoing.Proof(snapshot); entry = outbox.Prepare(request);

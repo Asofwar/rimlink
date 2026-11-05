@@ -12,7 +12,7 @@ namespace Rimlink.Server.Tests.Support;
 public sealed class OutpostClientFixture : IDisposable
 {
     private readonly MutationHarness harness;
-    public ServerFixture Server { get; }
+    public ServerFixture Server { get; private set; }
     public string LoginName => "outpost-client";
     public OutpostScopeMessage Scope => harness.Scope.Clone();
     public OutpostProofRequest CommitRequest => harness.F.Proof(harness.Post);
@@ -90,6 +90,32 @@ public sealed class OutpostClientFixture : IDisposable
         target.Scope.OwnerPlayerId = player.Id; target.Scope.SaveGeneration = player.SaveGeneration; target.Scope.SaveWriteEpoch = player.SaveWriteEpoch;
         await harness.F.H.Accept(harness.F.H.Snapshot(target));
     }
+    public async Task RestoreForDownload()
+    {
+        var shared = harness.F.H.H; string archive = Path.Combine(shared.Root, "download-backup.tar.zst");
+        using (var scope = Server.Services.CreateScope())
+            await scope.ServiceProvider.GetRequiredService<Rimlink.Server.Backup.OutpostBackupCapture>().CreateAsync(archive, default);
+        var procedure = new Rimlink.Server.Backup.OutpostRestoreProcedure(harness.F.Time);
+        var inspection = await procedure.InspectAsync(archive, shared.Data.Root, Path.GetDirectoryName(shared.Anchor.DatabasePath)!, default);
+        var request = new Rimlink.Server.Backup.RestoreRequest(Guid.NewGuid().ToString("D"), Rimlink.Server.Backup.RestoreMode.ExistingInstallationRestore,
+            inspection, inspection.Manifest.Authority.InstallationId, Guid.NewGuid().ToString("D"), [], "sqlite-local-v1", LocalTestStorage.LinuxQualification(shared.Data.Root));
+        request = request with { ConfirmationDigest = Rimlink.Server.Backup.OutpostRestoreJournalCodec.SelectionDigest(request) };
+        Server.Dispose();
+        var result = await procedure.ExecuteAsync(request, default);
+        if (result.Outcome != Rimlink.Server.Backup.RestoreOutcome.Completed) throw new InvalidOperationException(result.Reason);
+        harness.Db.ChangeTracker.Clear();
+        var reopened = await Open(harness, false); Server = reopened.Server;
+    }
+
+    public async Task RollbackCurrentForDownload()
+    {
+        using var services = Server.Services.CreateScope();
+        var db = services.ServiceProvider.GetRequiredService<Rimlink.Server.Storage.RimlinkDbContext>();
+        var current = await db.SaveVersions.AsNoTracking().SingleAsync(v => v.PlayerId == 1 && v.IsCurrent);
+        if (!await services.ServiceProvider.GetRequiredService<Rimlink.Server.Application.Saves.SaveStore>().Rollback(1, current.Number))
+            throw new InvalidOperationException("actual current fixture rollback was refused");
+    }
+
     public async Task RollbackForDownload()
     {
         var target = harness.Post;

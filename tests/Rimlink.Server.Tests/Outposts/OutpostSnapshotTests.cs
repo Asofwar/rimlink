@@ -197,6 +197,16 @@ public sealed partial class OutpostSnapshotTests
     }
 
     [Fact]
+    public async Task Malformed_started_delivery_intent_is_a_typed_evidence_refusal()
+    {
+        using var h = await SnapshotHarness.Create();
+        var error = await Assert.ThrowsAsync<OutpostEvidenceUnavailableException>(() => h.Delivery([0x0a, 0x80]));
+        Assert.Equal("stored-delivery-authorization-mismatch", error.Message);
+        Assert.Empty(await h.H.Db.OutpostDeliveryAttempts.AsNoTracking().ToListAsync());
+        Assert.Equal(OutpostStartupState.Ready, (await h.H.Authority.OpenAsync(default)).State);
+    }
+
+    [Fact]
     public async Task Receipt_accepted_without_ack_moves_custody_once()
     {
         using var h = await SnapshotHarness.Create();
@@ -363,13 +373,13 @@ internal sealed class SnapshotHarness : IDisposable
             Scope = metadata.Scope.Clone(), PawnReferenceToken = "Thing_Human1" });
         return metadata;
     }
-    public async Task<string> Change(string kind, Func<Rimlink.Server.Storage.RimlinkDbContext, string, Task> stage)
+    public async Task<string> Change(string kind, Func<Rimlink.Server.Storage.RimlinkDbContext, string, Task> stage, ByteString? intent = null)
     {
         string id = Guid.NewGuid().ToString("D");
         var row = await H.Db.OutpostAuthority.AsNoTracking().SingleAsync();
         await using var lease = await H.Authority.AcquireAsync([1], default);
         await H.Authority.CommitHeldAsync(lease, new(id, "world-1", 1, 0, row.RestoreBoundary, kind, "fixture",
-            new(row.HeadId, ByteString.CopyFrom(row.HeadDigest)), ByteString.CopyFromUtf8(kind)), (db, _) => stage(db, id), default);
+            new(row.HeadId, ByteString.CopyFrom(row.HeadDigest)), intent ?? ByteString.CopyFromUtf8(kind)), (db, _) => stage(db, id), default);
         return id;
     }
     public async Task<OutpostSaveMetadata> PendingReturn()
@@ -393,15 +403,21 @@ internal sealed class SnapshotHarness : IDisposable
         });
         return metadata;
     }
-    public async Task<(OutpostSaveMetadata Metadata, OutpostDeliveryAttempt Attempt)> Delivery()
+    public async Task<(OutpostSaveMetadata Metadata, OutpostDeliveryAttempt Attempt)> Delivery(byte[]? encodedIntent = null)
     {
         var metadata = await PendingReturn();
         var canonical = Snapshot(metadata); await Accept(canonical);
         var attempt = new OutpostDeliveryAttempt { Id = Guid.NewGuid().ToString("D"), WorldId = "world-1", PlayerId = 1,
             RestoreBoundary = metadata.Scope.RestoreBoundary, ParcelId = 10, RequestId = Guid.NewGuid().ToString("N"),
-            IntentDigest = SHA256.HashData("delivery-intent"u8), PayloadDigest = Assert.Single(H.Db.OutpostParcelLinks.AsNoTracking()).PayloadDigest,
+            PayloadDigest = Assert.Single(H.Db.OutpostParcelLinks.AsNoTracking()).PayloadDigest,
             CanonicalSnapshotId = canonical.Version.SnapshotId!, CanonicalSnapshotHash = canonical.Version.RawSha256!, State = "Started", Active = true };
-        await Change("BeginDelivery", (db, id) => { attempt.TransitionId = id; db.OutpostDeliveryAttempts.Add(attempt); return Task.CompletedTask; });
+        var request = new OutpostDeliveryRequest { Scope = metadata.Scope.Clone(), ClientRequestId = attempt.RequestId,
+            ParcelId = attempt.ParcelId, PayloadDigest = ByteString.CopyFrom(attempt.PayloadDigest),
+            CanonicalSnapshot = new() { Scope = metadata.Scope.Clone(), SnapshotId = attempt.CanonicalSnapshotId,
+                RawSha256 = ByteString.CopyFrom(attempt.CanonicalSnapshotHash) } };
+        byte[] intent = encodedIntent ?? request.ToByteArray();
+        attempt.IntentDigest = SHA256.HashData(intent);
+        await Change("BeginDelivery", (db, id) => { attempt.TransitionId = id; db.OutpostDeliveryAttempts.Add(attempt); return Task.CompletedTask; }, ByteString.CopyFrom(intent));
         var entry = await H.Db.OutpostTransitions.AsNoTracking().SingleAsync(t => t.Id == attempt.TransitionId);
         metadata.Registry[0].Tombstone = false; metadata.Registry[0].PawnReferenceToken = "Thing_Human55";
         metadata.Receipts.Add(new OutpostTransitionReceipt { TransitionId = entry.Id, PredecessorId = entry.PredecessorId ?? "",

@@ -19,6 +19,8 @@ public abstract record SaveForm
 /// </summary>
 public sealed class SaveFiles(DataDirectory data)
 {
+    internal string DataRoot => data.Root;
+
     private const string BasePattern = "base-*.rws.zst";
     private const string DeltaPattern = "*.d*.zst";
 

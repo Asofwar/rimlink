@@ -69,4 +69,5 @@ DLC: {6}</Rimlink.Outposts.ManifestDetails>
   <Rimlink.Outposts.State.Prepared>Назначение подготовлено, добыча ещё не началась</Rimlink.Outposts.State.Prepared>
   <Rimlink.Outposts.State.Aborted>Назначение отменено</Rimlink.Outposts.State.Aborted>
   <Rimlink.Outposts.State.Closed>Закрыт</Rimlink.Outposts.State.Closed>
+  <Rimlink.Outposts.RestoreIncompatible>Восстановленное сохранение не совпадает с точным серверным разрешением. Запись заблокирована; подключись заново и загрузи каноническое сохранение с сервера.</Rimlink.Outposts.RestoreIncompatible>
 </LanguageData>

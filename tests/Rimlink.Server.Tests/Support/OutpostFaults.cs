@@ -7,7 +7,8 @@ namespace Rimlink.Server.Tests.Support;
 // Process termination checks ordering/reopen behavior, not power-loss durability.
 internal static class OutpostFaults
 {
-    public sealed record Termination(bool WorkerExitedAfterRoot, bool WorkerExitedAfterStreams);
+    public sealed record Termination(bool WorkerExitedAfterRoot, bool WorkerExitedAfterStreams,
+        string WorkerAfterRoot = "", string WorkerAfterStreams = "");
 
     internal static string StartIdentity(Process process)
     {
@@ -22,7 +23,8 @@ internal static class OutpostFaults
         return ticks.ToString(System.Globalization.CultureInfo.InvariantCulture);
     }
 
-    public static async Task<Termination> KillAtAsync(string root, string point, Func<Task>? inspectWhileHeld = null)
+    public static async Task<Termination> KillAtAsync(string root, string point, Func<Task>? inspectWhileHeld = null,
+        string? workerTest = null, IReadOnlyDictionary<string, string>? workerEnvironment = null)
     {
         string ready = Path.Combine(root, "checkpoint-" + Guid.NewGuid().ToString("N"));
         var start = new ProcessStartInfo("dotnet")
@@ -32,16 +34,20 @@ internal static class OutpostFaults
         };
         start.ArgumentList.Add("vstest");
         start.ArgumentList.Add(typeof(OutpostCrashTests).Assembly.Location);
-        start.ArgumentList.Add("/TestCaseFilter:FullyQualifiedName=Rimlink.Server.Tests.Outposts.OutpostCrashTests.Owned_crash_worker");
+        start.ArgumentList.Add("/TestCaseFilter:FullyQualifiedName=" + (workerTest ?? "Rimlink.Server.Tests.Outposts.OutpostCrashTests.Owned_crash_worker"));
         start.Environment["RIMLINK_OUTPOST_FAULT_ROOT"] = root;
         start.Environment["RIMLINK_OUTPOST_FAULT_POINT"] = point;
         start.Environment["RIMLINK_OUTPOST_FAULT_READY"] = ready;
+        if (workerEnvironment is not null)
+            foreach (var entry in workerEnvironment) start.Environment[entry.Key] = entry.Value;
         using var child = Process.Start(start) ?? throw new IOException("crash-worker-not-started");
         Task<string> stdout = child.StandardOutput.ReadToEndAsync();
         Task<string> stderr = child.StandardError.ReadToEndAsync();
         Process? worker = null;
         bool workerExitedAfterRoot = false;
         bool workerExitedAfterStreams = false;
+        string workerAfterRoot = "";
+        string workerAfterStreams = "";
         try
         {
             var deadline = Stopwatch.StartNew();
@@ -58,9 +64,14 @@ internal static class OutpostFaults
                 throw new IOException("crash-worker-identity-changed");
             _ = worker.SafeHandle; // Bind the observed owned process identity before termination.
             if (inspectWhileHeld is not null) await inspectWhileHeld();
-            child.Kill(entireProcessTree: true);
+            // Leave the launcher alive to reap its worker. Killing the launcher first leaves
+            // an orphaned zombie on Linux; root exit/pipe EOF do not prove descendant exit.
+            worker.Kill(entireProcessTree: true);
+            await worker.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(15));
+            if (!child.HasExited) child.Kill(entireProcessTree: true);
             await child.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(15));
             workerExitedAfterRoot = worker.HasExited;
+            workerAfterRoot = ObserveWorker(worker);
         }
         finally
         {
@@ -72,8 +83,23 @@ internal static class OutpostFaults
             await stdout;
             await stderr;
             workerExitedAfterStreams = worker?.HasExited ?? false;
+            workerAfterStreams = ObserveWorker(worker);
             worker?.Dispose();
         }
-        return new(workerExitedAfterRoot, workerExitedAfterStreams);
+        return new(workerExitedAfterRoot, workerExitedAfterStreams, workerAfterRoot, workerAfterStreams);
+    }
+
+    private static string ObserveWorker(Process? worker)
+    {
+        if (worker is null) return "not-observed";
+        if (!OperatingSystem.IsLinux()) return worker.HasExited ? "exited" : "not-exited";
+        try
+        {
+            string stat = File.ReadAllText($"/proc/{worker.Id}/stat");
+            int end = stat.LastIndexOf(')');
+            return end < 0 ? "invalid-proc-stat" : $"pid={worker.Id}; {stat[(end + 1)..].Trim()}";
+        }
+        catch (FileNotFoundException) { return "proc-missing"; }
+        catch (DirectoryNotFoundException) { return "proc-missing"; }
     }
 }

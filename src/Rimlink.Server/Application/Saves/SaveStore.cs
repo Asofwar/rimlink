@@ -219,7 +219,7 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
         return await outpostAuthority.AcquireAsync([playerId], CancellationToken.None);
     }
 
-    public async Task<(SaveVersion Version, Stream Content, long Generation, long WriteEpoch, OutpostRollbackBridge? RollbackBridge)?> OpenCurrent(long playerId)
+    public async Task<(SaveVersion Version, Stream Content, long Generation, long WriteEpoch, OutpostRollbackBridge? RollbackBridge, OutpostRestoreBridge? RestoreBridge, OutpostRollbackFromViewBridge? RollbackFromViewBridge)?> OpenCurrent(long playerId)
     {
         OutpostLease? lease = await AcquireUploadLockAsync(playerId, new(), lifecycleRead: true);
         try
@@ -227,9 +227,15 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
             if (lease is not null && (await outpostAuthority.CheckHeldAsync(lease, CancellationToken.None)).State != OutpostStartupState.Ready)
                 throw RpcErrors.Failed(ErrorCode.RecoveryRequired, RefusalKeys.RecoveryRequired, "protected download authority is not ready");
             var version = await db.SaveVersions.AsNoTracking().SingleOrDefaultAsync(v => v.PlayerId == playerId && v.IsCurrent);
-            OutpostRollbackBridge? bridge = version is null || lease is null ? null
-                : await new OutpostLifecycleEvidence(db, files).GetRollbackBridgeHeldAsync(lease, playerId, version, CancellationToken.None);
             if (version is null) return null;
+            OutpostRollbackBridge? bridge = null; OutpostRestoreBridge? restoreBridge = null; OutpostRollbackFromViewBridge? fromViewBridge = null;
+            if (lease is not null)
+            {
+                if (RecoveryOf(version).Outposts.Present)
+                    (bridge, restoreBridge, fromViewBridge) = await new OutpostRestoreEvidence(db, files)
+                        .GetActiveDownloadBridgesHeldAsync(lease, playerId, version, CancellationToken.None);
+                else bridge = await new OutpostLifecycleEvidence(db, files).GetRollbackBridgeHeldAsync(lease, playerId, version, CancellationToken.None);
+            }
             // A backup's database can be older than its files: the version it calls current may have become a delta after the snapshot.
             if (!File.Exists(PathOf(version)) || files.Deltas(playerId, version.Number).Any())
             {
@@ -237,7 +243,7 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
             }
             var authority = await db.Players.AsNoTracking().Where(p => p.Id == playerId).Select(p => new { p.SaveWriteEpoch, p.SaveGeneration }).SingleAsync();
             var stream = new FileStream(PathOf(version), FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 16, FileOptions.Asynchronous | FileOptions.SequentialScan);
-            return (version, stream, authority.SaveGeneration, authority.SaveWriteEpoch, bridge);
+            return (version, stream, authority.SaveGeneration, authority.SaveWriteEpoch, bridge, restoreBridge, fromViewBridge);
         }
         finally { if (lease is not null) await lease.DisposeAsync(); else files.PerStoreLock.Release(); }
     }

@@ -43,6 +43,7 @@ public sealed partial class PawnCustodyBridge
 
     internal static bool CustodyFrontierMatches(OutpostTransition transition, PawnCustodyRecord custody)
     {
+        if (transition.Kind == "BulkRestore") return OutpostRestoreEvidence.CustodyMatches(transition, custody);
         if (transition.WorldId != custody.WorldId || transition.RestoreBoundary != custody.RestoreBoundary) return false;
         if (transition.PlayerId == custody.PlayerId && transition.SaveGeneration == custody.SaveGeneration) return true;
         if (transition.Kind != "CustodyTransfer") return false;

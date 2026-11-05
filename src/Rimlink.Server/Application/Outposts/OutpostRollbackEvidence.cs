@@ -5,7 +5,9 @@ using Rimlink.Server.Storage.Entities;
 
 namespace Rimlink.Server.Application.Outposts;
 
-public sealed record LifecycleRollback(byte[] Target, byte[] PreviousCurrent, byte[] FrontierDigest, string Kind = "ProtectedSnapshot", LifecycleLegacyRollback? Legacy = null);
+public sealed record LifecycleRollbackSource(byte[] Reference, byte[] Provenance);
+public sealed record LifecycleRollback(byte[] Target, byte[] PreviousCurrent, byte[] FrontierDigest, string Kind = "ProtectedSnapshot",
+    LifecycleLegacyRollback? Legacy = null, LifecycleRollbackSource? TargetSource = null, LifecycleRollbackSource? PreviousSource = null);
 
 public sealed partial class OutpostLifecycleEvidence
 {
@@ -26,17 +28,20 @@ public sealed partial class OutpostLifecycleEvidence
         if (!expected.ToByteArray().AsSpan().SequenceEqual(value.ResultScopes[0].Scope)) throw Invalid("lifecycle-rollback-result-scope");
         if (value.Rollback.Kind == "LegacySnapshot")
         {
-            if (value.Rollback.Legacy is null) throw Invalid("lifecycle-legacy-rollback-shape");
+            if (value.Rollback.Legacy is null || value.Rollback.TargetSource is not null || value.Rollback.PreviousSource is not null) throw Invalid("lifecycle-legacy-rollback-shape");
             ValidateLegacyRollbackIntent(value, source); return;
         }
         if (value.Rollback.Legacy is not null || value.Versions.Length != 0 || value.Files.Length != 0 || value.Rollback.FrontierDigest.Length != 32)
             throw Invalid("lifecycle-rollback-intent-invalid");
-        foreach (byte[] bytes in new[] { value.Rollback.Target, value.Rollback.PreviousCurrent })
+        foreach (var (bytes, authorization) in new[] { (value.Rollback.Target, value.Rollback.TargetSource), (value.Rollback.PreviousCurrent, value.Rollback.PreviousSource) })
         {
             if (bytes.Length is 0 or > 4096) throw Invalid("lifecycle-rollback-target-shape");
             var proof = OutpostSnapshotProof.Parser.ParseFrom(bytes);
             if (!Guid.TryParseExact(proof.SnapshotId, "N", out _) || proof.RawSha256.Length != 32 || proof.Scope is null
-                || !SameRollbackNamespace(proof.Scope, source) || proof.Scope.SaveWriteEpoch < 0 || proof.Scope.SaveWriteEpoch > source.SaveWriteEpoch)
+                || proof.Scope.SaveWriteEpoch < 0)
+                throw Invalid("lifecycle-rollback-target-shape");
+            var effective = OutpostRestoreEvidence.RollbackEffectiveScope(proof, authorization);
+            if (!SameRollbackNamespace(effective, source) || effective.SaveWriteEpoch < 0 || effective.SaveWriteEpoch > source.SaveWriteEpoch)
                 throw Invalid("lifecycle-rollback-target-shape");
         }
     }
@@ -51,7 +56,7 @@ public sealed partial class OutpostLifecycleEvidence
         return link;
     }
 
-    private async Task ValidateRollbackStoredAsync(OutpostLifecycleOperation row, LifecycleIntent intent,
+    internal async Task ValidateRollbackStoredAsync(OutpostLifecycleOperation row, LifecycleIntent intent,
         IReadOnlyDictionary<string, OutpostTransition> transitions, HashSet<string> referenced, CancellationToken ct)
     {
         if (intent.Rollback!.Kind == "LegacySnapshot") await ValidateLegacyRollbackStoredAsync(intent, ct);
@@ -60,6 +65,9 @@ public sealed partial class OutpostLifecycleEvidence
             var target = await RollbackLinkAsync(OutpostSnapshotProof.Parser.ParseFrom(intent.Rollback.Target), ct);
             _ = await RollbackLinkAsync(OutpostSnapshotProof.Parser.ParseFrom(intent.Rollback.PreviousCurrent), ct);
             if (!target.FrontierDigest.AsSpan().SequenceEqual(intent.Rollback.FrontierDigest)) throw Invalid("lifecycle-rollback-frontier-mismatch");
+            var resolver = new OutpostRestoreEvidence(db, files);
+            await resolver.ValidateRollbackSourceAsync(OutpostSnapshotProof.Parser.ParseFrom(intent.Rollback.Target), intent.Rollback.TargetSource, ct);
+            await resolver.ValidateRollbackSourceAsync(OutpostSnapshotProof.Parser.ParseFrom(intent.Rollback.PreviousCurrent), intent.Rollback.PreviousSource, ct);
         }
         var matches = transitions.Values.Where(t => t.Kind == "Rollback" && LifecycleOperation(t.Intent) == row.Id).ToArray();
         if (matches.Length != 1 || row.Phase != "Completed") throw Invalid("lifecycle-rollback-transition-missing");

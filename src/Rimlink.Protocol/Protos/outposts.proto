@@ -194,6 +194,7 @@ message OutpostDeliveryRequest {
   int64 parcel_id = 3;
   bytes payload_digest = 4;
   OutpostSnapshotProof canonical_snapshot = 5;
+  string restore_authorization_id = 6;
 }
 message OutpostDeliveryReply {
   string attempt_id = 1;
@@ -203,6 +204,7 @@ message OutpostDeliveryReply {
   string transition_id = 5;
   bytes transition_digest = 6;
   string predecessor_id = 7;
+  OutpostDeliveryRestoreAuthorization restore_authorization = 8;
 }
 
 // Versioned exact-save metadata; absence is only legacy when there is no protected history.
@@ -216,6 +218,8 @@ message OutpostSaveMetadata {
   repeated OutpostCaravanAttestation caravans = 7;
   repeated OrdinaryOutgoingCapture ordinary_outgoing = 8;
   OutpostRollbackBridge rollback_bridge = 9;
+  OutpostRestoreBridge restore_bridge = 10;
+  OutpostRollbackFromViewBridge rollback_from_view_bridge = 11;
 }
 // Server-authored canonical-download provenance; an echoed bridge alone grants no authority.
 message OutpostRollbackBridge {
@@ -227,6 +231,66 @@ message OutpostRollbackBridge {
   OutpostScopeMessage current_scope = 6;
   bytes local_frontier_digest = 7;
   repeated PawnRegistryEnvelope mutable_registry = 8;
+  // Optional typed history of this same v1 actual-source grant, never a second active root.
+  OutpostSourceProvenance source_provenance = 9;
+  bytes source_path_digest = 10;
+}
+// Flat provenance keeps physical proofs distinct from authorized (not-yet-saved) views.
+message OutpostAuthorizationReference {
+  string transition_id = 1;
+  bytes transition_digest = 2;
+}
+message OutpostSourceReference {
+  oneof source {
+    string actual_snapshot_id = 1;
+    OutpostAuthorizationReference authorized_view = 2;
+  }
+}
+message OutpostActualSnapshotSource {
+  OutpostSnapshotProof snapshot = 1;
+  bytes local_frontier_digest = 2;
+  OutpostAuthorizationReference historical_authorization = 3;
+}
+enum OutpostSourceAuthorizationKind {
+  OUTPOST_SOURCE_AUTHORIZATION_KIND_UNSPECIFIED = 0;
+  OUTPOST_SOURCE_AUTHORIZATION_KIND_RESTORE = 1;
+  OUTPOST_SOURCE_AUTHORIZATION_KIND_ROLLBACK = 2;
+}
+message OutpostRegistryProjection {
+  PawnRegistryEnvelope before = 1;
+  PawnRegistryEnvelope after = 2;
+}
+message OutpostAuthorizedSnapshotView {
+  OutpostSourceAuthorizationKind kind = 1;
+  string lifecycle_operation_id = 2;
+  string transition_id = 3;
+  bytes transition_digest = 4;
+  OutpostSourceReference source = 5;
+  OutpostScopeMessage source_scope = 6;
+  OutpostScopeMessage effective_scope = 7;
+  bytes local_frontier_digest = 8;
+  repeated OutpostRegistryProjection registry_map = 9;
+  bytes selected_cut_head_digest = 10;
+  bytes selected_manifest_digest = 11;
+  // Real pre-rollback current epoch e; effective epoch must be exactly e+1.
+  OutpostScopeMessage previous_current_scope = 12;
+}
+message OutpostSourceProvenance {
+  uint32 schema_version = 1;
+  repeated OutpostActualSnapshotSource actual_sources = 2;
+  repeated OutpostAuthorizedSnapshotView authorized_views = 3;
+}
+message OutpostRestoreBridge {
+  OutpostSnapshotProof canonical_snapshot = 1;
+  OutpostSourceProvenance source_provenance = 2;
+  OutpostAuthorizationReference active_authorization = 3;
+  bytes source_path_digest = 4;
+}
+message OutpostRollbackFromViewBridge {
+  OutpostSnapshotProof canonical_snapshot = 1;
+  OutpostSourceProvenance source_provenance = 2;
+  OutpostAuthorizationReference active_authorization = 3;
+  bytes source_path_digest = 4;
 }
 message OutpostTransitionReceipt {
   string transition_id = 1;

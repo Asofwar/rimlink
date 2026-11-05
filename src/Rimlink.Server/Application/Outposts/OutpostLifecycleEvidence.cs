@@ -100,7 +100,7 @@ public sealed partial class OutpostLifecycleEvidence(RimlinkDbContext db, SaveFi
     {
         var transitions = await db.OutpostTransitions.AsNoTracking().ToDictionaryAsync(t => t.Id, ct);
         if (staged is not null) transitions.Add(staged.Id, staged);
-        var operations = await db.OutpostLifecycleOperations.AsNoTracking().ToListAsync(ct);
+        var operations = await db.OutpostLifecycleOperations.AsNoTracking().Where(r => r.Kind != "BulkRestore").ToListAsync(ct);
         var referenced = new HashSet<string>();
         foreach (var row in operations)
         {
@@ -182,7 +182,8 @@ public sealed partial class OutpostLifecycleEvidence(RimlinkDbContext db, SaveFi
             if (targetOperations.Length == 0) continue;
             latest = LatestForOwner(owner, targetOperations, transitions);
             intent = Intent(latest);
-            if (intent.Kind == "Rollback") await ValidateRollbackProjectionAsync(intent, scope, ct);
+            if (intent.Kind == "Rollback" && !RestoreSupersedesProjection(latest, owner, transitions))
+                await ValidateRollbackProjectionAsync(intent, scope, ct);
             if ((intent.Kind is "Reset" or "Recreate") && (latest.Phase is "Destructive" or "Completed"))
             {
                 var versions = await db.SaveVersions.AsNoTracking().Where(v => v.PlayerId == owner).ToListAsync(ct);
@@ -263,6 +264,27 @@ public sealed partial class OutpostLifecycleEvidence(RimlinkDbContext db, SaveFi
         return candidates.OrderByDescending(r => position.GetValueOrDefault(Decode<LifecycleProgress>(r.Progress).TransitionId, -1)).First();
     }
 
+    // A later typed restore validates its exact selected cut/current canonical separately; old Q proofs remain mandatory history.
+    private static bool RestoreSupersedesProjection(OutpostLifecycleOperation operation, long owner,
+        IReadOnlyDictionary<string, OutpostTransition> transitions)
+    {
+        if (operation.Phase != "Completed") return false;
+        string completed = Decode<LifecycleProgress>(operation.Progress).TransitionId;
+        foreach (var root in transitions.Values.Where(t => t.Kind == "BulkRestore"))
+        {
+            if (!OutpostRestoreEvidence.Plan(root).Players.Any(p => p.PlayerId == owner)) continue;
+            var visited = new HashSet<string>(StringComparer.Ordinal);
+            string? cursor = root.PredecessorId;
+            while (cursor is not null)
+            {
+                if (!visited.Add(cursor) || !transitions.TryGetValue(cursor, out var step)) throw Invalid("lifecycle-chain-disconnected-or-cycle");
+                if (cursor == completed) return true;
+                cursor = step.PredecessorId;
+            }
+        }
+        return false;
+    }
+
     private static string LifecycleOperation(byte[] bytes) => Decode<LifecycleTransition>(bytes).OperationId;
 
     internal async Task VerifyLocators(LifecycleIntent intent, CancellationToken ct)
@@ -295,7 +317,7 @@ public sealed partial class OutpostLifecycleEvidence(RimlinkDbContext db, SaveFi
         if (live.Count == 1) return (live[0], null);
         if (live.Count != 0) throw Invalid("snapshot-version-ambiguous");
         // The protected locator switch precedes removal of every old row/file.
-        var rows = await db.OutpostLifecycleOperations.AsNoTracking().Where(r => r.Phase != "Prepared").ToListAsync(ct);
+        var rows = await db.OutpostLifecycleOperations.AsNoTracking().Where(r => r.Kind != "BulkRestore" && r.Phase != "Prepared").ToListAsync(ct);
         foreach (var row in rows.OrderByDescending(r => r.CreatedAt).ThenByDescending(r => r.Id))
         {
             var intent = Intent(row);

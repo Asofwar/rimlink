@@ -156,9 +156,9 @@ internal sealed class MutationHarness : IDisposable
     private MutationHarness(AssignmentHarness f)
     {
         F = f; var events = new EventBus(new SessionRegistry(), NullLogger<EventBus>.Instance);
-        Mailbox = new(Db, events, F.Wallet, Options.Create(new EconomyOptions { MaxPendingParcels = 1 }));
+        Mailbox = new(Db, events, F.Wallet, Options.Create(new EconomyOptions { MaxPendingParcels = 1 }), F.H.H.Files);
         var clock = new OutpostClock(F.Time);
-        Parcels = new(Db, F.H.H.Authority, F.Service, Mailbox, clock);
+        Parcels = new(Db, F.H.H.Authority, F.Service, Mailbox, clock, F.H.H.Files);
         Service = new(Db, F.H.H.Authority, F.Service, new(Db, F.H.H.Authority, clock, F.H.H.Files), Parcels, clock);
     }
     public static async Task<MutationHarness> Create(int count = 1, bool secondCanMine = true, bool prepareOnly = false)

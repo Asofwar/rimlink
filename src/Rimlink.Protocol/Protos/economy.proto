@@ -76,6 +76,7 @@ message Parcel {
   // A player's gift waiting for Mailbox.Answer: the client does not drop it.
   bool awaiting_decision = 11;
   OutpostParcelPayload outpost_payload = 12;
+  OutpostDeliveryRestoreAuthorization outpost_restore_authorization = 13;
 }
 
 message ParcelList { repeated Parcel parcels = 1; }

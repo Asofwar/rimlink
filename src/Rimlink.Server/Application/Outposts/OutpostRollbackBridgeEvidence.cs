@@ -13,6 +13,7 @@ public sealed partial class OutpostLifecycleEvidence
     {
         var stored = await db.OutpostLifecycleOperations.AsNoTracking().Where(r => r.Kind == "Rollback").ToListAsync(ct);
         var rows = stored.Where(r => Intent(r).PlayerId == metadata.Scope.OwnerPlayerId && Intent(r).Rollback!.Kind == "ProtectedSnapshot").ToArray();
+        if (metadata.RollbackFromViewBridge is not null) return null; // The separate typed source validator owns this root.
         if (metadata.RollbackBridge is not { } bridge)
         {
             if (rows.Any(r => OutpostScopeMessage.Parser.ParseFrom(Intent(r).ResultScopes![0].Scope).Equals(metadata.Scope)))
@@ -21,7 +22,10 @@ public sealed partial class OutpostLifecycleEvidence
         }
         var row = rows.SingleOrDefault(r => r.Id == bridge.LifecycleOperationId);
         if (row is null) throw Invalid("rollback-snapshot-authorization-missing");
-        var intent = Intent(row); var transitions = await db.OutpostTransitions.AsNoTracking().ToDictionaryAsync(t => t.Id, ct);
+        var intent = Intent(row);
+        if (intent.Rollback!.TargetSource is not null || bridge.SourceProvenance is not null || bridge.SourcePathDigest.Length != 0)
+            return await new OutpostRestoreEvidence(db, files).ValidateRollbackGraphProvenanceAsync(metadata, ct);
+        var transitions = await db.OutpostTransitions.AsNoTracking().ToDictionaryAsync(t => t.Id, ct);
         await ValidateRollbackStoredAsync(row, intent, transitions, [], ct);
         var proof = OutpostSnapshotProof.Parser.ParseFrom(intent.Rollback!.Target);
         var current = OutpostScopeMessage.Parser.ParseFrom(intent.ResultScopes![0].Scope);
@@ -54,7 +58,7 @@ public sealed partial class OutpostLifecycleEvidence
         var player = await db.Players.AsNoTracking().SingleAsync(p => p.Id == playerId, ct);
         if (target.SaveWriteEpoch == player.SaveWriteEpoch) return null;
         var rows = await db.OutpostLifecycleOperations.AsNoTracking().ToListAsync(ct);
-        var own = rows.Where(r => Intent(r).PlayerId == playerId && r.Kind == "Rollback").ToArray();
+        var own = rows.Where(r => r.Kind == "Rollback" && Intent(r).PlayerId == playerId).ToArray();
         if (own.Length == 0) throw Invalid("rollback-download-authorization-missing");
         var transitions = await db.OutpostTransitions.AsNoTracking().ToDictionaryAsync(t => t.Id, ct);
         var row = LatestForOwner(playerId, own, transitions); var intent = Intent(row);
@@ -80,6 +84,8 @@ public sealed partial class OutpostLifecycleEvidence
             || proof.SnapshotId != target.SnapshotId || proof.Scope.SaveGeneration != target.SaveGeneration
             || proof.Scope.SaveWriteEpoch != target.SaveWriteEpoch || !proof.RawSha256.Span.SequenceEqual(target.RawSha256))
             throw Invalid("rollback-download-authorization-mismatch");
+        if (intent.Rollback.TargetSource is not null)
+            return (await new OutpostRestoreEvidence(db, files).CreateRollbackSourceBridgeAsync(row.Id, target, current, true, ct)).Actual;
         var link = await RollbackLinkAsync(proof, ct);
         var resolved = await ResolveSnapshotAsync(link, ct);
         var recovery = SaveRecoveryData.ReadXml(new MemoryStream(files.ReadEvidence(resolved.Version, resolved.Archive), false), out byte[] hash);

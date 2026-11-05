@@ -41,6 +41,7 @@ public sealed class OutpostFeature
         services.AddScoped<PawnCustodyBridge>();
         services.AddScoped<OrdinaryReturnService>();
         services.AddScoped<OutpostLifecycle>();
+        services.AddScoped<Backup.OutpostBackupCapture>();
     }
 
     // Invoked before any hosted service, compactor, expiry sweep or request can run.

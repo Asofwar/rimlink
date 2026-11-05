@@ -115,6 +115,18 @@ message OutpostSnapshotProof {
   OutpostScopeMessage scope = 3;
 }
 
+// Authenticated delivery echo of one immutable BulkRestore parcel map; never changes its payload.
+message OutpostDeliveryRestoreAuthorization {
+  string authorization_id = 1;
+  message Transition { string transition_id = 1; bytes transition_digest = 2; }
+  Transition restore_transition = 2;
+  OutpostScopeMessage original_scope = 3;
+  OutpostScopeMessage restored_scope = 4;
+  int64 parcel_id = 5;
+  bytes payload_digest = 6;
+  OutpostSnapshotProof selected_snapshot = 7;
+}
+
 // Attached to failed calls as the "rimlink-error-bin" trailer.
 message ErrorDetail {
   ErrorCode code = 1;

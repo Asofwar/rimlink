@@ -394,10 +394,12 @@ revocable on its own and named in the audit log:
 ## 7. Backups
 
 - Automatic: `Backup:IntervalHours` (default 24, 0 = off), `Backup:Keep` archives kept in `backups/`.
-- Manual, safe while running: `rimlink-tools backup --data <dir> [--out file.tar.zst]`, or the panel's Backups screen /
-  `POST /api/admin/backups`. A backup made from the panel lands in `backups/` with the scheduled ones and counts towards
-  `Backup:Keep`, so it can push out the oldest scheduled archive.
-- Restore (server stopped): `rimlink-tools restore --data <dir> --from file.tar.zst`.
+- Online manual: the panel's Backups screen / `POST /api/admin/backups`. This uses the same coherent capture as the scheduler.
+  Its archive counts towards `Backup:Keep`, so it can push out the oldest scheduled archive.
+- Without protected outpost history, `rimlink-tools backup --data <dir> [--out file.tar.zst]` remains safe while running.
+  The legacy restore command is `rimlink-tools restore --data <dir> --from file.tar.zst` (server stopped).
+- With protected history, including when outposts are disabled, use the authority-aware procedures below. Legacy commands refuse
+  such a database or archive before replacing data; disabling the feature does not remove its evidence or recovery requirements.
 
 Old save versions take little room: the current version of a save is a plain file, older ones are small deltas against a base
 file of that player, so a player's history and every backup shrink several times over. A rollback rebuilds the full file.
@@ -408,6 +410,84 @@ version does not depend on it, and every backup holds a copy.
 - While a backup takes its database snapshot and packs save files, uploads may finish receiving data but wait to commit;
   rollbacks and colony archive/restore operations also wait. This keeps each backup's save files and metadata together.
 - Going back to a 0.6.1 server keeps the current saves working, but it refuses rollbacks to versions stored as deltas.
+
+### Protected outpost backup and recovery
+
+An archive contains a coherent database, save files, required colony archives / retired snapshot evidence and
+`outpost-manifest.json` with their lengths and SHA-256 hashes, the cut head and proof inventory. Its capture holds the
+authority → sorted owners → save-storage → live-state barriers. Active production is settled once at that cut.
+The external authority database is **not** part of the archive. Keep its directory separately protected; never replace it
+with a copied old authority file or initialize a new anchor over existing history. Protected evidence is retained instead
+of ordinary save retention/compaction, so do not assume these archives stay small.
+
+For an offline CLI backup, stop the server and name its actual external authority directory:
+
+```text
+rimlink-tools backup --data <data> --out <backup.tar.zst> --anchor <authority> --storage-contract sqlite-local-v1
+```
+
+On Linux, also supply `--qualified-linux-filesystem ext4` (or the actually qualified `xfs` / `btrfs`). This is an explicit
+storage qualification, not an instruction to force an unsupported filesystem. Online protected backup must go through
+the running server API / scheduler, not a second CLI writer. A protected CLI capture refuses a running server.
+
+**Restore is a destructive operator action, not an automatic startup repair.** Stop the server first. Inspect the exact
+archive and actual destination without creating a destination or changing its authority:
+
+```text
+rimlink-tools restore inspect --data <data> --anchor <authority> --from <backup.tar.zst>
+```
+
+The emitted camelCase JSON is the inspection for a version-1 `RestoreRequest`: select a fresh D-format `RestoreId`, `Mode` (0 = existing installation, 1 = import, 2 = lost-anchor recovery),
+`TargetInstallationId`, a fresh `TargetBoundary`, `StorageContract` and the qualified Linux filesystem if applicable.
+Preserve every inspection field exactly. `ConfirmationDigest` in the request file is not permission to execute.
+
+- `ExistingInstallationRestore`: verified cut of the same installation, with the actual previous external head retained as
+  a separate witness. The restored immutable history ends at the selected cut, then gains a typed restore transition.
+- `ImportNewHost`: positively empty destination and a separately provisioned fresh installation authority; not an override
+  for a missing anchor on a used installation.
+- `LostAnchorRecovery`: explicit recovery from a verified cut under a fresh installation authority. An unavailable old
+  anchor is recorded as unavailable, never guessed. For inspection, add `--previous-anchor <actual-old-authority-directory>`.
+  Its independently observed result must prove unavailability; a healthy, ambiguous, unknown-location or in-progress old
+  authority is not eligible. Preserve that observation in the request. This mode does not silently become an
+  existing-installation restore.
+
+Review the selected archive, mode, installation, destination and fresh boundary; then separately compute and approve the
+**typed selection** digest (not the SHA-256 of the JSON file):
+
+```text
+rimlink-tools restore digest --request <restore-request.json>
+rimlink-tools restore execute --request <restore-request.json> --confirm <approved-64-hex-selection-digest>
+```
+
+The procedure records its intent and progress outside the replaced data trees, fences the actual external head, verifies
+staged data, retains the old set, and records each file switch before its effect. Mixed, incomplete or unknown states stay
+in maintenance. Do not delete the journal or `server.lock` / `save-storage.lock` to bypass a refusal. After an interruption,
+use only the exact recorded restore ID to continue the same action; normal server startup never replays it:
+
+```text
+rimlink-tools restore resume --data <data> --anchor <authority> --restore-id <recorded-restore-id>
+```
+
+Backout is a **different, separately approved action**, available only before publication of the new external restore head
+and only when the retained old set is verified usable. Select the current phase, revision and intent commitment read-only,
+save that returned JSON as the backout request, review it and approve its separate digest:
+
+```text
+rimlink-tools restore backout-inspect --data <data> --anchor <authority> --restore-id <recorded-restore-id>
+rimlink-tools restore backout-digest --request <backout-request.json>
+rimlink-tools restore backout --request <backout-request.json> --confirm <approved-64-hex-backout-digest>
+```
+
+An interrupted backout needs the **same confirmed request**, not a newly selected action. Once the new external head has
+been published, reversal requires a new restore and a new boundary; backout cannot erase it. Exit code 0 means the requested
+action reached `Completed` / `BackedOut`; maintenance and refusals return a nonzero code and a reason.
+
+Restore conserves the selected integer stock and fractional remainder. Active outposts earn nothing between the backup cut
+and the final protected completion checkpoint, including interruption time; archived ones remain paused. Production after
+completion follows normal rules. The client must download the exact restored source, apply only the server-authorized
+outer / live-own-registry scope mapping and upload a fresh accepted save before mutation. Historical receipts, pending
+outbox entries and immutable payloads are not rebased. Pending parcels keep their original ID and bytes with a typed new-
+boundary authorization; accepted receipts are acknowledgement-only, and ambiguous started deliveries require recovery.
 
 ## 7a. Updating
 

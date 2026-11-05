@@ -16,7 +16,7 @@ using Parcel = Rimlink.Server.Storage.Entities.Parcel;
 namespace Rimlink.Server.Application.Economy;
 
 /// <summary>Parcels waiting for a player. Delivery is confirmed by the recipient's game once the pod has landed.</summary>
-public sealed class MailboxService(RimlinkDbContext db, EventBus events, WalletService wallet, IOptions<EconomyOptions> options)
+public sealed class MailboxService(RimlinkDbContext db, EventBus events, WalletService wallet, IOptions<EconomyOptions> options, SaveFiles files)
 {
     /// <summary>Creates a parcel inside the caller's transaction and announces it; the caller saves.</summary>
     public async Task<Parcel> Create(long toPlayerId, long? fromPlayerId, ParcelKindDb kind, ItemList? items, PawnList? pawns, long silver, string? clientRequestId, bool ignoreMailboxLimit = false)
@@ -193,6 +193,7 @@ public sealed class MailboxService(RimlinkDbContext db, EventBus events, WalletS
         {
             proto.OutpostPayload = OutpostParcelPayload.Parser.ParseFrom(link.Payload);
             proto.OutpostPayload.PayloadDigest = ByteString.CopyFrom(link.PayloadDigest); // Transport envelope; immutable stored bytes keep the self-digest empty.
+            proto.OutpostRestoreAuthorization = await Outposts.OutpostRestoreEvidence.ReadParcelAuthorizationAsync(db, files, link, null, default);
         }
         if (p.FromPlayerId is { } fromId)
         {

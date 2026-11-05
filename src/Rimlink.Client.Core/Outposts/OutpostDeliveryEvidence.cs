@@ -29,17 +29,40 @@ public static class OutpostDeliveryEvidence
         return metadata.Clone();
     }
 
+    // This checks the authenticated server echo's shape; the server independently joins its immutable restore evidence.
+    public static bool MatchesScope(Parcel parcel, OutpostScopeMessage scope)
+    {
+        if (parcel.OutpostPayload is not { } payload || !OutpostReconciliation.ValidScope(scope)) return false;
+        if (parcel.OutpostRestoreAuthorization is not { } grant) return payload.Scope.Equals(scope);
+        return grant.CalculateSize() <= 16384 && Uuid(grant.AuthorizationId) && grant.RestoreTransition is { } root
+            && Uuid(root.TransitionId) && root.TransitionDigest.Length == 32
+            && OutpostReconciliation.ValidScope(grant.OriginalScope) && grant.OriginalScope.Equals(payload.Scope)
+            && grant.RestoredScope is not null && grant.RestoredScope.Equals(scope)
+            && grant.OriginalScope.RestoreBoundary != scope.RestoreBoundary
+            && grant.OriginalScope.WorldInstanceId == scope.WorldInstanceId && grant.OriginalScope.OwnerPlayerId == scope.OwnerPlayerId
+            && grant.OriginalScope.SaveGeneration == scope.SaveGeneration
+            && grant.ParcelId == parcel.Id && grant.PayloadDigest.Length == 32 && grant.PayloadDigest.Equals(payload.PayloadDigest)
+            && OutpostReconciliation.ValidProof(grant.SelectedSnapshot)
+            && grant.SelectedSnapshot.Scope.WorldInstanceId == scope.WorldInstanceId
+            && grant.SelectedSnapshot.Scope.OwnerPlayerId == scope.OwnerPlayerId && grant.SelectedSnapshot.Scope.SaveGeneration == scope.SaveGeneration;
+    }
+
     public static OutpostTransitionReceipt Receipt(Parcel parcel, OutpostDeliveryRequest request, OutpostDeliveryReply reply)
     {
         if (parcel is null || request is null || reply is null || parcel.OutpostPayload is not { } payload
             || OutpostPayloadCompatibility.Refusal(parcel, 1) is not null || payload.ChildCount <= 0
             || !OutpostParcelContents.Match(payload, parcel.Items, parcel.Pawns, parcel.Silver)
-            || !OutpostReconciliation.ValidScope(request.Scope) || !request.Scope.Equals(payload.Scope)
+            || !MatchesScope(parcel, request.Scope)
             || !OutpostReconciliation.ValidProof(request.CanonicalSnapshot) || !request.Scope.Equals(request.CanonicalSnapshot.Scope)
             || request.ParcelId != parcel.Id || parcel.Id <= 0 || !Uuid(request.ClientRequestId)
             || !request.PayloadDigest.Equals(payload.PayloadDigest) || !request.Equals(reply.Authorization)
             || !Uuid(reply.AttemptId) || reply.TransitionId != reply.AttemptId || reply.TransitionDigest.Length != 32
-            || reply.PredecessorId.Length > 0 && !Uuid(reply.PredecessorId)) throw new InvalidDataException("delivery causal authorization mismatch");
+            || reply.PredecessorId.Length > 0 && !Uuid(reply.PredecessorId)
+            || (parcel.OutpostRestoreAuthorization is { } restore
+                ? request.RestoreAuthorizationId != restore.AuthorizationId || !restore.Equals(reply.RestoreAuthorization)
+                    || request.CanonicalSnapshot.SnapshotId == restore.SelectedSnapshot.SnapshotId
+                : request.RestoreAuthorizationId.Length != 0 || reply.RestoreAuthorization is not null))
+            throw new InvalidDataException("delivery causal authorization mismatch");
         var original = payload.Clone(); original.PayloadDigest = ByteString.Empty;
         if (!SHA256.HashData(original.ToByteArray()).AsSpan().SequenceEqual(payload.PayloadDigest.Span))
             throw new InvalidDataException("delivery payload digest mismatch");

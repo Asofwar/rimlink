@@ -3,11 +3,18 @@ namespace Rimlink.Server.Storage;
 /// <summary>Layout of the server data directory. Every path is built from numeric ids, never from user input.</summary>
 public sealed class DataDirectory
 {
-    public DataDirectory(string root)
+    public DataDirectory(string root) : this(root, createDirectories: true) { }
+
+    private DataDirectory(string root, bool createDirectories)
     {
         Root = Path.GetFullPath(root);
-        foreach (string dir in new[] { Root, SavesRoot, Logs, Tls, Archive, Backups }) Directory.CreateDirectory(dir);
+        if (createDirectories)
+            foreach (string dir in new[] { Root, SavesRoot, Logs, Tls, Archive, Backups }) Directory.CreateDirectory(dir);
     }
+
+    // Offline proof validation must not introduce unjournalled application directories into an installed cut.
+    internal static DataDirectory Existing(string root) => Directory.Exists(root)
+        ? new(root, createDirectories: false) : throw new DirectoryNotFoundException("data-directory-missing");
 
     public string Root { get; }
     public string DatabasePath => Path.Combine(Root, "rimlink.db");

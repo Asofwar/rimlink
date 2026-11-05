@@ -117,23 +117,22 @@ public sealed class RimlinkGameComponent : GameComponent
             {
                 if (!downloaded.MatchesFile(SaveSync.SaveFilePath)) throw new InvalidDataException("the verified downloaded snapshot changed before loading");
                 var saved = SaveMetaReader.Read(SaveSync.SaveFilePath).Recovery ?? throw new InvalidDataException("downloaded snapshot has no recovery identity");
-                var decision = Rimlink.Client.Outposts.OutpostDownloadChecks.Validate(downloaded.Header, saved, downloaded.RawSha256, RimlinkSession.Login);
+                var decision = Rimlink.Client.Outposts.OutpostLoadChecks.Prepare(downloaded.Header, saved, downloaded.RawSha256, RimlinkSession.Login);
                 if (!decision.Allowed || OutpostLoadFailure is not null || SnapshotId != saved.SnapshotId || SaveGeneration != saved.Generation
                     || SaveWriteEpoch != saved.WriteEpoch || !OutpostRecovery.Metadata.Equals(saved.Outposts.Metadata))
                     throw new InvalidDataException("loaded snapshot differs from its verified download and authentication");
-                if (downloaded.Header.OutpostRollbackBridge is { } bridge)
+                if (downloaded.Header.OutpostRollbackBridge is not null || downloaded.Header.OutpostRestoreBridge is not null
+                    || downloaded.Header.OutpostRollbackFromViewBridge is not null)
                 {
-                    var proposed = OutpostRecovery.Metadata.Clone(); proposed.Scope = bridge.CurrentScope.Clone(); proposed.RollbackBridge = bridge.Clone();
-                    proposed.Registry.Clear(); proposed.Registry.Add(decision.Registry.Select(r => r.Clone()));
-                    var recovery = new OutpostRecoveryData { Metadata = proposed }; recovery.Validate();
-                    Current.Game.GetComponent<Outposts.PawnCustodyRegistry>().ApplyRollbackBridge(bridge,
-                        new() { Scope = saved.Outposts.Metadata.Scope.Clone(), SnapshotId = saved.SnapshotId, RawSha256 = ByteString.CopyFrom(downloaded.RawSha256) }, bridge.CurrentScope);
+                    var recovery = new OutpostRecoveryData { Metadata = decision.Metadata! }; recovery.Validate();
+                    Current.Game.GetComponent<Outposts.PawnCustodyRegistry>().ApplyDownloadedScopePlan(
+                        saved.Outposts.Metadata.Registry, recovery.Metadata.Registry);
                     OutpostRecovery = recovery;
                 }
                 SaveWriteEpoch = downloaded.Header.SaveWriteEpoch;
                 SaveGeneration = downloaded.Header.SaveGeneration;
                 RimlinkSession.PendingDownload = null;
-                RimlinkSession.RecoveryNeedsSave = RecoveryVersion != SaveRecoveryData.CurrentVersion ||
+                RimlinkSession.RecoveryNeedsSave = decision.RequiresFreshCapture || RecoveryVersion != SaveRecoveryData.CurrentVersion ||
                     SaveRecoveryData.CurrentVersion > 0 && downloaded.Header.SaveWriteEpoch != saved.WriteEpoch;
                 RimlinkSession.RecoveryNeeded |= RimlinkSession.RecoveryNeedsSave;
             }

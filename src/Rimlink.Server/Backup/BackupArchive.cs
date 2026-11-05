@@ -20,6 +20,7 @@ public static class BackupArchive
     {
         dataDir = Path.GetFullPath(dataDir);
         using var held = SaveStorageLock.Hold(dataDir);
+        LegacyBackupFence.RequireEmptyHistory(Path.Combine(dataDir, DatabaseFile));
         string snapshot = Path.Combine(dataDir, $"{DatabaseFile}-backup-{Guid.NewGuid():N}");
         try
         {
@@ -79,6 +80,8 @@ public static class BackupArchive
     public static void Restore(string archiveFile, string dataDir)
     {
         dataDir = Path.GetFullPath(dataDir);
+        LegacyBackupFence.RequireEmptyHistory(Path.Combine(dataDir, DatabaseFile));
+        LegacyBackupFence.RequireLegacyArchive(archiveFile);
         string lockPath = Path.Combine(dataDir, LockFile);
         if (File.Exists(lockPath))
         {

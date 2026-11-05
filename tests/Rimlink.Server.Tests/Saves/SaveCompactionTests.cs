@@ -257,7 +257,7 @@ public class SaveCompactionTests
         var nova = await Join(fixture);
         byte[] first = await nova.Send(1);
         using var scope = fixture.Services.CreateScope();
-        var (_, content, _, _, _) = (await scope.ServiceProvider.GetRequiredService<SaveStore>().OpenCurrent(nova.Id))!.Value;
+        var (_, content, _, _, _, _, _) = (await scope.ServiceProvider.GetRequiredService<SaveStore>().OpenCurrent(nova.Id))!.Value;
 
         await using (content)
         {

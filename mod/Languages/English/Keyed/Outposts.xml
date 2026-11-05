@@ -69,4 +69,5 @@ DLC: {6}</Rimlink.Outposts.ManifestDetails>
   <Rimlink.Outposts.State.Prepared>Staffing is prepared, not yet producing</Rimlink.Outposts.State.Prepared>
   <Rimlink.Outposts.State.Aborted>Staffing cancelled</Rimlink.Outposts.State.Aborted>
   <Rimlink.Outposts.State.Closed>Closed</Rimlink.Outposts.State.Closed>
+  <Rimlink.Outposts.RestoreIncompatible>The restored save does not match the server’s exact recovery authorization. Writes are blocked; reconnect and load the canonical server save.</Rimlink.Outposts.RestoreIncompatible>
 </LanguageData>

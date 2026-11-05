@@ -204,7 +204,7 @@ public sealed class OutpostAuthority(RimlinkDbContext db, OutpostAnchorStore anc
             return feature.Startup = new(OutpostStartupState.Maintenance, "initialization-history-not-empty");
         if (!File.Exists(anchor.DatabasePath))
             return feature.Startup = new(OutpostStartupState.RequiresInitialization, "physical-provisioning-required");
-        if (anchor.Read(authorityLease) is not null)
+        if (anchor.ReadEnvelope(authorityLease) is not null)
             return feature.Startup = new(OutpostStartupState.Maintenance, "initialization-anchor-not-empty");
         if (string.IsNullOrWhiteSpace(request.Actor) || !await db.World.AsNoTracking().AnyAsync(w => w.InfluenceInstanceId == request.WorldId, ct))
             return feature.Startup = new(OutpostStartupState.Maintenance, "initialization-world-or-actor-invalid");
@@ -294,11 +294,14 @@ public sealed class OutpostAuthority(RimlinkDbContext db, OutpostAnchorStore anc
                 : new(OutpostStartupState.RequiresInitialization, "explicit-initialization-required");
         if (anchor.JournalRefusal() is { } refusal)
             return feature.Startup = new(OutpostStartupState.Maintenance, refusal);
-        if (anchor.IsPhysicallyUninitialized(authorityLease))
+        AnchorEnvelope? envelope = anchor.ReadEnvelope(authorityLease);
+        if (envelope is null)
             return feature.Startup = history
                 ? new(OutpostStartupState.Maintenance, "anchor-uninitialized-with-history")
                 : new(OutpostStartupState.RequiresInitialization, "explicit-initialization-required");
-        AnchorRecord record = anchor.Read(authorityLease)!;
+        if (envelope is not KnownAnchorEnvelope known)
+            return feature.Startup = new(OutpostStartupState.Maintenance, "anchor-fresh-fence-requires-restore");
+        AnchorRecord record = known.Record;
         if (record.Restore is not null)
             return feature.Startup = new(OutpostStartupState.Maintenance, "anchor-reconciliation-required");
         var row = await db.OutpostAuthority.AsNoTracking().SingleOrDefaultAsync(ct);
@@ -324,38 +327,9 @@ public sealed class OutpostAuthority(RimlinkDbContext db, OutpostAnchorStore anc
         try
         {
             await OpenDurableDomainAsync(ct);
-            var transitions = await db.OutpostTransitions.AsNoTracking().ToListAsync(ct);
-            AuthorityHead head = GenesisHead();
-            string? predecessor = null;
-            OutpostTransition? tip = null;
-            string? boundWorld = null;
-            while (transitions.Count != 0)
-            {
-                var matches = transitions.Where(t => t.OldHeadId == head.Id).ToArray();
-                if (matches.Length != 1)
-                    return feature.Startup = new(OutpostStartupState.Maintenance, "authority-chain-disconnected-or-forked");
-                var transition = matches[0];
-                if (transition.PredecessorId != predecessor || (predecessor is null && transition.Kind != "Initialize") ||
-                    !OutpostTransitionDigest.Compute(head, transition).Span.SequenceEqual(transition.Digest))
-                    return feature.Startup = new(OutpostStartupState.Maintenance, "authority-chain-digest-mismatch");
-                boundWorld ??= transition.WorldId;
-                if (transition.WorldId != boundWorld)
-                    return feature.Startup = new(OutpostStartupState.Maintenance, "authority-chain-world-mismatch");
-                if (transition.Kind == "WorldBind")
-                {
-                    try { boundWorld = await ReadWorldBindTargetAsync(transition, ct); }
-                    catch (OutpostEvidenceUnavailableException error)
-                    { return feature.Startup = new(OutpostStartupState.Maintenance, error.Message); }
-                }
-                head = new(transition.NextHeadId, ByteString.CopyFrom(transition.Digest));
-                predecessor = transition.Id;
-                tip = transition;
-                transitions.Remove(transition);
-            }
-            ByteString domainDigest = await OutpostDomainDigest.ComputeAsync(db, ct);
-            if (tip is null || boundWorld != row.WorldId || head != expected || tip.Id != row.TransitionId ||
-                !tip.Effects.AsSpan().SequenceEqual(domainDigest.Span))
-                return feature.Startup = new(OutpostStartupState.Maintenance, "authority-protected-state-mismatch");
+            try { await ValidateStoredChainAsync(db, files, row, expected, ct); }
+            catch (OutpostEvidenceUnavailableException error)
+            { return feature.Startup = new(OutpostStartupState.Maintenance, error.Message); }
             if (record.Pending is { } uncommitted && !pendingCommitted &&
                 await db.OutpostTransitions.AnyAsync(t => t.Id == uncommitted.TransitionId || t.NextHeadId == uncommitted.NextHead.Id, ct))
                 return feature.Startup = new(OutpostStartupState.Maintenance, "authority-pending-evidence-conflict");
@@ -372,6 +346,65 @@ public sealed class OutpostAuthority(RimlinkDbContext db, OutpostAnchorStore anc
             if (opened) await db.Database.CloseConnectionAsync();
         }
     }
+
+    // Query-only: startup and offline archive inspection verify the SAME retained main-chain prefix.
+    internal static async Task ValidateStoredChainAsync(RimlinkDbContext db, SaveFiles files,
+        Rimlink.Server.Storage.Entities.OutpostAuthority row, AuthorityHead expected, CancellationToken ct)
+    {
+        var transitions = await db.OutpostTransitions.AsNoTracking().ToListAsync(ct);
+        AuthorityHead head = GenesisHead();
+        string? predecessor = null;
+        OutpostTransition? tip = null;
+        string? boundWorld = null;
+        string? boundInstallation = null;
+        string? boundBoundary = null;
+        while (transitions.Count != 0)
+        {
+            var matches = transitions.Where(t => t.OldHeadId == head.Id).ToArray();
+            if (matches.Length != 1)
+                throw new OutpostEvidenceUnavailableException("authority-chain-disconnected-or-forked");
+            var transition = matches[0];
+            if (transition.PredecessorId != predecessor || (predecessor is null && transition.Kind != "Initialize") ||
+                !OutpostTransitionDigest.Compute(head, transition).Span.SequenceEqual(transition.Digest))
+                throw new OutpostEvidenceUnavailableException("authority-chain-digest-mismatch");
+            if (predecessor is null)
+            {
+                var initial = OutpostRestoreEvidence.Decode<InitialBinding>(transition.Intent);
+                if (!Guid.TryParseExact(initial.Installation, "D", out var installation) || installation == Guid.Empty
+                    || !Guid.TryParseExact(initial.Boundary, "D", out var boundary) || boundary == Guid.Empty
+                    || initial.World != transition.WorldId || initial.Boundary != transition.RestoreBoundary)
+                    throw new OutpostEvidenceUnavailableException("authority-chain-initial-binding-mismatch");
+                boundInstallation = initial.Installation; boundBoundary = initial.Boundary; boundWorld = initial.World;
+            }
+            else if (transition.Kind == "BulkRestore")
+            {
+                var plan = OutpostRestoreEvidence.Plan(transition);
+                if (plan.Cut.Authority.InstallationId != boundInstallation || plan.Cut.Authority.RestoreBoundary != boundBoundary
+                    || plan.Cut.Authority.WorldId != boundWorld || !plan.Cut.Authority.HeadDigest.AsSpan().SequenceEqual(head.Digest.Span))
+                    throw new OutpostEvidenceUnavailableException("authority-chain-restore-source-mismatch");
+                boundInstallation = plan.Journal.Selection.TargetInstallationId; boundBoundary = plan.Journal.Selection.TargetBoundary;
+            }
+            else if (transition.Kind == "Initialize" || transition.RestoreBoundary != boundBoundary)
+                throw new OutpostEvidenceUnavailableException("authority-chain-identity-mismatch");
+            if (transition.WorldId != boundWorld)
+                throw new OutpostEvidenceUnavailableException("authority-chain-world-mismatch");
+            if (transition.Kind == "WorldBind")
+            {
+                boundWorld = await new OutpostLifecycleEvidence(db, files).ReadWorldBindTargetAsync(transition, ct);
+            }
+            head = new(transition.NextHeadId, ByteString.CopyFrom(transition.Digest));
+            predecessor = transition.Id;
+            tip = transition;
+            transitions.Remove(transition);
+        }
+        ByteString domainDigest = await OutpostDomainDigest.ComputeAsync(db, ct);
+        if (tip is null || boundWorld != row.WorldId || boundInstallation != row.InstallationId || boundBoundary != row.RestoreBoundary
+            || head != expected || tip.Id != row.TransitionId ||
+            !tip.Effects.AsSpan().SequenceEqual(domainDigest.Span))
+            throw new OutpostEvidenceUnavailableException("authority-protected-state-mismatch");
+    }
+
+    private sealed record InitialBinding(string Installation, string Boundary, string World);
 
     private Task<string> ReadWorldBindTargetAsync(OutpostTransition transition, CancellationToken ct) =>
         new OutpostLifecycleEvidence(db, files).ReadWorldBindTargetAsync(transition, ct);

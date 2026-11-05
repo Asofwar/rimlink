@@ -74,11 +74,14 @@ public sealed partial class OutpostLifecycle
         var head = await db.OutpostAuthority.AsNoTracking().SingleAsync(ct);
         bool legacy = !await codec.HasLocalProtectedHistoryAsync(scope, ct);
         LifecycleLegacyRollback? legacyEvidence = legacy ? new(codec.ReadLegacySnapshot(target, head.WorldId), codec.ReadLegacySnapshot(previous, head.WorldId)) : null;
+        var resolver = new OutpostRestoreEvidence(db, files);
+        var targetSource = legacy ? null : await resolver.ResolveRollbackSourceAsync(target, scope, ct);
+        var previousSource = legacy ? null : await resolver.ResolveRollbackSourceAsync(previous, scope, ct);
         var originalScope = scope.Clone(); originalScope.SaveWriteEpoch = target.SaveWriteEpoch;
-        var proof = new OutpostSnapshotProof { Scope = originalScope, SnapshotId = target.SnapshotId!, RawSha256 = ByteString.CopyFrom(target.RawSha256!) };
+        var proof = targetSource?.Actual ?? new OutpostSnapshotProof { Scope = originalScope, SnapshotId = target.SnapshotId!, RawSha256 = ByteString.CopyFrom(target.RawSha256!) };
         var link = legacy ? null : await codec.RollbackLinkAsync(proof, ct);
         var previousScope = scope.Clone(); previousScope.SaveWriteEpoch = previous.SaveWriteEpoch;
-        var prior = new OutpostSnapshotProof { Scope = previousScope, SnapshotId = previous.SnapshotId!, RawSha256 = ByteString.CopyFrom(previous.RawSha256!) };
+        var prior = previousSource?.Actual ?? new OutpostSnapshotProof { Scope = previousScope, SnapshotId = previous.SnapshotId!, RawSha256 = ByteString.CopyFrom(previous.RawSha256!) };
         var resultScope = scope.Clone(); resultScope.SaveWriteEpoch++;
         string id = Guid.NewGuid().ToString("D"), transitionId = Guid.NewGuid().ToString("D"); var cut = clock.Sample();
         LifecycleVersion[] versions = legacyEvidence is null ? [] : new[] { legacyEvidence.Target.Locator, legacyEvidence.PreviousCurrent.Locator }.DistinctBy(v => v.Version.Number).ToArray();
@@ -99,7 +102,7 @@ public sealed partial class OutpostLifecycle
         var intent = new LifecycleIntent(1, id, "Rollback", head.WorldId, head.RestoreBoundary, actor, head.HeadId, head.HeadDigest,
             [playerId], [new(scope.ToByteArray())], Path.Combine("archive", "outpost-evidence", id), cut.Utc, cut, [], versions, retained.Values.ToArray(), playerId,
             ResultScopes: [new(resultScope.ToByteArray())], Rollback: legacyEvidence is null
-                ? new(proof.ToByteArray(), prior.ToByteArray(), link!.FrontierDigest)
+                ? new(proof.ToByteArray(), prior.ToByteArray(), link!.FrontierDigest, TargetSource: targetSource!.Authorization, PreviousSource: previousSource!.Authorization)
                 : new([], [], [], "LegacySnapshot", legacyEvidence));
         byte[] encoded = OutpostLifecycleEvidence.Encode(intent);
         var row = new OutpostLifecycleOperation { Id = id, WorldId = head.WorldId, Actor = actor, Kind = "Rollback", RequestId = id,

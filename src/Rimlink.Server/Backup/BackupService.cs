@@ -8,7 +8,7 @@ namespace Rimlink.Server.Backup;
 public sealed record BackupFile(string Name, long Size, DateTime CreatedAt);
 
 /// <summary>Backup archives under &lt;DataDir&gt;/backups: listing, one creation at a time (manual or scheduled), opening for download.</summary>
-public sealed partial class BackupService(DataDirectory data, IOptions<BackupOptions> options, TimeProvider time, ILogger<BackupService> log)
+public sealed partial class BackupService(DataDirectory data, IOptions<BackupOptions> options, TimeProvider time, ILogger<BackupService> log, IServiceScopeFactory scopes)
 {
     public const string NamePattern = @"^rimlink-\d{8}-\d{6}\.tar\.zst$";
 
@@ -58,7 +58,8 @@ public sealed partial class BackupService(DataDirectory data, IOptions<BackupOpt
         string path = Path.Combine(data.Backups, name);
         if (File.Exists(path)) throw new RpcException(new Status(StatusCode.AlreadyExists, "a backup was made this second; try again"));
 
-        await Task.Run(() => BackupArchive.Create(data.Root, path));
+        using (var scope = scopes.CreateScope())
+            await scope.ServiceProvider.GetRequiredService<OutpostBackupCapture>().CreateAsync(path, default);
         BackupScheduler.Prune(data.Backups, options.Value.Keep, log);
         var info = new FileInfo(path);
         log.LogInformation("Backup written: {File}", path);

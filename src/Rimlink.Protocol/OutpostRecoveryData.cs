@@ -57,6 +57,7 @@ public sealed record OutpostRecoveryData
         if (Metadata.SchemaVersion != CurrentVersion) throw Invalid();
         ValidateScope(Metadata.Scope);
         if (Metadata.Registry.Count > MaxEntries || Metadata.Receipts.Count > MaxEntries || Metadata.Frontier.Count > MaxEntries) throw Invalid();
+        var sourceScopes = ValidateSourceBridge();
         ValidateAdmissions();
         ValidateRollbackBridge();
         if (Metadata.OrdinaryOutgoing.Count > MaxEntries) throw Invalid();
@@ -65,7 +66,7 @@ public sealed record OutpostRecoveryData
         foreach (var capture in Metadata.OrdinaryOutgoing)
         {
             OrdinaryCapture.Validate(capture);
-            if (!CaptureScopeAllowed(capture.Scope) || !operations.Add(capture.LocalOperationId)
+            if (!CaptureScopeAllowed(capture.Scope, sourceScopes) || !operations.Add(capture.LocalOperationId)
                 || !ordinaryRequests.Add(((int)capture.RequestKind) + ":" + capture.ClientRequestId)) throw Invalid();
         }
         var custody = new HashSet<string>(StringComparer.Ordinal);
@@ -103,9 +104,47 @@ public sealed record OutpostRecoveryData
     }
 
     // Structural provenance only: the server still proves every historical byte against its committed bridge and original snapshot.
-    private bool CaptureScopeAllowed(OutpostScopeMessage scope) => scope.Equals(Metadata.Scope)
+    private bool CaptureScopeAllowed(OutpostScopeMessage scope, HashSet<OutpostScopeMessage> sourceScopes) => scope.Equals(Metadata.Scope)
         || Metadata.RollbackBridge is { } bridge && SameNamespace(scope, bridge.SourceScope)
-            && scope.SaveWriteEpoch <= bridge.SourceScope.SaveWriteEpoch;
+            && scope.SaveWriteEpoch <= bridge.SourceScope.SaveWriteEpoch
+        || sourceScopes.Contains(scope);
+
+    private HashSet<OutpostScopeMessage> ValidateSourceBridge()
+    {
+        int count = (Metadata.RollbackBridge is null ? 0 : 1) + (Metadata.RestoreBridge is null ? 0 : 1)
+            + (Metadata.RollbackFromViewBridge is null ? 0 : 1);
+        if (count > 1) throw Invalid();
+        var scopes = new HashSet<OutpostScopeMessage>();
+        OutpostSourceProvenance graph; OutpostAuthorizedSnapshotView root;
+        if (Metadata.RestoreBridge is { } restore)
+        { root = OutpostSourceGraph.ValidateRoot(restore); graph = restore.SourceProvenance; }
+        else if (Metadata.RollbackFromViewBridge is { } rollback)
+        { root = OutpostSourceGraph.ValidateRoot(rollback); graph = rollback.SourceProvenance; }
+        else if (Metadata.RollbackBridge is { } actual && (actual.SourceProvenance is not null || actual.SourcePathDigest.Length != 0))
+        { root = OutpostSourceGraph.ValidateRoot(actual); graph = actual.SourceProvenance ?? throw Invalid(); }
+        else return scopes;
+        if (!root.EffectiveScope.Equals(Metadata.Scope)) throw Invalid();
+        var sources = graph.ActualSources.ToDictionary(s => s.Snapshot.SnapshotId, StringComparer.Ordinal);
+        var views = graph.AuthorizedViews.ToDictionary(v => v.TransitionId, StringComparer.Ordinal);
+        var seenSources = new HashSet<string>(StringComparer.Ordinal); var seenViews = new HashSet<string>(StringComparer.Ordinal);
+        Visit(root);
+        return scopes;
+
+        void Visit(OutpostAuthorizedSnapshotView view)
+        {
+            if (!seenViews.Add(view.TransitionId)) return;
+            scopes.Add(view.SourceScope); scopes.Add(view.EffectiveScope);
+            if (view.Source.SourceCase == OutpostSourceReference.SourceOneofCase.AuthorizedView)
+                Visit(views[view.Source.AuthorizedView.TransitionId]);
+            else
+            {
+                var source = sources[view.Source.ActualSnapshotId];
+                if (!seenSources.Add(source.Snapshot.SnapshotId)) return;
+                scopes.Add(source.Snapshot.Scope);
+                if (source.HistoricalAuthorization is { } historical) Visit(views[historical.TransitionId]);
+            }
+        }
+    }
 
     private static bool SameNamespace(OutpostScopeMessage left, OutpostScopeMessage right) =>
         left.WorldInstanceId == right.WorldInstanceId && left.OwnerPlayerId == right.OwnerPlayerId
