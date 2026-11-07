@@ -1,0 +1,26 @@
+name: Task16 release transport diagnostic
+on:
+  push:
+    branches: [asofwar/release-network-probe-20261107]
+permissions:
+  contents: read
+jobs:
+  transport:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Resolve public release endpoints
+        shell: python
+        run: |
+          import json, socket, urllib.request
+          hosts = ['github.com', 'api.github.com', 'uploads.github.com', 'builds.dotnet.microsoft.com', 'dotnetcli.blob.core.windows.net', 'release-assets.githubusercontent.com']
+          for host in hosts:
+              addresses = sorted({row[4][0] for row in socket.getaddrinfo(host, 443, socket.AF_INET, socket.SOCK_STREAM)})
+              print('RELEASE-DNS:' + json.dumps({'host': host, 'addresses': addresses}), flush=True)
+          url = 'https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/10.0/releases.json'
+          metadata = json.load(urllib.request.urlopen(url, timeout=30))
+          for release in metadata['releases']:
+              for sdk in release.get('sdks', [release.get('sdk', {})]):
+                  if sdk.get('version') == '10.0.403':
+                      for file in sdk['files']:
+                          if file['rid'] in ['win-x64', 'linux-x64'] and file['url'].endswith(('.zip', '.tar.gz')):
+                              print('RELEASE-SDK:' + json.dumps(file), flush=True)
