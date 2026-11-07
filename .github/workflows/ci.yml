@@ -14,9 +14,6 @@ jobs:
   build-test:
     runs-on: ubuntu-24.04
     env:
-      DOTNET_ROOT: ${{ runner.temp }}/rimlink-dotnet-10.0.403
-      DOTNET_ROOT_X64: ${{ runner.temp }}/rimlink-dotnet-10.0.403
-      DOTNET_CLI_HOME: ${{ runner.temp }}/rimlink-dotnet-home
       DOTNET_CLI_TELEMETRY_OPTOUT: "1"
       DOTNET_GENERATE_ASPNET_CERTIFICATE: "false"
     steps:
@@ -74,6 +71,10 @@ jobs:
               print('Verified exact main qualification:', proof['id'], proof['run_attempt'], commit)
       - name: Install qualified SDK and runtime
         if: steps.qualification.outputs.reuse != 'true'
+        env:
+          DOTNET_ROOT: ${{ runner.temp }}/rimlink-dotnet-10.0.403
+          DOTNET_ROOT_X64: ${{ runner.temp }}/rimlink-dotnet-10.0.403
+          DOTNET_CLI_HOME: ${{ runner.temp }}/rimlink-dotnet-home
         shell: bash
         run: |
           set -euo pipefail
@@ -87,6 +88,7 @@ jobs:
           test "$(wc -l < "$RUNNER_TEMP/qualified-runtimes.txt")" -eq 2
           awk '$2 != "10.0.14" { exit 1 }' "$RUNNER_TEMP/qualified-runtimes.txt"
           printf '%s\n' "$DOTNET_ROOT" >> "$GITHUB_PATH"
+          printf 'DOTNET_ROOT=%s\nDOTNET_ROOT_X64=%s\nDOTNET_CLI_HOME=%s\n' "$DOTNET_ROOT" "$DOTNET_ROOT_X64" "$DOTNET_CLI_HOME" >> "$GITHUB_ENV"
       - name: Build
         if: steps.qualification.outputs.reuse != 'true'
         run: '"$DOTNET_ROOT/dotnet" build Rimlink.sln -c Release'
