@@ -49,6 +49,12 @@ public sealed class OutpostRestoreDifferentBuildTests(ITestOutputHelper output)
         var selected = JsonSerializer.Deserialize<Input>(File.ReadAllBytes(inputPath), OutpostBackupManifest.Json)!; Assert.Equal(post, selected.PostSchema);
         string path = Path.Combine(selected.Anchor, "restores", selected.Id, "main.json"); byte[] original = File.ReadAllBytes(path);
         Assert.Equal(selected.PlanDigest, SHA256.HashData(original)); var plan = OutpostRestoreEvidence.DecodePlan(original);
+        string framework = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription;
+        if (Environment.GetEnvironmentVariable("RIMLINK_TEST_ADDITIVE_BUILD_SOURCE_RUNTIME") is { } expectedSourceRuntime)
+        {
+            Assert.Equal(expectedSourceRuntime, plan.DomainStep!.Executor!.Framework);
+            Assert.NotEqual(expectedSourceRuntime, framework);
+        }
         byte[] actualArtifact = SHA256.HashData(File.ReadAllBytes(typeof(OutpostRestoreProcedure).Assembly.Location));
         Assert.NotEqual(plan.DomainStep!.Executor!.ArtifactSha256, actualArtifact);
         Assert.NotEqual(plan.DomainStep.Executor.ModuleMvid, typeof(OutpostRestoreProcedure).Assembly.ManifestModule.ModuleVersionId.ToString("D"));
@@ -97,7 +103,9 @@ public sealed class OutpostRestoreDifferentBuildTests(ITestOutputHelper output)
                 await new OutpostSnapshotGuard(db, new SaveFiles(DataDirectory.Existing(selected.Data))).ValidateStoredEvidenceCoreAsync(default);
             }
             output.WriteLine("TWO-BUILD-QUALIFIED:" + (post ? "post:no-execution" : "pre:refused")
-                + ":old=" + Convert.ToHexStringLower(plan.DomainStep.Executor.ArtifactSha256) + ":new=" + Convert.ToHexStringLower(actualArtifact));
+                + ":old=" + Convert.ToHexStringLower(plan.DomainStep.Executor.ArtifactSha256) + ":new=" + Convert.ToHexStringLower(actualArtifact)
+                + ":source-runtime=" + plan.DomainStep.Executor.Framework + ":runtime=" + framework
+                + ":qualification=" + plan.DomainStep.Migration!.QualificationId + ":provider=" + plan.DomainStep.Migration.ProviderProfile);
         }
         finally { OutpostRestoreSchemaMigration.ExecutionProbe.Value = null; }
     }

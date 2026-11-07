@@ -1,11 +1,11 @@
 ---
 pageId: players/procurement
-contentRevision: 4
+contentRevision: 5
 ---
 
 # Procurement: orders, contracts and shared goals
 
-Applies to: Rimlink 0.9.1 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.9.2 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 

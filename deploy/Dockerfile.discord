@@ -1,5 +1,5 @@
 # The Discord bot. Build context: repository root. docker build -f deploy/Dockerfile.discord -t rimlink-discord .
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0.403 AS build
 WORKDIR /src
 COPY Directory.Build.props Directory.Packages.props global.json ./
 COPY src/Rimlink.Discord/Rimlink.Discord.csproj src/Rimlink.Discord/
@@ -7,7 +7,7 @@ RUN dotnet restore src/Rimlink.Discord/Rimlink.Discord.csproj -r linux-x64
 COPY src/Rimlink.Discord/ src/Rimlink.Discord/
 RUN dotnet publish src/Rimlink.Discord/Rimlink.Discord.csproj -c Release -r linux-x64 --self-contained false --no-restore -o /app
 
-FROM mcr.microsoft.com/dotnet/runtime:10.0
+FROM mcr.microsoft.com/dotnet/runtime:10.0.14
 WORKDIR /app
 COPY --from=build /app .
 # Configuration comes from the environment (RimlinkBot__Section__Key). /data holds only the last feed id

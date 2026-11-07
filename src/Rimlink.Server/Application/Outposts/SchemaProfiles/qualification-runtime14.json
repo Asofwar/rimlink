@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "qualificationId": "rimlink-outposts-schema-20261107-runtime14",
+  "qualificationVersion": 1,
+  "providerProfile": "rimlink-outposts-schema-20261107-runtime14/provider-v1",
+  "status": "qualified",
+  "scope": "Exact runtime executor admission for the unchanged catalog profiles and additive recipes; not authority format activation, feature readiness or game acceptance.",
+  "catalogQualification": "rimlink-outposts-schema-20261105-0520",
+  "toolchain": {
+    "sdk": "10.0.403",
+    "runtime": ".NET 10.0.14",
+    "efCore": "10.0.14.0",
+    "microsoftDataSqlite": "10.0.14.0",
+    "sqlitePclRaw": "2.1.13.3146",
+    "nativeSqlite": "3.53.3",
+    "nativeSourceId": "2026-06-26 20:14:12 d4c0e51e4aeb96955b99185ab9cde75c339e2c29c3f3f12428d364a10d782c62",
+    "storageContract": "sqlite-local-v1"
+  },
+  "backends": [
+    {
+      "executor": "windows",
+      "filesystem": "NTFS",
+      "vfs": "win32",
+      "nativeSha256": "b7385d722c83fb52142a00477a726723745916d22a555711ee89834c1111fb2e"
+    },
+    {
+      "executor": "linux",
+      "filesystem": "ext4",
+      "vfs": "unix",
+      "nativeSha256": "b0f5c48026fedcf9f05cf31c6fadf9e1e001ca59cd85aa68b8b6814e52c18a07"
+    }
+  ],
+  "additiveEdges": [
+    {
+      "source": "rimlink-outposts-schema/v1-crlf",
+      "target": "rimlink-outposts-schema/v2-crlf-crlf",
+      "recipeSha256": "64358bbb34d8080afaaeeb745041b9fdeccadc28af8ce84666734ce3b8324525"
+    },
+    {
+      "source": "rimlink-outposts-schema/v1-lf",
+      "target": "rimlink-outposts-schema/v2-lf-crlf",
+      "recipeSha256": "64358bbb34d8080afaaeeb745041b9fdeccadc28af8ce84666734ce3b8324525"
+    },
+    {
+      "source": "rimlink-outposts-schema/v1-crlf",
+      "target": "rimlink-outposts-schema/v2-crlf-lf",
+      "recipeSha256": "a5ee5d52c1d25f13d4f1d75e74f3cd02763b0667d81f3a74f23d62e7cea8b3f4"
+    },
+    {
+      "source": "rimlink-outposts-schema/v1-lf",
+      "target": "rimlink-outposts-schema/v2-lf-lf",
+      "recipeSha256": "a5ee5d52c1d25f13d4f1d75e74f3cd02763b0667d81f3a74f23d62e7cea8b3f4"
+    }
+  ],
+  "evidence": {
+    "windows": {
+      "configuration": "Debug",
+      "filesystem": "NTFS",
+      "dataFilesystem": "Working database and anchor on NTFS; source/evidence may be on ReFS",
+      "initialTargetedPassed": 509,
+      "initialTargetedFailed": 1,
+      "greenDeltaPassed": 1,
+      "uniqueTargetedCases": 510,
+      "schemaCasesPassed": 8,
+      "legacy13ImportPassed": 1,
+      "artifactSha256": "6d81fb20ff57b788e234a32cf1ea1363dc2ceaf022c3b0b40434c2fd31b83ef0",
+      "moduleMvid": "87f07d34-fb6a-4418-91f9-7b63cfae2d1e",
+      "evidenceSha256": "e850bce0e96003e229394ef95e14ef740a03ef3f3bf0a4b071c631aea72e3c26"
+    },
+    "linux": {
+      "configuration": "Release",
+      "filesystem": "ext4",
+      "initialTargetedPassed": 125,
+      "initialTargetedFailed": 1,
+      "greenDeltaPassed": 1,
+      "uniqueTargetedCases": 126,
+      "schemaCasesPassed": 8,
+      "legacy13ImportPassed": 1,
+      "artifactSha256": "cfd40a2560302a3831cb74e027c12fe6b34121c00ace2571777bb85cb669fd72",
+      "moduleMvid": "9819db34-b34e-4ba1-8bdd-204f6313bf6b",
+      "evidenceSha256": "6095b77e5289fb791a97d65aafcb8e61255392c1c57b7421ac678a0a70595f13"
+    },
+    "legacyRuntime13Continuation": {
+      "windows": "pre:refused exact frozen executor mismatch; post:completed with no execution",
+      "linux": "pre:refused exact frozen executor mismatch; post:completed with no execution",
+      "sourceRuntime": ".NET 10.0.13",
+      "readerRuntime": ".NET 10.0.14",
+      "frozenPlansRewritten": false,
+      "unknownPatchAccepted": false
+    }
+  }
+}

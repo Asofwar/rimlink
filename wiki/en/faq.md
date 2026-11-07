@@ -1,11 +1,11 @@
 ---
 pageId: faq
-contentRevision: 4
+contentRevision: 5
 ---
 
 # Frequently asked questions
 
-Applies to: Rimlink 0.9.1 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.9.2 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 

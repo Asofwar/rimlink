@@ -1,13 +1,15 @@
 ---
 pageId: developers/testing
-contentRevision: 5
+contentRevision: 6
 ---
 
 # Testing and acceptance
 
-Applies to: Rimlink 0.9.1 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.9.2 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
+
+Record the actual loaded .NET/ASP.NET runtime, provider and native SQLite identities for executor qualification. SDK selection alone does not select the runtime patch. The 10.0.14 qualification has its own exact QualificationId/ProviderProfile; legacy 10.0.13 witnesses remain separate. Main CI executes the full suite; a tag may reuse only a completed successful main push for the exact commit with successful Build/Test steps, recording its run and attempt instead of claiming a second test execution.
 
 First reproduce the case and observe a failing targeted test, then make the minimal fix and rerun. Server tests use a real WebApplicationFactory; client-core tests talk to a test server. Full suite: dotnet test Rimlink.sln -nologo -v q.
 

@@ -1,5 +1,5 @@
 {
-  "productVersion": "0.9.1",
+  "productVersion": "0.9.2",
   "protocolVersion": 1,
   "pages": [
     {
@@ -35,7 +35,7 @@
     },
     {
       "id": "overview",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -76,7 +76,7 @@
     },
     {
       "id": "compatibility",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -117,7 +117,7 @@
     },
     {
       "id": "faq",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -158,7 +158,7 @@
     },
     {
       "id": "glossary",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -189,7 +189,7 @@
     },
     {
       "id": "players/getting-started",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -230,7 +230,7 @@
     },
     {
       "id": "players/install",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -261,7 +261,7 @@
     },
     {
       "id": "players/connect",
-      "contentRevision": 5,
+      "contentRevision": 6,
       "sections": [
         "usage",
         "limits",
@@ -312,7 +312,7 @@
     },
     {
       "id": "players/modpacks",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -359,7 +359,7 @@
     },
     {
       "id": "players/world",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -401,7 +401,7 @@
     },
     {
       "id": "players/saves-recovery",
-      "contentRevision": 5,
+      "contentRevision": 6,
       "sections": [
         "usage",
         "limits",
@@ -448,7 +448,7 @@
     },
     {
       "id": "players/chat-pings",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -485,7 +485,7 @@
     },
     {
       "id": "players/economy",
-      "contentRevision": 5,
+      "contentRevision": 6,
       "sections": [
         "usage",
         "limits",
@@ -558,7 +558,7 @@
     },
     {
       "id": "players/gifts-trades",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -619,7 +619,7 @@
     },
     {
       "id": "players/auctions",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -662,7 +662,7 @@
     },
     {
       "id": "players/procurement",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -705,7 +705,7 @@
     },
     {
       "id": "players/raids-incidents",
-      "contentRevision": 6,
+      "contentRevision": 7,
       "sections": [
         "usage",
         "limits",
@@ -757,7 +757,7 @@
     },
     {
       "id": "players/visits",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -803,7 +803,7 @@
     },
     {
       "id": "players/live",
-      "contentRevision": 6,
+      "contentRevision": 7,
       "sections": [
         "usage",
         "limits",
@@ -867,7 +867,7 @@
     },
     {
       "id": "players/coop",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -911,7 +911,7 @@
     },
     {
       "id": "players/community",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -958,7 +958,7 @@
     },
     {
       "id": "players/guild-influence",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -1006,7 +1006,7 @@
     },
     {
       "id": "players/troubleshooting",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -1049,7 +1049,7 @@
     },
     {
       "id": "admins/getting-started",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -1090,7 +1090,7 @@
     },
     {
       "id": "admins/hosting",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -1122,7 +1122,7 @@
     },
     {
       "id": "admins/configuration",
-      "contentRevision": 5,
+      "contentRevision": 6,
       "sections": [
         "usage",
         "limits",
@@ -1155,7 +1155,7 @@
     },
     {
       "id": "admins/security-auth",
-      "contentRevision": 5,
+      "contentRevision": 6,
       "sections": [
         "usage",
         "limits",
@@ -1197,7 +1197,7 @@
     },
     {
       "id": "admins/modpacks",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -1238,7 +1238,7 @@
     },
     {
       "id": "admins/gameplay-policy",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -1280,7 +1280,7 @@
     },
     {
       "id": "admins/administration",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -1321,7 +1321,7 @@
     },
     {
       "id": "admins/cli",
-      "contentRevision": 5,
+      "contentRevision": 6,
       "sections": [
         "usage",
         "limits",
@@ -1353,7 +1353,7 @@
     },
     {
       "id": "admins/api",
-      "contentRevision": 5,
+      "contentRevision": 6,
       "sections": [
         "usage",
         "limits",
@@ -1385,7 +1385,7 @@
     },
     {
       "id": "admins/backup-recovery",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -1427,7 +1427,7 @@
     },
     {
       "id": "admins/updating",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -1458,7 +1458,7 @@
     },
     {
       "id": "admins/monitoring",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -1500,7 +1500,7 @@
     },
     {
       "id": "admins/discord",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -1532,7 +1532,7 @@
     },
     {
       "id": "admins/troubleshooting",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -1563,7 +1563,7 @@
     },
     {
       "id": "developers/architecture",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -1604,7 +1604,7 @@
     },
     {
       "id": "developers/build",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -1635,7 +1635,7 @@
     },
     {
       "id": "developers/protocol",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -1667,7 +1667,7 @@
     },
     {
       "id": "developers/storage",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -1699,7 +1699,7 @@
     },
     {
       "id": "developers/client",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -1742,7 +1742,7 @@
     },
     {
       "id": "developers/localization",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -1774,7 +1774,7 @@
     },
     {
       "id": "developers/testing",
-      "contentRevision": 5,
+      "contentRevision": 6,
       "sections": [
         "usage",
         "limits",
@@ -1786,7 +1786,9 @@
         "tools/Rimlink.BridgeTools/ColonyTools.cs",
         "tools/Rimlink.BridgeTools/Support/NewColonyDriver.cs",
         "tools/Rimlink.BridgeTools/Support/ColonyCoverage.cs",
-        "tests/"
+        "tests/",
+        ".github/workflows/ci.yml",
+        "tests/Rimlink.Server.Tests/Backup/OutpostRestoreRuntimeQualificationTests.cs"
       ],
       "titles": {
         "ru": "Тестирование и приёмка",
@@ -1819,7 +1821,7 @@
     },
     {
       "id": "developers/contributing",
-      "contentRevision": 4,
+      "contentRevision": 5,
       "sections": [
         "usage",
         "limits",
@@ -1888,7 +1890,7 @@
     },
     {
       "id": "admins/passive-outposts",
-      "contentRevision": 22,
+      "contentRevision": 23,
       "sections": [
         "usage",
         "commands",
@@ -1937,7 +1939,10 @@
         "src/Rimlink.Client/Game/Economy/Incoming.cs",
         "src/Rimlink.Client/Game/Outposts/OutpostSync.cs",
         "docs/superpowers/specs/2026-11-07-passive-outposts-migration-sql-bytes.md",
-        "docs/verification/2026-11-07-passive-outposts-git-checkout-sql.md"
+        "docs/verification/2026-11-07-passive-outposts-git-checkout-sql.md",
+        "docs/superpowers/specs/2026-11-07-passive-outposts-qualified-runtime-builds.md",
+        "docs/verification/2026-11-07-passive-outposts-runtime14.md",
+        "src/Rimlink.Server/Application/Outposts/SchemaProfiles/qualification-runtime14.json"
       ],
       "titles": {
         "ru": "Аванпосты: готовность и восстановление",

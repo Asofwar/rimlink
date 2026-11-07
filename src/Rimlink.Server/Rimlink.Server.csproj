@@ -4,6 +4,8 @@
     <AssemblyName>rimlink-server</AssemblyName>
     <UserSecretsId>rimlink-server</UserSecretsId>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RuntimeFrameworkVersion>10.0.14</RuntimeFrameworkVersion>
+    <RollForward>Disable</RollForward>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Grpc.AspNetCore" />
@@ -22,6 +24,7 @@
     <InternalsVisibleTo Include="Rimlink.OutpostAcceptanceHost" />
     <EmbeddedResource Include="BuildQualification/qualification.json" LogicalName="Rimlink.Outposts.Qualification" />
     <EmbeddedResource Include="Application/Outposts/SchemaProfiles/qualification.json" LogicalName="Rimlink.OutpostSchema.qualification.json" />
+    <EmbeddedResource Include="Application/Outposts/SchemaProfiles/qualification-runtime14.json" LogicalName="Rimlink.OutpostSchema.qualification-runtime14.json" />
     <EmbeddedResource Include="Application/Outposts/SchemaProfiles/v1-crlf.json" LogicalName="Rimlink.OutpostSchema.v1-crlf.json" />
     <EmbeddedResource Include="Application/Outposts/SchemaProfiles/v1-lf.json" LogicalName="Rimlink.OutpostSchema.v1-lf.json" />
     <EmbeddedResource Include="Application/Outposts/SchemaProfiles/v2-crlf-crlf.json" LogicalName="Rimlink.OutpostSchema.v2-crlf-crlf.json" />

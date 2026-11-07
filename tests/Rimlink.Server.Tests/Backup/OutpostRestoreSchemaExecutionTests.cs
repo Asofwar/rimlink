@@ -20,6 +20,17 @@ public sealed class OutpostRestoreSchemaExecutionTests
             var result = await procedure.ExecuteAsync(request, default);
             Assert.True(result.Outcome == RestoreOutcome.Completed, result.Reason);
             Assert.Contains("artifact", calls); Assert.Contains("recipe", calls); Assert.Equal(1, calls.Count(c => c == "migrator"));
+            var step = OutpostRestoreSchemaMigrationTests.ReadPlan(f, request.RestoreId).DomainStep!;
+            string framework = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription;
+            string qualification = framework switch
+            {
+                ".NET 10.0.13" => "rimlink-outposts-schema-20261105-0520",
+                ".NET 10.0.14" => "rimlink-outposts-schema-20261107-runtime14",
+                _ => throw new InvalidOperationException("unqualified test executor: " + framework)
+            };
+            Assert.Equal(framework, step.Executor!.Framework);
+            Assert.Equal(qualification, step.Migration!.QualificationId);
+            Assert.Equal(qualification + "/provider-v1", step.Migration.ProviderProfile);
         }
         finally { OutpostRestoreSchemaMigration.ExecutionProbe.Value = null; }
     }

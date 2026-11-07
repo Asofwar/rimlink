@@ -6,7 +6,9 @@ Guild map publication, limits and administrative routes: [Guild influence](guild
 
 Prepared redistributable packages for GOG/Steam players: [modpack delivery, CLI publication, access and recovery](modpack-delivery.md). This adds no configuration keys and preserves the administrator's modpack-check bypass.
 
-The server is a single .NET 10 process. It needs one open TCP port (25560 by default), a data directory and,
+The 0.9.2 server and `rimlink-tools` require **Microsoft.NETCore.App 10.0.14 and Microsoft.AspNetCore.App 10.0.14**. Their runtimeconfigs select that exact qualified patch with `RollForward=Disable`; a missing 10.0.14 stops the process before application startup. Other installed patches may coexist. Install and verify the required patch with `dotnet --list-runtimes`; do not override roll-forward to bypass restore qualification. A later security patch needs its own qualification and an updated release. Source builds use the SDK pinned in `global.json`, currently 10.0.403.
+
+The server needs one open TCP port (25560 by default), a data directory and,
 for Steam logins, a Steam Web API key. Everything shared (accounts, world, settlements, chat, modpack, saves)
 lives in the data directory.
 
@@ -413,7 +415,7 @@ version does not depend on it, and every backup holds a copy.
 
 ### Protected outpost backup and recovery
 
-Version 0.9.1 adds one authoritative readiness decision and audited canonical administrative commands. Product remains **Pending/off**; configured Enabled, schema activation and manifest confirmation never qualify it. A healthy migrated v1 head is FormatActivationRequired/admin-only. The separate dev acceptance executable is not shipped or selected by runtime configuration. Real two-client G1–G7 acceptance and the final branch review are complete, with all seven required fixes verified. Evidence retains its actual source/build boundaries; no Product qualification seal has been issued for the release build. Update the server and client mod together. Complete RU/EN procedures and transport limits: [English](../wiki/en/admins/passive-outposts.md), [Russian](../wiki/ru/admins/passive-outposts.md).
+Version 0.9.2 adds one authoritative readiness decision and audited canonical administrative commands. Product remains **Pending/off**; configured Enabled, schema activation and manifest confirmation never qualify it. A healthy migrated v1 head is FormatActivationRequired/admin-only. The separate dev acceptance executable is not shipped or selected by runtime configuration. Real two-client G1–G7 acceptance and the final branch review are complete, with all seven required fixes verified. Evidence retains its actual source/build boundaries; no Product qualification seal has been issued for the release build. Update the server and client mod together. Complete RU/EN procedures and transport limits: [English](../wiki/en/admins/passive-outposts.md), [Russian](../wiki/ru/admins/passive-outposts.md).
 
 Inspect/Preview do not settle production, prepare cold SQLite observation resources or write authority/audit/evidence. Preserve the exact frozen command before confirmation and after an uncertain reply. The remote `admin outposts` CLI calls REST; it does not invoke the offline writers described below. Online property-moving recovery requires complete qualified readiness even when new gameplay is disabled. `OriginalOrdinaryInput` is bounded ephemeral original input, never reconstructed from a hash or persisted as a server admin staging payload.
 

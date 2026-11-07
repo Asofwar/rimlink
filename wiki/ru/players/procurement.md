@@ -1,11 +1,11 @@
 ---
 pageId: players/procurement
-contentRevision: 4
+contentRevision: 5
 ---
 
 # Заказы, контракты и общие цели
 
-Применимость: Rimlink 0.9.1 · RimWorld 1.7 · протокол 1.
+Применимость: Rimlink 0.9.2 · RimWorld 1.7 · протокол 1.
 
 ## Как пользоваться {#usage}
 

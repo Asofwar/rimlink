@@ -1,11 +1,11 @@
 ---
 pageId: admins/security-auth
-contentRevision: 5
+contentRevision: 6
 ---
 
 # TLS, вход и права
 
-Применимость: Rimlink 0.9.1 · RimWorld 1.7 · протокол 1.
+Применимость: Rimlink 0.9.2 · RimWorld 1.7 · протокол 1.
 
 ## Как пользоваться {#usage}
 

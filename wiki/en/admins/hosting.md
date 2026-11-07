@@ -1,13 +1,15 @@
 ---
 pageId: admins/hosting
-contentRevision: 4
+contentRevision: 5
 ---
 
 # Hosting and startup
 
-Applies to: Rimlink 0.9.1 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.9.2 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
+
+Server and CLI release 0.9.2 require Microsoft.NETCore.App 10.0.14 and Microsoft.AspNetCore.App 10.0.14. Check both with dotnet --list-runtimes. Their runtimeconfigs use RollForward=Disable, so a missing patch stops the process before startup. SDK 10.0.403 includes the required frameworks. Other patches may coexist; qualify and release a later security patch before changing this exact runtime policy.
 
 The server is ASP.NET Core 10 with gRPC/HTTP2, REST and SQLite. Source builds require the SDK pinned in global.json; framework-dependent releases require the matching runtime. Persist all of Server:DataDir, not only the database.
 

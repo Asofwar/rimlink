@@ -1,5 +1,5 @@
 # Build context: repository root. docker build -f deploy/Dockerfile -t rimlink-server .
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0.403 AS build
 WORKDIR /src
 COPY Rimlink.sln Directory.Build.props Directory.Packages.props global.json ./
 COPY src/Rimlink.Protocol/Rimlink.Protocol.csproj src/Rimlink.Protocol/
@@ -13,7 +13,7 @@ COPY tools/Rimlink.BridgeTools/ tools/Rimlink.BridgeTools/
 COPY tools/Rimlink.OutpostAcceptanceHost/ tools/Rimlink.OutpostAcceptanceHost/
 RUN dotnet publish src/Rimlink.Server/Rimlink.Server.csproj -c Release -r linux-x64 --self-contained false --no-restore -o /app
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.14
 # curl is only for the HEALTHCHECK below.
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app

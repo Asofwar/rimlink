@@ -1,13 +1,15 @@
 ---
 pageId: developers/build
-contentRevision: 4
+contentRevision: 5
 ---
 
 # Сборка проекта
 
-Применимость: Rimlink 0.9.1 · RimWorld 1.7 · протокол 1.
+Применимость: Rimlink 0.9.2 · RimWorld 1.7 · протокол 1.
 
 ## Как пользоваться {#usage}
+
+Используйте SDK 10.0.403, выбранный global.json с rollForward=disable. Собирайте в изолированном каталоге toolchain и фиксируйте загруженный runtime вместе с SDK. Runtimeconfig сервера и CLI требует NETCore и ASP.NET 10.0.14 с RollForward=Disable. Мод использует runtime установленной игры; пересобирайте его и dev-компаньон при обновлении RimWorld.
 
 Установи SDK из global.json; версии пакетов централизованы в Directory.Packages.props. Из корня выполни:
 

@@ -28,9 +28,18 @@ public sealed class OutpostRestoreSchemaMigrationTests
         var migration = step.GetProperty("migration");
         Assert.Equal("20261104093958_OutpostOrdinaryReturns", migration.GetProperty("fromMigration").GetString());
         Assert.Equal("20261105014436_OutpostAdminCommands", migration.GetProperty("toMigration").GetString());
-        Assert.Equal("rimlink-outposts-schema-20261105-0520", migration.GetProperty("qualificationId").GetString());
+        string framework = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription;
+        var (qualification, provider) = framework switch
+        {
+            ".NET 10.0.13" => ("rimlink-outposts-schema-20261105-0520", "rimlink-outposts-schema-20261105-0520/provider-v1"),
+            ".NET 10.0.14" => ("rimlink-outposts-schema-20261107-runtime14", "rimlink-outposts-schema-20261107-runtime14/provider-v1"),
+            _ => throw new InvalidOperationException("unqualified test executor: " + framework)
+        };
+        Assert.Equal(qualification, migration.GetProperty("qualificationId").GetString());
+        Assert.Equal(provider, migration.GetProperty("providerProfile").GetString());
         Assert.Equal(32, migration.GetProperty("recipeSha256").GetBytesFromBase64().Length);
         var executor = step.GetProperty("executor"); Assert.Equal(1, executor.GetProperty("version").GetInt32());
+        Assert.Equal(framework, executor.GetProperty("framework").GetString());
         Assert.Equal(32, executor.GetProperty("artifactSha256").GetBytesFromBase64().Length);
         Assert.True(Guid.TryParseExact(executor.GetProperty("moduleMvid").GetString(), "D", out _));
         Assert.Equal(OutpostBackupTests.Read(archive)[OutpostBackupManifest.FileName], plan.CutManifest);

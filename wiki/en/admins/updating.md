@@ -1,13 +1,15 @@
 ---
 pageId: admins/updating
-contentRevision: 4
+contentRevision: 5
 ---
 
 # Updating server and clients
 
-Applies to: Rimlink 0.9.1 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.9.2 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
+
+For 0.9.2 verify the exact runtime 10.0.14 for both server and CLI before replacement. Retain the original executor and its isolated qualified runtime 10.0.13 for an unfinished pre-DDL restore plan. The 10.0.14 executor cannot replace that frozen witness. A proven post-schema continuation may read the old witness without executing DDL; follow the outpost recovery procedure.
 
 1. Read release changes and align server, mod and modpack versions.
 2. Announce maintenance, end sessions gracefully and create a consistent backup. Record the current version and settings.

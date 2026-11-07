@@ -1,11 +1,11 @@
 ---
 pageId: admins/getting-started
-contentRevision: 4
+contentRevision: 5
 ---
 
 # Первый сервер
 
-Применимость: Rimlink 0.9.1 · RimWorld 1.7 · протокол 1.
+Применимость: Rimlink 0.9.2 · RimWorld 1.7 · протокол 1.
 
 ## Как пользоваться {#usage}
 

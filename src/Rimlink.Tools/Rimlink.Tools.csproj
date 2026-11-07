@@ -3,6 +3,8 @@
     <OutputType>Exe</OutputType>
     <AssemblyName>rimlink-tools</AssemblyName>
     <RootNamespace>Rimlink.Tools</RootNamespace>
+    <RuntimeFrameworkVersion>10.0.14</RuntimeFrameworkVersion>
+    <RollForward>Disable</RollForward>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="System.CommandLine" />

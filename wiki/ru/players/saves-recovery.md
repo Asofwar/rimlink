@@ -1,11 +1,11 @@
 ---
 pageId: players/saves-recovery
-contentRevision: 5
+contentRevision: 6
 ---
 
 # Сохранения и восстановление
 
-Применимость: Rimlink 0.9.1 · RimWorld 1.7 · протокол 1.
+Применимость: Rimlink 0.9.2 · RimWorld 1.7 · протокол 1.
 
 ## Как пользоваться {#usage}
 

@@ -6,29 +6,103 @@ on:
     tags: ["v*"]
   pull_request:
 
+permissions:
+  contents: read
+  actions: read
+
 jobs:
   build-test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    env:
+      DOTNET_ROOT: ${{ runner.temp }}/rimlink-dotnet-10.0.403
+      DOTNET_ROOT_X64: ${{ runner.temp }}/rimlink-dotnet-10.0.403
+      DOTNET_CLI_HOME: ${{ runner.temp }}/rimlink-dotnet-home
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_GENERATE_ASPNET_CERTIFICATE: "false"
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 10.0.x
+      - name: Check exact main qualification for tag
+        id: qualification
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: python
+        run: |
+          import json, os, subprocess, urllib.request
+          repo = os.environ['GITHUB_REPOSITORY']
+          commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          current = int(os.environ['GITHUB_RUN_ID'])
+          proof = None
+          def get(path):
+              request = urllib.request.Request('https://api.github.com/' + path,
+                  headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'})
+              return json.load(urllib.request.urlopen(request, timeout=30))
+          def eligible(run):
+              return (run.get('status') == 'completed' and run.get('conclusion') == 'success'
+                  and run.get('event') == 'push' and run.get('head_branch') == 'main'
+                  and run.get('head_sha') == commit and run.get('id') != current
+                  and run.get('repository', {}).get('full_name') == repo
+                  and run.get('head_repository', {}).get('full_name') == repo
+                  and run.get('path') == '.github/workflows/ci.yml'
+                  and isinstance(run.get('run_attempt'), int) and run['run_attempt'] > 0)
+          sample = dict(status='completed', conclusion='success', event='push', head_branch='main', head_sha=commit,
+              id=current + 1, repository={'full_name': repo}, head_repository={'full_name': repo},
+              path='.github/workflows/ci.yml', run_attempt=1)
+          assert eligible(sample) and not eligible(dict(sample, event='pull_request'))
+          assert not eligible(dict(sample, head_repository={'full_name': 'other/repository'}))
+          assert not eligible(dict(sample, head_sha='0' * 40))
+          if os.environ['GITHUB_EVENT_NAME'] == 'push' and os.environ['GITHUB_REF_TYPE'] == 'tag':
+              try:
+                  runs = get(f'repos/{repo}/actions/workflows/ci.yml/runs?branch=main&event=push&status=success&per_page=100')
+                  for run in runs['workflow_runs']:
+                      if not eligible(run):
+                          continue
+                      jobs = get(f'repos/{repo}/actions/runs/{run["id"]}/attempts/{run["run_attempt"]}/jobs?per_page=100')['jobs']
+                      builds = [job for job in jobs if job.get('name') == 'build-test' and job.get('status') == 'completed' and job.get('conclusion') == 'success']
+                      if len(builds) != 1:
+                          continue
+                      steps = builds[0].get('steps', [])
+                      if all(any(step.get('name') == name and step.get('status') == 'completed' and step.get('conclusion') == 'success' for step in steps) for name in ['Build', 'Test']):
+                          proof = run
+                          break
+              except Exception as error:
+                  print('No complete main qualification proof; running full checks:', type(error).__name__)
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('reuse=' + str(proof is not None).lower() + '\n')
+          if proof:
+              with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+                  summary.write(f'Reused completed main qualification for exact commit `{commit}`: run [{proof["id"]}]({proof["html_url"]}), attempt {proof["run_attempt"]}. Build/Test steps succeeded; no new test execution or TRX is claimed.\n')
+              print('Verified exact main qualification:', proof['id'], proof['run_attempt'], commit)
+      - name: Install qualified SDK and runtime
+        if: steps.qualification.outputs.reuse != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/dotnet-sdk-10.0.403-linux-x64.tar.gz"
+          curl -fsSL --retry 2 https://builds.dotnet.microsoft.com/dotnet/Sdk/10.0.403/dotnet-sdk-10.0.403-linux-x64.tar.gz -o "$archive"
+          printf '%s  %s\n' b7b3d8461cf98b07d2552ce9199702fa3ad010ac2671a5f8cd5136f7534e50f6855ba7bbb02b11494563f1d04156276a31cda1103b900e5eecd0d9473dc7b9c5 "$archive" | sha512sum --check
+          mkdir "$DOTNET_ROOT"
+          tar -xf "$archive" -C "$DOTNET_ROOT"
+          test "$("$DOTNET_ROOT/dotnet" --version)" = 10.0.403
+          "$DOTNET_ROOT/dotnet" --list-runtimes | tee "$RUNNER_TEMP/qualified-runtimes.txt"
+          test "$(wc -l < "$RUNNER_TEMP/qualified-runtimes.txt")" -eq 2
+          awk '$2 != "10.0.14" { exit 1 }' "$RUNNER_TEMP/qualified-runtimes.txt"
+          printf '%s\n' "$DOTNET_ROOT" >> "$GITHUB_PATH"
       - name: Build
-        run: dotnet build Rimlink.sln -c Release
+        if: steps.qualification.outputs.reuse != 'true'
+        run: '"$DOTNET_ROOT/dotnet" build Rimlink.sln -c Release'
       - name: Test
-        run: dotnet test Rimlink.sln -c Release --no-build --logger "trx;LogFileName=results.trx"
+        if: steps.qualification.outputs.reuse != 'true'
+        run: '"$DOTNET_ROOT/dotnet" test Rimlink.sln -c Release --no-build --logger "trx;LogFileName=results.trx"'
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && steps.qualification.outputs.reuse != 'true'
         with:
           name: test-results
           path: "**/TestResults/*.trx"
 
-  # Both images are built on every push, so a broken Dockerfile shows up before a release; only v* tags push them to GHCR.
   docker:
     if: github.event_name == 'push'
     needs: build-test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write
@@ -62,8 +136,52 @@ jobs:
         with:
           context: .
           file: ${{ matrix.file }}
-          push: ${{ env.PUSH == 'true' }}
+          load: true
+          push: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+      - name: Smoke isolated image and runtime
+        env:
+          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
+          IMAGE_KIND: ${{ matrix.image }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          image=${IMAGE_TAGS%%$'\n'*}
+          docker run --rm --entrypoint dotnet "$image" --list-runtimes | tee "$RUNNER_TEMP/image-runtimes.txt"
+          grep -q '^Microsoft.NETCore.App 10.0.14 ' "$RUNNER_TEMP/image-runtimes.txt"
+          awk '$2 != "10.0.14" { exit 1 }' "$RUNNER_TEMP/image-runtimes.txt"
+          if [ "$IMAGE_KIND" = rimlink-server ]; then
+            volume="rimlink-ci-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+            container="rimlink-smoke-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+            cleanup() {
+              docker rm -f "$container" >/dev/null 2>&1 || true
+              docker volume rm "$volume" >/dev/null 2>&1 || true
+            }
+            trap cleanup EXIT
+            docker volume create "$volume"
+            docker run -d --name "$container" --mount "type=volume,source=$volume,target=/data" -e Rimlink__Outposts__Enabled=false -p 127.0.0.1::25560 "$image"
+            port=$(docker port "$container" 25560/tcp | sed 's/.*://')
+            ready=false
+            for attempt in $(seq 1 45); do
+              if curl -fsSk "https://127.0.0.1:$port/health"; then ready=true; break; fi
+              printf 'Waiting for isolated server startup (%s/45)\n' "$attempt"
+              sleep 1
+            done
+            docker logs "$container"
+            test "$ready" = true
+            filesystem=$(docker exec "$container" cat /proc/self/mountinfo | awk '$5 == "/data" { for (i=1;i<=NF;i++) if ($i == "-") print $(i+1) }')
+            test "$filesystem" = ext4
+          fi
+      - name: Publish tested images
+        if: env.PUSH == 'true'
+        env:
+          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r image; do
+            test -z "$image" || docker push "$image"
+          done <<< "$IMAGE_TAGS"

@@ -1,15 +1,17 @@
 ---
 pageId: admins/passive-outposts
-contentRevision: 22
+contentRevision: 23
 ---
 
 # Аванпосты: готовность, администрирование и изолированная приёмка
 
 ## Product остаётся Pending {#usage}
 
-Версия проекта — 0.9.1; изменение версии само по себе не включает Product.
+Executor 10.0.14 использует отдельную квалификацию rimlink-outposts-schema-20261107-runtime14 и её профиль provider-v1; историческая квалификация 10.0.13 не изменена. Qualification, provider profile и recorded Framework должны совпадать одним точным tuple. Неизвестные patches и смешанные tuple отклоняются. Fresh/pre-DDL исполнение сохраняет точное равенство artifact hash/MVID/provider/recipe; после доказанного post-schema состояния legacy witness проверяется по прежнему no-DDL пути. Runtimeconfig сервера и CLI явно требует 10.0.14; не обходите эту политику runtime override.
 
-Версия 0.9.1 поставляет встроенный build-артефакт Pending. `Outposts:Enabled=true`, учётная запись администратора, миграция schema, подтверждённый манифест или успешная локальная сборка не квалифицируют Product. В релизе capability остаётся выключенной. Обновляйте сервер и клиентский мод вместе.
+Версия проекта — 0.9.2; изменение версии само по себе не включает Product.
+
+Версия 0.9.2 поставляет встроенный build-артефакт Pending. `Outposts:Enabled=true`, учётная запись администратора, миграция schema, подтверждённый манифест или успешная локальная сборка не квалифицируют Product. В релизе capability остаётся выключенной. Обновляйте сервер и клиентский мод вместе.
 
 Единый evaluator показывает настройку, десять фиксированных интеграций защиты и ревизии контрактов, квалификацию сборки, фактический startup state, доказанный цепочкой domain format, текущую schema, объявленную capability, восстановление custody и защиту истории. Unknown закрывает доступ. `Enabled=false` закрывает новые игровые операции, но не снимает custody fences. Мигрированный domain v1 — `FormatActivationRequired`, а не повреждённая история: доступны чтение и явная активация v2, обычные domain writers закрыты. `NoActiveWorld` остаётся административным состоянием. Только существующий доказанный Completed Recreate может связать successor world через отдельный вывод evaluator; ordinary recovery до реального Ready не открывается.
 

@@ -1,15 +1,17 @@
 ---
 pageId: admins/passive-outposts
-contentRevision: 22
+contentRevision: 23
 ---
 
 # Outposts: readiness, administration and isolated acceptance
 
 ## Product remains Pending {#usage}
 
-The project version is 0.9.1; changing the version does not enable Product.
+The 10.0.14 executor uses the separate qualification rimlink-outposts-schema-20261107-runtime14 and its provider-v1 profile; the historical 10.0.13 qualification is unchanged. Qualification, provider profile and recorded Framework must match as one exact tuple. Unknown patches and mixed tuples refuse. Fresh/pre-DDL execution preserves exact artifact hash/MVID/provider/recipe equality; after proven post-schema state, legacy witness validation retains the no-DDL path. The server/CLI runtimeconfigs require 10.0.14 explicitly; do not bypass this policy with a runtime override.
 
-Version 0.9.1 ships a Pending embedded build artifact. `Outposts:Enabled=true`, an admin account, schema migration, a confirmed manifest or a successful private build cannot qualify Product. The release keeps the capability disabled. Update the server and client mod together.
+The project version is 0.9.2; changing the version does not enable Product.
+
+Version 0.9.2 ships a Pending embedded build artifact. `Outposts:Enabled=true`, an admin account, schema migration, a confirmed manifest or a successful private build cannot qualify Product. The release keeps the capability disabled. Update the server and client mod together.
 
 The one readiness evaluator reports configuration, the fixed ten safety integrations and contract revisions, build qualification, actual startup state, chain-proved domain format, current schema, advertised capability, custody recovery and retained-history protection. Unknown fails closed. `Enabled=false` closes new gameplay, but never removes custody fences. Migrated domain v1 is `FormatActivationRequired`, not corrupt history: inspection and explicit v2 activation remain available while ordinary domain writers are closed. `NoActiveWorld` remains admin-only. Only the existing proved Completed Recreate path may bind a successor world through its separate evaluator gate; it does not enable ordinary recovery before real Ready.
 

@@ -27,8 +27,11 @@ internal static class OutpostRestoreSchemaMigration
     // Test-only asynchronous-flow observer: it can refuse work, never authorize or select a schema edge.
     internal static readonly AsyncLocal<Action<string>?> ExecutionProbe = new();
     internal const string FromMigration = "20261104093958_OutpostOrdinaryReturns";
-    private const string QualificationId = "rimlink-outposts-schema-20261105-0520";
-    private const string ProviderProfile = "rimlink-outposts-schema-20261105-0520/provider-v1";
+    private static readonly (string Framework, string Id, string ProviderProfile)[] Qualifications =
+    [
+        (".NET 10.0.13", "rimlink-outposts-schema-20261105-0520", "rimlink-outposts-schema-20261105-0520/provider-v1"),
+        (".NET 10.0.14", "rimlink-outposts-schema-20261107-runtime14", "rimlink-outposts-schema-20261107-runtime14/provider-v1")
+    ];
     private const string CrLfRecipe = "64358bbb34d8080afaaeeb745041b9fdeccadc28af8ce84666734ce3b8324525";
     private const string LfRecipe = "a5ee5d52c1d25f13d4f1d75e74f3cd02763b0667d81f3a74f23d62e7cea8b3f4";
     private static readonly (string Source, string Recipe, string Target)[] Edges =
@@ -43,13 +46,14 @@ internal static class OutpostRestoreSchemaMigration
         if (observed.Format != OutpostDomainFormat.V1 || observed.Schema.IsCurrent)
             throw Invalid("restore-schema-selection-invalid");
         var artifact = await ObserveExecutorAsync(source, ct);
+        var qualification = Qualifications.Single(q => q.Framework == artifact.Framework);
         byte[] recipe = Recipe(source);
         var edge = Edges.SingleOrDefault(e => "rimlink-outposts-schema/" + e.Source == observed.Schema.ProfileId
             && e.Recipe == Convert.ToHexStringLower(recipe));
         if (edge.Target is null) throw Invalid("restore-schema-recipe-unqualified");
         var step = new RestoreDomainStep(2, OutpostDomainFormat.V1, OutpostDomainFormat.V2, "Additive",
             new(observed.Schema.ProfileId, observed.Schema.Digest.ToByteArray()), OutpostDomainSchema.KnownBinding("rimlink-outposts-schema/" + edge.Target),
-            new(1, QualificationId, 1, FromMigration, OutpostDomainSchema.AdminMigrationId, recipe, ProviderProfile), artifact);
+            new(1, qualification.Id, 1, FromMigration, OutpostDomainSchema.AdminMigrationId, recipe, qualification.ProviderProfile), artifact);
         ValidateRecordedStep(step);
         return step;
     }
@@ -58,8 +62,9 @@ internal static class OutpostRestoreSchemaMigration
     {
         var migration = step.Migration; var artifact = step.Executor;
         if (step.Version != 2 || step.Action != "Additive" || step.From != OutpostDomainFormat.V1 || step.To != OutpostDomainFormat.V2
-            || migration is null || migration.Version != 1 || migration.QualificationVersion != 1 || migration.QualificationId != QualificationId
-            || migration.ProviderProfile != ProviderProfile || migration.FromMigration != FromMigration || migration.ToMigration != OutpostDomainSchema.AdminMigrationId
+            || migration is null || migration.Version != 1 || migration.QualificationVersion != 1
+            || !Qualifications.Any(q => q.Id == migration.QualificationId && q.ProviderProfile == migration.ProviderProfile && q.Framework == artifact?.Framework)
+            || migration.FromMigration != FromMigration || migration.ToMigration != OutpostDomainSchema.AdminMigrationId
             || migration.RecipeSha256 is not { Length: 32 } || !OutpostDomainSchema.IsKnownBinding(step.Source, false)
             || !OutpostDomainSchema.IsKnownBinding(step.Target, true) || !Edges.Any(e => "rimlink-outposts-schema/" + e.Source == step.Source.ProfileId
                 && "rimlink-outposts-schema/" + e.Target == step.Target.ProfileId && e.Recipe == Convert.ToHexStringLower(migration.RecipeSha256)))
@@ -157,7 +162,7 @@ internal static class OutpostRestoreSchemaMigration
         if (artifact is null || artifact.Version != 1 || artifact.ArtifactSha256 is not { Length: 32 }
             || artifact.ArtifactLength is <= 0 or > 64 * 1024 * 1024 || !Guid.TryParseExact(artifact.ModuleMvid, "D", out var mvid) || mvid == Guid.Empty
             || !Identity(artifact.AssemblyIdentity, "rimlink-server", null) || artifact.MigrationType != "Rimlink.Server.Storage.Migrations.OutpostAdminCommands"
-            || artifact.Framework != ".NET 10.0.13" || !Identity(artifact.EfProvider, "Microsoft.EntityFrameworkCore", "10.0.14.0")
+            || !Qualifications.Any(q => q.Framework == artifact.Framework) || !Identity(artifact.EfProvider, "Microsoft.EntityFrameworkCore", "10.0.14.0")
             || !Identity(artifact.ManagedProvider, "Microsoft.Data.Sqlite", "10.0.14.0") || !Identity(artifact.PclProvider, "SQLitePCLRaw.core", "2.1.13.3146")
             || artifact.StorageContract != "sqlite-local-v1" || artifact.Backend is not { } backend || backend.NativeVersion != "3.53.3"
             || backend.SourceId != "2026-06-26 20:14:12 d4c0e51e4aeb96955b99185ab9cde75c339e2c29c3f3f12428d364a10d782c62"

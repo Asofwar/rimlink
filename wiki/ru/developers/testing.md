@@ -1,13 +1,15 @@
 ---
 pageId: developers/testing
-contentRevision: 5
+contentRevision: 6
 ---
 
 # Тестирование и приёмка
 
-Применимость: Rimlink 0.9.1 · RimWorld 1.7 · протокол 1.
+Применимость: Rimlink 0.9.2 · RimWorld 1.7 · протокол 1.
 
 ## Как пользоваться {#usage}
+
+Для квалификации executor фиксируйте фактически загруженные .NET/ASP.NET runtime, provider и native SQLite identities. Выбор SDK сам по себе не выбирает runtime patch. У квалификации 10.0.14 отдельные точные QualificationId/ProviderProfile; legacy witness 10.0.13 остаётся самостоятельным. CI на main выполняет полный набор; тег может использовать только успешный завершённый main push того же commit с успешными шагами Build/Test, сохраняя run и attempt без заявления о повторном выполнении тестов.
 
 Сначала воспроизведи сценарий и увидь падающий целевой тест, затем минимальное исправление и повтор. Серверные тесты используют настоящий WebApplicationFactory; client-core тесты общаются с тестовым сервером. Полный набор: dotnet test Rimlink.sln -nologo -v q.
 

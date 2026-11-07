@@ -1,11 +1,11 @@
 ---
 pageId: players/raids-incidents
-contentRevision: 6
+contentRevision: 7
 ---
 
 # Рейды и платные события
 
-Применимость: Rimlink 0.9.1 · RimWorld 1.7 · протокол 1.
+Применимость: Rimlink 0.9.2 · RimWorld 1.7 · протокол 1.
 
 ## Как пользоваться {#usage}
 
