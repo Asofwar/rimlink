@@ -1296,7 +1296,7 @@
     "src/Rimlink.Server/Hosting/IncidentOptions.cs": "de32bdce190a02d6219be7c13fdd5b7dbe3bc420ced4298d4f867b75bda88733",
     "src/Rimlink.Server/Hosting/OutpostOptions.cs": "049e1f6f426bb62af6fe556b5001348086dcd11c1ebd5e4049ad9bf19bdc6a91",
     "src/Rimlink.Server/Hosting/PanelOptions.cs": "173c850c5c9b12b0400afae011ce1cfcf002da3869837de513b2bfd359d6343f",
-    "src/Rimlink.Server/Hosting/RimlinkApplication.cs": "305f58cc84e5a53b6a62b33f14992b6adc905f7adfdc5170daee05088045da85",
+    "src/Rimlink.Server/Hosting/RimlinkApplication.cs": "bd1d928e9809888e15ebc1ac1f877e0bc9f09caa0f53319bc21b1367502539cb",
     "src/Rimlink.Server/Hosting/SaveStorageOptions.cs": "63688671dbb5e88d1e6aee52f3ff1e68de1cc9ff7ad1877a5f1f9d6526383d6c",
     "src/Rimlink.Server/Hosting/ServerOptions.cs": "dc751b72dc5e8485231aa550882ac5672c90db01f2813b1dec3e795bed290ac9",
     "src/Rimlink.Server/Rest/AdminDirectoryEndpoints.cs": "df9b31b3953cd333b6148c2ad921fa519746bc1699463c678014fc043dd144a5",

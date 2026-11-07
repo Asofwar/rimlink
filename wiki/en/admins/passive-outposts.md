@@ -1,15 +1,15 @@
 ---
 pageId: admins/passive-outposts
-contentRevision: 21
+contentRevision: 22
 ---
 
 # Outposts: readiness, administration and isolated acceptance
 
 ## Product remains Pending {#usage}
 
-The project version is 0.9.0; changing the version does not enable Product.
+The project version is 0.9.1; changing the version does not enable Product.
 
-Version 0.9.0 ships a Pending embedded build artifact. `Outposts:Enabled=true`, an admin account, schema migration, a confirmed manifest or a successful private build cannot qualify Product. The release keeps the capability disabled. Update the server and client mod together.
+Version 0.9.1 ships a Pending embedded build artifact. `Outposts:Enabled=true`, an admin account, schema migration, a confirmed manifest or a successful private build cannot qualify Product. The release keeps the capability disabled. Update the server and client mod together.
 
 The one readiness evaluator reports configuration, the fixed ten safety integrations and contract revisions, build qualification, actual startup state, chain-proved domain format, current schema, advertised capability, custody recovery and retained-history protection. Unknown fails closed. `Enabled=false` closes new gameplay, but never removes custody fences. Migrated domain v1 is `FormatActivationRequired`, not corrupt history: inspection and explicit v2 activation remain available while ordinary domain writers are closed. `NoActiveWorld` remains admin-only. Only the existing proved Completed Recreate path may bind a successor world through its separate evaluator gate; it does not enable ordinary recovery before real Ready.
 
@@ -78,6 +78,8 @@ Independent G6 cases may use sequential preparation of one stopped stand: normal
 ## Limits and verification status {#limits}
 
 When RimWorld updates, rebuild the mod and the development companion against the installed build and repeat the isolated game checks on that build. A change in game version or gameplay content also requires a compatible confirmed manifest. The acceptance build used RimWorld 1.7.5000.
+
+Immutable trigger SQL in the outpost migrations uses explicit CRLF bytes, so an LF source checkout produces the same qualified catalog. The six existing profile IDs and digests are unchanged; unknown LF-only trigger catalogs still refuse without repair. Updating the assembly does not replace the executor of an already frozen restore plan.
 
 Real G1–G7 acceptance has completed on isolated two-client stands, followed by one final branch review and verification of all seven required fixes. Evidence preserves each source/build boundary: the affected game routes were checked in four real scenarios, and the final server-only valuation edge was checked separately. These results have not been resealed as a Product qualification for the release build. Product remains Pending/off. Builds and targeted unit/RPC checks do not replace two real clients. Never delete server.lock, save-storage.lock, an anchor, return fence or restore journal to force readiness.
 

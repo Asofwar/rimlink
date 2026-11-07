@@ -1,11 +1,11 @@
 ---
 pageId: players/economy
-contentRevision: 4
+contentRevision: 5
 ---
 
 # Wallet, mail and market
 
-Applies to: Rimlink 0.9.0 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.9.1 · RimWorld 1.7 · protocol 1.
 
 <img class="wiki-art" src="/illustrations/exchange.svg" alt="Exchanges use server escrow; deliveries arrive through the mailbox." width="960" height="440" />
 <p class="wiki-caption">Exchanges use server escrow; deliveries arrive through the mailbox.</p>

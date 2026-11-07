@@ -1,11 +1,11 @@
 ---
 pageId: admins/security-auth
-contentRevision: 4
+contentRevision: 5
 ---
 
 # TLS, authentication and permissions
 
-Applies to: Rimlink 0.9.0 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.9.1 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 

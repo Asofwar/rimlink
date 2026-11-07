@@ -1,11 +1,11 @@
 ---
 pageId: developers/protocol
-contentRevision: 3
+contentRevision: 4
 ---
 
 # Protocol and idempotency
 
-Applies to: Rimlink 0.9.0 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.9.1 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 

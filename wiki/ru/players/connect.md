@@ -1,11 +1,11 @@
 ---
 pageId: players/connect
-contentRevision: 4
+contentRevision: 5
 ---
 
 # Подключение и вход
 
-Применимость: Rimlink 0.9.0 · RimWorld 1.7 · протокол 1.
+Применимость: Rimlink 0.9.1 · RimWorld 1.7 · протокол 1.
 
 <img class="wiki-art" src="/illustrations/connect.svg" alt="Две колонии подключаются к серверу по защищённому соединению." width="960" height="440" />
 <p class="wiki-caption">Две колонии подключаются к серверу по защищённому соединению.</p>

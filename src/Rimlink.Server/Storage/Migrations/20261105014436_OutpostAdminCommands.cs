@@ -65,12 +65,12 @@ namespace Rimlink.Server.Storage.Migrations
                 column: "TransitionId",
                 unique: true);
 
-            migrationBuilder.Sql("""
-                CREATE TRIGGER outpost_admin_commands_no_update BEFORE UPDATE ON outpost_admin_commands
-                BEGIN SELECT RAISE(ABORT, 'outpost admin command evidence is immutable'); END;
-                CREATE TRIGGER outpost_admin_commands_no_delete BEFORE DELETE ON outpost_admin_commands
-                BEGIN SELECT RAISE(ABORT, 'outpost admin command evidence is immutable'); END;
-                """);
+            // The qualified schema preserves these literal CRLF bytes independently of source checkout endings.
+            migrationBuilder.Sql(
+                "CREATE TRIGGER outpost_admin_commands_no_update BEFORE UPDATE ON outpost_admin_commands\r\n" +
+                "BEGIN SELECT RAISE(ABORT, 'outpost admin command evidence is immutable'); END;\r\n" +
+                "CREATE TRIGGER outpost_admin_commands_no_delete BEFORE DELETE ON outpost_admin_commands\r\n" +
+                "BEGIN SELECT RAISE(ABORT, 'outpost admin command evidence is immutable'); END;");
         }
 
         /// <inheritdoc />

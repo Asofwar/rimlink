@@ -1,15 +1,17 @@
 ---
 pageId: developers/testing
-contentRevision: 4
+contentRevision: 5
 ---
 
 # Testing and acceptance
 
-Applies to: Rimlink 0.9.0 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.9.1 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 
 First reproduce the case and observe a failing targeted test, then make the minimal fix and rerun. Server tests use a real WebApplicationFactory; client-core tests talk to a test server. Full suite: dotnet test Rimlink.sln -nologo -v q.
+
+For byte-sensitive migrations, build from fresh Git LF sources on both Windows and Linux. Copying a Windows working tree with rsync preserves its CRLF bytes and does not reproduce a clean CI checkout. Check the exact migration SQL, complete real SQLite catalog and lineage, and the pinned additive recipe. Retain the original profiles and negative outcomes; a passing source copy is evidence only for those bytes.
 
 Open returning is not proof that the peer attached: assert on received events. Measure deadlines with Stopwatch, not DateTime.UtcNow. For timing changes, repeat on Linux/two CPUs where available.
 

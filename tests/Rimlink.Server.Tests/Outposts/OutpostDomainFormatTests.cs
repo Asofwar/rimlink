@@ -3,8 +3,10 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations.Operations;
 using Rimlink.Server.Application.Outposts;
 using Rimlink.Server.Storage;
+using Rimlink.Server.Storage.Migrations;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -13,6 +15,34 @@ namespace Rimlink.Server.Tests.Outposts;
 public sealed class OutpostDomainFormatTests(ITestOutputHelper output)
 {
     private const string V1Migration = "20261104093958_OutpostOrdinaryReturns";
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Trigger_migration_SQL_preserves_exact_qualified_CRLF_bytes(bool admin)
+    {
+        Migration migration = admin ? new OutpostAdminCommands() : new PassiveOutposts();
+        string table = admin ? "outpost_admin_commands" : "outpost_transitions";
+        string evidence = admin ? "outpost admin command" : "outpost transition";
+        string expected = $"CREATE TRIGGER {table}_no_update BEFORE UPDATE ON {table}\r\n" +
+            $"BEGIN SELECT RAISE(ABORT, '{evidence} evidence is immutable'); END;\r\n" +
+            $"CREATE TRIGGER {table}_no_delete BEFORE DELETE ON {table}\r\n" +
+            $"BEGIN SELECT RAISE(ABORT, '{evidence} evidence is immutable'); END;";
+
+        Assert.Equal(expected, Assert.Single(migration.UpOperations.OfType<SqlOperation>()).Sql);
+    }
+
+    [Fact]
+    public async Task Additive_migration_recipe_preserves_the_qualified_digest()
+    {
+        await using var f = await SchemaDatabase.Create(true);
+        string recipe = f.Db.GetService<IMigrator>().GenerateScript(V1Migration, OutpostDomainSchema.AdminMigrationId);
+        string digest = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(recipe)));
+        output.WriteLine("SCHEMA-MIGRATION-RECIPE-SHA256:" + digest);
+        Assert.Equal(OperatingSystem.IsWindows()
+            ? "64358bbb34d8080afaaeeb745041b9fdeccadc28af8ce84666734ce3b8324525"
+            : "a5ee5d52c1d25f13d4f1d75e74f3cd02763b0667d81f3a74f23d62e7cea8b3f4", digest);
+    }
 
     [Fact]
     public async Task Admitted_profiles_include_exact_cross_executor_qualification_evidence()
@@ -106,6 +136,30 @@ public sealed class OutpostDomainFormatTests(ITestOutputHelper output)
 
         await Assert.ThrowsAsync<InvalidDataException>(() => OutpostDomainSchema.ValidateAsync(f.Db, OutpostSchemaContext.CurrentRuntime, CancellationToken.None));
 
+        Assert.Equal(changed, await f.Catalog());
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task An_unqualified_LF_trigger_is_refused_without_rewriting_the_catalog(bool admin, bool update)
+    {
+        await using var f = await SchemaDatabase.Create(false);
+        string table = admin ? "outpost_admin_commands" : "outpost_transitions";
+        string evidence = admin ? "outpost admin command" : "outpost transition";
+        string action = update ? "UPDATE" : "DELETE";
+        string trigger = table + (update ? "_no_update" : "_no_delete");
+        await f.ExecuteFixtureSql($"DROP TRIGGER {trigger}; CREATE TRIGGER {trigger} BEFORE {action} ON {table}\n" +
+            $"BEGIN SELECT RAISE(ABORT, '{evidence} evidence is immutable'); END;");
+        byte[] changed = await f.Catalog();
+        await f.Db.Database.ExecuteSqlRawAsync("PRAGMA query_only=ON");
+
+        var error = await Assert.ThrowsAsync<InvalidDataException>(() => OutpostDomainSchema.ValidateAsync(f.Db,
+            OutpostSchemaContext.CurrentRuntime, CancellationToken.None));
+
+        Assert.Equal("outpost-schema-profile-mismatch", error.Message);
         Assert.Equal(changed, await f.Catalog());
     }
 

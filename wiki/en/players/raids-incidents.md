@@ -1,11 +1,11 @@
 ---
 pageId: players/raids-incidents
-contentRevision: 5
+contentRevision: 6
 ---
 
 # Raids and paid incidents
 
-Applies to: Rimlink 0.9.0 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.9.1 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 

@@ -1,11 +1,11 @@
 ---
 pageId: players/gifts-trades
-contentRevision: 3
+contentRevision: 4
 ---
 
 # Gifts and two-way trades
 
-Applies to: Rimlink 0.9.0 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.9.1 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 

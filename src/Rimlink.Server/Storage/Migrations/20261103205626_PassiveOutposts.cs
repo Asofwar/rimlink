@@ -453,12 +453,12 @@ namespace Rimlink.Server.Storage.Migrations
                 columns: new[] { "WorldId", "PlayerId", "SaveGeneration" });
 
             // Evidence is append-only even when a maintenance path bypasses EF tracking.
-            migrationBuilder.Sql("""
-                CREATE TRIGGER outpost_transitions_no_update BEFORE UPDATE ON outpost_transitions
-                BEGIN SELECT RAISE(ABORT, 'outpost transition evidence is immutable'); END;
-                CREATE TRIGGER outpost_transitions_no_delete BEFORE DELETE ON outpost_transitions
-                BEGIN SELECT RAISE(ABORT, 'outpost transition evidence is immutable'); END;
-                """);
+            // The qualified schema preserves these literal CRLF bytes independently of source checkout endings.
+            migrationBuilder.Sql(
+                "CREATE TRIGGER outpost_transitions_no_update BEFORE UPDATE ON outpost_transitions\r\n" +
+                "BEGIN SELECT RAISE(ABORT, 'outpost transition evidence is immutable'); END;\r\n" +
+                "CREATE TRIGGER outpost_transitions_no_delete BEFORE DELETE ON outpost_transitions\r\n" +
+                "BEGIN SELECT RAISE(ABORT, 'outpost transition evidence is immutable'); END;");
         }
 
         /// <inheritdoc />
