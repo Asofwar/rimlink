@@ -526,6 +526,8 @@ it in the player's language (`Rimlink.Refusal.<key>`), a client that does not kn
 
 ## 10. Discord bot
 
+Unreleased source fixes: a Discord 403/404 disables outbound delivery to that channel until the bot restarts, discarding its queued lines with a warning. Other channels continue, and temporary failures retain their batches for retry. User-supplied heading/small-text markers are escaped. These changes are unit-tested; the published 0.9.2 bot and live Discord integration are separate verification boundaries.
+
 The bot (`src/Rimlink.Discord`, image `ghcr.io/asofwar/rimlink-discord`) posts server events into Discord channels, bridges
 the public game chat with one Discord channel both ways, answers public queries and runs moderator and admin commands for
 Discord roles. It talks to the server only through the admin REST API, with a token of its own.

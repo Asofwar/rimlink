@@ -9,7 +9,7 @@ namespace Rimlink.Discord.Feed;
 public sealed class Formatter(Strings s)
 {
     private const char ZeroWidthSpace = '​';
-    private const string Markdown = "\\*_~`|>[";
+    private const string Markdown = "\\*_~`|>[#";
 
     /// <summary>
     /// Escapes Markdown and breaks mentions: a zero-width space after every <c>@</c> keeps <c>@everyone</c>, <c>@here</c> and

@@ -1,6 +1,6 @@
 ---
 pageId: admins/discord
-contentRevision: 5
+contentRevision: 6
 ---
 
 # Discord bot
@@ -52,6 +52,8 @@ This is a launch procedure, not evidence of a performed live Discord connection.
 ## Limits and safety {#limits}
 
 Discord.Token and Server.ApiToken are different secrets. Insecure defaults to false; true is only for isolation. Server scopes and Discord roles are independent. The bridge relays public chat, not direct/alliance messages. Restart/gaps require state refresh, not invented missing events.
+
+In the current source, outgoing delivery to a deleted or inaccessible channel stops after Discord returns 403/404: that channel's queue is discarded with a warning while other channels keep working. Restart the bot after restoring permissions or correcting the channel ID. Temporary errors, including 429 and 5xx, retain the batch for the next attempt. User-supplied `#` and `-#` are escaped along with other Markdown so text cannot become a heading or small-text caption. These fixes have unit-test coverage and have not shipped in release 0.9.2; they do not establish a live Discord connection test.
 
 ## See also {#related}
 

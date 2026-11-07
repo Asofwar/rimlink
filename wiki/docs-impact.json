@@ -1,1 +1,158 @@
-[]
+[
+  {
+    "pageId": "admins/getting-started",
+    "sources": [
+      "docs/server-setup.md"
+    ],
+    "reason": "Only the Discord section gains an explicitly unreleased note about outbound channel failures and user-text escaping. The configuration, hosting, authentication, API, CLI, backups, moderation and installation contracts covered by this article are unchanged; both Discord translations carry the complete behavior change.",
+    "reviewer": "change-author",
+    "base": "6b26142d002be85f3de5ec2511427d58fd1c31e7",
+    "after": {
+      "docs/server-setup.md": "3c877ca82c1540af5a91562040f3a726251a8f811bc57e2292993082b680b3ee"
+    }
+  },
+  {
+    "pageId": "admins/hosting",
+    "sources": [
+      "docs/server-setup.md"
+    ],
+    "reason": "Only the Discord section gains an explicitly unreleased note about outbound channel failures and user-text escaping. The configuration, hosting, authentication, API, CLI, backups, moderation and installation contracts covered by this article are unchanged; both Discord translations carry the complete behavior change.",
+    "reviewer": "change-author",
+    "base": "6b26142d002be85f3de5ec2511427d58fd1c31e7",
+    "after": {
+      "docs/server-setup.md": "3c877ca82c1540af5a91562040f3a726251a8f811bc57e2292993082b680b3ee"
+    }
+  },
+  {
+    "pageId": "admins/configuration",
+    "sources": [
+      "docs/server-setup.md"
+    ],
+    "reason": "Only the Discord section gains an explicitly unreleased note about outbound channel failures and user-text escaping. The configuration, hosting, authentication, API, CLI, backups, moderation and installation contracts covered by this article are unchanged; both Discord translations carry the complete behavior change.",
+    "reviewer": "change-author",
+    "base": "6b26142d002be85f3de5ec2511427d58fd1c31e7",
+    "after": {
+      "docs/server-setup.md": "3c877ca82c1540af5a91562040f3a726251a8f811bc57e2292993082b680b3ee"
+    }
+  },
+  {
+    "pageId": "admins/security-auth",
+    "sources": [
+      "docs/server-setup.md"
+    ],
+    "reason": "Only the Discord section gains an explicitly unreleased note about outbound channel failures and user-text escaping. The configuration, hosting, authentication, API, CLI, backups, moderation and installation contracts covered by this article are unchanged; both Discord translations carry the complete behavior change.",
+    "reviewer": "change-author",
+    "base": "6b26142d002be85f3de5ec2511427d58fd1c31e7",
+    "after": {
+      "docs/server-setup.md": "3c877ca82c1540af5a91562040f3a726251a8f811bc57e2292993082b680b3ee"
+    }
+  },
+  {
+    "pageId": "admins/modpacks",
+    "sources": [
+      "docs/server-setup.md"
+    ],
+    "reason": "Only the Discord section gains an explicitly unreleased note about outbound channel failures and user-text escaping. The configuration, hosting, authentication, API, CLI, backups, moderation and installation contracts covered by this article are unchanged; both Discord translations carry the complete behavior change.",
+    "reviewer": "change-author",
+    "base": "6b26142d002be85f3de5ec2511427d58fd1c31e7",
+    "after": {
+      "docs/server-setup.md": "3c877ca82c1540af5a91562040f3a726251a8f811bc57e2292993082b680b3ee"
+    }
+  },
+  {
+    "pageId": "admins/gameplay-policy",
+    "sources": [
+      "docs/server-setup.md"
+    ],
+    "reason": "Only the Discord section gains an explicitly unreleased note about outbound channel failures and user-text escaping. The configuration, hosting, authentication, API, CLI, backups, moderation and installation contracts covered by this article are unchanged; both Discord translations carry the complete behavior change.",
+    "reviewer": "change-author",
+    "base": "6b26142d002be85f3de5ec2511427d58fd1c31e7",
+    "after": {
+      "docs/server-setup.md": "3c877ca82c1540af5a91562040f3a726251a8f811bc57e2292993082b680b3ee"
+    }
+  },
+  {
+    "pageId": "admins/administration",
+    "sources": [
+      "docs/server-setup.md"
+    ],
+    "reason": "Only the Discord section gains an explicitly unreleased note about outbound channel failures and user-text escaping. The configuration, hosting, authentication, API, CLI, backups, moderation and installation contracts covered by this article are unchanged; both Discord translations carry the complete behavior change.",
+    "reviewer": "change-author",
+    "base": "6b26142d002be85f3de5ec2511427d58fd1c31e7",
+    "after": {
+      "docs/server-setup.md": "3c877ca82c1540af5a91562040f3a726251a8f811bc57e2292993082b680b3ee"
+    }
+  },
+  {
+    "pageId": "admins/cli",
+    "sources": [
+      "docs/server-setup.md"
+    ],
+    "reason": "Only the Discord section gains an explicitly unreleased note about outbound channel failures and user-text escaping. The configuration, hosting, authentication, API, CLI, backups, moderation and installation contracts covered by this article are unchanged; both Discord translations carry the complete behavior change.",
+    "reviewer": "change-author",
+    "base": "6b26142d002be85f3de5ec2511427d58fd1c31e7",
+    "after": {
+      "docs/server-setup.md": "3c877ca82c1540af5a91562040f3a726251a8f811bc57e2292993082b680b3ee"
+    }
+  },
+  {
+    "pageId": "admins/api",
+    "sources": [
+      "docs/server-setup.md"
+    ],
+    "reason": "Only the Discord section gains an explicitly unreleased note about outbound channel failures and user-text escaping. The configuration, hosting, authentication, API, CLI, backups, moderation and installation contracts covered by this article are unchanged; both Discord translations carry the complete behavior change.",
+    "reviewer": "change-author",
+    "base": "6b26142d002be85f3de5ec2511427d58fd1c31e7",
+    "after": {
+      "docs/server-setup.md": "3c877ca82c1540af5a91562040f3a726251a8f811bc57e2292993082b680b3ee"
+    }
+  },
+  {
+    "pageId": "admins/backup-recovery",
+    "sources": [
+      "docs/server-setup.md"
+    ],
+    "reason": "Only the Discord section gains an explicitly unreleased note about outbound channel failures and user-text escaping. The configuration, hosting, authentication, API, CLI, backups, moderation and installation contracts covered by this article are unchanged; both Discord translations carry the complete behavior change.",
+    "reviewer": "change-author",
+    "base": "6b26142d002be85f3de5ec2511427d58fd1c31e7",
+    "after": {
+      "docs/server-setup.md": "3c877ca82c1540af5a91562040f3a726251a8f811bc57e2292993082b680b3ee"
+    }
+  },
+  {
+    "pageId": "admins/updating",
+    "sources": [
+      "docs/server-setup.md"
+    ],
+    "reason": "Only the Discord section gains an explicitly unreleased note about outbound channel failures and user-text escaping. The configuration, hosting, authentication, API, CLI, backups, moderation and installation contracts covered by this article are unchanged; both Discord translations carry the complete behavior change.",
+    "reviewer": "change-author",
+    "base": "6b26142d002be85f3de5ec2511427d58fd1c31e7",
+    "after": {
+      "docs/server-setup.md": "3c877ca82c1540af5a91562040f3a726251a8f811bc57e2292993082b680b3ee"
+    }
+  },
+  {
+    "pageId": "admins/monitoring",
+    "sources": [
+      "docs/server-setup.md"
+    ],
+    "reason": "Only the Discord section gains an explicitly unreleased note about outbound channel failures and user-text escaping. The configuration, hosting, authentication, API, CLI, backups, moderation and installation contracts covered by this article are unchanged; both Discord translations carry the complete behavior change.",
+    "reviewer": "change-author",
+    "base": "6b26142d002be85f3de5ec2511427d58fd1c31e7",
+    "after": {
+      "docs/server-setup.md": "3c877ca82c1540af5a91562040f3a726251a8f811bc57e2292993082b680b3ee"
+    }
+  },
+  {
+    "pageId": "admins/troubleshooting",
+    "sources": [
+      "docs/server-setup.md"
+    ],
+    "reason": "Only the Discord section gains an explicitly unreleased note about outbound channel failures and user-text escaping. The configuration, hosting, authentication, API, CLI, backups, moderation and installation contracts covered by this article are unchanged; both Discord translations carry the complete behavior change.",
+    "reviewer": "change-author",
+    "base": "6b26142d002be85f3de5ec2511427d58fd1c31e7",
+    "after": {
+      "docs/server-setup.md": "3c877ca82c1540af5a91562040f3a726251a8f811bc57e2292993082b680b3ee"
+    }
+  }
+]

@@ -1,6 +1,6 @@
 ---
 pageId: index
-contentRevision: 2
+contentRevision: 3
 layout: doc
 sidebar: false
 aside: false
@@ -13,6 +13,8 @@ pageClass: wiki-home
 ## How to use this guide {#usage}
 
 Start with one of the three routes above or choose a mechanic from the catalog. Articles separate player actions, server policy and recovery. RU/EN switching opens the corresponding article.
+
+The current release is **0.9.2**. The server and CLI require .NET/ASP.NET runtime **10.0.14**; source builds use SDK **10.0.403**. Update the server and client mod together. Passive outposts ship as **Product Pending/OFF**: isolated acceptance is complete, but the release build is not qualified for activation. See the [player guide](players/passive-outposts.md) and [administrator guide](admins/passive-outposts.md).
 
 ## Limits and safety {#limits}
 

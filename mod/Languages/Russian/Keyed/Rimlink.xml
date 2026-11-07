@@ -95,6 +95,7 @@
   <Rimlink.Flow.Downloading>Загрузка вашего сохранения с сервера...</Rimlink.Flow.Downloading>
   <Rimlink.Flow.Uploading>Отправка последнего сохранения на сервер...</Rimlink.Flow.Uploading>
   <Rimlink.Flow.Error>Не удалось подключиться: {0}</Rimlink.Flow.Error>
+  <Rimlink.Flow.SaveMissingMods>Сохранению колонии нужны неактивные моды: {0}. Включите их перед входом. Сохранение не загружено.</Rimlink.Flow.SaveMissingMods>
   <Rimlink.Economy.CallLabel>Rimlink</Rimlink.Economy.CallLabel>
   <Rimlink.Economy.CallInfo>Рынок, ящик и кошелёк сервера {0}.</Rimlink.Economy.CallInfo>
   <Rimlink.Economy.CallOption>Rimlink: рынок и передачи</Rimlink.Economy.CallOption>

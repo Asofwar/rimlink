@@ -10,9 +10,11 @@ public sealed class FakeDiscordOut : IDiscordOut
     public List<(ulong Channel, string Text)> Sent { get; } = [];
     public List<(ulong Channel, ulong Message, string Emoji)> Reactions { get; } = [];
     public bool Fail { get; set; }
+    public Exception? Failure { get; set; }
 
     public Task Send(ulong channelId, string text, CancellationToken ct)
     {
+        if (Failure is { } failure) throw failure;
         if (Fail) throw new InvalidOperationException("discord is down");
         lock (Sent) Sent.Add((channelId, text));
         return Task.CompletedTask;

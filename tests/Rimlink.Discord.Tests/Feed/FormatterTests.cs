@@ -9,6 +9,14 @@ public class FormatterTests
 {
     private static readonly Formatter En = new(new Strings("en"));
 
+    [Theory]
+    [InlineData("# heading", "\\# heading")]
+    [InlineData("## heading", "\\#\\# heading")]
+    [InlineData("-# small text", "-\\# small text")]
+    [InlineData("hello\n# heading", "hello\n\\# heading")]
+    public void UserTextCannotIntroduceHeadings(string text, string expected) =>
+        Assert.Equal(expected, Formatter.Escape(text));
+
     /// <summary>One sample per event type of the bot spec §2 table (except chat.message).</summary>
     public static TheoryData<string, object> Samples => new()
     {

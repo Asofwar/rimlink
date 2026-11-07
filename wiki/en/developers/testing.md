@@ -1,6 +1,6 @@
 ---
 pageId: developers/testing
-contentRevision: 6
+contentRevision: 7
 ---
 
 # Testing and acceptance
@@ -34,6 +34,10 @@ Wiki: test:checks → check:content → check:reference → check:drift -- --bas
 | Browser acceptance | Search/navigation/layout at tested sizes | All browsers or actual OS zoom |
 
 For a bugfix observe RED on the original case, then GREEN. Wait for received stream events, not Open returning. Use Stopwatch deadlines; repeat Linux/two-CPU checks for timing/race changes where available.
+
+For Discord, distinguish permanent from temporary errors: 403/404 disable only outbound delivery to the affected channel until restart, while 429/5xx retain the batch. Test `#`, `##`, `-#` and new-line headings as user text. FakeDiscordOut can inject the exact failure without real tokens; this does not establish a live Discord connection.
+
+For the unreleased own-colony save-mod guard, test a save whose required mods exceed the server manifest, including administrator login. Missing mods must stop downloaded-save loading and local pending recovery before upload or pending cleanup. Restore the full mod set and verify actual map loading separately. Both branches were exercised in the real game: downloaded-save refusal/full-mod loading and a separate local-pending missing-DLC refusal with unchanged files, followed by acceptance of the exact snapshot once and successful loading. A normal exit also saved to the isolated server. Normal exit with a new save on the deployed server remains unverified; these cases do not establish two-player or outpost Product acceptance.
 
 ## How do I record reproducible acceptance? {#acceptance-record}
 

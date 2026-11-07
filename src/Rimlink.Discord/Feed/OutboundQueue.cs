@@ -1,3 +1,5 @@
+using System.Net;
+using Discord.Net;
 using Rimlink.Discord.Gateway;
 
 namespace Rimlink.Discord.Feed;
@@ -11,6 +13,7 @@ public sealed class OutboundQueue(IDiscordOut discord, ILogger<OutboundQueue> lo
     public const int MessageLimit = 2000;
 
     private readonly Dictionary<ulong, List<string>> pending = [];
+    private readonly HashSet<ulong> unavailable = [];
     private int dropped;
 
     public int Dropped => Volatile.Read(ref dropped);
@@ -21,6 +24,7 @@ public sealed class OutboundQueue(IDiscordOut discord, ILogger<OutboundQueue> lo
         if (line.Length > MessageLimit) line = line[..(MessageLimit - 1)] + "…";
         lock (pending)
         {
+            if (unavailable.Contains(channelId)) return;
             if (!pending.TryGetValue(channelId, out var lines)) pending[channelId] = lines = [];
             lines.Add(line);
             int over = lines.Count - maxLines;
@@ -55,6 +59,16 @@ public sealed class OutboundQueue(IDiscordOut discord, ILogger<OutboundQueue> lo
             try
             {
                 await discord.Send(channel, string.Join('\n', lines), ct);
+            }
+            catch (HttpException ex) when (ex.HttpCode is HttpStatusCode.Forbidden or HttpStatusCode.NotFound)
+            {
+                lock (pending)
+                {
+                    unavailable.Add(channel);
+                    dropped += lines.Count;
+                    if (pending.Remove(channel, out var rest)) dropped += rest.Count;
+                }
+                log.LogWarning(ex, "Discord channel {Channel} is unavailable; outbound delivery is disabled until the bot restarts", channel);
             }
             catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
             {

@@ -1,3 +1,5 @@
+using System.Net;
+using Discord.Net;
 using Microsoft.Extensions.Logging.Abstractions;
 using Rimlink.Discord.Feed;
 using Rimlink.Discord.Tests.Support;
@@ -10,6 +12,42 @@ public class OutboundQueueTests
     private readonly FakeDiscordOut discord = new();
 
     private OutboundQueue Queue(int maxLines = 500) => new(discord, NullLogger<OutboundQueue>.Instance, maxLines);
+
+    [Theory]
+    [InlineData(HttpStatusCode.Forbidden)]
+    [InlineData(HttpStatusCode.NotFound)]
+    public async Task PermanentChannelFailureDisablesOnlyThatOutboundChannel(HttpStatusCode status)
+    {
+        var queue = Queue();
+        queue.Enqueue(1, "unreachable");
+        discord.Failure = new HttpException(status, null!);
+        await queue.FlushAsync(CancellationToken.None);
+
+        discord.Failure = null;
+        queue.Enqueue(1, "still disabled");
+        queue.Enqueue(2, "other channel");
+        await queue.FlushAsync(CancellationToken.None);
+
+        Assert.Empty(discord.In(1));
+        Assert.Equal(["other channel"], discord.In(2));
+        Assert.Equal(1, queue.Dropped);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.TooManyRequests)]
+    [InlineData(HttpStatusCode.InternalServerError)]
+    [InlineData(HttpStatusCode.ServiceUnavailable)]
+    public async Task TemporaryDiscordFailureRetainsTheBatch(HttpStatusCode status)
+    {
+        var queue = Queue();
+        queue.Enqueue(1, "retained");
+        discord.Failure = new HttpException(status, null!);
+        await queue.FlushAsync(CancellationToken.None);
+        discord.Failure = null;
+        await queue.FlushAsync(CancellationToken.None);
+        Assert.Equal(["retained"], discord.In(1));
+        Assert.Equal(0, queue.Dropped);
+    }
 
     [Fact]
     public async Task LinesAreJoinedUpTo2000Chars()

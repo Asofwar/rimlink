@@ -1,6 +1,6 @@
 ---
 pageId: developers/localization
-contentRevision: 5
+contentRevision: 6
 ---
 
 # Localization
@@ -10,6 +10,8 @@ Applies to: Rimlink 0.9.2 · RimWorld 1.7 · protocol 1.
 ## Usage {#usage}
 
 Every mod-facing string is a keyed string under mod/Languages/English and Russian. Add both versions in the same task with matching keys/placeholders; do not translate technical identifiers. Inspect actual dialogs, label lengths and grammar in context.
+
+The current-source Rimlink.Flow.SaveMissingMods key takes one parameter, {0}: inactive mod names from the player's own save. Both RU and EN state that the map was not loaded and ask the player to enable the mods before reconnecting. Do not replace this refusal with a warning that still loads an incompatible map.
 
 The wiki uses matching pageIds and shared explicit anchors in RU/EN. Both articles carry the same contentRevision. A semantic change requires updating both versions and the manifest, not replacing English with a link to Russian. Navigation labels are translated too. Search runs locally and normalizes case and ё/е.
 

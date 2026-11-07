@@ -1,4 +1,6 @@
+using System.Net;
 using Discord;
+using Discord.Net;
 using Discord.WebSocket;
 
 namespace Rimlink.Discord.Gateway;
@@ -9,7 +11,7 @@ public sealed class DiscordOut(DiscordSocketClient client) : IDiscordOut
     public async Task Send(ulong channelId, string text, CancellationToken ct)
     {
         if (await client.GetChannelAsync(channelId, new RequestOptions { CancelToken = ct }) is not IMessageChannel channel)
-            throw new InvalidOperationException($"channel {channelId} is not a text channel the bot can see");
+            throw new HttpException(HttpStatusCode.NotFound, null!, reason: $"channel {channelId} is not a text channel the bot can see");
         await channel.SendMessageAsync(text, allowedMentions: AllowedMentions.None, options: new RequestOptions { CancelToken = ct });
     }
 

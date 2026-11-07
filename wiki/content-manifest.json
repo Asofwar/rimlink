@@ -4,7 +4,7 @@
   "pages": [
     {
       "id": "index",
-      "contentRevision": 2,
+      "contentRevision": 3,
       "sections": [
         "usage",
         "limits",
@@ -261,7 +261,7 @@
     },
     {
       "id": "players/connect",
-      "contentRevision": 6,
+      "contentRevision": 7,
       "sections": [
         "usage",
         "limits",
@@ -1500,7 +1500,7 @@
     },
     {
       "id": "admins/discord",
-      "contentRevision": 5,
+      "contentRevision": 6,
       "sections": [
         "usage",
         "limits",
@@ -1699,7 +1699,7 @@
     },
     {
       "id": "developers/client",
-      "contentRevision": 5,
+      "contentRevision": 6,
       "sections": [
         "usage",
         "limits",
@@ -1742,7 +1742,7 @@
     },
     {
       "id": "developers/localization",
-      "contentRevision": 5,
+      "contentRevision": 6,
       "sections": [
         "usage",
         "limits",
@@ -1774,7 +1774,7 @@
     },
     {
       "id": "developers/testing",
-      "contentRevision": 6,
+      "contentRevision": 7,
       "sections": [
         "usage",
         "limits",

@@ -95,6 +95,7 @@
   <Rimlink.Flow.Downloading>Downloading your save from the server...</Rimlink.Flow.Downloading>
   <Rimlink.Flow.Uploading>Sending your last save to the server...</Rimlink.Flow.Uploading>
   <Rimlink.Flow.Error>Could not join: {0}</Rimlink.Flow.Error>
+  <Rimlink.Flow.SaveMissingMods>This colony's save requires inactive mods: {0}. Enable them before joining. The save has not been loaded.</Rimlink.Flow.SaveMissingMods>
   <Rimlink.Economy.CallLabel>Rimlink</Rimlink.Economy.CallLabel>
   <Rimlink.Economy.CallInfo>Market, mailbox and wallet of {0}.</Rimlink.Economy.CallInfo>
   <Rimlink.Economy.CallOption>Rimlink: market and transfers</Rimlink.Economy.CallOption>

@@ -124,6 +124,7 @@ public static class LoginFlow
                 switch (action)
                 {
                     case LoginAction.UploadLocalThenLoad:
+                        await RequireSaveMods(candidate);
                         MainThread.Post(() => wait.Text = "Rimlink.Flow.Uploading".Translate());
                         if (localSnapshot is null) { pending.Set(); localSnapshot = pending.RecoverSnapshot(savePath)!; }
                         RimlinkSession.Outbox.ReconcileSnapshot(localSnapshot.Meta.Recovery ?? new SaveRecoveryData { Generation = localSnapshot.Meta.SaveGeneration },
@@ -152,6 +153,7 @@ public static class LoginFlow
                             () => new SaveTransfer(connection).DownloadSnapshotAsync(savePath, cts.Token))
                             ?? throw new IOException("the authoritative save is no longer available");
                         RequireCurrentLogin();
+                        await RequireSaveMods(savePath);
                         await MainThread.Get(() => { RequireCurrentLogin(); RimlinkSession.PendingDownload = downloaded; return true; });
                         pending.Clear();
                         await RecoverSelection(connection, savePath, cts.Token);
@@ -307,6 +309,16 @@ public static class LoginFlow
             return (false, reset ? Path.GetFileName(kept) : null);
         }
     }
+
+    private static Task<bool> RequireSaveMods(string path) => MainThread.Get(() =>
+    {
+        using var file = File.OpenRead(path);
+        var missing = Rimlink.Client.Visits.SaveMods.Missing(file,
+            id => ModLister.GetActiveModWithIdentifier(id, ignorePostfix: true) is not null);
+        if (missing.Count != 0)
+            throw new IOException("Rimlink.Flow.SaveMissingMods".Translate(string.Join(", ", missing)).ToString());
+        return true;
+    });
 
     private static async Task RecoverSelection(RimlinkConnection connection, string path, CancellationToken ct)
     {

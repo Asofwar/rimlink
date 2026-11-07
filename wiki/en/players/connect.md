@@ -1,6 +1,6 @@
 ---
 pageId: players/connect
-contentRevision: 6
+contentRevision: 7
 ---
 
 # Connecting and signing in
@@ -19,6 +19,8 @@ Add the host and port in **Multiplayer** (default 25560). Obtain the address fro
 Steam login uses a Steam ticket. Password login is available only when enabled by the server; credentials belong to that server. A new certificate is remembered after trust is granted. If its pin changes, confirm the certificate replacement with the administrator first.
 
 After login the server loads your saved colony, offers a new colony, or shows modpack differences. Resolve the listed differences and reconnect.
+
+The current source also checks the mods listed in your own save header. Inactive mods stop login with a list of names before the map loads or recovery operations run. The check also precedes uploading a local recovery save. Enable the required mods and reconnect; do not delete the save or recovery journal. This fix has not shipped in 0.9.2.
 
 After an administrator rolls back the colony, return to the main menu and sign in again. The client downloads the selected server save, keeps its original custody proof and saves future progress in the new write epoch. A newer local pending save is kept separately.
 
