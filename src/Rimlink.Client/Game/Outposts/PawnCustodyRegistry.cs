@@ -22,10 +22,12 @@ public sealed class PawnCustodyRegistry : GameComponent
     public PawnCustodyRegistry(Verse.Game game) { }
     public static PawnCustodyRegistry? CurrentRegistry => Current.Game?.GetComponent<PawnCustodyRegistry>();
     public static bool IsOwnGame => !Visits.VisitSession.InVisit && Live.LiveGuest.Session is null;
+    // A live guest still saves its own colony before the host's copy starts loading.
+    public static bool IsOwnSave => !Visits.VisitSession.InVisit && !Live.MirrorMode.Active;
 
     public override void ExposeData()
     {
-        if (Scribe.mode == LoadSaveMode.Saving && IsOwnGame && ValidateOwnGame().RecoveryRequired)
+        if (Scribe.mode == LoadSaveMode.Saving && IsOwnSave && ValidateOwnGame().RecoveryRequired)
             throw new InvalidDataException("ambiguous own pawn custody registry");
         Scribe_Collections.Look(ref entries, "rimlinkPawnCustody", LookMode.Deep);
         entries ??= [];
@@ -132,7 +134,7 @@ public sealed class PawnCustodyRegistry : GameComponent
 
     public RegistryValidation ValidateOwnGame()
     {
-        if (!IsOwnGame) return new([], []);
+        if (!IsOwnSave) return new([], []);
         var present = ScanPawns();
         var observations = new List<RegistryObservation>();
         foreach (var row in entries)

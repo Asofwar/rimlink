@@ -1,4 +1,6 @@
 using Google.Protobuf;
+using Rimlink.Client.Economy;
+using Rimlink.Client.Net;
 using Rimlink.Client.Outposts;
 using Rimlink.Protocol.V1;
 using Xunit;
@@ -21,6 +23,48 @@ public sealed class OutpostAdmissionCancellationTests
     }
     [Fact] public void Same_continuous_branch_can_request_a_no_removal_fence()
     { var r = Request(); Assert.Equal(OutpostCancelKind.AbortNoRemoval, OutpostAdmissionCancellation.Select(r, Metadata(r, false), Branch, false)); }
+
+    [Theory]
+    [InlineData(OutpostCancelKind.AbortNoRemoval)]
+    [InlineData(OutpostCancelKind.ReturnAfterRemoval)]
+    public void Cancellation_request_preserves_identity_and_durable_snapshot_proof(OutpostCancelKind kind)
+    {
+        var request = Request();
+        request.PreRemoval = new() { Scope = scope.Clone(), SnapshotId = Guid.NewGuid().ToString("N"), RawSha256 = ByteString.CopyFrom(new byte[32]) };
+        var cancel = OutpostAdmissionCancellation.CreateRequest(request, kind, 12);
+        Assert.Equal(request.Scope, cancel.Scope);
+        Assert.NotSame(request.Scope, cancel.Scope);
+        Assert.Equal(request.ClientRequestId, cancel.ClientRequestId);
+        Assert.Equal(request.IntentDigest, cancel.IntentDigest);
+        Assert.Equal(kind, cancel.Kind);
+        Assert.Equal(12, cancel.ExpectedRevision);
+        Assert.Equal(request.PreRemoval, cancel.CancellationProof);
+        Assert.NotSame(request.PreRemoval, cancel.CancellationProof);
+        if (kind == OutpostCancelKind.AbortNoRemoval)
+        {
+            Assert.Equal(Branch, cancel.ContinuousBranchId);
+        }
+        else
+        {
+            Assert.Empty(cancel.ContinuousBranchId);
+        }
+        var file = Path.Combine(Path.GetTempPath(), "rimlink-cancel-journal-" + Guid.NewGuid().ToString("N") + ".json");
+        try
+        {
+            var outbox = new TransferOutbox(file, new ConsoleLog(), 0, 0);
+            var entry = outbox.Prepare(cancel);
+            outbox.MarkReplyUnknown(entry.Id);
+            var retained = Assert.Single(new TransferOutbox(file, new ConsoleLog(), 0, 0).Entries);
+            Assert.Equal(cancel, TransferOutbox.Decode(retained));
+            Assert.True(retained.Outpost!.ReplyUnknown);
+        }
+        finally
+        {
+            File.Delete(file);
+            File.Delete(file + ".tmp");
+        }
+    }
+
     [Fact] public void Cold_load_does_not_claim_no_removal_from_a_live_pawn()
     { var r = Request(); Assert.Throws<InvalidDataException>(() => OutpostAdmissionCancellation.Select(r, Metadata(r, false), Guid.NewGuid().ToString(), false)); }
     [Fact] public void Removed_workers_can_only_be_returned_by_server_mail_not_restored_locally()

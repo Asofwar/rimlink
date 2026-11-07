@@ -21,7 +21,7 @@ public sealed class Dialog_OutpostStaffing(Caravan caravan) : Window
     {
         Text.Font = GameFont.Medium; Widgets.Label(new(0, 0, rect.width, 38), "Rimlink.Outposts.StaffingTitle".Translate()); Text.Font = GameFont.Small;
         Widgets.Label(new(0, 44, rect.width, 66), "Rimlink.Outposts.StaffingHelp".Translate(caravan.Tile.tileId));
-        if (Widgets.ButtonText(new(0, 116, rect.width, 32), (profile == OutpostProfile.Wood ? "Rimlink.Outposts.Wood" : "Rimlink.Outposts.Steel").Translate(), !OutpostOutgoing.Busy))
+        if (Widgets.ButtonText(new(0, 116, rect.width, 32), (profile == OutpostProfile.Wood ? "Rimlink.Outposts.Wood" : "Rimlink.Outposts.Steel").Translate(), active: !OutpostOutgoing.Busy))
             profile = profile == OutpostProfile.Wood ? OutpostProfile.Steel : OutpostProfile.Wood;
         var pawns = caravan.PawnsListForReading.Where(p => p.IsFreeColonist && p.Faction == Faction.OfPlayer).ToArray();
         var area = new Rect(0, 158, rect.width, rect.height - 302);
@@ -52,10 +52,10 @@ public sealed class Dialog_OutpostStaffing(Caravan caravan) : Window
         var pending = OutpostOutgoing.PendingAdmissionIds;
         if (pending.Count > 0)
         {
-            if (Widgets.ButtonText(new(0, rect.height - 70, rect.width, 32), "Rimlink.Outposts.CancelAdmission".Translate(), !OutpostOutgoing.Busy))
+            if (Widgets.ButtonText(new(0, rect.height - 70, rect.width, 32), "Rimlink.Outposts.CancelAdmission".Translate(), active: !OutpostOutgoing.Busy))
                 OutpostOutgoing.Cancel(pending[0]);
         }
-        else if (Widgets.ButtonText(new(0, rect.height - 70, rect.width, 32), (target is null ? "Rimlink.Outposts.Found" : "Rimlink.Outposts.Assign").Translate(), available))
+        else if (Widgets.ButtonText(new(0, rect.height - 70, rect.width, 32), (target is null ? "Rimlink.Outposts.Found" : "Rimlink.Outposts.Assign").Translate(), active: available))
             OutpostOutgoing.Begin(caravan, selected.ToArray(), target is null ? profile : own!.Profile, target);
         if (Widgets.ButtonText(new(0, rect.height - 32, rect.width, 32), "CloseButton".Translate())) Close();
     }

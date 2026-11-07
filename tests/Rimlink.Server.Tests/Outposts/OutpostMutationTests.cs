@@ -161,7 +161,7 @@ internal sealed class MutationHarness : IDisposable
         Parcels = new(Db, F.H.H.Authority, F.Service, Mailbox, clock, F.H.H.Files);
         Service = new(Db, F.H.H.Authority, F.Service, new(Db, F.H.H.Authority, clock, F.H.H.Files), Parcels, clock);
     }
-    public static async Task<MutationHarness> Create(int count = 1, bool secondCanMine = true, bool prepareOnly = false)
+    public static async Task<MutationHarness> Create(int count = 1, bool secondCanMine = true, bool prepareOnly = false, bool commit = true)
     {
         var h = new MutationHarness(await AssignmentHarness.Create());
         var metadata = h.F.Pre.Recovery.Outposts.Metadata.Clone(); metadata.WorkerCaptures.Clear(); metadata.Caravans.Clear();
@@ -194,7 +194,8 @@ internal sealed class MutationHarness : IDisposable
             PawnCustodyIds = { h.Workers.Select(w => w.PawnCustodyId) }, AssignmentIds = { h.Workers.Select(w => w.AssignmentId) } });
         metadata.Frontier.Add(new OutpostFrontierEntry { TransitionId = transition.Id, PredecessorId = transition.PredecessorId ?? "", TransitionDigest = ByteString.CopyFrom(transition.Digest) });
         h.Post = h.F.H.Snapshot(metadata); await h.F.H.Accept(h.Post);
-        await h.F.Service.CommitAsync(1, h.F.Proof(h.Post), default); return h;
+        if (commit) await h.F.Service.CommitAsync(1, h.F.Proof(h.Post), default);
+        return h;
     }
     public async Task<OutpostRow> Row() => await Db.Outposts.AsNoTracking().SingleAsync(o => o.Id == F.Request.OutpostId);
     public OutpostMutationRequest Request(OutpostMutationKind kind)

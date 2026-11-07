@@ -1,5 +1,7 @@
 # Rimlink — player guide
 
+Version 0.9.0 includes passive outposts with Product **Pending/off**. Real two-client G1–G7 acceptance and the final branch review are complete, including verification of the seven required fixes; the release build has not been qualified for Product activation. The complete [English](../wiki/en/players/passive-outposts.md) and [Russian](../wiki/ru/players/passive-outposts.md) guides describe the isolated acceptance flow, custody limits and recovery rules. Update the server and client mod together. A disabled capability must not be bypassed by replacing workers or resetting a protected colony.
+
 Alliances, shared silver, friends and public profiles: [Social window guide](community.md).
 
 Optional guild colors and disputed zones on the world map: [Guild influence](guild-influence.md) (0.8.0).
@@ -274,7 +276,8 @@ the result a moment later.
 - **As the host**: a letter says who arrived; raiders are hostile and your colonists fight them as usual, visitors are
   friendly. Your game pauses until the guest's view is ready, then runs at your speed; the panel in the top right shows the
   state and **Abort session**. You cannot select or command the guest's pawns.
-- **As the guest**: your own colony is saved and uploaded, then the host's snapshot loads. The panel shows the session, the
+- **As the guest**: your own colony is saved and uploaded, then the host's snapshot loads. The home save retains protected
+  worker UUIDs and receipts while the live session starts. Ambiguous custody stops this save. The panel shows the session, the
   tick and your pauses. Your pawns are in the colonist bar: select, draft, move, attack, give jobs, set work priorities and
   the schedule; everything else on the map is view only. You may pause a limited number of times (the server's limit, 10
   pauses of a minute by default); the host pauses freely. If your view falls behind, it asks the host for a fresh snapshot

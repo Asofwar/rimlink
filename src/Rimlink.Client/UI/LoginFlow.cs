@@ -56,11 +56,25 @@ public static class LoginFlow
                     throw new IOException(await MainThread.Get(() => "Rimlink.Delivery.Error.InstalledMismatch".Translate().ToString()));
                 if (!deliveryVerified) RimlinkLog.Instance.Warn("manual admin login: modpack delivery remains unverified; backups retained");
                 await MainThread.Get(() => { RimlinkSession.Begin(endpoint, connection, reply); return true; });
-                RimlinkSession.Outbox!.QuarantineOutsideScope(reply.SaveGeneration, reply.SaveWriteEpoch);
-                if (RimlinkSession.Outbox.HasUnresolved) throw new IOException(await MainThread.Get(() => "Rimlink.Refusal.Recovery.Required".Translate().ToString()));
+                var outbox = RimlinkSession.Outbox!;
+                outbox.QuarantineOutsideScope(reply.SaveGeneration, reply.SaveWriteEpoch);
+                if (reply.OutpostVersion == 0 && outbox.HasUnresolved)
+                    throw new IOException(await MainThread.Get(() => "Rimlink.Refusal.Recovery.Required".Translate().ToString()));
                 MainThread.Post(DevModeGuard.OnSessionBegan);
                 MainThread.Post(() => wait.Text = "Rimlink.Flow.LoadingWorld".Translate());
-                var world = await connection.World.GetAsync(new Empty(), cancellationToken: cts.Token);
+                var world = await connection.ForAuthentication(reply,
+                    () => connection.World.GetAsync(new Empty(), cancellationToken: cts.Token).ResponseAsync);
+                OutpostScopeMessage? outpostScope = null;
+                if (reply.OutpostVersion == OutpostRecoveryData.CurrentVersion)
+                {
+                    RequireCurrentLogin();
+                    if (!world.Exists) throw new InvalidDataException("outpost world context is unavailable");
+                    outpostScope = new OutpostScopeMessage { WorldInstanceId = world.WorldInstanceId, OwnerPlayerId = reply.Player.PlayerId,
+                        SaveGeneration = reply.SaveGeneration, SaveWriteEpoch = reply.SaveWriteEpoch, RestoreBoundary = reply.OutpostRestoreBoundary };
+                    outbox.QuarantineOutsideScope(outpostScope);
+                }
+                if (outbox.HasUnresolved)
+                    throw new IOException(await MainThread.Get(() => "Rimlink.Refusal.Recovery.Required".Translate().ToString()));
                 var objects = await connection.World.ListObjectsAsync(new Empty(), cancellationToken: cts.Token);
                 var history = await connection.Chat.HistoryAsync(new Empty(), cancellationToken: cts.Token);
                 await MainThread.Get(() =>
@@ -94,6 +108,15 @@ public static class LoginFlow
                     RimlinkLog.Instance.Warn($"local save generation {localMeta.SaveGeneration} differs from server generation {reply.SaveGeneration}; kept as {resetSave}");
                     localSnapshot = null; localMeta = null; candidate = savePath;
                 }
+                else if (outpostScope is not null && localSnapshot is not null && reply.HasSave)
+                {
+                    RequireCurrentLogin();
+                    if (pending.QuarantineOutsideRestoreBoundary(localSnapshot, outpostScope) is { } kept)
+                    {
+                        RimlinkLog.Instance.Warn($"pending outpost save from the previous restore boundary kept as {Path.GetFileName(kept)}");
+                        localSnapshot = null; localMeta = null; candidate = savePath;
+                    }
+                }
                 var action = LoginPlan.Decide(pending.IsSet, localMeta is not null && File.Exists(candidate), reply.HasSave, reply.HasSettlement,
                     localMeta?.SaveGeneration ?? 0, reply.SaveGeneration);
                 RimlinkLog.Instance.Info($"login plan: {action} (pending={pending.IsSet}, local={File.Exists(savePath)}, server save={reply.HasSave}, settlement={reply.HasSettlement})");
@@ -121,12 +144,15 @@ public static class LoginFlow
 
                     case LoginAction.DownloadThenLoad:
                         MainThread.Post(() => wait.Text = "Rimlink.Flow.Downloading".Translate());
+                        RequireCurrentLogin();
                         // A held operation may still need this cache as evidence; downloading must not erase it.
-                        if (File.Exists(savePath) && RimlinkSession.Outbox.Entries.Any(e => e.SnapshotId is not null || e.Phase is Rimlink.Client.Economy.OutboxPhase.Prepared or Rimlink.Client.Economy.OutboxPhase.Returning))
+                        if (File.Exists(savePath) && outbox.Entries.Any(e => e.SnapshotId is not null || e.Phase is Rimlink.Client.Economy.OutboxPhase.Prepared or Rimlink.Client.Economy.OutboxPhase.Returning))
                             RimlinkLog.Instance.Warn("recovery cache kept as " + pending.KeepLocalSave(savePath, "recovery"));
-                        var downloaded = await new SaveTransfer(connection).DownloadSnapshotAsync(savePath, cts.Token)
+                        var downloaded = await connection.ForAuthentication(reply,
+                            () => new SaveTransfer(connection).DownloadSnapshotAsync(savePath, cts.Token))
                             ?? throw new IOException("the authoritative save is no longer available");
-                        await MainThread.Get(() => { RimlinkSession.PendingDownload = downloaded; return true; });
+                        RequireCurrentLogin();
+                        await MainThread.Get(() => { RequireCurrentLogin(); RimlinkSession.PendingDownload = downloaded; return true; });
                         pending.Clear();
                         await RecoverSelection(connection, savePath, cts.Token);
                         MainThread.Post(() =>
@@ -166,6 +192,12 @@ public static class LoginFlow
                             }, keptForRollback);
                         });
                         return new LoginOutcome(LoginOutcomeKind.NewColony);
+                }
+                void RequireCurrentLogin()
+                {
+                    cts.Token.ThrowIfCancellationRequested();
+                    if (!ReferenceEquals(RimlinkSession.Connection, connection) || !ReferenceEquals(connection.Login, reply))
+                        throw new OperationCanceledException("save recovery belongs to a previous login");
                 }
                 throw new InvalidOperationException($"unknown login action {action}");
             }
@@ -280,13 +312,7 @@ public static class LoginFlow
     {
         var meta = SaveMetaReader.Read(path);
         var data = meta.Recovery ?? new SaveRecoveryData { Generation = meta.SaveGeneration };
-        bool accepted = true;
-        if (RimlinkSession.PendingDownload is { } proof)
-        {
-            accepted = data.WriteEpoch == proof.Header.SaveWriteEpoch && data.Generation == proof.Header.SaveGeneration;
-            data = data with { Generation = proof.Header.SaveGeneration, WriteEpoch = proof.Header.SaveWriteEpoch };
-        }
-        RimlinkSession.Outbox!.ReconcileSnapshot(data, accepted, meta.GameTick, selected: true);
+        RimlinkSession.Outbox!.ReconcileSelectedSnapshot(data, meta.GameTick, RimlinkSession.PendingDownload?.Header);
         if (RimlinkSession.Outbox.HasUnresolved) throw new IOException(await MainThread.Get(() => "Rimlink.Refusal.Recovery.Required".Translate().ToString()));
         var replay = await RimlinkSession.Recovery!.ReplayReadyAsync(ct);
         await LoadEconomy(connection, RimlinkSession.Outbox, connection.Login!.Player.PlayerId, ct);

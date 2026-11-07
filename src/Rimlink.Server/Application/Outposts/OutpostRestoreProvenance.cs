@@ -1,7 +1,9 @@
 using Google.Protobuf;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Rimlink.Protocol;
 using Rimlink.Protocol.V1;
+using Rimlink.Server.Backup;
 using Rimlink.Server.Storage.Entities;
 
 namespace Rimlink.Server.Application.Outposts;
@@ -22,7 +24,10 @@ public sealed partial class OutpostRestoreEvidence
         if (metadata.RestoreBridge is not { } bridge)
         {
             if (applicable.Length > 0 && metadata.RollbackBridge is null && metadata.RollbackFromViewBridge is null)
-                throw Invalid("restore-fresh-snapshot-bridge-missing");
+            {
+                if (applicable.Length != 1) throw Invalid("restore-snapshot-authorization-missing-or-ambiguous");
+                await RequireLegacyRestoreSourceAsync(applicable[0].Plan, metadata.Scope, ct);
+            }
             return null;
         }
         _ = OutpostSourceGraph.ValidateRoot(bridge);
@@ -41,6 +46,24 @@ public sealed partial class OutpostRestoreEvidence
             || metadata.Caravans.Any(c => original.Caravans.Any(o => o.ClientRequestId == c.ClientRequestId) && !original.Caravans.Any(o => o.Equals(c))))
             throw Invalid("restore-snapshot-historical-capture-changed");
         return original;
+    }
+
+    private async Task RequireLegacyRestoreSourceAsync(RestoreMainPlan plan, OutpostScopeMessage scope, CancellationToken ct)
+    {
+        var original = scope.Clone();
+        original.RestoreBoundary = plan.Cut.Authority.RestoreBoundary;
+        try
+        {
+            // Classify the retained cut. New protected snapshots in the restored scope do not change its origin.
+            await OutpostRestoreProcedure.ValidateRetainedCutAsync(Path.Combine(files.DataRoot, plan.SourceDirectory), plan.Cut,
+                async source =>
+                {
+                    if (await CutLifecycleEvidence(source).HasLocalProtectedHistoryAsync(original, ct))
+                        throw Invalid("restore-fresh-snapshot-bridge-missing");
+                }, ct, ManifestBytes(plan));
+        }
+        catch (Exception error) when (error is IOException or InvalidDataException or SqliteException)
+        { throw Invalid("restore-fresh-snapshot-legacy-source-unavailable"); }
     }
 
     internal async Task<bool> HistoricalTombstoneMatchesAsync(OutpostSaveMetadata metadata, OutpostSaveMetadata? original,

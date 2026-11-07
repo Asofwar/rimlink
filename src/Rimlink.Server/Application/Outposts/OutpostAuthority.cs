@@ -11,10 +11,14 @@ using Rimlink.Server.Storage;
 
 namespace Rimlink.Server.Application.Outposts;
 
-public sealed class OutpostAuthority(RimlinkDbContext db, OutpostAnchorStore anchor, SaveFiles files, ColonyLocks owners, OutpostFeature feature)
+public sealed partial class OutpostAuthority(RimlinkDbContext db, OutpostAnchorStore anchor, SaveFiles files, ColonyLocks owners, OutpostFeature feature)
 {
     internal Action<string>? CommitCheckpoint { get; set; }
     internal Exception? LastOpenFailure { get; private set; }
+    internal OutpostStartupResult StartupObservation => feature.Startup;
+    internal OutpostReadinessDecision ReadinessObservation => feature.Readiness;
+    internal void RequireRuntimeCustody() => feature.RequireCustodyReadiness();
+    internal bool IsRuntimeComposition => feature.RuntimeComposition;
 
     public async Task<OutpostLease> AcquireAsync(IReadOnlyList<long> ownerIds, CancellationToken ct)
     {
@@ -60,7 +64,7 @@ public sealed class OutpostAuthority(RimlinkDbContext db, OutpostAnchorStore anc
         return await BeginCoreAsync(lease, intent, operation is null ? null : step.OperationId, ct, intent.Kind == "WorldBind");
     }
 
-    private async Task<OutpostDomainTransaction> BeginCoreAsync(OutpostLease lease, TransitionIntent intent, string? lifecycleOperation, CancellationToken ct, bool bindSuccessor = false)
+    private async Task<OutpostDomainTransaction> BeginCoreAsync(OutpostLease lease, TransitionIntent intent, string? lifecycleOperation, CancellationToken ct, bool bindSuccessor = false, OutpostAdminIntent? admin = null)
     {
         lease.Require(this);
         if (intent.PlayerId < 0 || (intent.PlayerId > 0 && !lease.CoversOwner(intent.PlayerId)))
@@ -68,7 +72,8 @@ public sealed class OutpostAuthority(RimlinkDbContext db, OutpostAnchorStore anc
         if (db.Database.CurrentTransaction is not null || db.ChangeTracker.HasChanges())
             throw new InvalidOperationException("outpost-clean-domain-context-required");
         var startup = await OpenHeldAsync(lease.Anchor, ct, lifecycleOperation);
-        if (startup.State != (bindSuccessor ? OutpostStartupState.NoActiveWorld : OutpostStartupState.Ready))
+        if (admin is null ? startup.State != (bindSuccessor ? OutpostStartupState.NoActiveWorld : OutpostStartupState.Ready)
+            : startup.State is not (OutpostStartupState.Ready or OutpostStartupState.NoActiveWorld))
             throw new InvalidOperationException("outpost-authority-not-ready");
         AnchorRecord current = anchor.Read(lease.Anchor)!;
         if (current.Committed != intent.ExpectedHead || current.WorldId != intent.WorldId || current.RestoreBoundary != intent.RestoreBoundary)
@@ -77,7 +82,8 @@ public sealed class OutpostAuthority(RimlinkDbContext db, OutpostAnchorStore anc
         {
             Id = intent.Id, WorldId = intent.WorldId, PlayerId = intent.PlayerId, SaveGeneration = intent.SaveGeneration,
             RestoreBoundary = intent.RestoreBoundary, Kind = intent.Kind, Actor = intent.Actor,
-            OldHeadId = current.Committed.Id, NextHeadId = Guid.NewGuid().ToString("D"), CreatedAt = DateTime.UtcNow,
+            OldHeadId = current.Committed.Id, NextHeadId = admin?.Allocation.NextHeadId ?? Guid.NewGuid().ToString("D"),
+            CreatedAt = admin?.Allocation.At ?? DateTime.UtcNow,
             PawnCustodyId = intent.PawnCustodyId, OutpostId = intent.OutpostId, Intent = intent.Intent.ToByteArray()
         };
         OutpostTransitionDigest.Compute(current.Committed, transition);
@@ -90,7 +96,12 @@ public sealed class OutpostAuthority(RimlinkDbContext db, OutpostAnchorStore anc
             var row = await db.OutpostAuthority.SingleAsync(ct);
             await db.Entry(row).ReloadAsync(ct);
             transition.PredecessorId = row.TransitionId;
-            return new(this, db, anchor, feature, lease, current, transition, row, transaction, opened, lease.LifecycleOperationId);
+            var domain = await ReadStoredChainAsync(db, files, row, current.Committed, currentRuntime: true, ct);
+            var format = admin is null ? domain.Format : await ValidateAdminCommandHeldAsync(lease, admin, row, domain, ct);
+            if (bindSuccessor) feature.RequireSuccessorReadiness();
+            else if (admin is null && (intent.Kind is not ("StageManifest" or "ConfirmManifest") || await db.PawnCustody.AnyAsync(ct)))
+                RequireRuntimeCustody();
+            return new(this, db, anchor, feature, lease, current, transition, row, transaction, opened, lease.LifecycleOperationId, format);
         }
         catch
         {
@@ -114,14 +125,24 @@ public sealed class OutpostAuthority(RimlinkDbContext db, OutpostAnchorStore anc
         private readonly Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction;
         private readonly bool opened;
         private readonly string? lifecycleOperation;
+        private readonly OutpostDomainFormat format;
         private bool attempted, completed, disposed;
 
         internal OutpostDomainTransaction(OutpostAuthority owner, RimlinkDbContext db, OutpostAnchorStore anchor, OutpostFeature feature,
             OutpostLease lease, AnchorRecord current, OutpostTransition transition, Storage.Entities.OutpostAuthority row,
-            Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction, bool opened, string? lifecycleOperation)
+            Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction, bool opened, string? lifecycleOperation, OutpostDomainFormat format)
         {
             this.owner = owner; this.db = db; this.anchor = anchor; this.feature = feature; this.lease = lease;
-            this.current = current; this.transition = transition; this.row = row; this.transaction = transaction; this.opened = opened; this.lifecycleOperation = lifecycleOperation;
+            this.current = current; this.transition = transition; this.row = row; this.transaction = transaction; this.opened = opened; this.lifecycleOperation = lifecycleOperation; this.format = format;
+        }
+
+        internal void RequireAdminStage(RimlinkDbContext context, OutpostLease held, string id, DateTime at, string kind)
+        {
+            lease.Require(owner);
+            if (disposed || attempted || !ReferenceEquals(db, context) || !ReferenceEquals(lease, held)
+                || !ReferenceEquals(db.Database.CurrentTransaction, transaction) || transition.Id != id
+                || transition.CreatedAt != at || transition.Kind != kind)
+                throw new InvalidOperationException("outpost-cancellation-requires-owned-transaction");
         }
 
         public async Task<AuthorityHead> CompleteAsync(ByteString finalIntent, CancellationToken ct)
@@ -144,12 +165,14 @@ public sealed class OutpostAuthority(RimlinkDbContext db, OutpostAnchorStore anc
                     feature.Startup = new(OutpostStartupState.Maintenance, evidenceReason);
                     throw new OutpostEvidenceUnavailableException(evidenceReason);
                 }
-                transition.Effects = (await OutpostDomainDigest.ComputeAsync(db, ct)).ToByteArray();
+                transition.Effects = (await OutpostDomainDigest.ComputeAsync(db, format, ct)).ToByteArray();
                 transition.Digest = OutpostTransitionDigest.Compute(current.Committed, transition).ToByteArray();
                 var next = new AuthorityHead(transition.NextHeadId, ByteString.CopyFrom(transition.Digest));
                 db.OutpostTransitions.Add(transition);
                 row.HeadId = next.Id; row.HeadDigest = next.Digest.ToByteArray(); row.TransitionId = transition.Id;
                 await db.SaveChangesAsync(ct);
+                if (transition.Kind is "DomainFormatActivated" or "AdminManifestConfirmed" or "AdminResolved")
+                    _ = await owner.ValidateAdminHeadAsync(row, next, ct);
                 ct.ThrowIfCancellationRequested();
                 owner.CommitCheckpoint?.Invoke("BeforePending");
                 // Every write attempt may already be durable: from here cancellation cannot compensate.
@@ -160,6 +183,7 @@ public sealed class OutpostAuthority(RimlinkDbContext db, OutpostAnchorStore anc
                 owner.CommitCheckpoint?.Invoke("AfterDomainCommit");
                 anchor.WriteDurable(lease.Anchor, current with { WorldId = nextWorld, Committed = next }, CancellationToken.None);
                 owner.CommitCheckpoint?.Invoke("AfterExternalCommit");
+                feature.ObserveDomain(format, true);
                 completed = true;
                 return next;
             }
@@ -249,6 +273,7 @@ public sealed class OutpostAuthority(RimlinkDbContext db, OutpostAnchorStore anc
             CommitCheckpoint?.Invoke("AfterDomainCommit");
             anchor.WriteDurable(authorityLease, seed with { Committed = next }, CancellationToken.None);
             CommitCheckpoint?.Invoke("AfterExternalCommit");
+            feature.ObserveDomain(OutpostDomainFormat.V1, true);
             return feature.Startup = new(OutpostStartupState.Ready);
         }
         catch
@@ -327,7 +352,8 @@ public sealed class OutpostAuthority(RimlinkDbContext db, OutpostAnchorStore anc
         try
         {
             await OpenDurableDomainAsync(ct);
-            try { await ValidateStoredChainAsync(db, files, row, expected, ct); }
+            StoredDomainObservation domain;
+            try { domain = await ReadStoredChainAsync(db, files, row, expected, currentRuntime: true, ct); }
             catch (OutpostEvidenceUnavailableException error)
             { return feature.Startup = new(OutpostStartupState.Maintenance, error.Message); }
             if (record.Pending is { } uncommitted && !pendingCommitted &&
@@ -338,6 +364,7 @@ public sealed class OutpostAuthority(RimlinkDbContext db, OutpostAnchorStore anc
                 return feature.Startup = new(OutpostStartupState.Maintenance, evidenceReason);
             if (record.Pending is not null)
                 anchor.WriteDurable(authorityLease, record with { WorldId = row.WorldId, Committed = expected, Pending = null }, CancellationToken.None);
+            feature.ObserveDomain(domain.Format, domain.Schema.IsCurrent);
             return feature.Startup = new(await new OutpostLifecycleEvidence(db, files).IsNoActiveWorldAsync(ct)
                 ? OutpostStartupState.NoActiveWorld : OutpostStartupState.Ready);
         }
@@ -347,64 +374,10 @@ public sealed class OutpostAuthority(RimlinkDbContext db, OutpostAnchorStore anc
         }
     }
 
-    // Query-only: startup and offline archive inspection verify the SAME retained main-chain prefix.
+    // Historical callers cannot grant a writer; runtime startup explicitly requires the migrated schema.
     internal static async Task ValidateStoredChainAsync(RimlinkDbContext db, SaveFiles files,
-        Rimlink.Server.Storage.Entities.OutpostAuthority row, AuthorityHead expected, CancellationToken ct)
-    {
-        var transitions = await db.OutpostTransitions.AsNoTracking().ToListAsync(ct);
-        AuthorityHead head = GenesisHead();
-        string? predecessor = null;
-        OutpostTransition? tip = null;
-        string? boundWorld = null;
-        string? boundInstallation = null;
-        string? boundBoundary = null;
-        while (transitions.Count != 0)
-        {
-            var matches = transitions.Where(t => t.OldHeadId == head.Id).ToArray();
-            if (matches.Length != 1)
-                throw new OutpostEvidenceUnavailableException("authority-chain-disconnected-or-forked");
-            var transition = matches[0];
-            if (transition.PredecessorId != predecessor || (predecessor is null && transition.Kind != "Initialize") ||
-                !OutpostTransitionDigest.Compute(head, transition).Span.SequenceEqual(transition.Digest))
-                throw new OutpostEvidenceUnavailableException("authority-chain-digest-mismatch");
-            if (predecessor is null)
-            {
-                var initial = OutpostRestoreEvidence.Decode<InitialBinding>(transition.Intent);
-                if (!Guid.TryParseExact(initial.Installation, "D", out var installation) || installation == Guid.Empty
-                    || !Guid.TryParseExact(initial.Boundary, "D", out var boundary) || boundary == Guid.Empty
-                    || initial.World != transition.WorldId || initial.Boundary != transition.RestoreBoundary)
-                    throw new OutpostEvidenceUnavailableException("authority-chain-initial-binding-mismatch");
-                boundInstallation = initial.Installation; boundBoundary = initial.Boundary; boundWorld = initial.World;
-            }
-            else if (transition.Kind == "BulkRestore")
-            {
-                var plan = OutpostRestoreEvidence.Plan(transition);
-                if (plan.Cut.Authority.InstallationId != boundInstallation || plan.Cut.Authority.RestoreBoundary != boundBoundary
-                    || plan.Cut.Authority.WorldId != boundWorld || !plan.Cut.Authority.HeadDigest.AsSpan().SequenceEqual(head.Digest.Span))
-                    throw new OutpostEvidenceUnavailableException("authority-chain-restore-source-mismatch");
-                boundInstallation = plan.Journal.Selection.TargetInstallationId; boundBoundary = plan.Journal.Selection.TargetBoundary;
-            }
-            else if (transition.Kind == "Initialize" || transition.RestoreBoundary != boundBoundary)
-                throw new OutpostEvidenceUnavailableException("authority-chain-identity-mismatch");
-            if (transition.WorldId != boundWorld)
-                throw new OutpostEvidenceUnavailableException("authority-chain-world-mismatch");
-            if (transition.Kind == "WorldBind")
-            {
-                boundWorld = await new OutpostLifecycleEvidence(db, files).ReadWorldBindTargetAsync(transition, ct);
-            }
-            head = new(transition.NextHeadId, ByteString.CopyFrom(transition.Digest));
-            predecessor = transition.Id;
-            tip = transition;
-            transitions.Remove(transition);
-        }
-        ByteString domainDigest = await OutpostDomainDigest.ComputeAsync(db, ct);
-        if (tip is null || boundWorld != row.WorldId || boundInstallation != row.InstallationId || boundBoundary != row.RestoreBoundary
-            || head != expected || tip.Id != row.TransitionId ||
-            !tip.Effects.AsSpan().SequenceEqual(domainDigest.Span))
-            throw new OutpostEvidenceUnavailableException("authority-protected-state-mismatch");
-    }
-
-    private sealed record InitialBinding(string Installation, string Boundary, string World);
+        Rimlink.Server.Storage.Entities.OutpostAuthority row, AuthorityHead expected, CancellationToken ct) =>
+        _ = await ReadStoredChainAsync(db, files, row, expected, currentRuntime: false, ct);
 
     private Task<string> ReadWorldBindTargetAsync(OutpostTransition transition, CancellationToken ct) =>
         new OutpostLifecycleEvidence(db, files).ReadWorldBindTargetAsync(transition, ct);
@@ -442,5 +415,12 @@ public sealed class OutpostAuthority(RimlinkDbContext db, OutpostAnchorStore anc
         await db.OutpostParcelLinks.AnyAsync(ct) || await db.OutpostSnapshotLinks.AnyAsync(ct) ||
         await db.OutpostManifests.AnyAsync(ct) || await db.OutpostAuthority.AnyAsync(ct) ||
         await db.OutpostRestoreAuthorizations.AnyAsync(ct) || await db.OutpostDeliveryAttempts.AnyAsync(ct) ||
-        await db.OutpostLifecycleOperations.AnyAsync(ct) || await db.OutpostOrdinaryReturns.AnyAsync(ct);
+        await db.OutpostLifecycleOperations.AnyAsync(ct) || await db.OutpostOrdinaryReturns.AnyAsync(ct) || await HasAdminHistoryAsync(ct);
+
+    private async Task<bool> HasAdminHistoryAsync(CancellationToken ct)
+    {
+        // Admit the complete actual catalog before querying the v2-only table; a historical pre-admin v1 cut has no such reader.
+        var schema = await OutpostDomainSchema.ObserveAsync(db, ct);
+        return schema.IsCurrent && await db.OutpostAdminCommands.AnyAsync(ct);
+    }
 }

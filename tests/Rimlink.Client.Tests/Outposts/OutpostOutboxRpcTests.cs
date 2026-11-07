@@ -72,6 +72,38 @@ public sealed partial class OutpostOutboxTests
     }
 
     [Fact]
+    public async Task Protected_delivery_has_a_finite_budget_for_retained_restore_validation()
+    {
+        using var fixture = await OutpostClientFixture.Create();
+        string? timeout = null;
+        using var traffic = new OutpostTraffic(fixture.Server.Server.CreateHandler())
+        {
+            Observe = call =>
+            {
+                if (call.RequestUri!.AbsolutePath == "/rimlink.v1.Outposts/BeginDelivery")
+                    timeout = call.Headers.GetValues("grpc-timeout").Single();
+            }
+        };
+        await using var session = await OutpostTraffic.Connect(fixture, traffic);
+        var client = new Rimlink.Client.Outposts.OutpostClient(session.Connection);
+        var request = await fixture.CloseForDelivery();
+        using var cancelled = new CancellationTokenSource();
+        cancelled.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => client.BeginDelivery(request, cancelled.Token));
+        Assert.Null(timeout);
+
+        Assert.False((await client.BeginDelivery(request, default)).AckOnly);
+        Assert.NotNull(timeout);
+        decimal units = decimal.Parse(timeout[..^1], System.Globalization.CultureInfo.InvariantCulture);
+        decimal seconds = units * (timeout[^1] switch
+        {
+            'H' => 3600m, 'M' => 60m, 'S' => 1m, 'm' => .001m, 'u' => .000001m, 'n' => .000000001m,
+            _ => throw new InvalidDataException("invalid gRPC timeout unit"),
+        });
+        Assert.InRange(seconds, 60m, 120m);
+    }
+
+    [Fact]
     public async Task Accepted_canonical_receipt_is_ack_only_and_started_authorization_never_replays_spawn()
     {
         using var fixture = await OutpostClientFixture.Create(); using var traffic = new OutpostTraffic(fixture.Server.Server.CreateHandler());

@@ -110,6 +110,7 @@ public sealed class SafeTradesSweep(IServiceScopeFactory scopes, ILogger<SafeTra
                 try
                 {
                     using var scope = scopes.CreateScope();
+                    if (!Rimlink.Server.Hosting.OutpostDomainHostedServices.CanWrite(scope.ServiceProvider)) continue;
                     int gifts = await scope.ServiceProvider.GetRequiredService<GiftService>().RefuseOverdue(DateTime.UtcNow);
                     if (gifts > 0) log.LogInformation("Refused {Count} gifts left without an answer", gifts);
                     int trades = await scope.ServiceProvider.GetRequiredService<Trades.TradeService>().ExpireDue(DateTime.UtcNow);

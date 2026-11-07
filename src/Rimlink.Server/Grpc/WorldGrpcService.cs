@@ -8,7 +8,7 @@ using Rimlink.Server.Hosting;
 
 namespace Rimlink.Server.Grpc;
 
-public sealed class WorldGrpcService(WorldService worlds, IOptions<IntegrityOptions> integrity, IOptions<Hosting.HygieneOptions> hygiene, Application.Influence.InfluenceProcessEpoch process, OutpostManifestService manifests, OutpostManifestUploads uploads) : Protocol.V1.World.WorldBase
+public sealed class WorldGrpcService(WorldService worlds, IOptions<IntegrityOptions> integrity, IOptions<Hosting.HygieneOptions> hygiene, Application.Influence.InfluenceProcessEpoch process, OutpostManifestService manifests, OutpostManifestUploads uploads, OutpostAdminService outpostAdmin) : Protocol.V1.World.WorldBase
 {
     public override async Task<WorldInfo> Create(CreateWorldRequest request, ServerCallContext context) =>
         WithPolicy(WorldService.ToInfo(await worlds.Create(request.Params ?? new WorldParams(), request.NpcTiles, context.GetSession(), context.CancellationToken)));
@@ -38,10 +38,13 @@ public sealed class WorldGrpcService(WorldService worlds, IOptions<IntegrityOpti
         uploads.StageAsync(Actor.From(context.GetSession()), "grpc:account:" + context.GetSession().AccountId, request, manifests, context.CancellationToken);
 
     public override Task<OutpostManifestPage> ReadOutpostManifest(OutpostManifestPageRequest request, ServerCallContext context) =>
-        manifests.ReadAsync(Actor.From(context.GetSession()), request, context.CancellationToken);
+        outpostAdmin.ReadManifestPageAsync(Actor.From(context.GetSession()), request, context.CancellationToken);
 
     public override Task<ManifestRevision> ConfirmOutpostManifest(OutpostManifestConfirmation request, ServerCallContext context) =>
-        manifests.ConfirmAsync(Actor.From(context.GetSession()), request.ManifestId, request.ExpectedDigest, context.CancellationToken);
+        outpostAdmin.ConfirmManifestTransportAsync(Actor.From(context.GetSession()), request, context.CancellationToken);
+
+    public override Task<OutpostManifestAdminPreview> PreviewOutpostManifestConfirmation(OutpostManifestAdminPreviewRequest request, ServerCallContext context) =>
+        outpostAdmin.PreviewManifestTransportAsync(Actor.From(context.GetSession()), request, context.CancellationToken);
 
     public override Task<WorldObject> Settle(SettleRequest request, ServerCallContext context) =>
         worlds.Settle(context.GetSession(), request.Tile, request.Name);

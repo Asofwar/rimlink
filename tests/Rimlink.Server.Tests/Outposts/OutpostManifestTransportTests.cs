@@ -1,5 +1,7 @@
 using System.Net;
 using System.Text;
+using System.Text.Json;
+using System.Net.Http.Json;
 using Google.Protobuf;
 using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
@@ -45,7 +47,13 @@ public sealed class OutpostManifestTransportTests
         Assert.Equal(HttpStatusCode.BadRequest, wrong.StatusCode);
         var page = await admin.PostAsync("/api/admin/outposts/manifest/read", Json(new OutpostManifestPageRequest { ManifestId = preview.ManifestId, ExpectedDigest = preview.Digest }));
         Assert.Equal(bytes, JsonParser.Default.Parse<OutpostManifestPage>(await page.Content.ReadAsStringAsync()).Data.ToByteArray());
-        var confirmed = await admin.PostAsync("/api/admin/outposts/manifest/confirm", Json(new OutpostManifestConfirmation { ManifestId = preview.ManifestId, ExpectedDigest = preview.Digest }));
+        var draft = await admin.PostAsJsonAsync("/api/admin/outposts/preview", new { action = "confirm-manifest", requestId = Guid.NewGuid().ToString("D"),
+            reason = "Verify the exact REST manifest", manifestId = preview.ManifestId, manifestDigest = preview.Digest });
+        draft.EnsureSuccessStatusCode(); var command = await draft.Content.ReadFromJsonAsync<JsonElement>();
+        var confirmation = new OutpostManifestConfirmation { ManifestId = preview.ManifestId, ExpectedDigest = preview.Digest,
+            CanonicalCommand = ByteString.CopyFrom(command.GetProperty("command").GetBytesFromBase64()),
+            IntentSha256 = ByteString.CopyFrom(Convert.FromHexString(command.GetProperty("intentDigest").GetString()!)), Confirmed = true };
+        var confirmed = await admin.PostAsync("/api/admin/outposts/manifest/confirm", Json(confirmation));
         Assert.Equal(HttpStatusCode.OK, confirmed.StatusCode);
         Assert.Equal(preview.ManifestId, JsonParser.Default.Parse<ManifestRevision>(await confirmed.Content.ReadAsStringAsync()).ManifestId);
         using var confirmedScope = f.Server.Services.CreateScope();
@@ -79,7 +87,12 @@ public sealed class OutpostManifestTransportTests
             Assert.False(await stagedScope.ServiceProvider.GetRequiredService<RimlinkDbContext>().OutpostManifests.AsNoTracking().Select(m => m.Confirmed).SingleAsync());
         var page = await world.ReadOutpostManifestAsync(new OutpostManifestPageRequest { ManifestId = preview.ManifestId, ExpectedDigest = preview.Digest }, headers);
         Assert.Equal(bytes, page.Data.ToByteArray());
-        var confirmation = await world.ConfirmOutpostManifestAsync(new OutpostManifestConfirmation { ManifestId = preview.ManifestId, ExpectedDigest = preview.Digest }, headers);
+        await Assert.ThrowsAsync<RpcException>(() => world.ConfirmOutpostManifestAsync(new OutpostManifestConfirmation { ManifestId = preview.ManifestId, ExpectedDigest = preview.Digest }, headers).ResponseAsync);
+        var command = await world.PreviewOutpostManifestConfirmationAsync(new() { ManifestId = preview.ManifestId, ExpectedDigest = preview.Digest,
+            ClientRequestId = Guid.NewGuid().ToString("D"), Reason = "Verify the exact game-admin manifest" }, headers);
+        Assert.Empty(command.Blockers);
+        var confirmation = await world.ConfirmOutpostManifestAsync(new OutpostManifestConfirmation { ManifestId = preview.ManifestId, ExpectedDigest = preview.Digest,
+            CanonicalCommand = command.CanonicalCommand, IntentSha256 = command.IntentSha256, Confirmed = true }, headers);
         Assert.Equal(preview.ManifestId, confirmation.ManifestId);
         using (var confirmedScope = f.Server.Services.CreateScope())
             Assert.True(await confirmedScope.ServiceProvider.GetRequiredService<RimlinkDbContext>().OutpostManifests.AsNoTracking().Select(m => m.Confirmed && m.Active).SingleAsync());
@@ -147,6 +160,10 @@ internal sealed class ManifestServer : IDisposable
         await db.SaveChangesAsync();
         string world = await db.World.Select(w => w.InfluenceInstanceId).SingleAsync();
         Assert.Equal(OutpostStartupState.Ready, (await sp.GetRequiredService<OutpostAuthority>().InitializeAsync(new(world, "fixture", true), default)).State);
+        await sp.GetRequiredService<OutpostAuthority>().PrepareStartupObservationAsync(sp.GetRequiredService<OutpostMainObservation>(), default);
+        var admin = sp.GetRequiredService<OutpostAdminService>();
+        var activation = await admin.PreviewActivateDomainFormatAsync(Actor.Api, Guid.NewGuid().ToString("D"), "Activate the manifest unit fixture", default);
+        await admin.ActivateDomainFormatAsync(Actor.Api, activation.Command! with { Confirmed = true }, default);
         return f;
     }
     public async Task<OutpostManifestDocument> Document()

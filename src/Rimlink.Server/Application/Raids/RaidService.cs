@@ -239,7 +239,8 @@ public sealed class RaidService(RimlinkDbContext db, ParcelValidator validator, 
             }
             await transfers.StampOutgoing(targetId, r.GameTick);
             db.Transfers.Add(new Transfer { FromPlayerId = targetId, ToPlayerId = attackerId, Kind = "raid-report", GameTick = r.GameTick,
-                Summary = $"raid {raid.Id}: {summary}", At = DateTime.UtcNow, ClientRequestId = r.ClientRequestId,
+                Summary = $"raid {raid.Id}: {summary}", At = DateTime.UtcNow,
+                ClientRequestId = string.IsNullOrEmpty(r.ClientRequestId) ? null : r.ClientRequestId,
                 RequestTargetId = raid.Id, RequestIntent = System.Security.Cryptography.SHA256.HashData(r.ToByteArray()) });
             await db.SaveChangesAsync(); await tx.CommitAsync();
             log.LogInformation("Raid {Raid} resolved by player {Target}: {Summary}", raid.Id, targetId, summary);

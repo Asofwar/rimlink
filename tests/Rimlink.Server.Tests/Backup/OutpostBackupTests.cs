@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Rimlink.Server.Application.Outposts;
 using Rimlink.Server.Backup;
 using Rimlink.Server.Tests.Outposts;
 using Xunit;
@@ -82,7 +83,8 @@ public class OutpostBackupTests
         using var f = await LifecycleFixture.Create();
         var entries = Read(await Create(f));
         var manifest = System.Text.Json.JsonSerializer.Deserialize<OutpostBackupManifest>(entries[OutpostBackupManifest.FileName], OutpostBackupManifest.Json)!;
-        Assert.Equal(1, manifest.Version);
+        Assert.Equal(2, manifest.Version);
+        Assert.Equal(OutpostDomainFormat.V1, manifest.Domain!.Format); // Explicit format binding in a new backup of a genuine legacy cut.
         var head = await f.H.F.H.H.Db.OutpostAuthority.AsNoTracking().SingleAsync();
         Assert.Equal(head.HeadId, manifest.Authority.HeadId);
         Assert.Equal(head.HeadDigest, manifest.Authority.HeadDigest);
@@ -114,6 +116,16 @@ public class OutpostBackupTests
 
     internal static async Task<string> Create(LifecycleFixture f)
     {
+        var root = f.H.F.H.H;
+        await root.Authority.OpenAsync(default);
+        if (root.Feature.VerifiedDomainFormat == OutpostDomainFormat.V1)
+        {
+            // Historical v1 fixture: run the actual offline capture, never enable a v1 network host to settle custody.
+            string path = Path.Combine(root.Data.Backups, "rimlink-" + f.H.F.Time.GetUtcNow().ToString("yyyyMMdd-HHmmss") + ".tar.zst");
+            var capture = new OutpostBackupCapture(root.Db, root.Data, root.Authority, root.Anchor, f.H.F.Service,
+                new OutpostClock(f.H.F.Time), new Rimlink.Server.Application.Live.LiveStateLock());
+            await capture.CreateAsync(path, default); return path;
+        }
         var backup = await f.Host.Services.GetRequiredService<BackupService>().CreateNow();
         return Path.Combine(f.H.F.H.H.Data.Backups, backup.Name);
     }

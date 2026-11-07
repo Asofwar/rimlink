@@ -53,11 +53,19 @@ public static class CaravanAdmission
 public sealed class CaravanAdmissionGate
 {
     private readonly Dictionary<string, string> running = new(StringComparer.Ordinal);
+    public bool Busy { get { lock (running) return running.Count > 0; } }
     public bool TryBegin(string caravanKey, out string requestId)
     {
         if (string.IsNullOrEmpty(caravanKey) || caravanKey.Length > 512) throw new ArgumentException("invalid caravan run key", nameof(caravanKey));
-        if (running.TryGetValue(caravanKey, out requestId!)) return false;
-        requestId = Guid.NewGuid().ToString("D"); running.Add(caravanKey, requestId); return true;
+        lock (running)
+        {
+            if (running.TryGetValue(caravanKey, out requestId!)) return false;
+            requestId = Guid.NewGuid().ToString("N"); running.Add(caravanKey, requestId); return true;
+        }
     }
-    public void Finish(string caravanKey) => running.Remove(caravanKey);
+    public bool IsCurrent(string caravanKey, string requestId)
+    { lock (running) return running.TryGetValue(caravanKey, out var current) && current == requestId; }
+    public bool Finish(string caravanKey, string requestId)
+    { lock (running) return IsCurrent(caravanKey, requestId) && running.Remove(caravanKey); }
+    public void Reset() { lock (running) running.Clear(); }
 }

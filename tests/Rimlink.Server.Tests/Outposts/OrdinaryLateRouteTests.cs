@@ -24,7 +24,7 @@ public sealed partial class OutpostCustodyBridgeTests
         var original = LiveFixtures.Propose(2, LiveKind.LiveRaid, 1, Guid.NewGuid().ToString("N"), 1100);
         original.Pawns = new() { Pawns = { h.Blob.Clone() } };
         var departure = await h.Depart(original);
-        using var host = h.StartHost(); using var scope = host.Services.CreateScope();
+        using var host = await h.StartHostAsync(); using var scope = host.Services.CreateScope();
         var raids = scope.ServiceProvider.GetRequiredService<RaidService>();
         var launch = OrdinaryCapture.DerivedLiveRaid(original);
         if (applied)
@@ -54,7 +54,7 @@ public sealed partial class OutpostCustodyBridgeTests
     {
         using var h = await CustodyHarness.Returned(); await PrepareRaidTarget(h);
         await h.Db.Players.Where(p => p.Id == 1).ExecuteUpdateAsync(s => s.SetProperty(p => p.FirstSaveAt, DateTime.UtcNow.AddDays(-30)).SetProperty(p => p.WealthTotal, 100000L));
-        using var host = h.StartHost(allowKidnap: true); using var scope = host.Services.CreateScope();
+        using var host = await h.StartHostAsync(allowKidnap: true); using var scope = host.Services.CreateScope();
         var raids = scope.ServiceProvider.GetRequiredService<RaidService>();
         var launch = RaidFixtures.Launch(1, 1, PawnMode.PawnReal, tick: 1000);
         var raid = await raids.Launch(2, launch); await raids.Announce(1, raid.Id, 1000); await raids.Land(1, raid.Id, 1000);

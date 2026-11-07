@@ -17,7 +17,7 @@ public sealed partial class OrdinaryReturnTests
     public async Task Interrupted_ordinary_return_reopens_the_exact_negative_decision_not_a_second_attempt(string point, bool committed)
     {
         using var h = await CustodyHarness.Returned(); var original = Post(h); var cancel = await Removed(h, original);
-        using var host = h.StartHost();
+        using var host = await h.StartHostAsync();
         using (var scope = host.Services.CreateScope())
         {
             var authority = scope.ServiceProvider.GetRequiredService<OutpostAuthority>();
@@ -51,7 +51,7 @@ public sealed partial class OrdinaryReturnTests
     public async Task Interrupted_returned_acceptance_imports_the_same_uuid_only_once_and_keeps_its_fence(string point, bool committed)
     {
         using var h = await CustodyHarness.Returned(); var original = Post(h); var cancel = await Removed(h, original);
-        using var host = h.StartHost(); using var scope = host.Services.CreateScope();
+        using var host = await h.StartHostAsync(); using var scope = host.Services.CreateScope();
         var returns = scope.ServiceProvider.GetRequiredService<OrdinaryReturnService>();
         var started = await returns.BeginReturnAsync(1, cancel, default);
         var home = await Returned(h, cancel, started);

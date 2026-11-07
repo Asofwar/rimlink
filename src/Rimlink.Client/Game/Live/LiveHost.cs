@@ -136,7 +136,7 @@ public static class LiveHost
             var faction = session.Kind == LiveKind.LiveRaid ? RimlinkFactions.Raiders : Faction.OfPlayer;
             for (int i = 0; i < pawns.Pawns.Count; i++)
             {
-                var pawn = ThingBlobs.DeserializePawn(pawns.Pawns[i], newIds: true, joins: faction);
+                var pawn = ThingBlobs.DeserializePawn(pawns.Pawns[i], newIds: true, joins: faction, nonAuthoritativeMirror: true);
                 owners.Mark(pawn, session.Guest.PlayerId, i);
                 owners.MarkCarried(pawn);
                 spawned.Add(pawn);

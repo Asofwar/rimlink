@@ -3,6 +3,13 @@ namespace Rimlink.Client.Outposts;
 
 public static class OutpostAdmissionReceipts
 {
+    public static OutpostTransitionReceipt CreateNoRemoval(OutpostPrepareRequest request, OutpostOperationReply operation, OutpostOperationReply fence)
+    {
+        if (operation.Status == OutpostOperationStatus.Prepared && operation.TransitionId == fence.TransitionId)
+            throw new InvalidDataException("cancellation fence transition is unavailable");
+        return Create(request, fence, noRemoval: true);
+    }
+
     public static OutpostTransitionReceipt Create(OutpostPrepareRequest request, OutpostOperationReply reply, bool noRemoval = false)
     {
         if (!OutpostReconciliation.SameScope(request.Scope, reply.Scope) || request.ClientRequestId != reply.ClientRequestId

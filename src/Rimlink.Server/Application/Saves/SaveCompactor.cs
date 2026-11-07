@@ -109,6 +109,7 @@ public sealed class SaveCompactionService(IServiceScopeFactory scopes, ILogger<S
         try
         {
             using var scope = scopes.CreateScope();
+            if (!Rimlink.Server.Hosting.OutpostDomainHostedServices.CanWrite(scope.ServiceProvider)) return;
             await scope.ServiceProvider.GetRequiredService<SaveCompactor>().SweepAll(stoppingToken);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)

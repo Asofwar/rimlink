@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {validateDrift} from './drift-lib.mjs';
+import {validatePages} from './check-lib.mjs';
+import {optionSurface,routeSurface} from './reference-lib.mjs';
+const m={pages:[{id:'players/live',sourcePaths:['src/live/']}]};
+test('one-sided translation edits fail even without a source change',()=>assert.ok(validateDrift(m,['wiki/ru/players/live.md']).length));
+test('stale rationale cannot authorize a later source edit',()=>assert.ok(validateDrift(m,['src/live/A.cs'],[{pageId:'players/live',sources:['src/live/A.cs'],reason:'Comment correction only; no behavior changes.'}]).length));
+test('unmapped feature files require an explicit assignment',()=>assert.ok(validateDrift({...m,fallbackSourcePrefixes:['src/'],fallbackPage:'developers/architecture'},['src/new/A.cs','wiki/ru/developers/architecture.md','wiki/en/developers/architecture.md']).length));
+test('empty heading is not documentation',()=>assert.ok(validatePages({pages:[{id:'index',sections:['usage']}]},{'ru/index.md':'## Use {#usage}','en/index.md':'## Use {#usage}'}).length));
+test('unknown options declaration fails closed',()=>assert.throws(()=>optionSurface('public class NewOptions { public const string Section = "New"; public bool Active { get; set; } }')));
+test('unknown HTTP method fails closed',()=>assert.throws(()=>routeSurface('var api = app.MapGroup("/api/new"); api.MapPatch("/a", Handler);')));

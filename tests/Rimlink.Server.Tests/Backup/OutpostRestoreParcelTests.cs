@@ -106,6 +106,12 @@ public sealed class OutpostRestoreParcelTests
         Assert.Empty(await f.H.Db.OutpostRestoreAuthorizations.ToListAsync());
         Assert.Equal(attempts, JsonSerializer.Serialize(await f.H.Db.OutpostDeliveryAttempts.AsNoTracking().ToListAsync()));
         Assert.Equal(link.Payload, (await f.H.Db.OutpostParcelLinks.AsNoTracking().SingleAsync()).Payload);
+        var scope = f.H.Scope.Clone();
+        scope.RestoreBoundary = (await f.H.Db.OutpostAuthority.AsNoTracking().SingleAsync()).RestoreBoundary;
+        var payload = OutpostParcelPayload.Parser.ParseFrom(link.Payload);
+        var error = await Assert.ThrowsAsync<global::Grpc.Core.RpcException>(() => f.H.Service.ReadManifestAsync(1,
+            new() { Scope = scope, ParcelId = id, ManifestId = payload.ManifestId, ExpectedDigest = Convert.ToHexStringLower(payload.ManifestDigest.Span) }, default));
+        Assert.Equal("manifest-parcel-mismatch", error.Status.Detail);
     }
 
     internal static async Task<long> Pending(LifecycleFixture f, bool workers)

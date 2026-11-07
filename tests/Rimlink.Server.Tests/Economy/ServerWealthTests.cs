@@ -173,4 +173,27 @@ public class ServerWealthTests
 
         Assert.Equal(long.MaxValue, await WealthOf(fixture, id));
     }
+
+    [Fact]
+    public void Maximum_item_stacks_saturate_in_silver_without_overflow()
+    {
+        var items = ItemsOf(Enumerable.Range(0, 5).Select(_ => Item("Steel", int.MaxValue, marketValueX100: long.MaxValue)).ToArray());
+        Assert.Equal(long.MaxValue, ServerWealth.ValueOf(items));
+    }
+
+    [Fact]
+    public void Maximum_physical_item_stacks_saturate_without_overflow()
+    {
+        var items = ItemsOf(Enumerable.Range(0, 5).Select(_ => Item("Steel", int.MaxValue, marketValueX100: long.MaxValue)).ToArray());
+        var parcel = ParcelTo(1, items, 0);
+        Assert.Equal(long.MaxValue * 100m, ServerWealth.PhysicalValueX100(parcel));
+    }
+
+    [Fact]
+    public void Values_above_long_max_cents_keep_their_silver_value()
+    {
+        var items = ItemsOf(Item("Steel", 2, marketValueX100: long.MaxValue));
+        Assert.Equal(184467440737095516, ServerWealth.ValueOf(items));
+        Assert.Equal(long.MaxValue * 2m, ServerWealth.PhysicalValueX100(ParcelTo(1, items, 0)));
+    }
 }

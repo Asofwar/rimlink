@@ -21,11 +21,6 @@ public sealed partial class OutpostRestoreProcedure
         OutpostAnchorStore anchor, OutpostAnchorStore.OutpostAnchorLease held, CancellationToken ct)
     {
         var selected = intent.Selection;
-        if (journal.Phase is RestorePhase.InstalledVerified or RestorePhase.MainPrepared)
-        {
-            if (anchor.ReadEnvelope(held) != OutpostRestoreFence.Marker(intent, journal.IntentDigest))
-                throw new InvalidDataException("restore-main-marker-mismatch");
-        }
         string staged = Path.Combine(selected.DataDirectory, "restore-work", selected.RestoreId, "staged");
         string planPath = Path.Combine(journalRoot, "main.json");
         RestoreMainPlan plan;
@@ -34,21 +29,25 @@ public sealed partial class OutpostRestoreProcedure
             await VerifyInventoryAsync(selected.DataDirectory, intent.NewFiles, ct);
             byte[] manifestBytes = ReadJournalBytes(Path.Combine(staged, OutpostBackupManifest.FileName));
             if (!SHA256.HashData(manifestBytes).AsSpan().SequenceEqual(intent.ManifestDigest)) throw new InvalidDataException("restore-cut-manifest-changed");
-            var manifest = JsonSerializer.Deserialize<OutpostBackupManifest>(manifestBytes, OutpostBackupManifest.Json)
-                ?? throw new InvalidDataException("restore-cut-manifest-missing");
-            await using (var source = OpenRestoreDatabase(staged, readOnly: true))
-                plan = await OutpostRestoreEvidence.CreatePlanAsync(source, intent, journal.IntentDigest, manifest, ct);
+            var manifest = OutpostBackupManifest.Decode(manifestBytes);
             if (File.Exists(planPath))
             {
-                plan = OutpostRestoreEvidence.Decode<RestoreMainPlan>(ReadJournalBytes(planPath));
+                plan = ReadExactMainPlan(journalRoot);
                 if (!OutpostRestoreEvidence.Same(plan.Journal, intent)) throw new InvalidDataException("restore-main-plan-changed");
             }
-            else OutpostRestoreJournalCodec.WriteDurable(planPath, OutpostRestoreEvidence.Encode(plan));
+            else
+            {
+                await using var source = OpenRestoreDatabase(staged, readOnly: true);
+                plan = await OutpostRestoreEvidence.CreatePlanAsync(source, intent, journal.IntentDigest, manifest, ct, manifestBytes, version: 2);
+                OutpostRestoreJournalCodec.WriteDurable(planPath, OutpostRestoreEvidence.Encode(plan));
+                if (IsAdditive(plan)) Checkpoint?.Invoke("AfterMainPlanWritten");
+            }
+            await BindMainPlanAsync(plan, journal, journalRoot, anchor, held, ct);
             journal = journal with { Phase = RestorePhase.MainPrepared, Revision = checked(journal.Revision + 1) };
             StoreJournal(journalRoot, journal);
             Checkpoint?.Invoke("AfterMainPrepared");
         }
-        else plan = OutpostRestoreEvidence.Decode<RestoreMainPlan>(ReadJournalBytes(planPath));
+        else plan = ReadExactMainPlan(journalRoot);
         if (!OutpostRestoreEvidence.Same(plan.Journal, intent) || !plan.JournalDigest.AsSpan().SequenceEqual(journal.IntentDigest))
             throw new InvalidDataException("restore-main-journal-mismatch");
         var rootTemplate = RootTransition(plan);
@@ -56,14 +55,15 @@ public sealed partial class OutpostRestoreProcedure
         string sourceCut = Path.Combine(selected.DataDirectory, plan.SourceDirectory);
         if (journal.Phase == RestorePhase.MainPrepared)
         {
+            RequireMainMarker(plan, journalRoot, anchor, held);
             // This extra source set is declared by the durable main plan before its first file effect.
             await ValidatePartialInventoryAsync(sourceCut, intent.NewFiles, ct);
             await CopyInventoryAsync(staged, sourceCut, intent.NewFiles, ct, resumeCopy: true);
-            byte[] bytes = plan.Cut.Encode();
+            byte[] bytes = OutpostRestoreEvidence.ManifestBytes(plan);
             string manifestPath = Path.Combine(sourceCut, OutpostBackupManifest.FileName);
             if (!File.Exists(manifestPath)) OutpostRestoreJournalCodec.WriteDurable(manifestPath, bytes);
             if (!File.ReadAllBytes(manifestPath).AsSpan().SequenceEqual(bytes)) throw new InvalidDataException("restore-source-manifest-changed");
-            await ValidateRetainedCutAsync(sourceCut, plan.Cut, null, ct);
+            await ValidateRetainedCutAsync(sourceCut, plan.Cut, null, ct, OutpostRestoreEvidence.ManifestBytes(plan));
             await using var database = OpenRestoreDatabase(selected.DataDirectory);
             await database.Database.OpenConnectionAsync(ct);
             // VACUUM INTO produces a standalone DELETE-mode cut; install the required domain mode only under this durable restore intent.
@@ -73,13 +73,18 @@ public sealed partial class OutpostRestoreProcedure
             var existing = await database.OutpostTransitions.AsNoTracking().SingleOrDefaultAsync(t => t.Id == selected.RestoreId, ct);
             if (existing is null)
             {
+                if (IsAdditive(plan)) await EnsureAdditiveSchemaAsync(database, plan, journalRoot, anchor, held, ct);
+                RequireMainMarker(plan, journalRoot, anchor, held);
                 await using var transaction = await database.Database.BeginTransactionAsync(ct);
                 var authority = await database.OutpostAuthority.SingleAsync(ct);
                 if (authority.HeadId != plan.Cut.Authority.HeadId || !authority.HeadDigest.AsSpan().SequenceEqual(plan.Cut.Authority.HeadDigest)
-                    || authority.InstallationId != plan.Cut.Authority.InstallationId || authority.RestoreBoundary != plan.Cut.Authority.RestoreBoundary
-                    || !(await OutpostDomainDigest.ComputeAsync(database, ct)).Span.SequenceEqual(plan.Cut.DomainDigest))
+                    || authority.InstallationId != plan.Cut.Authority.InstallationId || authority.RestoreBoundary != plan.Cut.Authority.RestoreBoundary)
                     throw new InvalidDataException("restore-main-cut-changed");
-                var expected = await OutpostRestoreEvidence.CreatePlanAsync(database, intent, journal.IntentDigest, plan.Cut, ct);
+                var original = await OutpostAuthority.ReadStoredChainAsync(database, new SaveFiles(DataDirectory.Existing(selected.DataDirectory)),
+                    authority, new(authority.HeadId, ByteString.CopyFrom(authority.HeadDigest)), currentRuntime: false, ct);
+                if (plan.Version == 2) OutpostRestoreEvidence.ValidateSourceDomain(plan.DomainStep!, plan.Cut, original, allowPostSchema: true);
+                else plan.Cut.ValidateDomain(original);
+                var expected = await OutpostRestoreEvidence.CreatePlanAsync(database, intent, journal.IntentDigest, plan.Cut, ct, plan.CutManifest, plan.Version, plan.DomainStep, allowPostSchema: true);
                 if (!OutpostRestoreEvidence.Same(expected with { NextHeadId = plan.NextHeadId }, plan)) throw new InvalidDataException("restore-main-source-map-changed");
                 foreach (var map in plan.Outposts)
                 {
@@ -101,12 +106,13 @@ public sealed partial class OutpostRestoreProcedure
                     Phase = "MainCommitted", Progress = OutpostRestoreEvidence.Encode(new RestoreMainProgress(1, selected.RestoreId, null)), CreatedAt = rootTemplate.CreatedAt
                 });
                 await database.SaveChangesAsync(ct);
-                rootTemplate.Effects = (await OutpostDomainDigest.ComputeAsync(database, ct)).ToByteArray();
+                rootTemplate.Effects = (await OutpostDomainDigest.ComputeAsync(database, OutpostRestoreEvidence.TargetFormat(plan), ct)).ToByteArray();
                 rootTemplate.Digest = OutpostTransitionDigest.Compute(new(plan.Cut.Authority.HeadId, ByteString.CopyFrom(plan.Cut.Authority.HeadDigest)), rootTemplate).ToByteArray();
                 database.OutpostTransitions.Add(rootTemplate);
                 authority.InstallationId = selected.TargetInstallationId; authority.RestoreBoundary = selected.TargetBoundary;
                 authority.HeadId = rootTemplate.NextHeadId; authority.HeadDigest = rootTemplate.Digest; authority.TransitionId = rootTemplate.Id;
                 await database.SaveChangesAsync(ct);
+                RequireMainMarker(plan, journalRoot, anchor, held);
                 await transaction.CommitAsync(CancellationToken.None);
                 Checkpoint?.Invoke("AfterMainDatabaseCommit");
                 existing = rootTemplate;
@@ -136,15 +142,17 @@ public sealed partial class OutpostRestoreProcedure
         await database.Database.ExecuteSqlRawAsync("PRAGMA synchronous=FULL;", ct);
         var files = new SaveFiles(DataDirectory.Existing(selected.DataDirectory));
         var authority = await database.OutpostAuthority.SingleAsync(ct);
-        var marker = OutpostRestoreFence.Marker(plan.Journal, journal.IntentDigest);
+        var marker = MainMarker(plan);
+        RequireExactMainBytes(plan, journalRoot);
         var currentPublication = new AnchorRecord(1, selected.TargetInstallationId, authority.WorldId, selected.TargetBoundary, new(authority.HeadId, ByteString.CopyFrom(authority.HeadDigest)));
         var observedExternal = anchor.ReadEnvelope(held);
         if (observedExternal != marker && observedExternal != new KnownAnchorEnvelope(currentPublication)) throw new InvalidDataException("restore-completion-marker-mismatch");
-        await OutpostAuthority.ValidateStoredChainAsync(database, files, authority, new(authority.HeadId, ByteString.CopyFrom(authority.HeadDigest)), ct);
+        var domain = await OutpostAuthority.ReadStoredChainAsync(database, files, authority, new(authority.HeadId, ByteString.CopyFrom(authority.HeadDigest)), currentRuntime: false, ct);
         await new OutpostSnapshotGuard(database, files).ValidateStoredEvidenceCoreAsync(ct);
         var operation = await database.OutpostLifecycleOperations.SingleAsync(o => o.Id == selected.RestoreId, ct);
         var progress = OutpostRestoreEvidence.Decode<RestoreMainProgress>(operation.Progress);
         var root = await database.OutpostTransitions.AsNoTracking().SingleAsync(t => t.Id == selected.RestoreId, ct);
+        if (!root.Intent.AsSpan().SequenceEqual(OutpostRestoreEvidence.Encode(plan))) throw new InvalidDataException("restore-main-root-plan-mismatch");
         OutpostTransition? previousCompletion = progress.CompletionId is null ? null
             : await database.OutpostTransitions.AsNoTracking().SingleAsync(t => t.Id == progress.CompletionId, ct);
         if (observedExternal == marker)
@@ -180,7 +188,7 @@ public sealed partial class OutpostRestoreProcedure
             OutpostRestoreEvidence.ValidateCompletion(root, plan, completion, previousCompletion);
             operation.Phase = "Completed"; operation.Progress = OutpostRestoreEvidence.Encode(new RestoreMainProgress(1, root.Id, completion.Id)); operation.Result = completion.Intent;
             await database.SaveChangesAsync(ct);
-            completion.Effects = (await OutpostDomainDigest.ComputeAsync(database, ct)).ToByteArray();
+            completion.Effects = (await OutpostDomainDigest.ComputeAsync(database, domain.Format, ct)).ToByteArray();
             completion.Digest = OutpostTransitionDigest.Compute(new(authority.HeadId, ByteString.CopyFrom(authority.HeadDigest)), completion).ToByteArray();
             database.OutpostTransitions.Add(completion); authority.HeadId = completion.NextHeadId; authority.HeadDigest = completion.Digest; authority.TransitionId = completion.Id;
             await database.SaveChangesAsync(ct); await transaction.CommitAsync(CancellationToken.None);
@@ -190,6 +198,7 @@ public sealed partial class OutpostRestoreProcedure
         await OutpostAuthority.ValidateStoredChainAsync(database, files, authority, new(authority.HeadId, ByteString.CopyFrom(authority.HeadDigest)), ct);
         await new OutpostSnapshotGuard(database, files).ValidateStoredEvidenceCoreAsync(ct);
         var published = new AnchorRecord(1, selected.TargetInstallationId, authority.WorldId, selected.TargetBoundary, new(authority.HeadId, ByteString.CopyFrom(authority.HeadDigest)));
+        RequireExactMainBytes(plan, journalRoot);
         var external = anchor.ReadEnvelope(held);
         if (external != new KnownAnchorEnvelope(published))
         {
@@ -210,16 +219,18 @@ public sealed partial class OutpostRestoreProcedure
     internal static RimlinkDbContext OpenRestoreDatabase(string root, bool readOnly = false) => new(new DbContextOptionsBuilder<RimlinkDbContext>().UseSqlite(new SqliteConnectionStringBuilder
     { DataSource = Path.Combine(root, BackupArchive.DatabaseFile), Mode = readOnly ? SqliteOpenMode.ReadOnly : SqliteOpenMode.ReadWrite, Pooling = false }.ToString()).Options);
 
-    internal static async Task ValidateRetainedCutAsync(string sourceRoot, OutpostBackupManifest cut, Func<RimlinkDbContext, Task>? inspect, CancellationToken ct)
+    internal static async Task ValidateRetainedCutAsync(string sourceRoot, OutpostBackupManifest cut, Func<RimlinkDbContext, Task>? inspect, CancellationToken ct, byte[]? originalManifest = null)
     {
         RejectLinks(sourceRoot);
         byte[] manifest = ReadJournalBytes(Path.Combine(sourceRoot, OutpostBackupManifest.FileName));
-        if (!manifest.AsSpan().SequenceEqual(cut.Encode())) throw new InvalidDataException("restore-retained-source-manifest-mismatch");
+        if (!manifest.AsSpan().SequenceEqual(originalManifest ?? cut.Encode())
+            || !OutpostRestoreEvidence.Same(OutpostBackupManifest.Decode(manifest), cut)) throw new InvalidDataException("restore-retained-source-manifest-mismatch");
         await VerifyInventoryAsync(sourceRoot, cut.Files, ct);
         string copy = Path.Combine(Path.GetTempPath(), "rimlink-restore-source-check-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(copy);
         try
         {
-            await CopyInventoryAsync(sourceRoot, copy, cut.Files, ct);
+            // This validation copy is discarded and never read by crash recovery.
+            await CopyInventoryAsync(sourceRoot, copy, cut.Files, ct, verificationOnly: true);
             await ValidateCutAsync(copy, cut, ct);
             if (inspect is not null) { await using var db = OpenRestoreDatabase(copy, readOnly: true); await inspect(db); }
         }

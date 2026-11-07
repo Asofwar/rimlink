@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using Google.Protobuf;
+using Grpc.Core;
 using Rimlink.Client.Outposts;
 using Rimlink.Protocol.V1;
 using Rimlink.Server.Tests.Support;
@@ -9,10 +10,40 @@ namespace Rimlink.Client.Tests.Outposts;
 
 public sealed class OutpostManifestClientTests
 {
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task Deadline_retries_a_manifest_page_once(int deadlines)
+    {
+        using var f = await OutpostClientFixture.Create();
+        int attempts = 0;
+        using var traffic = new OutpostTraffic(f.Server.Server.CreateHandler(), path =>
+        {
+            if (path != "/rimlink.v1.Outposts/Manifest" || ++attempts > deadlines) return null;
+            var refused = new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Version = new Version(2, 0),
+                Content = new ByteArrayContent([])
+            };
+            refused.Content.Headers.ContentType = new("application/grpc");
+            refused.Headers.Add("grpc-status", "4");
+            return refused;
+        });
+        await using var session = await OutpostTraffic.Connect(f, traffic);
+        var state = await new OutpostClient(session.Connection).State(new() { Scope = f.Scope }, default);
+        var manifests = new OutpostManifestClient(session.Connection);
+        if (deadlines == 1)
+            Assert.Equal("world-1", (await manifests.Read(state, default)).Binding.WorldInstanceId);
+        else
+            Assert.Equal(StatusCode.DeadlineExceeded, (await Assert.ThrowsAsync<RpcException>(() => manifests.Read(state, default))).StatusCode);
+        Assert.Equal(2, attempts);
+    }
+
     [Fact] public async Task Ordinary_owner_reads_only_current_confirmed_manifest_over_real_rpc()
     {
         using var f = await OutpostClientFixture.Create(); using var traffic = new OutpostTraffic(f.Server.Server.CreateHandler());
         await using var session = await OutpostTraffic.Connect(f, traffic); var c = new OutpostManifestClient(session.Connection);
+        Assert.True(session.Connection.Login!.OutpostIsolatedAcceptance); // Synthetic unit composition, not a real acceptance run.
         var state = await new OutpostClient(session.Connection).State(new() { Scope = f.Scope }, default);
         var doc = await c.Read(state, default); Assert.Equal("world-1", doc.Binding.WorldInstanceId); Assert.Equal(doc.TileCount, doc.Tiles.Count);
         Assert.Contains("/rimlink.v1.Outposts/Manifest", traffic.Paths);
@@ -28,7 +59,10 @@ public sealed class OutpostManifestClientTests
         var preview = await c.Stage(doc, default); Assert.True(preview.Complete);
         Assert.Equal(old.ManifestId, (await api.State(new() { Scope = f.Scope }, default)).ManifestId);
         Assert.DoesNotContain("/rimlink.v1.World/ConfirmOutpostManifest", traffic.Paths);
-        var confirmed = await c.Confirm(preview, default); Assert.Equal(preview.ManifestId, confirmed.ManifestId);
+        var command = await c.PreviewConfirmation(preview, Guid.NewGuid().ToString("D"), "Check exact client export", default);
+        Assert.Empty(command.Blockers);
+        var confirmed = await c.Confirm(preview, command, default); Assert.Equal(preview.ManifestId, confirmed.ManifestId);
+        var replay = await c.Confirm(preview, command, default); Assert.True(replay.Replay); Assert.Equal(confirmed.CommandReceiptId, replay.CommandReceiptId);
         Assert.Equal(preview.ManifestId, (await api.State(new() { Scope = f.Scope }, default)).ManifestId);
     }
     [Theory] [InlineData("params")] [InlineData("world")] [InlineData("defs")] [InlineData("dlc")] [InlineData("version")]
@@ -46,5 +80,32 @@ public sealed class OutpostManifestClientTests
     {
         foreach (var method in new[] { "/rimlink.v1.World/StageOutpostManifest", "/rimlink.v1.World/ReadOutpostManifest", "/rimlink.v1.Outposts/Manifest" })
             Assert.InRange(Rimlink.Server.Grpc.RateLimitPolicy.For(method).Permits, 96, 256);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Different_colony_setup_uses_the_same_world_binding_only_for_the_same_planet(bool changedPlanet)
+    {
+        var server = new WorldParams { Seed = "shared", PlanetCoverage = 1, Rainfall = 2, ScenarioDef = "Lost Tribe", FactionDefs = { "Tribe", "Union" } };
+        var recorded = server.Clone();
+        recorded.ScenarioDef = "Crashlanded";
+        if (changedPlanet) recorded.Rainfall++;
+        var actual = recorded.Clone();
+
+        if (changedPlanet)
+            Assert.Throws<InvalidDataException>(() => OutpostManifestClient.BindWorldParameters(actual, recorded, server));
+        else
+            Assert.Equal(server.ToByteArray(), OutpostManifestClient.BindWorldParameters(actual, recorded, server).ToByteArray());
+        Assert.Equal("Crashlanded", recorded.ScenarioDef);
+    }
+
+    [Fact]
+    public void Server_parameters_do_not_replace_evidence_of_a_changed_loaded_planet()
+    {
+        var server = new WorldParams { Seed = "shared", Temperature = 2 };
+        var recorded = server.Clone();
+        recorded.Temperature++;
+        Assert.Throws<InvalidDataException>(() => OutpostManifestClient.BindWorldParameters(server, recorded, server));
     }
 }

@@ -142,7 +142,10 @@ public sealed class OutpostParcels(RimlinkDbContext db, OutpostAuthority authori
     }
     private static void Add(Child child, OutpostWorkerCapture worker)
     {
-        var pawn = worker.Pawn.Clone(); pawn.Registry.AssignmentId = worker.AssignmentId; pawn.Registry.Tombstone = false;
+        var pawn = worker.Pawn.Clone();
+        // Scope the new envelope to the return batch while preserving the stored capture.
+        pawn.Registry.Scope = child.Payload.Scope.Clone();
+        pawn.Registry.AssignmentId = worker.AssignmentId; pawn.Registry.Tombstone = false;
         child.Pawns.Pawns.Add(pawn); child.Payload.PawnCustodyIds.Add(worker.PawnCustodyId); child.Payload.AssignmentIds.Add(worker.AssignmentId);
     }
 }

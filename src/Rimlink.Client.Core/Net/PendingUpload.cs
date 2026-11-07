@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text.Json;
+using Rimlink.Client.Outposts;
+using Rimlink.Protocol.V1;
 
 namespace Rimlink.Client.Net;
 
@@ -133,6 +135,30 @@ public sealed class PendingUpload
             if (File.Exists(journal)) File.Move(journal, journal + suffix);
             if (File.Exists(flag)) File.Move(flag, flag + suffix);
             return kept;
+        }
+    }
+
+    public string? QuarantineOutsideRestoreBoundary(SaveSnapshot snapshot, OutpostScopeMessage current)
+    {
+        if (snapshot.Meta.Recovery is not { Outposts.Present: true } recovery) return null;
+        recovery.Validate();
+        var previous = recovery.Outposts.Metadata.Scope;
+        if (!OutpostReconciliation.ValidScope(current) || previous.WorldInstanceId != current.WorldInstanceId
+            || previous.OwnerPlayerId != current.OwnerPlayerId || previous.SaveGeneration != current.SaveGeneration
+            || previous.SaveWriteEpoch != current.SaveWriteEpoch)
+            throw new InvalidDataException("pending outpost save does not identify this colony");
+        if (previous.RestoreBoundary == current.RestoreBoundary) return null;
+        lock (gate)
+        {
+            var state = Read();
+            if (state.Current != snapshot.Id || state.Preparing is not null || recovery.SnapshotId != snapshot.Id
+                || state.Generation != current.SaveGeneration || state.Epoch != current.SaveWriteEpoch
+                || snapshot.Path != SnapshotPath(snapshot.Id) || snapshot.Meta.RawSha256 is not { Length: 32 } expected)
+                throw new InvalidDataException("pending outpost snapshot identity changed");
+            using (var source = File.OpenRead(snapshot.Path))
+                if (!SHA256.HashData(source).AsSpan().SequenceEqual(expected))
+                    throw new InvalidDataException("pending outpost snapshot bytes changed");
+            return KeepLocalSave(snapshot.Path, "restore-boundary");
         }
     }
 

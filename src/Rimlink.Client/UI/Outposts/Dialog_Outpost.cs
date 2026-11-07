@@ -16,8 +16,10 @@ public sealed class Dialog_Outpost(string? selectedId = null) : Window
     public override void PreOpen() { base.PreOpen(); forcePause = true; doCloseX = true; absorbInputAroundWindow = true; OutpostSync.Refresh(); }
     public override void DoWindowContents(Rect rect)
     {
-        Text.Font = GameFont.Medium; Widgets.Label(new(0, 0, rect.width - 130, 38), "Rimlink.Outposts.Title".Translate()); Text.Font = GameFont.Small;
-        if (Widgets.ButtonText(new(rect.width - 124, 0, 124, 32), "Rimlink.Outposts.Refresh".Translate(), !OutpostSync.Busy)) OutpostSync.Refresh();
+        bool isolated = RimlinkSession.Login?.OutpostIsolatedAcceptance == true;
+        Text.Font = isolated ? GameFont.Small : GameFont.Medium;
+        Widgets.Label(new(0, 0, rect.width - 130, 38), (isolated ? "Rimlink.Outposts.TitleIsolated" : "Rimlink.Outposts.Title").Translate()); Text.Font = GameFont.Small;
+        if (Widgets.ButtonText(new(rect.width - 124, 0, 124, 32), "Rimlink.Outposts.Refresh".Translate(), active: !OutpostSync.Busy)) OutpostSync.Refresh();
         var rows = RimlinkSession.State.Outposts.Outposts.Where(o => o.Lifecycle != "Closed" && o.Lifecycle != "Aborted").ToArray();
         var row = rows.FirstOrDefault(o => o.OutpostId == selected) ?? rows.FirstOrDefault();
         if (row is null)
@@ -44,16 +46,16 @@ public sealed class Dialog_Outpost(string? selectedId = null) : Window
         Widgets.EndScrollView(); recalled.RemoveWhere(id => !row.Workers.Any(w => w.PawnCustodyId == id));
         bool ready = !OutpostSync.Busy && !OutpostOutgoing.Busy && row.Lifecycle is "Active" or "SafetyHold" && PawnCustodyRegistry.IsOwnGame && RimlinkSession.Login?.OutpostVersion == 1;
         float width = (rect.width - 12) / 2;
-        if (Widgets.ButtonText(new(0, 398, width, 34), "Rimlink.Outposts.Claim".Translate(), ready && row.Stock > 0)) OutpostSync.Mutate(row, OutpostMutationKind.Claim);
-        if (Widgets.ButtonText(new(width + 12, 398, width, 34), "Rimlink.Outposts.Recall".Translate(recalled.Count), ready && recalled.Count > 0))
+        if (Widgets.ButtonText(new(0, 398, width, 34), "Rimlink.Outposts.Claim".Translate(), active: ready && row.Stock > 0)) OutpostSync.Mutate(row, OutpostMutationKind.Claim);
+        if (Widgets.ButtonText(new(width + 12, 398, width, 34), "Rimlink.Outposts.Recall".Translate(recalled.Count), active: ready && recalled.Count > 0))
         {
             var ids = recalled.ToArray();
             if (ids.Length == row.Workers.Count) Confirm("Rimlink.Outposts.CloseWarning", () => OutpostSync.Mutate(row, OutpostMutationKind.Recall, ids, confirmFractionDiscard: true));
             else OutpostSync.Mutate(row, OutpostMutationKind.Recall, ids);
         }
-        if (Widgets.ButtonText(new(0, 442, width, 34), "Rimlink.Outposts.Switch".Translate(Resource(row.Profile == OutpostProfile.Wood ? OutpostProfile.Steel : OutpostProfile.Wood)), ready && row.Stock == 0 && row.Lifecycle == "Active"))
+        if (Widgets.ButtonText(new(0, 442, width, 34), "Rimlink.Outposts.Switch".Translate(Resource(row.Profile == OutpostProfile.Wood ? OutpostProfile.Steel : OutpostProfile.Wood)), active: ready && row.Stock == 0 && row.Lifecycle == "Active"))
             Confirm("Rimlink.Outposts.FractionWarning", () => OutpostSync.Mutate(row, OutpostMutationKind.Switch, profile: row.Profile == OutpostProfile.Wood ? OutpostProfile.Steel : OutpostProfile.Wood, confirmFractionDiscard: true));
-        if (Widgets.ButtonText(new(width + 12, 442, width, 34), "Rimlink.Outposts.Close".Translate(), ready))
+        if (Widgets.ButtonText(new(width + 12, 442, width, 34), "Rimlink.Outposts.Close".Translate(), active: ready))
             Confirm("Rimlink.Outposts.CloseWarning", () => OutpostSync.Mutate(row, OutpostMutationKind.Close, confirmFractionDiscard: true));
         DrawPending(487, rect.width);
         if (OutpostSync.LastFailure is not null) Widgets.Label(new(0, rect.height - 65, rect.width, 28), "Rimlink.Outposts.CommandHold".Translate());
@@ -67,6 +69,6 @@ public sealed class Dialog_Outpost(string? selectedId = null) : Window
         if (pending == 0) return;
         Widgets.Label(new(0, y, width, 28), "Rimlink.Outposts.Pending".Translate(pending));
         var id = OutpostOutgoing.PendingAdmissionIds.FirstOrDefault();
-        if (id is not null && Widgets.ButtonText(new(0, y + 30, width, 30), "Rimlink.Outposts.CancelAdmission".Translate(), !OutpostOutgoing.Busy)) OutpostOutgoing.Cancel(id);
+        if (id is not null && Widgets.ButtonText(new(0, y + 30, width, 30), "Rimlink.Outposts.CancelAdmission".Translate(), active: !OutpostOutgoing.Busy)) OutpostOutgoing.Cancel(id);
     }
 }

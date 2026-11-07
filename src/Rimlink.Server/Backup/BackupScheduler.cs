@@ -29,6 +29,7 @@ public sealed class BackupScheduler(BackupService backups, IOptions<BackupOption
             try
             {
                 await Task.Delay(TimeSpan.FromHours(hours), stoppingToken);
+                if (!backups.CanRunScheduled) continue;
                 await backups.CreateScheduled();
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)

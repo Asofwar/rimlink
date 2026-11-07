@@ -101,6 +101,47 @@ public sealed class OutpostSqliteBackendTests
         db.AssertUnchanged("persist", 3);
     }
 
+    [Theory]
+    [InlineData("persist", 3, false)][InlineData("persist", 3, true)]
+    [InlineData("wal", 2, false)][InlineData("wal", 2, true)]
+    [InlineData("wal", 1, false)]
+    public void Readonly_identity_qualifies_actual_backend_without_claiming_or_changing_writer_settings(string journal, int synchronous, bool inTransaction)
+    {
+        using var db = new BackendDatabase(journal, synchronous);
+        using var reader = new SqliteConnection(new SqliteConnectionStringBuilder
+        { DataSource = db.Connection.DataSource, Mode = SqliteOpenMode.ReadOnly, Pooling = false }.ToString());
+        reader.Open();
+        using var tx = inTransaction ? reader.BeginTransaction(deferred: true) : null;
+        var identity = OutpostSqliteBackend.ValidateReadOnlyIdentity(reader, tx);
+        Assert.Equal("3.53.3", identity.NativeVersion);
+        Assert.Equal(OperatingSystem.IsWindows() ? "win32" : "unix", identity.Vfs);
+        Assert.Equal("2.1.13.3146", identity.ProviderVersion);
+        Assert.Null(identity.GetType().GetProperty("Synchronous"));
+        Assert.Null(identity.GetType().GetProperty("JournalMode"));
+        tx?.Commit(); db.AssertUnchanged(journal, synchronous);
+    }
+
+    [Fact]
+    public void Writer_validation_does_not_accept_a_readonly_handle_even_if_its_default_settings_look_durable()
+    {
+        using var db = new BackendDatabase("wal", 2);
+        using var reader = new SqliteConnection(new SqliteConnectionStringBuilder
+        { DataSource = db.Connection.DataSource, Mode = SqliteOpenMode.ReadOnly, Pooling = false }.ToString());
+        reader.Open();
+        Assert.Throws<InvalidDataException>(() => OutpostSqliteBackend.Validate(reader, OutpostDatabaseRole.Domain));
+        db.AssertUnchanged("wal", 2);
+    }
+
+    [Fact]
+    public void Readonly_identity_does_not_accept_a_writer_or_open_a_closed_connection()
+    {
+        using var db = new BackendDatabase("wal", 2);
+        Assert.Throws<InvalidDataException>(() => OutpostSqliteBackend.ValidateReadOnlyIdentity(db.Connection));
+        using var closed = new SqliteConnection(db.Connection.ConnectionString);
+        Assert.Throws<InvalidDataException>(() => OutpostSqliteBackend.ValidateReadOnlyIdentity(closed));
+        Assert.Equal(System.Data.ConnectionState.Closed, closed.State); db.AssertUnchanged("wal", 2);
+    }
+
     private sealed class BackendDatabase : IDisposable
     {
         private readonly string directory = Path.Combine(Path.GetTempPath(), "rimlink-backend-" + Guid.NewGuid().ToString("N"));

@@ -22,7 +22,7 @@ public sealed partial class OutpostCustodyBridgeTests
         var outgoing = new TradeOpenRequest { PartnerId = 2, ClientRequestId = Guid.NewGuid().ToString("N"),
             GameTick = 1000, Pawns = new() { Pawns = { h.Blob.Clone() } } };
         await h.Depart(outgoing);
-        using var host = h.StartHost(); using var scope = host.Services.CreateScope();
+        using var host = await h.StartHostAsync(); using var scope = host.Services.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<TradeService>();
         var trade = await service.Open(1, outgoing);
         var custody = await h.Row();
@@ -64,7 +64,7 @@ public sealed partial class OutpostCustodyBridgeTests
         var outgoing = new TradeOpenRequest { PartnerId = 2, ClientRequestId = Guid.NewGuid().ToString("N"),
             GameTick = 1000, Pawns = new() { Pawns = { h.Blob.Clone() } } };
         await h.Depart(outgoing);
-        using var host = h.StartHost(); using var scope = host.Services.CreateScope();
+        using var host = await h.StartHostAsync(); using var scope = host.Services.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<TradeService>();
         var trade = await service.Open(1, outgoing);
         var side = new TradeSideRequest { TradeId = trade.Id, BaseRevision = trade.Revision,
@@ -110,7 +110,7 @@ public sealed partial class OutpostCustodyBridgeTests
         var outgoing = new TradeOpenRequest { PartnerId = 2, ClientRequestId = Guid.NewGuid().ToString("N"),
             GameTick = 1000, Pawns = new() { Pawns = { h.Blob.Clone() } } };
         await h.Depart(outgoing);
-        using var host = h.StartHost(); using var scope = host.Services.CreateScope();
+        using var host = await h.StartHostAsync(); using var scope = host.Services.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<TradeService>();
         var trade = await service.Open(1, outgoing);
         await service.Confirm(1, trade.Id, trade.Revision); await service.Confirm(2, trade.Id, trade.Revision);

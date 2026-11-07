@@ -242,9 +242,8 @@ public sealed partial class OutpostRestoreProcedure
         }
         if (manifestBytes is null || !actual.ContainsKey(BackupArchive.DatabaseFile))
             throw new InvalidDataException("restore-manifest-or-database-missing");
-        var decoded = JsonSerializer.Deserialize<OutpostBackupManifest>(manifestBytes, OutpostBackupManifest.Json)
-            ?? throw new InvalidDataException("restore-manifest-missing");
-        if (decoded.Version != 1 || decoded.CutUtc.Kind != DateTimeKind.Utc || decoded.DomainDigest.Length != 32
+        var decoded = OutpostBackupManifest.Decode(manifestBytes);
+        if (decoded.CutUtc.Kind != DateTimeKind.Utc || decoded.DomainDigest.Length != 32
             || decoded.Files.Length > OutpostBackupManifest.MaximumFiles || decoded.Proofs.Length > OutpostBackupManifest.MaximumFiles
             || decoded.Files.Length != actual.Count)
             throw new InvalidDataException("restore-manifest-invalid");
@@ -270,17 +269,19 @@ public sealed partial class OutpostRestoreProcedure
             check.CommandText = "PRAGMA integrity_check;";
             if (!Equals(await check.ExecuteScalarAsync(ct), "ok")) throw new InvalidDataException("restore-database-integrity");
         }
+        // Admit the actual historical schema before any versioned entity reader. The label cannot select a digest.
+        _ = await OutpostDomainSchema.ObserveAsync(db, ct);
         var row = await db.OutpostAuthority.AsNoTracking().SingleOrDefaultAsync(ct);
         var id = manifest.Authority;
         _ = AnchorRecordCodec.Encode(new(id.FormatVersion, id.InstallationId, id.WorldId, id.RestoreBoundary,
             new(id.HeadId, ByteString.CopyFrom(id.HeadDigest))));
         if (row is null || row.Id != 1 || row.Phase != "Committed" || row.FormatVersion != id.FormatVersion
             || row.InstallationId != id.InstallationId || row.WorldId != id.WorldId || row.RestoreBoundary != id.RestoreBoundary
-            || row.HeadId != id.HeadId || row.TransitionId != id.TransitionId || !row.HeadDigest.AsSpan().SequenceEqual(id.HeadDigest)
-            || !(await OutpostDomainDigest.ComputeAsync(db, ct)).Span.SequenceEqual(manifest.DomainDigest))
+            || row.HeadId != id.HeadId || row.TransitionId != id.TransitionId || !row.HeadDigest.AsSpan().SequenceEqual(id.HeadDigest))
             throw new InvalidDataException("restore-cut-identity-or-domain-mismatch");
         var files = new SaveFiles(DataDirectory.Existing(temporary)); // Descriptor only: this validator also checks an installed cut.
-        await OutpostAuthority.ValidateStoredChainAsync(db, files, row, new(id.HeadId, ByteString.CopyFrom(id.HeadDigest)), ct);
+        var domain = await OutpostAuthority.ReadStoredChainAsync(db, files, row, new(id.HeadId, ByteString.CopyFrom(id.HeadDigest)), currentRuntime: false, ct);
+        manifest.ValidateDomain(domain);
         await new OutpostSnapshotGuard(db, files).ValidateStoredEvidenceCoreAsync(ct);
         string state = await new OutpostLifecycleEvidence(db, files).IsNoActiveWorldAsync(ct) ? "NoActiveWorld" : "Ready";
         if (state != id.State) throw new InvalidDataException("restore-cut-state-mismatch");

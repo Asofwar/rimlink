@@ -86,10 +86,12 @@ public sealed partial class PawnCustodyBridge
             || evidence.SourceAuthorizerPlayerId != raid.TargetPlayerId || evidence.NonAuthoritativeMirror) return false;
         using var input = CodedInputStream.CreateWithLimits(new MemoryStream(evidence.SourcePayload.ToByteArray()), Rimlink.Protocol.Limits.MaxMessageBytes, 32);
         var report = RaidReport.Parser.ParseFrom(input);
+        var requestId = report.ClientRequestId.Length == 0 ? null : report.ClientRequestId;
         if (report.RaidId != raid.Id || report.ClientRequestId != evidence.ClientRequestId || evidence.SourceRequestIntent.Length != 32
             || !System.Security.Cryptography.SHA256.HashData(report.ToByteArray()).AsSpan().SequenceEqual(evidence.SourceRequestIntent.Span)
             || !await db.Transfers.AsNoTracking().AnyAsync(t => t.Kind == "raid-report" && t.FromPlayerId == raid.TargetPlayerId
-                && t.ToPlayerId == raid.AttackerPlayerId && t.RequestTargetId == raid.Id && t.ClientRequestId == report.ClientRequestId
+                && t.ToPlayerId == raid.AttackerPlayerId && t.RequestTargetId == raid.Id
+                && (t.ClientRequestId == requestId || requestId == null && t.ClientRequestId == "")
                 && t.RequestIntent != null && t.RequestIntent.SequenceEqual(evidence.SourceRequestIntent.ToByteArray()), ct)) return false;
         PawnList expected;
         ParcelKindDb parcelKind;

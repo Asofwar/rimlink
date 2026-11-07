@@ -19,5 +19,15 @@
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Rimlink.Server.Tests" />
+    <InternalsVisibleTo Include="Rimlink.OutpostAcceptanceHost" />
+    <EmbeddedResource Include="BuildQualification/qualification.json" LogicalName="Rimlink.Outposts.Qualification" />
+    <EmbeddedResource Include="Application/Outposts/SchemaProfiles/qualification.json" LogicalName="Rimlink.OutpostSchema.qualification.json" />
+    <EmbeddedResource Include="Application/Outposts/SchemaProfiles/v1-crlf.json" LogicalName="Rimlink.OutpostSchema.v1-crlf.json" />
+    <EmbeddedResource Include="Application/Outposts/SchemaProfiles/v1-lf.json" LogicalName="Rimlink.OutpostSchema.v1-lf.json" />
+    <EmbeddedResource Include="Application/Outposts/SchemaProfiles/v2-crlf-crlf.json" LogicalName="Rimlink.OutpostSchema.v2-crlf-crlf.json" />
+    <EmbeddedResource Include="Application/Outposts/SchemaProfiles/v2-lf-lf.json" LogicalName="Rimlink.OutpostSchema.v2-lf-lf.json" />
+    <EmbeddedResource Include="Application/Outposts/SchemaProfiles/v2-crlf-lf.json" LogicalName="Rimlink.OutpostSchema.v2-crlf-lf.json" />
+    <EmbeddedResource Include="Application/Outposts/SchemaProfiles/v2-lf-crlf.json" LogicalName="Rimlink.OutpostSchema.v2-lf-crlf.json" />
   </ItemGroup>
+  <Import Project="BuildQualification/OutpostSafetySources.targets" />
 </Project>

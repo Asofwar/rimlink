@@ -28,3 +28,9 @@ appsettings.Local.json
 # Packaged mod
 /mod/Assemblies/
 .superpowers/
+
+# Wiki dependencies and generated output
+/wiki/node_modules/
+/wiki/.vitepress/dist/
+/wiki/.vitepress/cache/
+/wiki/.test-results/

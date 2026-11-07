@@ -43,7 +43,7 @@ public sealed class OrdinaryCaptureTests
     {
         using var h = await CustodyHarness.Returned();
         var evidence = await Remove(h, changed: true);
-        using var host = h.StartHost(); using var scope = host.Services.CreateScope();
+        using var host = await h.StartHostAsync(); using var scope = host.Services.CreateScope();
         var market = scope.ServiceProvider.GetRequiredService<Rimlink.Server.Application.Economy.MarketService>();
         var request = new PostRequest { Pawn = evidence.Pawns.Pawns[0].Clone(), Price = 150, GameTick = 1234, ClientRequestId = evidence.ClientRequestId };
         var lot = await market.Post(1, request);

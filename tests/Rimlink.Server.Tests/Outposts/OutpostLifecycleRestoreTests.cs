@@ -18,7 +18,7 @@ public sealed partial class OutpostLifecycleTests
     [InlineData("Completed", true)]
     public async Task Crash_each_restore_phase_retains_evidence_and_blocks_normal_startup(string phase, bool completed)
     {
-        using var f = await LifecycleFixture.Create();
+        using var f = await LifecycleFixture.Create(runtimeQualified: true);
         long archive = await f.Archive();
         f.H.F.Time.Advance(TimeSpan.FromDays(1));
         using var scope = f.Host.Services.CreateScope();
@@ -42,7 +42,7 @@ public sealed partial class OutpostLifecycleTests
     [Fact]
     public async Task Restore_immediately_after_archive_uses_chain_order_not_wall_clock_or_random_uuid()
     {
-        using var f = await LifecycleFixture.Create();
+        using var f = await LifecycleFixture.Create(runtimeQualified: true);
         // Same TimeProvider coordinate for both operations, and transition UUIDs have no temporal order.
         long archive = await f.Archive();
         using var scope = f.Host.Services.CreateScope();
@@ -55,7 +55,7 @@ public sealed partial class OutpostLifecycleTests
     [Fact]
     public async Task Latest_lifecycle_projection_uses_verified_predecessors_even_when_wall_clock_reverses()
     {
-        using var f = await LifecycleFixture.Create();
+        using var f = await LifecycleFixture.Create(runtimeQualified: true);
         long archive = await f.Archive();
         f.H.F.Time.Advance(TimeSpan.FromHours(1));
         using (var scope = f.Host.Services.CreateScope())
@@ -76,7 +76,7 @@ public sealed partial class OutpostLifecycleTests
     [InlineData("retained-bytes")]
     public async Task Archive_projection_or_sole_retained_bytes_cannot_drift(string altered)
     {
-        using var f = await LifecycleFixture.Create();
+        using var f = await LifecycleFixture.Create(runtimeQualified: true);
         await f.Archive();
         if (altered == "generation")
             await f.H.Db.Players.Where(p => p.Id == 1).ExecuteUpdateAsync(s => s.SetProperty(p => p.SaveGeneration, p => p.SaveGeneration + 1));
@@ -97,7 +97,7 @@ public sealed partial class OutpostLifecycleTests
     [Fact]
     public async Task Damaged_protected_login_restore_never_resets_transfer_or_redelivery_stamps()
     {
-        using var f = await LifecycleFixture.Create();
+        using var f = await LifecycleFixture.Create(runtimeQualified: true);
         long archiveId = await f.Archive();
         await f.H.Db.Players.Where(p => p.Id == 1).ExecuteUpdateAsync(s => s.SetProperty(p => p.LastOutgoingTick, 1234L));
         var archive = await f.H.Db.ArchivedColonies.AsNoTracking().SingleAsync(a => a.Id == archiveId);

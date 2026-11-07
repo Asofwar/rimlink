@@ -98,7 +98,8 @@ public static class ThingBlobs
     public static Ideo? ArrivalIdeo { get; private set; }
 
     /// <param name="joins">The faction the pawn arrives in (the player's by default); the pawn also takes its primary ideo.</param>
-    public static Pawn DeserializePawn(PawnBlob b, bool newIds = false, Faction? joins = null, bool nonAuthoritativeMirror = false)
+    public static Pawn DeserializePawn(PawnBlob b, bool newIds = false, Faction? joins = null, bool nonAuthoritativeMirror = false,
+        bool keepPrisoner = false)
     {
         joins ??= Faction.OfPlayer;
         // The pawn's ideo reference never resolves (no ideo travels in a blob), so the game assigns a fallback while loading: the primary ideo
@@ -116,8 +117,11 @@ public static class ThingBlobs
         }
         if (newIds) RegenerateIds(pawn);
         ForgetJobs(pawn);
+        bool capturedPrisoner = keepPrisoner && pawn.guest?.IsPrisoner == true;
+        if (capturedPrisoner) joins = pawn.Faction is { IsPlayer: false } faction ? faction : Raids.RimlinkFactions.Raiders;
         if (pawn.Faction != joins) pawn.SetFaction(joins);
         if (pawn.RaceProps.Humanlike) PawnComponentsUtility.AddAndRemoveDynamicComponents(pawn);
+        if (capturedPrisoner) pawn.guest.SetGuestStatus(Faction.OfPlayer, GuestStatus.Prisoner);
         // References into the sender's game (their policies) did not travel either and resolve to null: point them at ours.
         if (pawn.outfits is not null && pawn.outfits.CurrentApparelPolicy is null) pawn.outfits.CurrentApparelPolicy = Current.Game.outfitDatabase.DefaultOutfit();
         if (pawn.drugs is not null && pawn.drugs.CurrentPolicy is null) pawn.drugs.CurrentPolicy = Current.Game.drugPolicyDatabase.DefaultDrugPolicy();

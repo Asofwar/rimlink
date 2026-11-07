@@ -24,13 +24,18 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
         for (int n = 0; n < acceptedDeliveries; n++) Economy.EconomyMetrics.Trade("deliver");
         receiptEvents.Clear(); acceptedDeliveries = 0;
     }
-    internal static readonly string[] SnapshotIndependentKinds = ["Initialize", "Production", "StageManifest", "ConfirmManifest", "Lifecycle", "WorldBind", "Rollback", "BulkRestore", "RestoreCompletion"];
+    internal static readonly string[] SnapshotIndependentKinds = ["Initialize", "DomainFormatActivated", "AdminManifestConfirmed", "Production", "StageManifest", "ConfirmManifest", "Lifecycle", "WorldBind", "Rollback", "BulkRestore", "RestoreCompletion"];
     public const int MaxSnapshots = 10_000; // No history GC: refuse new evidence before any pawn can be removed.
     public const long MaxRetainedMetadataBytes = 256L * 1024 * 1024;
 
     public async Task<bool> RequiresProtectionAsync(long playerId, CancellationToken ct) =>
         await db.OutpostSnapshotLinks.AnyAsync(l => l.PlayerId == playerId, ct)
-        || await db.PawnCustody.AnyAsync(p => p.PlayerId == playerId, ct);
+        || await RequiresCustodyAsync(db, playerId, ct);
+
+    internal static async Task<bool> RequiresCustodyAsync(RimlinkDbContext db, long playerId, CancellationToken ct) =>
+        await db.PawnCustody.AnyAsync(p => p.PlayerId == playerId, ct)
+        || await db.OutpostParcelLinks.AnyAsync(l => l.PlayerId == playerId && l.AcceptedSnapshotId == null
+            && db.Parcels.Any(p => p.Id == l.ParcelId && p.DeliveredAt == null && p.Decision != ParcelDecisionDb.Refused), ct);
 
     public async Task<SnapshotDecision> ValidateHeldAsync(OutpostLease lease, long playerId, SaveHeader header,
         OutpostRecoveryData recovery, ReadOnlyMemory<byte> rawHash, CancellationToken ct)
@@ -38,13 +43,13 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
         RequireOwner(lease, playerId);
         try { recovery.Validate(); }
         catch (InvalidDataException) { throw Unavailable("snapshot-metadata-invalid"); }
-        bool history = await db.OutpostSnapshotLinks.AnyAsync(l => l.PlayerId == playerId, ct)
-            || await db.PawnCustody.AnyAsync(l => l.PlayerId == playerId, ct);
+        bool history = await RequiresProtectionAsync(playerId, ct);
         if (!recovery.Present)
         {
             if (history) throw Unavailable("snapshot-protected-section-missing");
             return new(false);
         }
+        lease.RequireCustodyReadiness();
         var authority = await db.OutpostAuthority.AsNoTracking().SingleOrDefaultAsync(ct);
         var player = await db.Players.AsNoTracking().SingleOrDefaultAsync(p => p.Id == playerId, ct);
         var scope = recovery.Metadata.Scope;
@@ -152,6 +157,10 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
         if (links.Count > MaxSnapshots) throw Unavailable("snapshot-history-limit");
         var transitions = await db.OutpostTransitions.AsNoTracking().ToDictionaryAsync(t => t.Id, ct);
         if (staged is not null) transitions.Add(staged.Id, staged);
+        // Schema-only admin transitions need their exact command/audit closure, not synthetic pawn snapshots.
+        var adminSchema = await OutpostDomainSchema.ObserveAsync(db, ct);
+        await OutpostAdminReceiptEvidence.ValidateAsync(db, transitions.Values.ToArray(), adminSchema, ct);
+        var adminSemantics = await OutpostAdminResolveEvidence.ValidateAllAsync(db, files, transitions, ct);
         var registrations = new HashSet<(string World, long Player, long Generation, string Custody)>();
         foreach (var link in links)
         {
@@ -220,10 +229,12 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
                 throw Unavailable("required-snapshot-evidence-unavailable");
         foreach (var parcel in await db.OutpostParcelLinks.AsNoTracking().ToListAsync(ct))
         {
-            if (!links.Any(l => l.WorldId == parcel.WorldId && l.PlayerId == parcel.PlayerId && l.SaveGeneration == parcel.SaveGeneration)
-                || !transitions.TryGetValue(parcel.TransitionId, out var source) || source.WorldId != parcel.WorldId
-                || (source.PlayerId != parcel.PlayerId || source.SaveGeneration != parcel.SaveGeneration
-                    || source.RestoreBoundary != parcel.RestoreBoundary) && !await PawnCustodyBridge.IsHandoffSourceAsync(db, source, parcel, ct)
+            bool firstHandoff = !links.Any(l => l.WorldId == parcel.WorldId && l.PlayerId == parcel.PlayerId && l.SaveGeneration == parcel.SaveGeneration);
+            // The recipient writes its first protected snapshot before BeginDelivery, after the sender's handoff is durable.
+            if (!transitions.TryGetValue(parcel.TransitionId, out var source) || source.WorldId != parcel.WorldId
+                || firstHandoff && parcel.AcceptedSnapshotId is not null
+                || (firstHandoff || source.PlayerId != parcel.PlayerId || source.SaveGeneration != parcel.SaveGeneration
+                    || source.RestoreBoundary != parcel.RestoreBoundary) && !await PawnCustodyBridge.IsHandoffSourceAsync(db, source, parcel, ct, crossOwnerOnly: firstHandoff)
                 || parcel.Payload.Length > OutpostRecoveryData.MaxMetadataBytes
                 || parcel.PayloadDigest.Length != 32 || !SHA256.HashData(parcel.Payload).AsSpan().SequenceEqual(parcel.PayloadDigest)
                 || !await db.Parcels.AnyAsync(p => p.Id == parcel.ParcelId && p.ToPlayerId == parcel.PlayerId, ct))
@@ -249,10 +260,10 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
                 throw Unavailable("required-delivery-evidence-unavailable");
             await ValidateDeliveryAuthorizationAsync(attempt, source, ct);
         }
-        await ValidateAdmissionStoredAsync(transitions, links, ct);
+        await ValidateAdmissionStoredAsync(transitions, links, adminSemantics, ct);
         await ValidateMutationsStoredAsync(transitions, links, ct);
         await PawnCustodyBridge.ValidateStoredEvidenceAsync(db, transitions.Values, ct);
-        await ValidateOrdinaryReturnsStoredAsync(transitions, links, ct);
+        await ValidateOrdinaryReturnsStoredAsync(transitions, links, adminSemantics, ct);
         await new OutpostLifecycleEvidence(db, files).ValidateStoredCoreAsync(ct, staged, lifecycleOperation);
         await new OutpostRestoreEvidence(db, files).ValidateStoredAsync(ct, staged);
         // Restore authorizations are joined to exact retained cut maps by OutpostRestoreEvidence above; bare/orphan rows refuse.

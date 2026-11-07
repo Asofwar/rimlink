@@ -17,7 +17,7 @@ public sealed class OutpostWorldBindingTests
     [Fact]
     public async Task NoActiveWorld_starts_host_but_blocks_gameplay_and_keeps_original_evidence()
     {
-        using var f = await LifecycleFixture.Create(); await OutpostLifecycleTests.CloseAndReceive(f);
+        using var f = await LifecycleFixture.Create(runtimeQualified: true); await OutpostLifecycleTests.CloseAndReceive(f);
         var before = await f.H.Db.OutpostAuthority.AsNoTracking().SingleAsync();
         var links = await f.H.Db.OutpostSnapshotLinks.AsNoTracking().ToArrayAsync();
         using (var scope = f.Host.Services.CreateScope())
@@ -47,7 +47,7 @@ public sealed class OutpostWorldBindingTests
     [InlineData("Destructive", false)] [InlineData("SourceCleanup", false)] [InlineData("Completed", true)]
     public async Task Crash_each_recreate_phase_retains_evidence_and_blocks_unfinished_startup(string phase, bool complete)
     {
-        using var f = await LifecycleFixture.Create(); await OutpostLifecycleTests.CloseAndReceive(f);
+        using var f = await LifecycleFixture.Create(runtimeQualified: true); await OutpostLifecycleTests.CloseAndReceive(f);
         var links = await f.H.Db.OutpostSnapshotLinks.AsNoTracking().ToArrayAsync();
         using var scope = f.Host.Services.CreateScope();
         scope.ServiceProvider.GetRequiredService<OutpostLifecycle>().Checkpoint = at =>
@@ -61,7 +61,7 @@ public sealed class OutpostWorldBindingTests
     [Fact]
     public async Task WorldBind_continues_installation_chain_once_without_reinitialization()
     {
-        using var f = await LifecycleFixture.Create(); await OutpostLifecycleTests.CloseAndReceive(f);
+        using var f = await LifecycleFixture.Create(runtimeQualified: true); await OutpostLifecycleTests.CloseAndReceive(f);
         var links = await f.H.Db.OutpostSnapshotLinks.AsNoTracking().ToArrayAsync();
         using var scope = f.Host.Services.CreateScope();
         await scope.ServiceProvider.GetRequiredService<AdminOperations>().RecreateWorld(Actor.Api);
@@ -88,7 +88,7 @@ public sealed class OutpostWorldBindingTests
     [InlineData("AfterDomainCommit", true)] [InlineData("AfterExternalCommit", true)]
     public async Task WorldBind_pending_reconciles_only_exact_old_or_new_binding(string phase, bool committed)
     {
-        using var f = await LifecycleFixture.Create(); await OutpostLifecycleTests.CloseAndReceive(f);
+        using var f = await LifecycleFixture.Create(runtimeQualified: true); await OutpostLifecycleTests.CloseAndReceive(f);
         using var scope = f.Host.Services.CreateScope();
         await scope.ServiceProvider.GetRequiredService<AdminOperations>().RecreateWorld(Actor.Api);
         var retired = await f.H.Db.OutpostAuthority.AsNoTracking().SingleAsync();
@@ -120,7 +120,7 @@ public sealed class OutpostWorldBindingTests
     [InlineData("configuration")] [InlineData("world-id")] [InlineData("authority-world")]
     public async Task WorldBind_pending_does_not_clear_on_actual_world_projection_mismatch(string tamper)
     {
-        using var f = await LifecycleFixture.Create(); await OutpostLifecycleTests.CloseAndReceive(f);
+        using var f = await LifecycleFixture.Create(runtimeQualified: true); await OutpostLifecycleTests.CloseAndReceive(f);
         using var scope = f.Host.Services.CreateScope();
         await scope.ServiceProvider.GetRequiredService<AdminOperations>().RecreateWorld(Actor.Api);
         scope.ServiceProvider.GetRequiredService<OutpostAuthority>().CommitCheckpoint = at =>
@@ -142,7 +142,7 @@ public sealed class OutpostWorldBindingTests
     [InlineData(true)] [InlineData(false)]
     public async Task Missing_or_replaced_initial_World_is_not_a_completed_retirement(bool missing)
     {
-        using var f = await LifecycleFixture.Create();
+        using var f = await LifecycleFixture.Create(runtimeQualified: true);
         if (missing) await f.H.Db.World.ExecuteDeleteAsync();
         else await f.H.Db.World.ExecuteUpdateAsync(s => s.SetProperty(w => w.InfluenceInstanceId, Guid.NewGuid().ToString("N")));
         Assert.Equal(OutpostStartupState.Maintenance, (await f.H.F.H.H.Authority.OpenAsync(default)).State);
@@ -153,7 +153,7 @@ public sealed class OutpostWorldBindingTests
     [InlineData(true)]
     public async Task Repeated_retirement_retains_all_worlds_and_accepts_only_fresh_current_world_saves(bool deltaAndArchive)
     {
-        using var f = await LifecycleFixture.Create(); await OutpostLifecycleTests.CloseAndReceive(f);
+        using var f = await LifecycleFixture.Create(runtimeQualified: true); await OutpostLifecycleTests.CloseAndReceive(f);
         if (deltaAndArchive)
         {
             var save = f.H.F.Pre; var files = f.H.F.H.H.Files;
@@ -205,7 +205,7 @@ public sealed class OutpostWorldBindingTests
     [Fact]
     public async Task Current_manifest_and_owner_state_never_select_an_active_retired_world_catalog()
     {
-        using var f = await LifecycleFixture.Create(); await OutpostLifecycleTests.CloseAndReceive(f);
+        using var f = await LifecycleFixture.Create(runtimeQualified: true); await OutpostLifecycleTests.CloseAndReceive(f);
         var oldManifest = await f.H.Db.OutpostManifests.AsNoTracking().SingleAsync(m => m.Active && m.Confirmed);
         using var scope = f.Host.Services.CreateScope();
         await scope.ServiceProvider.GetRequiredService<AdminOperations>().RecreateWorld(Actor.Api);
@@ -214,7 +214,11 @@ public sealed class OutpostWorldBindingTests
         var document = OutpostManifestDocument.Parser.ParseFrom(oldManifest.Document);
         document.Binding = await manifests.BindingAsync(Actor.Api, default); document.ValuationVersion = "current-world";
         var staged = await manifests.StageAsync(Actor.Api, document, default);
-        await manifests.ConfirmAsync(Actor.Api, staged.ManifestId, staged.Digest, default);
+        var admin = scope.ServiceProvider.GetRequiredService<OutpostAdminService>();
+        var preview = await admin.PreviewConfirmManifestAsync(Actor.Api, staged.ManifestId, Convert.FromHexString(staged.Digest),
+            Guid.NewGuid().ToString("D"), "Confirm the successor world's exact manifest", default);
+        Assert.Empty(preview.Blockers);
+        await admin.ConfirmManifestAsync(Actor.Api, preview.Command! with { Confirmed = true }, default);
         await using (var lease = await scope.ServiceProvider.GetRequiredService<OutpostAuthority>().AcquireAsync([1], default))
         {
             var active = await manifests.RequireActiveHeldAsync(lease, "planet", 0, OutpostProfile.Wood, default);

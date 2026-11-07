@@ -72,12 +72,23 @@ public sealed partial class OutpostOutboxTests : IDisposable
     }
 
     [Fact]
-    public void Old_boundary_is_quarantined_without_rewriting_original_payload()
+    public void Old_boundary_is_quarantined_without_rewriting_or_discarding_other_work()
     {
-        var outbox = Open(); outbox.Prepare(Request("commit")); var original = File.ReadAllBytes(PathName);
+        var outbox = Open(); var old = outbox.Prepare(Request("commit"));
         var scope = OutpostReconciliationTests.Scope(); scope.RestoreBoundary = "new-boundary";
+        var currentRequest = (OutpostProofRequest)Request("commit");
+        currentRequest.Scope = scope.Clone();
+        currentRequest.PostRemoval.Scope = scope.Clone();
+        currentRequest.ClientRequestId = Guid.NewGuid().ToString("N");
+        var current = outbox.Prepare(currentRequest);
+        var unscoped = outbox.Add(new DepositRequest { ClientRequestId = "deposit", Silver = 1 });
+        byte[] original = File.ReadAllBytes(PathName);
         string? kept = outbox.QuarantineOutsideScope(scope); Assert.NotNull(kept);
-        Assert.Equal(original, File.ReadAllBytes(kept)); Assert.Empty(Open().Entries);
+        Assert.Equal(original, File.ReadAllBytes(kept));
+        var reopened = Open();
+        Assert.DoesNotContain(reopened.Entries, e => e.Id == old.Id);
+        Assert.Equal(new[] { current.Id, unscoped.Id }, reopened.Entries.Select(e => e.Id));
+        Assert.True(reopened.HasUnresolved);
     }
 
     [Theory]

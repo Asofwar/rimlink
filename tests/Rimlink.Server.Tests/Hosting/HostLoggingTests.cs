@@ -8,6 +8,21 @@ namespace Rimlink.Server.Tests.Hosting;
 public sealed class HostLoggingTests
 {
     [Fact]
+    public void Startup_diagnostic_can_read_a_log_while_its_writer_is_still_closing()
+    {
+        using var fixture = new ServerFixture();
+        string directory = Path.Combine(fixture.DataDir, "logs");
+        Directory.CreateDirectory(directory);
+        using var writer = new FileStream(Path.Combine(directory, "server-live.log"), FileMode.CreateNew,
+            FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
+        const string marker = "original startup failure";
+        writer.Write(System.Text.Encoding.UTF8.GetBytes(marker));
+        writer.Flush();
+
+        Assert.Contains(marker, fixture.ReadStartupLog());
+    }
+
+    [Fact]
     public async Task Disposing_one_host_releases_its_logs_without_closing_another_hosts_logger()
     {
         using var first = new ServerFixture().KeepDataDir();
@@ -38,16 +53,26 @@ public sealed class HostLoggingTests
     {
         await Task.WhenAll(Enumerable.Range(0, 32).Select(_ => Task.Run(() =>
         {
-            using var fixture = new ServerFixture()
+            var fixture = new ServerFixture().KeepDataDir()
                 .WithToken(0, "bot", "bot-token-0123456789abcdefgh", "read")
                 .WithSetting(key, value);
-            var exception = Assert.ThrowsAny<Exception>(() => fixture.CreateClient());
-            string diagnostic = fixture.StartupFailureDiagnostic(exception);
-            Assert.True(diagnostic.Contains(expected, StringComparison.Ordinal), diagnostic);
-            Assert.Contains("Server initialization failed", fixture.ReadStartupLog());
-            foreach (string file in Directory.GetFiles(Path.Combine(fixture.DataDir, "logs"), "server-*.log"))
+            try
             {
-                using var exclusive = new FileStream(file, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                Exception exception;
+                // The test host can surface startup refusal while the provider still owns the log.
+                using (fixture)
+                    exception = Assert.ThrowsAny<Exception>(() => fixture.CreateClient());
+                string diagnostic = fixture.StartupFailureDiagnostic(exception);
+                Assert.True(diagnostic.Contains(expected, StringComparison.Ordinal), diagnostic);
+                Assert.Contains("Server initialization failed", fixture.ReadStartupLog());
+                foreach (string file in Directory.GetFiles(Path.Combine(fixture.DataDir, "logs"), "server-*.log"))
+                {
+                    using var exclusive = new FileStream(file, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                }
+            }
+            finally
+            {
+                if (Directory.Exists(fixture.DataDir)) Directory.Delete(fixture.DataDir, recursive: true);
             }
         })));
     }

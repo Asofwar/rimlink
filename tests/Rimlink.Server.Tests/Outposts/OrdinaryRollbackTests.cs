@@ -16,7 +16,7 @@ public sealed partial class OrdinaryReturnTests
     public async Task Rollback_bridge_keeps_accepted_ordinary_return_historical_and_the_original_key_permanently_fenced()
     {
         using var h = await CustodyHarness.Returned(); var original = Post(h); var cancel = await Removed(h, original);
-        using var host = h.StartHost(); using var services = host.Services.CreateScope(); var provider = services.ServiceProvider;
+        using var host = await h.StartHostAsync(); using var services = host.Services.CreateScope(); var provider = services.ServiceProvider;
         var returns = provider.GetRequiredService<OrdinaryReturnService>();
         var started = await returns.BeginReturnAsync(1, cancel, default);
         var target = await Returned(h, cancel, started); await h.F.F.H.Accept(target);

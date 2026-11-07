@@ -355,6 +355,7 @@ internal sealed class AuthorityHarness : IDisposable
     public ColonyLocks Owners { get; } = new();
     public SaveFiles Files { get; }
     public OutpostFeature Feature { get; } = new();
+    public OutpostMainObservation MainObservation { get; }
     public Rimlink.Server.Tests.Support.SqliteFailureCapture SqliteFailure { get; } = new();
     public bool KeepForDiagnostics { get; set; }
 
@@ -370,11 +371,13 @@ internal sealed class AuthorityHarness : IDisposable
         Anchor = new OutpostAnchorStore(Data, Options.Create(new OutpostOptions { AnchorDirectory = external, StorageContract = "sqlite-local-v1",
             QualifiedLinuxFileSystem = Rimlink.Server.Tests.Support.LocalTestStorage.LinuxQualification(Data.Root) }));
         Files = new SaveFiles(Data);
+        MainObservation = new(Data);
         Authority = new AuthorityService(Db, Anchor, Files, Owners, Feature);
     }
 
     public void Dispose()
     {
+        MainObservation.Dispose();
         Db.Dispose();
         if (!KeepForDiagnostics && Directory.Exists(Root)) Directory.Delete(Root, true);
     }

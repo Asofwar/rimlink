@@ -2,6 +2,7 @@ using Google.Protobuf;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Rimlink.Protocol.V1;
+using Rimlink.Server.Application.Admin;
 using Rimlink.Server.Application.Auth;
 using Rimlink.Server.Application.Outposts;
 using Rimlink.Server.Tests.Outposts;
@@ -20,9 +21,20 @@ public sealed class OutpostClientFixture : IDisposable
     public OutpostMutationRequest CloseRequest => harness.Request(OutpostMutationKind.Close);
     public byte[] RawSave => SaveFixtures.Decompress(harness.Post.Packed);
     private OutpostClientFixture(MutationHarness harness, ServerFixture server) { this.harness = harness; Server = server; }
-    public static async Task<OutpostClientFixture> Create(bool admin = false, bool prepareOnly = false)
+    public static async Task<OutpostClientFixture> Create(bool admin = false, bool prepareOnly = false, bool commit = true)
     {
-        return await Open(await MutationHarness.Create(prepareOnly: prepareOnly), admin);
+        return await Open(await MutationHarness.Create(prepareOnly: prepareOnly, commit: commit), admin);
+    }
+    public async Task ConfirmIncompatibleManifest()
+    {
+        var shared = harness.F.H.H;
+        var manifests = new OutpostManifestService(harness.Db, shared.Authority, new(harness.F.Time), shared.Files);
+        var active = await harness.Db.OutpostManifests.AsNoTracking().SingleAsync(m => m.Active);
+        var replacement = OutpostManifestDocument.Parser.ParseFrom(active.Document);
+        replacement.Binding = await manifests.BindingAsync(Actor.Api, default);
+        replacement.Tiles[0].NaturalTrees = false;
+        var staged = await manifests.StageAsync(Actor.Api, replacement, default);
+        await manifests.ConfirmAsync(Actor.Api, staged.ManifestId, staged.Digest, default);
     }
     private static async Task<OutpostClientFixture> Open(MutationHarness harness, bool admin)
     {
@@ -31,15 +43,17 @@ public sealed class OutpostClientFixture : IDisposable
             var account = await harness.Db.Accounts.SingleAsync(); account.Login = "outpost-client"; account.PasswordHash = PasswordHasher.Hash("pw");
             if (admin) account.Role = Rimlink.Server.Storage.Entities.Role.Admin;
             await harness.Db.SaveChangesAsync(); var shared = harness.F.H.H;
+            await OutpostUnitComposition.Activate(shared);
             var server = HygieneFixtures.HygieneServer().WithoutWorld().WithDataDir(shared.Data.Root).KeepDataDir()
                 .WithSetting("Outposts:AnchorDirectory", Path.Combine(shared.Root, "external"))
                 .WithSetting("Outposts:StorageContract", "sqlite-local-v1")
-                .WithServices(s => { s.AddSingleton(shared.Files); s.AddSingleton(shared.Owners); s.AddSingleton(shared.Anchor); });
+                .WithServices(s => { s.AddSingleton(shared.Files); s.AddSingleton(shared.Owners); s.AddSingleton(shared.Anchor); })
+                .WithOutpostUnitQualification();
             try
             {
                 _ = server.Services;
                 // Fixture-only advertisement; production remains OFF until Task15's complete safety graph.
-                server.Services.GetRequiredService<OutpostFeature>().IsAvailable = true;
+                server.Services.GetRequiredService<OutpostTestQualification>().Available = true;
                 return new(harness, server);
             }
             catch { server.Dispose(); throw; }
@@ -124,7 +138,7 @@ public sealed class OutpostClientFixture : IDisposable
         if (!await services.ServiceProvider.GetRequiredService<Rimlink.Server.Application.Saves.SaveStore>().Rollback(1, target.Version.Number))
             throw new InvalidOperationException("actual fixture rollback was refused");
     }
-    public void SetAvailable(bool value) => Server.Services.GetRequiredService<OutpostFeature>().IsAvailable = value;
+    public void SetAvailable(bool value) => Server.Services.GetRequiredService<OutpostTestQualification>().Available = value;
     public async Task<OutpostDeliveryRequest> CloseForDelivery()
     {
         var result = await harness.Service.MutateAsync(1, harness.Request(OutpostMutationKind.Close), default);

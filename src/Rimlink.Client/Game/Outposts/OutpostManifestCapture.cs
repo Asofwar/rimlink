@@ -39,13 +39,8 @@ public static class OutpostManifestCapture
     {
         var actual = WorldSetup.CollectParams(world).Params;
         var saved = Current.Game?.GetComponent<RimlinkGameComponent>().OutpostWorldGenerationParams;
-        if (string.IsNullOrEmpty(saved)) return actual;
-        var original = WorldParams.Parser.ParseFrom(Convert.FromBase64String(saved));
-        // Storyteller/scenario can subsequently change; the actual planet inputs must still match the recorded generation.
-        var planet = actual.Clone(); planet.ScenarioDef = original.ScenarioDef; planet.StorytellerDef = original.StorytellerDef;
-        planet.DifficultyDef = original.DifficultyDef; planet.DifficultyValues = original.DifficultyValues;
-        if (!planet.Equals(original)) throw new InvalidDataException("loaded planet differs from its generation fingerprint");
-        return original;
+        var recorded = string.IsNullOrEmpty(saved) ? null : WorldParams.Parser.ParseFrom(Convert.FromBase64String(saved));
+        return OutpostManifestClient.BindWorldParameters(actual, recorded, RimlinkSession.World?.Params);
     }
     public static OutpostManifestDocument Capture(World world)
     {
@@ -64,7 +59,7 @@ public static class OutpostManifestCapture
             document.Tiles.Add(new OutpostManifestTile { Tile = i, SurfaceId = "planet", BiomeDef = biome.defName,
                 Land = land, CaravanPassable = land && world.pathGrid.Passable(new PlanetTile(i, world.grid.Surface)), NaturalTrees = biome.TreeDensity > 0 });
         }
-        foreach (var def in new[] { ThingDefOf.WoodLog, ThingDefOf.Steel })
+        foreach (var def in new[] { ThingDefOf.Steel, ThingDefOf.WoodLog })
             document.Resources.Add(new OutpostResourceValuation { DefName = def.defName, UnitValueX100 = checked((long)Math.Round(def.BaseMarketValue * 100d, MidpointRounding.AwayFromZero)) });
         if (document.CalculateSize() > OutpostManifestClient.MaxDocumentBytes) throw new InvalidDataException("complete outpost geography exceeds the bounded export size");
         return document;

@@ -20,7 +20,7 @@ public static class SaveMetaReader
     {
         string seed = "", faction = "";
         long tick = 0, wealthTotal = 0, wealthItems = 0, saveGeneration = 0;
-        bool devMode = false;
+        bool devMode = false, inTickManager = false;
         using var reader = XmlReader.Create(rwsPath, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit });
         string? pendingDef = null;
         // ReadElementContentAsString leaves the reader on the next node, so do not Read() again in that case.
@@ -28,11 +28,13 @@ public static class SaveMetaReader
         while (!advance || reader.Read())
         {
             advance = true;
+            if (reader.Depth == 2)
+                inTickManager = reader.NodeType == XmlNodeType.Element && reader.Name == "tickManager";
             if (reader.NodeType != XmlNodeType.Element) continue;
             switch (reader.Name)
             {
                 case "seedString" when seed.Length == 0: seed = reader.ReadElementContentAsString(); advance = false; break;
-                case "ticksGame" when tick == 0: tick = long.Parse(reader.ReadElementContentAsString(), CultureInfo.InvariantCulture); advance = false; break;
+                case "ticksGame" when inTickManager && reader.Depth == 3: tick = long.Parse(reader.ReadElementContentAsString(), CultureInfo.InvariantCulture); advance = false; break;
                 case "def" when faction.Length == 0: pendingDef = reader.ReadElementContentAsString(); advance = false; break;
                 case "name" when faction.Length == 0 && pendingDef is "PlayerColony" or "PlayerTribe": faction = reader.ReadElementContentAsString(); advance = false; break;
                 case DevModeNode: devMode = bool.Parse(reader.ReadElementContentAsString()); advance = false; break;

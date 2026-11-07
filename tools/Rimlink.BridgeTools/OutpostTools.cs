@@ -15,12 +15,14 @@ public sealed class OutpostTools
     public Task<object> Status(IRimBridgeContext ctx) => Bridge.OnMain<object>(ctx, () => new
     {
         success = true, capability = RimlinkSession.Connection?.Login?.OutpostVersion ?? 0,
+        composition = RimlinkSession.Login is { } login ? login.OutpostIsolatedAcceptance ? "IsolatedAcceptance/NOT PRODUCT QUALIFIED" : "Product" : "Unknown",
         busy = OutpostOutgoing.Busy, status = OutpostOutgoing.StatusKey, error = OutpostOutgoing.LastFailure,
+        writesBlocked = SaveSync.WritesBlocked,
         pendingAdmissions = OutpostOutgoing.PendingAdmissionIds, deliveryError = OutpostIncoming.LastFailure, commandError = OutpostSync.LastFailure,
-        markers = Find.WorldObjects?.AllWorldObjects.OfType<OutpostWorldObject>().Count() ?? 0,
+        markers = Find.World?.worldObjects.AllWorldObjects.OfType<OutpostWorldObject>().Count() ?? 0,
         outposts = RimlinkSession.State.Outposts.Outposts.Select(o => new { id = o.OutpostId, o.Tile, profile = o.Profile.ToString(), o.Stock, workers = o.PawnCustodyIds.Count, o.Archived }).ToArray(),
         manifest = Find.WindowStack?.Windows.OfType<Dialog_OutpostManifest>().LastOrDefault() is { } dialog
-            ? new { busy = dialog.Busy, status = dialog.StatusKey, id = dialog.Staged?.ManifestId, digest = dialog.Staged?.Digest } : null
+            ? new { busy = dialog.Busy, status = dialog.StatusKey, id = dialog.Staged?.ManifestId, digest = dialog.Staged?.Digest, commandDigest = dialog.CommandDigest } : null
     });
 
     [Tool("rimlink/outpost_staff", Description = "Found or staff from an actually arrived own caravan through exact pre/post saves; no shortcuts", ResultDescription = "started; follow rimlink/outposts")]
@@ -74,9 +76,11 @@ public sealed class OutpostTools
 
     [Tool("rimlink/outpost_manifest", Description = "Admin stage actual geography for review, OR explicitly confirm the exact staged id+digest; never auto-confirms")]
     public Task<object> Manifest(IRimBridgeContext ctx,
-        [ToolParameter(Description = "stage or confirm", Required = true)] string action,
+        [ToolParameter(Description = "stage, preview or confirm", Required = true)] string action,
         [ToolParameter(Description = "Exact staged manifest id for confirm")] string? manifestId = null,
-        [ToolParameter(Description = "Exact staged digest for confirm")] string? digest = null) => Bridge.OnMain(ctx, () =>
+        [ToolParameter(Description = "Exact staged digest for preview/confirm")] string? digest = null,
+        [ToolParameter(Description = "Audit reason for explicit preview")] string? reason = null,
+        [ToolParameter(Description = "Exact canonical command digest for confirm")] string? commandDigest = null) => Bridge.OnMain(ctx, () =>
     {
         if (!RimlinkSession.Active || !RimlinkSession.IsAdmin) return Bridge.Fail("authenticated administrator required");
         var dialog = Find.WindowStack.Windows.OfType<Dialog_OutpostManifest>().LastOrDefault();
@@ -86,8 +90,12 @@ public sealed class OutpostTools
             if (dialog is null) { dialog = new(); Find.WindowStack.Add(dialog); }
             _ = dialog.StageAsync(); return Targets.Started("actual world export/stage started; review before explicit confirm");
         }
-        if (action != "confirm" || dialog?.Busy != false || dialog.Staged is not { } preview || preview.ManifestId != manifestId || preview.Digest != digest)
+        if (dialog?.Busy != false || dialog.Staged is not { } preview || preview.ManifestId != manifestId || preview.Digest != digest)
             return Bridge.Fail("confirm requires the exact id and digest visible in an idle staged review");
+        if (action == "preview" && !string.IsNullOrWhiteSpace(reason))
+        { _ = dialog.PreviewAsync(reason); return Targets.Started("canonical command preview started; inspect command digest before confirming"); }
+        if (action != "confirm" || commandDigest is null || dialog.CommandDigest != commandDigest)
+            return Bridge.Fail("confirm requires the exact canonical command digest from the explicit preview");
         _ = dialog.ConfirmAsync(); return Targets.Started("explicit manifest confirmation started");
     });
 
@@ -127,5 +135,5 @@ public sealed class OutpostTools
         Rimlink.Client.Game.Economy.Incoming.DeliverPending(); return Targets.Started("normal protected delivery ingress requested");
     });
 
-    private static Caravan? FindCaravan(string id) => Find.WorldObjects?.Caravans.FirstOrDefault(c => c.GetUniqueLoadID() == id || string.Equals(c.Name, id, StringComparison.OrdinalIgnoreCase));
+    private static Caravan? FindCaravan(string id) => Find.World?.worldObjects.Caravans.FirstOrDefault(c => c.GetUniqueLoadID() == id || string.Equals(c.Name, id, StringComparison.OrdinalIgnoreCase));
 }

@@ -413,6 +413,10 @@ version does not depend on it, and every backup holds a copy.
 
 ### Protected outpost backup and recovery
 
+Version 0.9.0 adds one authoritative readiness decision and audited canonical administrative commands. Product remains **Pending/off**; configured Enabled, schema activation and manifest confirmation never qualify it. A healthy migrated v1 head is FormatActivationRequired/admin-only. The separate dev acceptance executable is not shipped or selected by runtime configuration. Real two-client G1–G7 acceptance and the final branch review are complete, with all seven required fixes verified. Evidence retains its actual source/build boundaries; no Product qualification seal has been issued for the release build. Update the server and client mod together. Complete RU/EN procedures and transport limits: [English](../wiki/en/admins/passive-outposts.md), [Russian](../wiki/ru/admins/passive-outposts.md).
+
+Inspect/Preview do not settle production, prepare cold SQLite observation resources or write authority/audit/evidence. Preserve the exact frozen command before confirmation and after an uncertain reply. The remote `admin outposts` CLI calls REST; it does not invoke the offline writers described below. Online property-moving recovery requires complete qualified readiness even when new gameplay is disabled. `OriginalOrdinaryInput` is bounded ephemeral original input, never reconstructed from a hash or persisted as a server admin staging payload.
+
 An archive contains a coherent database, save files, required colony archives / retired snapshot evidence and
 `outpost-manifest.json` with their lengths and SHA-256 hashes, the cut head and proof inventory. Its capture holds the
 authority → sorted owners → save-storage → live-state barriers. Active production is settled once at that cut.
@@ -510,6 +514,8 @@ and `logs/server-<date>.log`.
 
 Player limit `Server:MaxPlayers`, one settlement per player (`Server:MaxSettlementsPerPlayer`), 5 chat messages per
 5 s, 3 save uploads per 30 s, saves up to 64 MB compressed, 5 unauthenticated connections per IP, 30 s to log in.
+An accepted REST token/scope or panel-session/CSRF check authenticates its connection before a long-running admin operation.
+Every subsequent admin request still validates its own credentials and permissions.
 Pings (`Chat/Ping`): 12 a minute per player, only to an online player other than the sender, refused while the sender is
 muted and between players when either blocked the other (`BLOCKED`, as for direct messages); they are relayed as an event and never stored (not in the chat history, the audit log or the REST API).
 

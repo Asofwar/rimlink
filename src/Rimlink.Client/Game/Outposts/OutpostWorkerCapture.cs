@@ -14,7 +14,7 @@ public sealed record WorkerCaptureResult(Rimlink.Protocol.V1.OutpostWorkerCaptur
 /// <summary>Main-thread snapshot of real game facts; the server still validates the selected profile against these facts.</summary>
 public static class OutpostWorkerCapture
 {
-    public static WorkerCaptureResult Capture(Pawn pawn, OutpostProfile profile)
+    public static WorkerCaptureResult Capture(Pawn pawn, OutpostProfile? profile)
     {
         var registry = PawnCustodyRegistry.CurrentRegistry;
         var envelope = registry?.Capture(pawn);
@@ -28,11 +28,11 @@ public static class OutpostWorkerCapture
         bool mining = !pawn.WorkTypeIsDisabled(WorkTypeDefOf.Mining);
         float Capacity(PawnCapacityDef def) => pawn.health.capacities.GetLevel(def);
         float consciousness = Capacity(PawnCapacityDefOf.Consciousness), manipulation = Capacity(PawnCapacityDefOf.Manipulation), moving = Capacity(PawnCapacityDefOf.Moving);
-        if (!adult || !owned || !free || !baseline || pawn.Dead || pawn.Downed || pawn.InMentalState
+        if (!adult || !owned || !free || !baseline || pawn.Dead
             || !float.IsFinite(consciousness) || !float.IsFinite(manipulation) || !float.IsFinite(moving)
-            || Math.Min(consciousness, Math.Min(manipulation, moving)) <= 0
-            || profile == OutpostProfile.Wood && !plants || profile == OutpostProfile.Steel && !mining
-            || profile is not (OutpostProfile.Wood or OutpostProfile.Steel)) return new(null, "Rimlink.Outposts.WorkerIneligible");
+            || profile is not null && (pawn.Downed || pawn.InMentalState || Math.Min(consciousness, Math.Min(manipulation, moving)) <= 0
+                || profile == OutpostProfile.Wood && !plants || profile == OutpostProfile.Steel && !mining
+                || profile is not (OutpostProfile.Wood or OutpostProfile.Steel))) return new(null, "Rimlink.Outposts.WorkerIneligible");
         var blob = Economy.ThingBlobs.SerializePawn(pawn);
         return new(new Rimlink.Protocol.V1.OutpostWorkerCapture { PawnCustodyId = envelope.PawnCustodyId, AssignmentId = envelope.AssignmentId, Pawn = blob,
             BlobSha256 = ByteString.CopyFrom(SHA256.HashData(blob.ToByteArray())),

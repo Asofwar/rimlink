@@ -17,7 +17,7 @@ public sealed partial class OrdinaryReturnTests
     {
         using var h = await CustodyHarness.Returned();
         var original = Post(h); var cancel = await Removed(h, original);
-        using var host = h.StartHost(); using var scope = host.Services.CreateScope();
+        using var host = await h.StartHostAsync(); using var scope = host.Services.CreateScope();
         var returns = scope.ServiceProvider.GetRequiredService<OrdinaryReturnService>();
         long parcels = await h.Db.Parcels.CountAsync();
         Assert.Equal(OrdinaryOperationStatus.Unknown, (await returns.ResolveAsync(1, new() { Operation = cancel }, default)).Status);
@@ -44,7 +44,7 @@ public sealed partial class OrdinaryReturnTests
     public async Task A_committed_post_remains_applied_after_withdrawal_not_a_missing_source(bool withdrawn)
     {
         using var h = await CustodyHarness.Returned(); var original = Post(h); var cancel = await Removed(h, original);
-        using var host = h.StartHost(); using var scope = host.Services.CreateScope();
+        using var host = await h.StartHostAsync(); using var scope = host.Services.CreateScope();
         var market = scope.ServiceProvider.GetRequiredService<MarketService>();
         var lot = await market.Post(1, original);
         if (withdrawn) await market.Withdraw(1, lot.Id);
@@ -63,7 +63,7 @@ public sealed partial class OrdinaryReturnTests
         var original = new TransferRequest { ClientRequestId = Guid.NewGuid().ToString("N"), ToPlayerId = 2, GameTick = 1000,
             Silver = 25, Items = new() { Items = { EconomyFixtures.Item("Steel", 13) } }, Pawns = new() { Pawns = { h.Blob.Clone() } } };
         var cancel = await Removed(h, original);
-        using var host = h.StartHost(); using var scope = host.Services.CreateScope();
+        using var host = await h.StartHostAsync(); using var scope = host.Services.CreateScope();
         long balance = (await h.Db.Wallets.AsNoTracking().SingleAsync(w => w.PlayerId == 1)).Balance;
         var started = await scope.ServiceProvider.GetRequiredService<OrdinaryReturnService>().BeginReturnAsync(1, cancel, default);
         Assert.Equal(OrdinaryOperationStatus.ReturnStarted, started.Status);
@@ -85,7 +85,7 @@ public sealed partial class OrdinaryReturnTests
             case "removal-hash": cancel.RemovalSnapshot.RawSha256 = ByteString.CopyFrom(new byte[32]); break;
             case "canonical-hash": cancel.CanonicalSnapshot.RawSha256 = ByteString.CopyFrom(new byte[32]); break;
         }
-        using var host = h.StartHost(); using var scope = host.Services.CreateScope();
+        using var host = await h.StartHostAsync(); using var scope = host.Services.CreateScope();
         var before = (await h.Db.OutpostAuthority.AsNoTracking().SingleAsync()).HeadId;
         await Assert.ThrowsAsync<RpcException>(() => scope.ServiceProvider.GetRequiredService<OrdinaryReturnService>().BeginReturnAsync(1, cancel, default));
         Assert.Equal(before, (await h.Db.OutpostAuthority.AsNoTracking().SingleAsync()).HeadId);
@@ -98,7 +98,7 @@ public sealed partial class OrdinaryReturnTests
     public async Task A_fenced_key_cannot_be_replayed_with_stripped_pawns_or_changed_payload(bool emptyPawns)
     {
         using var h = await CustodyHarness.Returned(); var original = Post(h); var cancel = await Removed(h, original);
-        using var host = h.StartHost(); using var scope = host.Services.CreateScope();
+        using var host = await h.StartHostAsync(); using var scope = host.Services.CreateScope();
         await scope.ServiceProvider.GetRequiredService<OrdinaryReturnService>().BeginReturnAsync(1, cancel, default);
         var changed = original.Clone(); changed.Price++;
         if (emptyPawns) { changed.Pawn = null; changed.Items = new() { Items = { EconomyFixtures.Item("Steel", 3) } }; }
@@ -124,7 +124,7 @@ public sealed partial class OrdinaryReturnTests
     public async Task Exact_returned_snapshot_imports_once_and_retains_the_negative_fence_after_later_death()
     {
         using var h = await CustodyHarness.Returned(); var original = Post(h); var cancel = await Removed(h, original);
-        using var host = h.StartHost(); using var scope = host.Services.CreateScope();
+        using var host = await h.StartHostAsync(); using var scope = host.Services.CreateScope();
         var returns = scope.ServiceProvider.GetRequiredService<OrdinaryReturnService>();
         var started = await returns.BeginReturnAsync(1, cancel, default);
         var home = await Returned(h, cancel, started); await h.F.F.H.Accept(home);
@@ -149,7 +149,7 @@ public sealed partial class OrdinaryReturnTests
     public async Task Wrong_or_incomplete_local_return_receipt_cannot_revive_the_server_held_pawn(string fault)
     {
         using var h = await CustodyHarness.Returned(); var cancel = await Removed(h, Post(h));
-        using var host = h.StartHost(); using var scope = host.Services.CreateScope();
+        using var host = await h.StartHostAsync(); using var scope = host.Services.CreateScope();
         var started = await scope.ServiceProvider.GetRequiredService<OrdinaryReturnService>().BeginReturnAsync(1, cancel, default);
         var prepared = await Returned(h, cancel, started, fault != "missing-returned");
         var metadata = prepared.Recovery.Outposts.Metadata.Clone();
@@ -169,7 +169,7 @@ public sealed partial class OrdinaryReturnTests
         Assert.Equal(OutpostStartupState.Ready, (await h.Authority.OpenAsync(default)).State);
     }
 
-    private static async Task<EvidenceSave> Returned(CustodyHarness h, OrdinaryCancelRequest cancel, OrdinaryOperationReply started, bool returned = true)
+    internal static async Task<EvidenceSave> Returned(CustodyHarness h, OrdinaryCancelRequest cancel, OrdinaryOperationReply started, bool returned = true)
     {
         var removed = await h.Db.SaveVersions.AsNoTracking().SingleAsync(v => v.SnapshotId == cancel.RemovalSnapshot.SnapshotId);
         var metadata = Rimlink.Server.Application.Saves.SaveStore.RecoveryOf(removed).Outposts.Metadata.Clone();

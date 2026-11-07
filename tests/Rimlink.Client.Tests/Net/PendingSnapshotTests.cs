@@ -1,6 +1,7 @@
 using Rimlink.Client.Net;
 using Rimlink.Protocol;
 using Rimlink.Protocol.V1;
+using Rimlink.Server.Tests.Support;
 using Xunit;
 
 namespace Rimlink.Client.Tests.Net;
@@ -120,5 +121,53 @@ public sealed class PendingSnapshotTests : IDisposable
         Pending().KeepLocalSave(Primary, "rollback");
         var next = Capture(Guid.NewGuid().ToString("N")); Pending().CompleteSnapshot(next); Pending().PruneSnapshots([]);
         Assert.True(File.Exists(preserved.Path));
+    }
+
+    [Theory]
+    [InlineData("previous")]
+    [InlineData("current")]
+    [InlineData("foreign")]
+    [InlineData("changed-bytes")]
+    public void Only_an_exact_pending_snapshot_from_the_same_colonys_previous_boundary_is_quarantined(string scenario)
+    {
+        Directory.CreateDirectory(directory);
+        string id = Guid.NewGuid().ToString("N");
+        var scope = new OutpostScopeMessage { WorldInstanceId = "world-1", OwnerPlayerId = 1, RestoreBoundary = "boundary-1" };
+        var metadata = new OutpostRecoveryData { Metadata = new() { SchemaVersion = 1, Scope = scope.Clone() } };
+        byte[] raw = SaveFixtures.Decompress(RecoveryFixtures.Save(1000, id, outposts: metadata));
+        File.WriteAllBytes(Primary, raw);
+        var pending = Pending();
+        pending.BeginSnapshot(id, 0, 0);
+        var snapshot = pending.CaptureSnapshot(Primary);
+        string journal = Path.Combine(directory, "recovery", "pending-snapshot.json");
+        string flag = Path.Combine(directory, "recovery", "pending.flag");
+        byte[] priorJournal = File.ReadAllBytes(journal);
+        byte[] priorFlag = File.ReadAllBytes(flag);
+
+        if (scenario != "current") scope.RestoreBoundary = "boundary-2";
+        if (scenario == "foreign") scope.OwnerPlayerId = 2;
+        if (scenario == "changed-bytes") File.AppendAllText(snapshot.Path, "\n");
+
+        if (scenario is "foreign" or "changed-bytes")
+            Assert.Throws<InvalidDataException>(() => pending.QuarantineOutsideRestoreBoundary(snapshot, scope));
+        else if (scenario == "current")
+            Assert.Null(pending.QuarantineOutsideRestoreBoundary(snapshot, scope));
+        else
+        {
+            string kept = Assert.IsType<string>(pending.QuarantineOutsideRestoreBoundary(snapshot, scope));
+            Assert.Equal(raw, File.ReadAllBytes(kept));
+            Assert.Equal(priorJournal, File.ReadAllBytes(Assert.Single(Directory.GetFiles(Path.GetDirectoryName(journal)!, "pending-snapshot.json.restore-boundary-*"))));
+            Assert.Equal(priorFlag, File.ReadAllBytes(Assert.Single(Directory.GetFiles(Path.GetDirectoryName(flag)!, "pending.flag.restore-boundary-*"))));
+            Assert.False(pending.IsSet);
+            Assert.Null(pending.RecoverSnapshot(Primary));
+            Assert.False(File.Exists(snapshot.Path));
+            Assert.Equal(raw, File.ReadAllBytes(Primary));
+            return;
+        }
+
+        Assert.True(pending.IsSet);
+        Assert.True(File.Exists(snapshot.Path));
+        Assert.Equal(priorJournal, File.ReadAllBytes(journal));
+        Assert.Equal(priorFlag, File.ReadAllBytes(flag));
     }
 }

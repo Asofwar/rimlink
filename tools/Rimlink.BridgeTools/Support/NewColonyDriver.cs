@@ -13,7 +13,8 @@ namespace Rimlink.BridgeTools;
 /// </summary>
 public sealed class NewColonyDriver(NewColonyDriver.Options options)
 {
-    public sealed record Options(string? Scenario, string? Storyteller, string? Difficulty, string? Seed, int Tile, float ThreatScale = 0f);
+    public sealed record Options(string? Scenario, string? Storyteller, string? Difficulty, string? Seed, int Tile, float ThreatScale = 0f,
+        float PlanetCoverage = 0f);
 
     private enum Kind { Wait, Acted, Done, Failed }
 
@@ -98,7 +99,16 @@ public sealed class NewColonyDriver(NewColonyDriver.Options options)
             case Page_CreateWorldParams:
                 if (++worldGenerations > 1) return new(Kind.Failed, "world generation did not finish (the world page is still open)");
                 bool serverWorld = RimlinkSession.World is { Exists: true };
+                if (ColonyCoverage.Refusal(options.PlanetCoverage, RimlinkSession.IsAdmin,
+                    serverWorld || Find.World is not null, Prefs.DevMode) is { } coverageRefusal)
+                    return new(Kind.Failed, coverageRefusal);
                 if (!serverWorld && options.Seed is { Length: > 0 } seed) Traverse.Create(page).Field("seedString").SetValue(seed);
+                if (options.PlanetCoverage != 0f)
+                {
+                    var coverage = Traverse.Create(page).Field<float>("planetCoverage");
+                    coverage.Value = options.PlanetCoverage;
+                    return Next(page, $"world generation (new planet, coverage {coverage.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)})");
+                }
                 return Next(page, serverWorld ? "world generation (server's planet)" : "world generation (new planet)");
 
             case Page_SelectStartingSite:

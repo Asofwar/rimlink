@@ -13,6 +13,7 @@ public sealed partial class OutpostLifecycle
         IReadOnlyList<SaveVersion> versions, DateTime cutUtc, string actor, CancellationToken ct)
     {
         lease.Require(authority);
+        authority.RequireRuntimeCustody();
         if (!lease.CoversOwner(playerId) || lease.LifecycleOperationId is not null) throw new InvalidOperationException("lifecycle-owned-barrier-required");
         var cut = clock.Sample(); cutUtc = cut.Utc;
         var head = await db.OutpostAuthority.AsNoTracking().SingleAsync(ct);

@@ -12,10 +12,11 @@ namespace Rimlink.Server.Application.Outposts;
 public sealed partial class OutpostSnapshotGuard
 {
     private async Task ValidateOrdinaryReturnsStoredAsync(Dictionary<string, OutpostTransition> transitions,
-        List<OutpostSnapshotLink> links, CancellationToken ct)
+        List<OutpostSnapshotLink> links, IReadOnlyDictionary<string, OutpostAdminSemanticView> adminSemantics, CancellationToken ct)
     {
         var rows = await db.OutpostOrdinaryReturns.AsNoTracking().ToListAsync(ct);
-        foreach (var transition in transitions.Values.Where(t => t.Kind == "OrdinaryReturnStarted"))
+        foreach (var transition in transitions.Values.Where(t => t.Kind == "OrdinaryReturnStarted"
+            || adminSemantics.TryGetValue(t.Id, out var semantic) && semantic.BusinessKind == "OrdinaryReturnStarted"))
             if (!rows.Any(r => r.Id == transition.Id)) throw Unavailable("ordinary-return-projection-missing");
         foreach (var row in rows)
         {
@@ -34,9 +35,10 @@ public sealed partial class OutpostSnapshotGuard
                     || row.DerivedRequestId != (capture.DerivedRoute?.ClientRequestId ?? "")
                     || !payload.ToByteArray().AsSpan().SequenceEqual(row.Payload) || row.PayloadDigest.Length != 32
                     || !SHA256.HashData(row.Payload).AsSpan().SequenceEqual(row.PayloadDigest)
-                    || !transitions.TryGetValue(row.Id, out var transition) || transition.Kind != "OrdinaryReturnStarted"
+                    || !transitions.TryGetValue(row.Id, out var transition) || (adminSemantics.TryGetValue(row.Id, out var semantic)
+                        ? semantic.BusinessKind : transition.Kind) != "OrdinaryReturnStarted"
                     || transition.WorldId != row.WorldId || transition.PlayerId != row.PlayerId || transition.SaveGeneration != row.SaveGeneration
-                    || transition.RestoreBoundary != row.RestoreBoundary || !transition.Intent.AsSpan().SequenceEqual(row.Intent))
+                    || transition.RestoreBoundary != row.RestoreBoundary || !(adminSemantics.TryGetValue(row.Id, out var view) ? view.BusinessIntent ?? [] : transition.Intent).AsSpan().SequenceEqual(row.Intent))
                     throw Unavailable("ordinary-return-stored-intent");
                 foreach (var proof in new[] { intent.RemovalSnapshot, intent.CanonicalSnapshot })
                 {

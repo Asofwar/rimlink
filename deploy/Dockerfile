@@ -4,8 +4,13 @@ WORKDIR /src
 COPY Rimlink.sln Directory.Build.props Directory.Packages.props global.json ./
 COPY src/Rimlink.Protocol/Rimlink.Protocol.csproj src/Rimlink.Protocol/
 COPY src/Rimlink.Server/Rimlink.Server.csproj src/Rimlink.Server/
+COPY src/Rimlink.Server/BuildQualification/ src/Rimlink.Server/BuildQualification/
 RUN dotnet restore src/Rimlink.Server/Rimlink.Server.csproj -r linux-x64
 COPY src/ src/
+COPY mod/ mod/
+COPY scripts/ scripts/
+COPY tools/Rimlink.BridgeTools/ tools/Rimlink.BridgeTools/
+COPY tools/Rimlink.OutpostAcceptanceHost/ tools/Rimlink.OutpostAcceptanceHost/
 RUN dotnet publish src/Rimlink.Server/Rimlink.Server.csproj -c Release -r linux-x64 --self-contained false --no-restore -o /app
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0

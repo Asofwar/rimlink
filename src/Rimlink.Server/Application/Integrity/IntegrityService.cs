@@ -78,11 +78,15 @@ public sealed class IntegrityService(RimlinkDbContext db, PlayerFreeze freeze, A
         if (added.Length == 0) return 0;
         var links = await db.OutpostParcelLinks.AsNoTracking().Where(p => p.PlayerId == playerId && added.Contains(p.ParcelId)).ToDictionaryAsync(p => p.ParcelId);
         var parcels = await db.Parcels.AsNoTracking().Where(p => p.ToPlayerId == playerId && added.Contains(p.Id)
-            && (p.DeliveryRecoveryVersion == 0 || p.DeliveredAt == null || p.DeliveredGeneration == after.SaveGeneration)).ToListAsync();
-        decimal value = PhysicalValue(parcels.Where(p => !links.ContainsKey(p.Id)));
+            && (p.DeliveryRecoveryVersion == 0 || p.DeliveredAt == null || p.DeliveredGeneration == after.SaveGeneration)).ToDictionaryAsync(p => p.Id);
+        decimal value = PhysicalValue(parcels.Values.Where(p => !links.ContainsKey(p.Id)));
         foreach (var link in links.Values.Where(l => accepted.Contains(l.ParcelId) && l.AcceptedSnapshotId != null
             && l.SaveGeneration == after.SaveGeneration && l.WorldId == current.Outposts.Metadata.Scope?.WorldInstanceId))
-            value += link.ValueX100 / 100m;
+        {
+            if (OutpostParcelPayload.Parser.ParseFrom(link.Payload).ManifestId.Length > 0) value += link.ValueX100 / 100m;
+            // Older ordinary handoff links stored only pawn value; their bound parcel retains all physical goods.
+            else if (parcels.TryGetValue(link.ParcelId, out var parcel)) value += ServerWealth.PhysicalValueX100(parcel) / 100m;
+        }
         return value <= 0 ? 0 : value >= long.MaxValue ? long.MaxValue : (long)decimal.Floor(value);
     }
 

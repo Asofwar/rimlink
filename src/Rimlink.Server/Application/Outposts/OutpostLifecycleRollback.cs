@@ -16,6 +16,7 @@ public sealed partial class OutpostLifecycle
         lease.Require(authority);
         if (!lease.CoversOwner(playerId) || target.PlayerId != playerId) throw new InvalidOperationException("lifecycle-owner-lease-required");
         if ((await authority.CheckHeldAsync(lease, ct)).State != OutpostStartupState.Ready) return new(false, "lifecycle-authority-not-ready", []);
+        authority.RequireRuntimeCustody();
         var head = await db.OutpostAuthority.AsNoTracking().SingleAsync(ct);
         var player = await db.Players.AsNoTracking().SingleAsync(p => p.Id == playerId, ct);
         var current = new OutpostScopeMessage { WorldInstanceId = head.WorldId, OwnerPlayerId = playerId,

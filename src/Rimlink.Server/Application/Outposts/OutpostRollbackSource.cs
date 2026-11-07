@@ -11,17 +11,17 @@ internal sealed record RollbackSourceSelection(OutpostSnapshotProof Actual, Life
 
 public sealed partial class OutpostRestoreEvidence
 {
-    internal async Task<RollbackSourceSelection> ResolveRollbackSourceAsync(SaveVersion target, OutpostScopeMessage current, CancellationToken ct)
+    internal async Task<RollbackSourceSelection> ResolveRollbackSourceAsync(SaveVersion target, OutpostScopeMessage current, CancellationToken ct, string? archive = null)
     {
-        var resolver = new SourceResolver(this, ct); var actual = await resolver.ActualAsync(target);
+        var resolver = new SourceResolver(this, ct); var actual = await resolver.ActualAsync(target, archive);
         OutpostSourceReference reference;
         var physical = actual.Snapshot.Scope;
         if (physical.WorldInstanceId != current.WorldInstanceId || physical.OwnerPlayerId != current.OwnerPlayerId
             || physical.SaveGeneration != current.SaveGeneration || physical.SaveWriteEpoch > current.SaveWriteEpoch)
             throw Invalid("rollback-source-family-mismatch");
         if (physical.RestoreBoundary == current.RestoreBoundary) reference = new() { ActualSnapshotId = actual.Snapshot.SnapshotId };
-        else reference = await resolver.EffectiveAsync(target, current);
-        var graph = resolver.Graph(); var metadata = ReadActualDownload(target).Outposts.Metadata.Clone();
+        else reference = await resolver.EffectiveAsync(target, current, archive);
+        var graph = resolver.Graph(); var metadata = ReadActualDownload(target, archive).Outposts.Metadata.Clone();
         if (reference.SourceCase == OutpostSourceReference.SourceOneofCase.AuthorizedView)
         {
             var view = graph.AuthorizedViews.Single(v => v.TransitionId == reference.AuthorizedView.TransitionId);
@@ -83,8 +83,7 @@ public sealed partial class OutpostRestoreEvidence
         var scope = RollbackEffectiveScope(proof, source);
         var link = await new OutpostLifecycleEvidence(db, files).RollbackLinkAsync(proof, ct);
         var located = await new OutpostLifecycleEvidence(db, files).ResolveSnapshotAsync(link, ct);
-        if (located.Archive is not null) throw Invalid("rollback-source-retired-locator-required");
-        var expected = await ResolveRollbackSourceAsync(located.Version, scope, ct);
+        var expected = await ResolveRollbackSourceAsync(located.Version, scope, ct, located.Archive);
         if (!expected.Actual.Equals(proof) || !Same(expected.Authorization, source)) throw Invalid("rollback-source-provenance-mismatch");
     }
 }

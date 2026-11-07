@@ -16,7 +16,7 @@ public sealed class OutpostRollbackTests
     [Fact]
     public async Task Rollback_uses_IsCurrent_and_advances_current_epoch_once_without_rolling_back_stock()
     {
-        using var f = await LifecycleFixture.Create();
+        using var f = await LifecycleFixture.Create(runtimeQualified: true);
         var target = f.H.Post;
         var newer = f.H.F.H.Snapshot(target.Recovery.Outposts.Metadata.Clone(), tick: 2000);
         await f.H.F.H.Accept(newer);
@@ -47,7 +47,7 @@ public sealed class OutpostRollbackTests
     [InlineData("changed-scope")]
     public async Task Incompatible_rollback_refuses_before_any_database_or_file_effect(string fault)
     {
-        using var f = await LifecycleFixture.Create();
+        using var f = await LifecycleFixture.Create(runtimeQualified: true);
         var target = fault == "before-removal" ? f.H.F.Pre : f.H.Post;
         if (fault == "missing-bytes") File.Delete(f.H.F.H.H.Files.FullPath(1, target.Version.Number));
         if (fault == "changed-scope")
@@ -65,7 +65,7 @@ public sealed class OutpostRollbackTests
     [InlineData("AfterExternalCommit", true)]
     public async Task Interrupted_rollback_reopens_only_exact_old_or_next_epoch_and_retry_does_not_advance_twice(string checkpoint, bool committed)
     {
-        using var f = await LifecycleFixture.Create();
+        using var f = await LifecycleFixture.Create(runtimeQualified: true);
         var target = f.H.Post;
         var newer = f.H.F.H.Snapshot(target.Recovery.Outposts.Metadata.Clone(), tick: 2000); await f.H.F.H.Accept(newer);
         using (var services = f.Host.Services.CreateScope())
@@ -89,7 +89,7 @@ public sealed class OutpostRollbackTests
     [InlineData(false)][InlineData(true)]
     public async Task Unrelated_legacy_owner_keeps_081_rollback_with_another_owners_protected_history(bool includedInCleanup)
     {
-        using var f = await LifecycleFixture.Create();
+        using var f = await LifecycleFixture.Create(runtimeQualified: true);
         var versions = await LegacyVersions(f);
         if (includedInCleanup)
         {
@@ -120,7 +120,7 @@ public sealed class OutpostRollbackTests
     [InlineData("AfterDomainCommit", true)][InlineData("AfterExternalCommit", true)]
     public async Task Legacy_rollback_pending_reconciles_once(string checkpoint, bool committed)
     {
-        using var f = await LifecycleFixture.Create(); var versions = await LegacyVersions(f); string history = await Historical(f);
+        using var f = await LifecycleFixture.Create(runtimeQualified: true); var versions = await LegacyVersions(f); string history = await Historical(f);
         using (var services = f.Host.Services.CreateScope())
         {
             services.ServiceProvider.GetRequiredService<OutpostAuthority>().CommitCheckpoint = at =>
@@ -139,7 +139,7 @@ public sealed class OutpostRollbackTests
     [Fact]
     public async Task Legacy_rollback_accepts_a_real_fresh_legacy_upload_without_synthetic_outpost_evidence()
     {
-        using var f = await LifecycleFixture.Create(); _ = await LegacyVersions(f);
+        using var f = await LifecycleFixture.Create(runtimeQualified: true); _ = await LegacyVersions(f);
         using var services = f.Host.Services.CreateScope(); var store = services.ServiceProvider.GetRequiredService<SaveStore>();
         Assert.True(await store.Rollback(2, 1));
         byte[] packed = Support.RecoveryFixtures.Save(3000, epoch: 1);
@@ -157,7 +157,7 @@ public sealed class OutpostRollbackTests
     [Fact]
     public async Task Legacy_rollback_download_refuses_a_changed_owner_projection_before_returning_bytes()
     {
-        using var f = await LifecycleFixture.Create(); _ = await LegacyVersions(f);
+        using var f = await LifecycleFixture.Create(runtimeQualified: true); _ = await LegacyVersions(f);
         using var services = f.Host.Services.CreateScope(); var store = services.ServiceProvider.GetRequiredService<SaveStore>();
         Assert.True(await store.Rollback(2, 1));
         await f.H.Db.Players.Where(p => p.Id == 2).ExecuteUpdateAsync(s => s.SetProperty(p => p.SaveWriteEpoch, 9L));
@@ -174,7 +174,7 @@ public sealed class OutpostRollbackTests
     [InlineData("corrupt-bytes")][InlineData("tagged-missing-link")][InlineData("wrong-generation")]
     public async Task Protected_or_unknown_target_never_falls_back_to_legacy(string fault)
     {
-        using var f = await LifecycleFixture.Create(); var versions = await LegacyVersions(f); var target = versions[0];
+        using var f = await LifecycleFixture.Create(runtimeQualified: true); var versions = await LegacyVersions(f); var target = versions[0];
         string path = f.H.F.H.H.Files.FullPath(2, 1);
         if (fault == "corrupt-bytes") await File.WriteAllBytesAsync(path, [1, 2, 3]);
         else if (fault == "wrong-generation") await f.H.Db.SaveVersions.Where(v => v.Id == target.Id).ExecuteUpdateAsync(s => s.SetProperty(v => v.SaveGeneration, 9L));
@@ -195,7 +195,7 @@ public sealed class OutpostRollbackTests
     [Fact]
     public async Task Legacy_rollback_keeps_exact_retained_bytes_independent_of_live_version_files()
     {
-        using var f = await LifecycleFixture.Create(); _ = await LegacyVersions(f);
+        using var f = await LifecycleFixture.Create(runtimeQualified: true); _ = await LegacyVersions(f);
         using var services = f.Host.Services.CreateScope(); Assert.True(await services.ServiceProvider.GetRequiredService<SaveStore>().Rollback(2, 1));
         var operation = await f.H.Db.OutpostLifecycleOperations.AsNoTracking().SingleAsync(); var intent = OutpostLifecycleEvidence.Intent(operation);
         Assert.Equal("LegacySnapshot", intent.Rollback!.Kind); Assert.Empty(intent.Rollback.Target); Assert.Empty(intent.Rollback.PreviousCurrent);

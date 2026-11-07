@@ -64,7 +64,8 @@ public sealed partial class OutpostRestoreProcedure
     private static void StoreJournal(string root, RestoreJournal journal) => OutpostRestoreJournalCodec.WriteDurable(
         Path.Combine(root, "journal.json"), OutpostRestoreJournalCodec.Encode(journal), replace: true);
 
-    private static async Task CopyInventoryAsync(string sourceRoot, string destinationRoot, OutpostBackupFile[] inventory, CancellationToken ct, Action<string>? copied = null, bool resumeCopy = false)
+    private static async Task CopyInventoryAsync(string sourceRoot, string destinationRoot, OutpostBackupFile[] inventory,
+        CancellationToken ct, Action<string>? copied = null, bool resumeCopy = false, bool verificationOnly = false)
     {
         foreach (var expected in inventory)
         {
@@ -80,7 +81,8 @@ public sealed partial class OutpostRestoreProcedure
             using var input = new FileStream(source, FileMode.Open, FileAccess.Read, FileShare.Read);
             if (input.Length != expected.Length) throw new InvalidDataException("restore-copy-source-changed");
             using var output = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None);
-            await input.CopyToAsync(output, ct); output.Flush(flushToDisk: true);
+            await input.CopyToAsync(output, ct);
+            if (!verificationOnly) output.Flush(flushToDisk: true);
             output.Close(); copied?.Invoke(expected.Path);
         }
     }
@@ -136,8 +138,11 @@ public sealed partial class OutpostRestoreProcedure
             var files = new SaveFiles(DataDirectory.Existing(retained));
             string state = await new OutpostLifecycleEvidence(db, files).IsNoActiveWorldAsync(ct) ? "NoActiveWorld" : "Ready";
             var identity = new OutpostBackupIdentity(row.FormatVersion, row.InstallationId, row.WorldId, row.RestoreBoundary, row.HeadId, row.HeadDigest, row.TransitionId ?? throw new OutpostEvidenceUnavailableException("previous-set-transition-missing"), state);
-            var proof = new OutpostBackupManifest(1, identity, DateTime.UtcNow, (await OutpostDomainDigest.ComputeAsync(db, ct)).ToByteArray(),
-                [], (await OutpostBackupCapture.ReadProofsAsync(db, ct)).ToArray());
+            var domain = await OutpostAuthority.ReadStoredChainAsync(db, files, row, external.Committed, currentRuntime: false, ct);
+            // Ephemeral validation descriptor only. Never serialize or replace the retained E/source manifest.
+            var proof = new OutpostBackupManifest(2, identity, DateTime.UtcNow, domain.Digest.ToByteArray(),
+                [], (await OutpostBackupCapture.ReadProofsAsync(db, ct)).ToArray(),
+                new(1, domain.Format, new(domain.Schema.ProfileId, domain.Schema.Digest.ToByteArray())));
             await ValidateCutAsync(retained, proof, ct);
             return (true, "");
         }

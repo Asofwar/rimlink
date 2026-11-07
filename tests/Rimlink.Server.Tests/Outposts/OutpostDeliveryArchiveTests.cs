@@ -59,6 +59,7 @@ public sealed class OutpostDeliveryArchiveTests
             Host = HygieneFixtures.HygieneServer().WithoutWorld().WithDataDir(shared.Data.Root).KeepDataDir()
                 .WithSetting("Outposts:AnchorDirectory", Path.Combine(shared.Root, "external"))
                 .WithSetting("Outposts:StorageContract", "sqlite-local-v1")
+                .WithOutpostUnitQualification()
                 .WithServices(s => { s.AddSingleton(shared.Files); s.AddSingleton(shared.Owners); s.AddSingleton(shared.Anchor); });
         }
         public static async Task<Fixture> Create()
@@ -70,7 +71,8 @@ public sealed class OutpostDeliveryArchiveTests
             f.Request = new() { Scope = f.H.Scope.Clone(), ClientRequestId = Guid.NewGuid().ToString("N"), ParcelId = id,
                 PayloadDigest = ByteString.CopyFrom(link.PayloadDigest), CanonicalSnapshot = AssignmentHarness.SnapshotProof(f.H.Post) };
             f.H.Db.WorldObjects.Add(new Rimlink.Server.Storage.Entities.WorldObject { OwnerPlayerId = 1, Type = WorldObjectTypes.Settlement, Name = "Nova Home", Tile = 33, CreatedAt = DateTime.UtcNow });
-            await f.H.Db.SaveChangesAsync(); _ = f.Host.Services;
+            await f.H.Db.SaveChangesAsync();
+            await OutpostUnitComposition.Activate(f.H.F.H.H); _ = f.Host.Services;
             return f;
         }
         public async Task<ArchiveOutcome> Archive()

@@ -1,11 +1,18 @@
 using System.Text.Json;
+using System.Text;
+using System.Xml.Linq;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Rimlink.Protocol;
+using Rimlink.Protocol.V1;
+using Rimlink.Server.Tests.Support;
 using Rimlink.Server.Application.Admin;
 using Rimlink.Server.Application.Outposts;
 using Rimlink.Server.Application.Saves;
 using Rimlink.Server.Application.Sessions;
+using Rimlink.Server.Application.World;
 using Rimlink.Server.Backup;
+using Rimlink.Server.Storage.Entities;
 using Rimlink.Server.Tests.Outposts;
 using Xunit;
 using BulkOutcome = Rimlink.Server.Backup.RestoreOutcome;
@@ -14,10 +21,145 @@ namespace Rimlink.Server.Tests.Backup;
 
 public class OutpostRestoreLifecycleTests
 {
+    [Theory]
+    [InlineData(true, false, null)]
+    [InlineData(false, false, null)]
+    [InlineData(true, true, null)]
+    [InlineData(true, false, "after")]
+    [InlineData(true, false, "before")]
+    [InlineData(true, false, "before-corrupt")]
+    public async Task Restored_legacy_owner_can_upload_a_fresh_save_and_remain_ready(bool saveAtCut, bool firstProtected, string? archivePhase)
+    {
+        using var f = await LifecycleFixture.Create(runtimeQualified: true);
+        var shared = f.H.F.H.H;
+        f.H.Db.Players.Add(new Rimlink.Server.Storage.Entities.Player
+            { Id = 2, Name = "Legacy", Account = new() { Login = "legacy-after-bulk-restore" } });
+        if (archivePhase is not null)
+            f.H.Db.WorldObjects.Add(new Rimlink.Server.Storage.Entities.WorldObject
+                { OwnerPlayerId = 2, Type = WorldObjectTypes.Settlement, Name = "Legacy Home", Tile = 34, CreatedAt = f.H.F.Time.GetUtcNow().UtcDateTime });
+        await f.H.Db.SaveChangesAsync();
+        var seed = await f.H.Db.World.Select(w => w.Seed).SingleAsync();
+        async Task<Rimlink.Server.Storage.Entities.SaveVersion> Upload(ServerFixture host, int tick, OutpostRecoveryData? outposts = null)
+        {
+            var xml = XDocument.Parse(Encoding.UTF8.GetString(SaveFixtures.Decompress(RecoveryFixtures.Save(tick, outposts: outposts))));
+            xml.Root!.Element("game")!.Element("world")!.Element("info")!.Element("seedString")!.Value = seed;
+            byte[] packed = SaveFixtures.Compress(Encoding.UTF8.GetBytes(xml.ToString()));
+            async IAsyncEnumerable<ReadOnlyMemory<byte>> Chunks() { yield return packed; await Task.CompletedTask; }
+            using var services = host.Services.CreateScope();
+            return await services.ServiceProvider.GetRequiredService<SaveStore>().Store(2, RecoveryFixtures.Header(packed, tick), Chunks(), default);
+        }
+
+        var cutSave = saveAtCut ? await Upload(f.Host, 1000) : null;
+        long? cutArchive = null;
+        if (archivePhase is "before" or "before-corrupt")
+        {
+            using var services = f.Host.Services.CreateScope();
+            var ops = services.ServiceProvider.GetRequiredService<AdminOperations>();
+            cutArchive = Assert.IsType<ArchiveOutcome.Archived>(await ops.ArchiveColony(Actor.Api, 2)).ArchiveId;
+            Assert.False(await f.H.Db.OutpostLifecycleOperations.AnyAsync(o => o.Kind == "Archive"));
+        }
+        string archive = await OutpostBackupTests.Create(f);
+        var procedure = new OutpostRestoreProcedure(f.H.F.Time);
+        var request = await OutpostRestoreTests.Request(f, procedure, archive);
+        await f.Host.DisposeAsync();
+        var restored = await procedure.ExecuteAsync(request, default);
+        Assert.Equal((BulkOutcome.Completed, ""), (restored.Outcome, restored.Reason));
+
+        using var host = HygieneFixtures.HygieneServer().WithoutWorld().WithDataDir(shared.Data.Root).KeepDataDir()
+            .WithSetting("Outposts:AnchorDirectory", Path.GetDirectoryName(shared.Anchor.DatabasePath)!)
+            .WithSetting("Outposts:StorageContract", "sqlite-local-v1").WithOutpostUnitQualification()
+            .WithServices(s => { s.AddSingleton(shared.Files); s.AddSingleton(shared.Owners);
+                s.AddSingleton(shared.Anchor); s.AddSingleton<TimeProvider>(f.H.F.Time); });
+        if (cutArchive is { } archivedAtCut)
+        {
+            Assert.Empty(await f.H.Db.SaveVersions.Where(v => v.PlayerId == 2).ToListAsync());
+            Assert.Equal(new OutpostStartupResult(OutpostStartupState.Ready), await shared.Authority.OpenAsync(default));
+            using var services = host.Services.CreateScope();
+            var ops = services.ServiceProvider.GetRequiredService<AdminOperations>();
+            if (archivePhase == "before-corrupt")
+            {
+                var original = await f.H.Db.ArchivedColonies.AsNoTracking().SingleAsync(a => a.Id == archivedAtCut);
+                await File.AppendAllTextAsync(Path.Combine(shared.Data.Root, original.Dir, SaveArchive.ManifestFile), " ");
+                var refusal = await Assert.ThrowsAsync<OutpostEvidenceUnavailableException>(() => ops.RestoreColony(Actor.Api, archivedAtCut));
+                Assert.Equal("lifecycle-restore-archive-bytes-mismatch", refusal.Message);
+                Assert.Equal(restored.HeadId, await f.H.Db.OutpostAuthority.Select(a => a.HeadId).SingleAsync());
+                Assert.Empty(await f.H.Db.SaveVersions.Where(v => v.PlayerId == 2).ToListAsync());
+                Assert.False(await f.H.Db.OutpostLifecycleOperations.AnyAsync(o => o.Kind == "Restore"));
+                return;
+            }
+            Assert.IsType<Rimlink.Server.Application.World.RestoreOutcome.Restored>(await ops.RestoreColony(Actor.Api, archivedAtCut));
+            var reloaded = await f.H.Db.SaveVersions.AsNoTracking().SingleAsync(v => v.PlayerId == 2 && v.IsCurrent);
+            Assert.Equal(cutSave!.SnapshotId, reloaded.SnapshotId);
+            Assert.Equal(cutSave.RawSha256, reloaded.RawSha256);
+            Assert.Equal(2, (await Upload(host, 2000)).Number);
+            Assert.False(await f.H.Db.OutpostSnapshotLinks.AnyAsync(l => l.PlayerId == 2));
+            Assert.False(await f.H.Db.OutpostLifecycleOperations.AnyAsync(o => o.Kind == "Archive"));
+            Assert.Equal(1, await f.H.Db.OutpostLifecycleOperations.CountAsync(o => o.Kind == "Restore" && o.Phase == "Completed"));
+            Assert.Equal(new OutpostStartupResult(OutpostStartupState.Ready), await shared.Authority.OpenAsync(default));
+            return;
+        }
+        var current = await Upload(host, 2000);
+        Assert.Equal(saveAtCut ? 2 : 1, current.Number);
+        Assert.Equal(new OutpostStartupResult(OutpostStartupState.Ready), await shared.Authority.OpenAsync(default));
+        Assert.Equal(restored.HeadId, await f.H.Db.OutpostAuthority.Select(a => a.HeadId).SingleAsync());
+        Assert.False(await f.H.Db.OutpostSnapshotLinks.AnyAsync(l => l.PlayerId == 2));
+        using (var services = host.Services.CreateScope())
+        {
+            var download = await services.ServiceProvider.GetRequiredService<SaveStore>().OpenCurrent(2);
+            Assert.NotNull(download);
+            var downloaded = download.Value;
+            await using (downloaded.Content)
+            {
+                Assert.Equal(current.SnapshotId, downloaded.Version.SnapshotId);
+                Assert.Null(downloaded.RestoreBridge);
+            }
+        }
+        f.H.F.Time.Advance(TimeSpan.FromSeconds(1));
+        var backup = await host.Services.GetRequiredService<BackupService>().CreateNow();
+        Assert.True(File.Exists(Path.Combine(shared.Data.Backups, backup.Name)));
+
+        if (archivePhase == "after")
+        {
+            using var services = host.Services.CreateScope();
+            var ops = services.ServiceProvider.GetRequiredService<AdminOperations>();
+            var archived = Assert.IsType<ArchiveOutcome.Archived>(await ops.ArchiveColony(Actor.Api, 2));
+            Assert.Equal(new OutpostStartupResult(OutpostStartupState.Ready), await shared.Authority.OpenAsync(default));
+            Assert.Empty(await f.H.Db.SaveVersions.Where(v => v.PlayerId == 2).ToListAsync());
+            f.H.F.Time.Advance(TimeSpan.FromSeconds(1));
+            var archivedBackup = await host.Services.GetRequiredService<BackupService>().CreateNow();
+            Assert.True(File.Exists(Path.Combine(shared.Data.Backups, archivedBackup.Name)));
+            Assert.IsType<Rimlink.Server.Application.World.RestoreOutcome.Restored>(await ops.RestoreColony(Actor.Api, archived.ArchiveId));
+            var reloaded = await f.H.Db.SaveVersions.AsNoTracking().SingleAsync(v => v.PlayerId == 2 && v.IsCurrent);
+            Assert.Equal(current.SnapshotId, reloaded.SnapshotId);
+            Assert.Equal(current.RawSha256, reloaded.RawSha256);
+            var successor = await Upload(host, 3000);
+            Assert.Equal(current.Number + 1, successor.Number);
+            Assert.False(await f.H.Db.OutpostSnapshotLinks.AnyAsync(l => l.PlayerId == 2));
+            Assert.Equal(new OutpostStartupResult(OutpostStartupState.Ready), await shared.Authority.OpenAsync(default));
+            Assert.Equal(1, await f.H.Db.OutpostLifecycleOperations.CountAsync(x => x.Kind == "Archive" && x.Phase == "Completed"));
+            Assert.Equal(1, await f.H.Db.OutpostLifecycleOperations.CountAsync(x => x.Kind == "Restore" && x.Phase == "Completed"));
+            return;
+        }
+
+        if (firstProtected)
+        {
+            var metadata = new OutpostSaveMetadata { SchemaVersion = OutpostRecoveryData.CurrentVersion, Scope = new()
+                { WorldInstanceId = request.Inspection.Manifest.Authority.WorldId, OwnerPlayerId = 2, RestoreBoundary = request.TargetBoundary } };
+            var protectedSave = await Upload(host, 3000, new() { Metadata = metadata });
+            Assert.Equal(protectedSave.SnapshotId, (await f.H.Db.OutpostSnapshotLinks.SingleAsync(l => l.PlayerId == 2)).SnapshotId);
+            Assert.Equal(new OutpostStartupResult(OutpostStartupState.Ready), await shared.Authority.OpenAsync(default));
+            return;
+        }
+
+        await f.H.Db.SaveVersions.Where(v => v.Id == current.Id)
+            .ExecuteUpdateAsync(s => s.SetProperty(v => v.SnapshotId, Guid.NewGuid().ToString("N")));
+        Assert.Equal(OutpostStartupState.Maintenance, (await shared.Authority.OpenAsync(default)).State);
+    }
+
     [Fact]
     public async Task Archived_cut_stays_paused_through_repeated_completions()
     {
-        using var f = await LifecycleFixture.Create();
+        using var f = await LifecycleFixture.Create(runtimeQualified: true);
         f.H.F.Time.Advance(TimeSpan.FromMinutes(31.5));
         await f.Archive();
         var archived = await f.H.Row();
@@ -46,7 +188,7 @@ public class OutpostRestoreLifecycleTests
     [Fact]
     public async Task NoActiveWorld_cut_remains_admin_only_and_retains_all_retired_evidence()
     {
-        using var f = await LifecycleFixture.Create();
+        using var f = await LifecycleFixture.Create(runtimeQualified: true);
         await OutpostLifecycleTests.CloseAndReceive(f);
         using (var scope = f.Host.Services.CreateScope())
             await scope.ServiceProvider.GetRequiredService<AdminOperations>().RecreateWorld(Actor.Api);
@@ -69,7 +211,7 @@ public class OutpostRestoreLifecycleTests
     [Fact]
     public async Task Restored_NoActiveWorld_accepts_one_typed_successor_without_reinitializing_history()
     {
-        using var f = await LifecycleFixture.Create();
+        using var f = await LifecycleFixture.Create(runtimeQualified: true);
         await OutpostLifecycleTests.CloseAndReceive(f);
         using (var scope = f.Host.Services.CreateScope())
             await scope.ServiceProvider.GetRequiredService<AdminOperations>().RecreateWorld(Actor.Api);
@@ -85,6 +227,7 @@ public class OutpostRestoreLifecycleTests
             .WithDataDir(shared.Data.Root).KeepDataDir()
             .WithSetting("Outposts:AnchorDirectory", Path.Combine(shared.Root, "external"))
             .WithSetting("Outposts:StorageContract", "sqlite-local-v1")
+            .WithOutpostUnitQualification()
             .WithServices(s => { s.AddSingleton(shared.Files); s.AddSingleton(shared.Owners);
                 s.AddSingleton(shared.Anchor); s.AddSingleton<TimeProvider>(f.H.F.Time); });
         using var next = host.Services.CreateScope();
@@ -114,7 +257,7 @@ public class OutpostRestoreLifecycleTests
     [InlineData("world-params")]
     public async Task Current_owner_projection_cannot_be_changed_without_a_typed_descendant(string component)
     {
-        using var f = await LifecycleFixture.Create();
+        using var f = await LifecycleFixture.Create(runtimeQualified: true);
         string backup = await OutpostBackupTests.Create(f);
         var procedure = new OutpostRestoreProcedure(f.H.F.Time);
         var request = await OutpostRestoreTests.Request(f, procedure, backup);

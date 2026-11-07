@@ -1,7 +1,5 @@
 using System.CommandLine;
 using System.Text.Json;
-using System.Text.Json.Serialization;
-using Google.Protobuf;
 using Rimlink.Server.Backup;
 using Rimlink.Server.Hosting;
 
@@ -9,12 +7,6 @@ namespace Rimlink.Tools.Commands;
 
 public static class BackupCommands
 {
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
-    {
-        MaxDepth = 32, AllowDuplicateProperties = false, UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
-        RespectNullableAnnotations = true, RespectRequiredConstructorParameters = true, Converters = { new AnchorBytesConverter() }
-    };
-
     public static Command Backup(TextWriter? outputWriter = null)
     {
         var data = Required("--data", "Existing server data directory (protected CLI capture requires a stopped server)");
@@ -153,49 +145,18 @@ public static class BackupCommands
         return command;
     }
 
-    // Anchor heads contain protobuf ByteString, a read-only collection that STJ cannot populate by default.
-    // Keep the existing byte-array inspection representation; this codec never alters stored journal evidence.
-    private sealed class AnchorBytesConverter : JsonConverter<ByteString>
-    {
-        public override ByteString Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options)
-        {
-            if (reader.TokenType != JsonTokenType.StartArray) throw new JsonException("anchor bytes must be an array");
-            var bytes = new List<byte>();
-            while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
-            {
-                if (bytes.Count >= 4096 || reader.TokenType != JsonTokenType.Number || !reader.TryGetByte(out byte value))
-                    throw new JsonException("anchor byte-array limit or value");
-                bytes.Add(value);
-            }
-            if (reader.TokenType != JsonTokenType.EndArray) throw new JsonException("incomplete anchor bytes");
-            return ByteString.CopyFrom(bytes.ToArray());
-        }
-        public override void Write(Utf8JsonWriter writer, ByteString value, JsonSerializerOptions options)
-        {
-            if (value.Length > 4096) throw new JsonException("anchor byte-array limit");
-            writer.WriteStartArray();
-            foreach (byte item in value) writer.WriteNumberValue(item);
-            writer.WriteEndArray();
-        }
-    }
-
     private static Option<string> Required(string name, string description) => new(name) { Description = description, Required = true };
     private static int Exit(RestoreResult result) => result.Outcome is RestoreOutcome.Completed or RestoreOutcome.BackedOut ? 0 : 1;
-    private static Task WriteJson<T>(TextWriter writer, T value) => writer.WriteLineAsync(JsonSerializer.Serialize(value, Json));
+    private static Task WriteJson<T>(TextWriter writer, T value) => writer.WriteLineAsync(OutpostRestoreRequestJson.Serialize(value));
     private static byte[] Digest(string hex) => hex.Length == 64 ? Convert.FromHexString(hex) : throw new ArgumentException("confirmation must be exactly 64 hex characters");
-    private static async Task<T> ReadJson<T>(string path, CancellationToken ct)
-    {
-        await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, useAsync: true);
-        if (stream.Length is <= 0 or > 32 * 1024 * 1024) throw new InvalidDataException("restore-request-size-limit");
-        return await JsonSerializer.DeserializeAsync<T>(stream, Json, ct) ?? throw new InvalidDataException("restore-request-missing");
-    }
+    private static Task<T> ReadJson<T>(string path, CancellationToken ct) => OutpostRestoreRequestJson.ReadAsync<T>(path, ct);
     private static async Task<int> Run(TextWriter? output, Func<TextWriter, Task<int>> action)
     {
         var writer = output ?? Console.Out;
         try { return await action(writer); }
         catch (Exception error) when (error is IOException or InvalidOperationException or ArgumentException or JsonException or Microsoft.Data.Sqlite.SqliteException or OperationCanceledException)
         {
-            await writer.WriteLineAsync(JsonSerializer.Serialize(new { error = error.Message }, Json));
+            await writer.WriteLineAsync(OutpostRestoreRequestJson.Serialize(new { error = error.Message }));
             return 1;
         }
     }

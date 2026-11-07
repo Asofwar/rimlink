@@ -5,11 +5,17 @@ using Rimlink.Server.Tests.Support;
 
 namespace Rimlink.Client.Tests.Outposts;
 
-internal sealed class OutpostTraffic(HttpMessageHandler inner) : DelegatingHandler(inner)
+internal sealed class OutpostTraffic(HttpMessageHandler inner, Func<string, HttpResponseMessage?>? intercept = null) : DelegatingHandler(inner)
 {
     public ConcurrentQueue<string> Paths { get; } = new();
+    public Action<HttpRequestMessage>? Observe { get; init; }
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
-    { Paths.Enqueue(request.RequestUri!.AbsolutePath); return base.SendAsync(request, ct); }
+    {
+        string path = request.RequestUri!.AbsolutePath;
+        Paths.Enqueue(path);
+        Observe?.Invoke(request);
+        return intercept?.Invoke(path) is { } reply ? Task.FromResult(reply) : base.SendAsync(request, ct);
+    }
     public static async Task<OutpostTestSession> Connect(OutpostClientFixture fixture, OutpostTraffic traffic, string? login = null)
     {
         var connection = new RimlinkConnection(new ServerEndpoint("test", 1), new PasswordCredentials(login ?? fixture.LoginName, "pw"),

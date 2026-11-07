@@ -19,7 +19,7 @@ public sealed partial class OutpostLifecycleTests
     [Fact]
     public async Task Clean_reset_advances_generation_without_migrating_old_assets_or_evidence()
     {
-        using var f = await LifecycleFixture.Create();
+        using var f = await LifecycleFixture.Create(runtimeQualified: true);
         await CloseAndReceive(f);
         var before = await f.H.Db.OutpostAuthority.AsNoTracking().SingleAsync();
         var links = await f.H.Db.OutpostSnapshotLinks.AsNoTracking().OrderBy(v => v.SnapshotId).ToArrayAsync();
@@ -48,7 +48,7 @@ public sealed partial class OutpostLifecycleTests
     [InlineData("Destructive", false)] [InlineData("SourceCleanup", false)] [InlineData("Completed", true)]
     public async Task Crash_each_reset_phase_retains_original_evidence_and_blocks_unfinished_startup(string phase, bool complete)
     {
-        using var f = await LifecycleFixture.Create(); await CloseAndReceive(f);
+        using var f = await LifecycleFixture.Create(runtimeQualified: true); await CloseAndReceive(f);
         var links = await f.H.Db.OutpostSnapshotLinks.AsNoTracking().ToArrayAsync();
         using var scope = f.Host.Services.CreateScope();
         scope.ServiceProvider.GetRequiredService<OutpostLifecycle>().Checkpoint = at =>
@@ -66,7 +66,7 @@ public sealed partial class OutpostLifecycleTests
     [Fact]
     public async Task Recreate_blocked_last_owner_has_no_effect_on_clean_first_owner()
     {
-        using var f = await LifecycleFixture.Create(); await CloseAndReceive(f);
+        using var f = await LifecycleFixture.Create(runtimeQualified: true); await CloseAndReceive(f);
         await PrepareSecondOwner(f);
         string before = await f.Cut();
         using var scope = f.Host.Services.CreateScope();
@@ -78,7 +78,7 @@ public sealed partial class OutpostLifecycleTests
     [Fact]
     public async Task Reset_archived_owner_requires_restore_before_any_effect()
     {
-        using var f = await LifecycleFixture.Create(); await f.Archive();
+        using var f = await LifecycleFixture.Create(runtimeQualified: true); await f.Archive();
         string before = await f.Cut(); using var scope = f.Host.Services.CreateScope();
         await Assert.ThrowsAsync<RpcException>(() => scope.ServiceProvider.GetRequiredService<AdminOperations>().ResetPlayer(Actor.Api, 1));
         Assert.Equal(before, await f.Cut());
@@ -87,7 +87,7 @@ public sealed partial class OutpostLifecycleTests
     [Fact]
     public async Task Reset_returns_other_owners_tagged_trade_under_the_existing_lifecycle_barrier()
     {
-        using var f = await LifecycleFixture.Create(); await CloseAndReceive(f);
+        using var f = await LifecycleFixture.Create(runtimeQualified: true); await CloseAndReceive(f);
         var h = f.H;
         h.Db.Accounts.Add(new Account { Id = 2, Player = new Player { Id = 2, Name = "Other" } });
         await h.Db.SaveChangesAsync();
@@ -120,7 +120,7 @@ public sealed partial class OutpostLifecycleTests
     [InlineData(true)] [InlineData(false)]
     public async Task Reset_projection_allows_only_real_accepted_current_generation_snapshots(bool accepted)
     {
-        using var f = await LifecycleFixture.Create(); await CloseAndReceive(f);
+        using var f = await LifecycleFixture.Create(runtimeQualified: true); await CloseAndReceive(f);
         using (var scope = f.Host.Services.CreateScope())
             await scope.ServiceProvider.GetRequiredService<AdminOperations>().ResetPlayer(Actor.Api, 1);
         var metadata = f.H.F.H.Metadata(); metadata.Scope.SaveGeneration = 1;
@@ -140,7 +140,7 @@ public sealed partial class OutpostLifecycleTests
     [Fact]
     public async Task Reset_of_one_owner_does_not_mask_another_owners_archived_projection()
     {
-        using var f = await LifecycleFixture.Create(); await CloseAndReceive(f);
+        using var f = await LifecycleFixture.Create(runtimeQualified: true); await CloseAndReceive(f);
         var h = f.H;
         h.Db.Accounts.Add(new Account { Id = 2, Player = new Player { Id = 2, Name = "Archived Other" } });
         h.Db.WorldObjects.Add(new Rimlink.Server.Storage.Entities.WorldObject { OwnerPlayerId = 2,

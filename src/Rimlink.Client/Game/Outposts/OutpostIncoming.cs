@@ -15,14 +15,17 @@ public static class OutpostIncoming
 {
     private static readonly HashSet<long> running = [], held = [];
     private static readonly Dictionary<long, OutpostManifestDocument> manifests = [];
-    private sealed record Permit(Parcel Parcel, OutpostDeliveryRequest Request, OutpostDeliveryReply Reply, Verse.Game Game, Map Home);
+    private sealed record Permit(Parcel Parcel, OutpostDeliveryRequest Request, OutpostDeliveryReply Reply, Verse.Game Game, Map Home,
+        OutpostAcceptanceContext? Acceptance);
     private static Permit? permit;
     private static long lifetime;
+    internal static bool Busy => running.Count != 0;
     public static string? LastFailure { get; private set; }
     public static bool Protected(Parcel p) => p.OutpostPayload is not null || p.Kind == ParcelKind.ParcelOutpost || p.Pawns?.Pawns.Any(b => b.Registry is not null) == true;
     public static void Reset() { lifetime++; running.Clear(); held.Clear(); manifests.Clear(); permit = null; LastFailure = null; }
 
-    public static DeliveryDecision Validate(Parcel parcel)
+    public static DeliveryDecision Validate(Parcel parcel) => Validate(parcel, null);
+    private static DeliveryDecision Validate(Parcel parcel, OutpostAcceptanceContext? acceptance)
     {
         DeliveryDecision No() => new(false, "Rimlink.Outposts.DeliveryIncompatible", []);
         var metadata = Current.Game?.GetComponent<RimlinkGameComponent>().OutpostRecovery.Metadata;
@@ -30,7 +33,8 @@ public static class OutpostIncoming
             || parcel.AwaitingDecision || OutpostPayloadCompatibility.Refusal(parcel, RimlinkSession.Login?.OutpostVersion ?? 0) is not null
             || parcel.OutpostPayload is not { ChildCount: > 0 } payload || !OutpostDeliveryEvidence.MatchesScope(parcel, metadata.Scope)
             || !OutpostParcelContents.Match(payload, parcel.Items, parcel.Pawns, parcel.Silver)
-            || Incoming.MissingDefs(parcel.Items, parcel.Pawns) is not null) return No();
+            || Incoming.MissingDefs(parcel.Items, parcel.Pawns,
+                acceptance is null ? null : (name, actual) => OutpostAcceptance.DefinitionAvailable(acceptance, parcel, name, actual)) is not null) return No();
         var original = payload.Clone(); original.PayloadDigest = ByteString.Empty;
         if (!System.Security.Cryptography.SHA256.HashData(original.ToByteArray()).AsSpan().SequenceEqual(payload.PayloadDigest.Span)) return No();
         if (payload.ManifestId.Length == 0) return payload.Resources.Count == 0 ? new(true, null, []) : No();
@@ -71,7 +75,8 @@ public static class OutpostIncoming
         foreach (var blob in parcel.Items.Items) things.Add(ThingBlobs.DeserializeItem(blob, newIds: true));
         foreach (var blob in parcel.Pawns.Pawns)
         {
-            var pawn = ThingBlobs.DeserializePawn(blob, newIds: true); things.Add(pawn);
+            var pawn = ThingBlobs.DeserializePawn(blob, newIds: true, keepPrisoner: parcel.Kind == ParcelKind.ParcelCaptive && blob.Registry is not null);
+            things.Add(pawn);
             if (blob.Registry is { } source)
             {
                 var envelope = source.Clone(); envelope.Scope = allowed.Request.Scope.Clone(); envelope.NonAuthoritativeMirror = false; envelope.Tombstone = false;
@@ -80,8 +85,9 @@ public static class OutpostIncoming
         }
         // Restore the returning group before binding its final, possibly changed, actual load ids.
         RelationLedger.Rejoin(things.OfType<Pawn>().ToArray());
-        DropPodUtility.DropThingsNear(Incoming.DropCenter(home), home, things, openDelay: 0,
-            canInstaDropDuringInit: false, leaveSlag: false, canRoofPunch: true, forbid: false);
+        using (OutpostAcceptance.OpenPlacement(allowed.Acceptance, parcel, home, things, workers))
+            DropPodUtility.DropThingsNear(Incoming.DropCenter(home), home, things, openDelay: 0,
+                canInstaDropDuringInit: false, leaveSlag: false, canRoofPunch: true, forbid: false);
         foreach (var worker in workers) PawnCustodyRegistry.CurrentRegistry!.Bind(worker.Pawn, worker.Envelope);
         var registry = PawnCustodyRegistry.CurrentRegistry!.ValidateOwnGame();
         if (registry.RecoveryRequired) throw new InvalidDataException("delivered custody registry is ambiguous");
@@ -95,6 +101,8 @@ public static class OutpostIncoming
         var game = Current.Game; var parcel = value.Clone(); var component = game.GetComponent<RimlinkGameComponent>();
         var scope = new OutpostScopeMessage { WorldInstanceId = RimlinkSession.World?.WorldInstanceId ?? "", OwnerPlayerId = login.Player.PlayerId,
             SaveGeneration = login.SaveGeneration, SaveWriteEpoch = login.SaveWriteEpoch, RestoreBoundary = login.OutpostRestoreBoundary };
+        var acceptance = OutpostAcceptance.Capture(scope, "", "delivery", parcel.Id.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        if (acceptance is not null) acceptance = acceptance with { IntentSha256 = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(parcel.ToByteArray())) };
         try
         {
             component.OutpostRecovery = new() { Metadata = OutpostDeliveryEvidence.PrepareRecipient(component.OutpostRecovery.Metadata, scope,
@@ -116,11 +124,16 @@ public static class OutpostIncoming
                 if (parcel.OutpostPayload is { ManifestId.Length: > 0 } payload)
                     document = await new OutpostManifestClient(connection).Read(new OutpostStateReply { Scope = scope.Clone(),
                         ManifestId = payload.ManifestId, ManifestDigest = payload.ManifestDigest }, token, parcel.Id);
+                await OutpostAcceptance.VerifyDeliveryAsync(acceptance);
                 var entry = await MainThread.Get(() =>
                 {
                     Check(); if (document is not null) manifests[parcel.Id] = document;
-                    if (!Validate(parcel).Allowed) throw new InvalidDataException("protected parcel is incompatible with this home game");
                     Find.TickManager.Pause();
+                    if (!Validate(parcel, acceptance).Allowed)
+                    {
+                        SaveSync.BlockWrites();
+                        throw new InvalidDataException("protected parcel is incompatible with this home game");
+                    }
                     return outbox.Entries.SingleOrDefault(e => e.Kind == OutboxKind.OutpostBeginDelivery
                         && ((OutpostDeliveryRequest)TransferOutbox.Decode(e)).ParcelId == parcel.Id);
                 });
@@ -143,6 +156,10 @@ public static class OutpostIncoming
                 await MainThread.Get(() => { Check(); outbox.MarkReplyUnknown(entry.Id); return true; });
                 var reply = await client.BeginDelivery(request, token);
                 await MainThread.Get(() => { Check(); outbox.RecordOutpostReply(entry.Id, reply); return true; });
+                if (acceptance is not null) acceptance = acceptance with { OperationId = request.ClientRequestId,
+                    IntentSha256 = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(request.ToByteArray())) };
+                if (!reply.AckOnly) await OutpostAcceptance.ReachAsync("delivery-before-materialize", acceptance, request.CanonicalSnapshot.SnapshotId);
+                await OutpostAcceptance.VerifyDeliveryAsync(acceptance);
                 var disposition = await MainThread.Get(() =>
                 {
                     Check(); var metadata = component.OutpostRecovery.Metadata;
@@ -152,7 +169,7 @@ public static class OutpostIncoming
                     if (choice == MaterializationDecision.Materialize)
                     {
                         outbox.MarkOutpostSpawnStarted(entry.Id, branch); spawnStarted = true;
-                        permit = new(parcel, request, reply, game, home);
+                        permit = new(parcel, request, reply, game, home, acceptance);
                         try { Materialize(parcel, home); } finally { permit = null; }
                         OutpostOutgoing.AddReceipt(component, OutpostDeliveryEvidence.Receipt(parcel, request, reply));
                         RimlinkSession.RecoveryNeeded = true;
@@ -160,7 +177,8 @@ public static class OutpostIncoming
                     return choice;
                 });
                 // Even an ACK-only local receipt must first have its complete exact XML accepted by the server.
-                RequireUploaded(await SaveSync.SaveExactAsync());
+                RequireUploaded(await SaveSync.SaveExactAsync(null, acceptance, "receipt"));
+                await OutpostAcceptance.ReachAsync("receipt-accepted-before-ack", acceptance, SaveSync.LastSavedSnapshot?.Id);
                 var ack = await client.BeginDelivery(request, token);
                 if (!ack.AckOnly) throw new InvalidDataException("the exact materialization receipt was not accepted");
                 await MainThread.Get(() => { Check(); outbox.Remove(entry.Id); RimlinkSession.State.Economy.MarkDelivered(parcel.Id);
@@ -180,7 +198,13 @@ public static class OutpostIncoming
                     held.Add(parcel.Id);
                     RimlinkLog.Instance.Warn("protected parcel held: " + error.Message);
                     Messages.Message("Rimlink.Outposts.DeliveryHold".Translate(), MessageTypeDefOf.RejectInput, false);
-                    if (spawnStarted) { SaveSync.BlockWrites(); RimlinkGameComponent.AbortToMenu(); }
+                    if (spawnStarted)
+                    {
+                        SaveSync.BlockWrites();
+                        try { OutpostAcceptance.DeliveryFailed(acceptance, parcel, true, error); }
+                        finally { RimlinkGameComponent.AbortToMenu(); }
+                    }
+                    else OutpostAcceptance.DeliveryFailed(acceptance, parcel, false, error);
                     return true;
                 });
             }

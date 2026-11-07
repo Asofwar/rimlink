@@ -13,6 +13,10 @@ public sealed partial class BackupService(DataDirectory data, IOptions<BackupOpt
     public const string NamePattern = @"^rimlink-\d{8}-\d{6}\.tar\.zst$";
 
     private readonly SemaphoreSlim gate = new(1, 1);
+    internal bool CanRunScheduled
+    {
+        get { using var scope = scopes.CreateScope(); return Hosting.OutpostDomainHostedServices.CanWrite(scope.ServiceProvider); }
+    }
 
     /// <summary>Newest first.</summary>
     public List<BackupFile> List() =>

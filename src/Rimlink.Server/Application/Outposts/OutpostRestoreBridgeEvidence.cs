@@ -80,12 +80,12 @@ public sealed partial class OutpostRestoreEvidence
         _ = OutpostSourceGraph.ValidateRoot(bridge); return bridge;
     }
 
-    private SaveRecoveryData ReadActualDownload(SaveVersion target)
+    private SaveRecoveryData ReadActualDownload(SaveVersion target, string? archive = null)
     {
         SaveRecoveryData original;
         try
         {
-            original = SaveRecoveryData.ReadXml(new MemoryStream(files.ReadEvidence(target), false), out byte[] rawHash);
+            original = SaveRecoveryData.ReadXml(new MemoryStream(files.ReadEvidence(target, archive), false), out byte[] rawHash);
             if (target.RawSha256 is null || !rawHash.AsSpan().SequenceEqual(target.RawSha256) || target.SnapshotId != original.SnapshotId
                 || target.RecoveryVersion != original.Version || target.SaveGeneration != original.Generation || target.SaveWriteEpoch != original.WriteEpoch
                 || !Same(SaveStore.RecoveryOf(target), original)) throw Invalid("restore-download-actual-bytes-mismatch");

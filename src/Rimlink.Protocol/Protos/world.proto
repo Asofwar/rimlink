@@ -17,6 +17,7 @@ service World {
   rpc StageOutpostManifest (OutpostManifestChunk) returns (ManifestPreview);
   rpc ReadOutpostManifest (OutpostManifestPageRequest) returns (OutpostManifestPage);
   rpc ConfirmOutpostManifest (OutpostManifestConfirmation) returns (ManifestRevision);
+  rpc PreviewOutpostManifestConfirmation (OutpostManifestAdminPreviewRequest) returns (OutpostManifestAdminPreview);
 }
 
 message WorldParams {
@@ -138,5 +139,18 @@ message ManifestPreview {
 }
 message OutpostManifestPageRequest { string manifest_id = 1; string expected_digest = 2; int32 offset = 3; }
 message OutpostManifestPage { bytes data = 1; int32 total_bytes = 2; string digest = 3; }
-message OutpostManifestConfirmation { string manifest_id = 1; string expected_digest = 2; }
-message ManifestRevision { string manifest_id = 1; string digest = 2; int64 revision = 3; }
+message OutpostManifestConfirmation {
+  string manifest_id = 1; string expected_digest = 2;
+  bytes canonical_command = 3; bytes intent_sha256 = 4; bool confirmed = 5;
+}
+message OutpostManifestAdminPreviewRequest {
+  string manifest_id = 1; string expected_digest = 2; string client_request_id = 3; string reason = 4;
+}
+message OutpostManifestAdminPreview {
+  bytes canonical_command = 1; bytes intent_sha256 = 2; repeated string blockers = 3;
+  string manifest_id = 4; string digest = 5; int64 revision = 6;
+}
+message ManifestRevision {
+  string manifest_id = 1; string digest = 2; int64 revision = 3;
+  string command_receipt_id = 4; string authority_head_id = 5; bytes authority_head_sha256 = 6; bool replay = 7;
+}

@@ -120,7 +120,20 @@ public sealed partial class TransferOutbox
         return entry;
     }
 
+    public void ReconcileSelectedSnapshot(SaveRecoveryData snapshot, long gameTick, SaveHeader? verifiedDownload)
+    {
+        long selectedGeneration = verifiedDownload?.SaveGeneration ?? snapshot.Generation;
+        long selectedEpoch = verifiedDownload?.SaveWriteEpoch ?? snapshot.WriteEpoch;
+        bool accepted = snapshot.Generation == selectedGeneration && snapshot.WriteEpoch == selectedEpoch;
+        // A verified rollback selects a new write epoch while the snapshot keeps its original custody proof.
+        ReconcileSnapshot(snapshot, accepted, gameTick, selected: true, selectedGeneration, selectedEpoch);
+    }
+
     public void ReconcileSnapshot(SaveRecoveryData snapshot, bool accepted, long? gameTick = null, bool selected = false)
+        => ReconcileSnapshot(snapshot, accepted, gameTick, selected, snapshot.Generation, snapshot.WriteEpoch);
+
+    private void ReconcileSnapshot(SaveRecoveryData snapshot, bool accepted, long? gameTick, bool selected,
+        long selectedGeneration, long selectedEpoch)
     {
         snapshot.Validate();
         var removed = snapshot.Removed.ToHashSet(StringComparer.Ordinal);
@@ -141,7 +154,7 @@ public sealed partial class TransferOutbox
                     if (NeedsSnapshot(entry)) { if (selected) entry.Phase = OutboxPhase.RecoveryRequired; continue; }
                     entry.Phase = OutboxPhase.Ready;
                 }
-                if (entry.SaveGeneration != snapshot.Generation || entry.SaveWriteEpoch != snapshot.WriteEpoch)
+                if (entry.SaveGeneration != selectedGeneration || entry.SaveWriteEpoch != selectedEpoch)
                 { if (selected) entry.Phase = OutboxPhase.RecoveryRequired; continue; }
                 if (returned.Contains(entry.Id))
                 {

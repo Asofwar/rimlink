@@ -21,7 +21,8 @@ public sealed class ColonyTools
         [ToolParameter(Description = "World seed, only for an admin creating the server's first planet")] string? seed = null,
         [ToolParameter(Description = "Starting tile id; default a random free one")] int tile = -1,
         [ToolParameter(Description = "Threat scale of the difficulty values (e.g. 0.5 with difficulty Custom); 0 keeps the difficulty's own")] float threatScale = 0f,
-        [ToolParameter(Description = "Seconds to wait for the whole flow (world generation included)")] int timeoutSec = 300)
+        [ToolParameter(Description = "Seconds to wait for the whole flow (world generation included)")] int timeoutSec = 300,
+        [ToolParameter(Description = "Initial admin world coverage: 0 keeps defaults; 0.3, 0.5 or 1; dev mode also allows 0.05. Refused for an existing world.")] float planetCoverage = 0f)
     {
         if (timeoutSec < 1) return Bridge.Fail("timeoutSec must be at least 1");
         if (!Bridge.TryEnterFlow("start_colony")) return Bridge.Fail($"{Bridge.RunningFlow} is still running");
@@ -36,12 +37,17 @@ public sealed class ColonyTools
                 if (Current.ProgramState != ProgramState.Entry) return Bridge.Fail($"a new colony starts from the main menu; the game is in {Current.ProgramState}");
                 if (!RimlinkSession.IsAdmin && RimlinkSession.World is not { Exists: true })
                     return Bridge.Fail("the server has no world yet: an admin starts the first colony");
+                if (ColonyCoverage.Refusal(planetCoverage, RimlinkSession.IsAdmin,
+                    RimlinkSession.World is { Exists: true } || Find.World is not null, Prefs.DevMode) is { } coverageRefusal)
+                    return Bridge.Fail(coverageRefusal);
+                if (planetCoverage != 0f && LongEventHandler.AnyEventNowOrWaiting)
+                    return Bridge.Fail("planetCoverage must be selected before world generation starts");
                 if (Pages.Top() is null) Find.WindowStack.Add(new Page_SelectScenario());
                 return null;
             });
             if (refused is not null) return refused;
 
-            var driver = new NewColonyDriver(new NewColonyDriver.Options(scenario, storyteller, difficulty, seed, tile, threatScale));
+            var driver = new NewColonyDriver(new NewColonyDriver.Options(scenario, storyteller, difficulty, seed, tile, threatScale, planetCoverage));
             var (ok, error) = await driver.RunAsync(ctx, deadline);
             if (!ok) return Bridge.Fail(error!, new { steps = driver.Steps, topWindow = await Bridge.OnMain(ctx, Bridge.TopWindowType) });
 

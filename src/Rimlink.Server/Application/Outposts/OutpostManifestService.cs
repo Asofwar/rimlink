@@ -14,7 +14,7 @@ using Rimlink.Server.Storage;
 
 namespace Rimlink.Server.Application.Outposts;
 
-public sealed class OutpostManifestService(RimlinkDbContext db, OutpostAuthority authority, OutpostClock clock, SaveFiles files)
+public sealed partial class OutpostManifestService(RimlinkDbContext db, OutpostAuthority authority, OutpostClock clock, SaveFiles files)
 {
     public const string MainSurface = "planet";
     public const int MaxDocumentBytes = 24 * 1024 * 1024;
@@ -59,9 +59,10 @@ public sealed class OutpostManifestService(RimlinkDbContext db, OutpostAuthority
         await authority.CommitHeldAsync(lease, intent, (context, token) => { context.OutpostManifests.Add(row); return Task.CompletedTask; }, ct);
         return Preview(row, document);
     }
-    public async Task<ManifestRevision> ConfirmAsync(Actor actor, string manifestId, string expectedDigest, CancellationToken ct)
+    internal async Task<ManifestRevision> ConfirmAsync(Actor actor, string manifestId, string expectedDigest, CancellationToken ct)
     {
         actor.Require(Role.Admin);
+        if (authority.IsRuntimeComposition) throw RpcErrors.Failed(ErrorCode.RecoveryRequired, RefusalKeys.OutpostsOperation, "canonical manifest command required");
         // Owner discovery is repeated after A/O/S acquisition: a racing admission must not escape the owner fence.
         while (true)
         {
@@ -80,24 +81,8 @@ public sealed class OutpostManifestService(RimlinkDbContext db, OutpostAuthority
             var intent = await IntentAsync("ConfirmManifest", actor, row, ct);
             await authority.CommitHeldAsync(lease, intent, async (context, token) =>
             {
-                // Set-based writes use the owned transaction and do not attach stale copies from a prior call.
-                // Disable the old unique active row before enabling its replacement.
-                await context.OutpostManifests.Where(m => m.WorldId == row.WorldId && m.Active)
-                    .ExecuteUpdateAsync(s => s.SetProperty(m => m.Active, false), token);
-                var confirmedAt = clock.Sample().Utc;
-                await context.OutpostManifests.Where(m => m.Id == row.Id).ExecuteUpdateAsync(s => s
-                    .SetProperty(m => m.Confirmed, true).SetProperty(m => m.Active, true).SetProperty(m => m.ConfirmedAt, confirmedAt), token);
-                foreach (var outpost in affected)
-                {
-                    if (outpost.WorldId != row.WorldId || !provenance.TryGetValue(outpost.ManifestId, out var source) ||
-                        !outpost.ManifestDigest.AsSpan().SequenceEqual(source.Digest) || !Compatible(source, document, outpost))
-                    {
-                        await context.Outposts.Where(o => o.Id == outpost.Id).ExecuteUpdateAsync(s => s
-                            .SetProperty(o => o.State, "SafetyHold").SetProperty(o => o.Revision, o => o.Revision + 1)
-                            .SetProperty(o => o.LastTransitionId, intent.Id), token);
-                        // Keep Q/F, old inputs/provenance and checkpoint; resumption needs an explicit new time boundary.
-                    }
-                }
+                // Same held staging rules are reused by the canonical admin command path.
+                await StageConfirmationCoreAsync(row, document, affected, provenance, intent.Id, clock.Sample().Utc, token);
             }, ct);
             return Revision(row);
         }
@@ -133,12 +118,15 @@ public sealed class OutpostManifestService(RimlinkDbContext db, OutpostAuthority
         {
             var parcel = await db.OutpostParcelLinks.AsNoTracking().SingleOrDefaultAsync(p => p.ParcelId == request.ParcelId
                 && p.WorldId == request.Scope.WorldInstanceId && p.PlayerId == request.Scope.OwnerPlayerId
-                && p.SaveGeneration == request.Scope.SaveGeneration && p.RestoreBoundary == request.Scope.RestoreBoundary, ct);
+                && p.SaveGeneration == request.Scope.SaveGeneration, ct);
             if (parcel is null || parcel.Payload.Length > OutpostRecoveryData.MaxMetadataBytes
                 || !SHA256.HashData(parcel.Payload).AsSpan().SequenceEqual(parcel.PayloadDigest)) throw Invalid("manifest-parcel-mismatch");
             var payload = OutpostParcelPayload.Parser.ParseFrom(parcel.Payload);
             if (payload.ManifestId != row.Id || !payload.ManifestDigest.Span.SequenceEqual(row.Digest)) throw Invalid("manifest-parcel-mismatch");
-            // The immutable parcel pins its original confirmed document, not today's active catalog or valuation.
+            if (parcel.RestoreBoundary != request.Scope.RestoreBoundary
+                && await OutpostRestoreEvidence.ReadParcelAuthorizationAsync(db, files, parcel, request.Scope, ct) is null)
+                throw Invalid("manifest-parcel-mismatch");
+            // The immutable parcel pins its original confirmed document and valuation.
         }
         else
         {

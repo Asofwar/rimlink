@@ -1,7 +1,7 @@
 // Minimal collection Scribe double: tests exercise the production map component's save fields, not the game engine.
 namespace Verse;
 
-public class Map
+public partial class Map
 {
     public T GetComponent<T>() => throw new NotSupportedException();
 }
@@ -12,8 +12,8 @@ public abstract class MapComponent
     public virtual void ExposeData() { }
 }
 
-public class Thing { public int thingIDNumber; }
-public sealed class Pawn : Thing
+public partial class Thing { public int thingIDNumber; }
+public sealed partial class Pawn : Thing
 {
     public PawnEquipment? equipment;
     public PawnApparel? apparel;
@@ -22,9 +22,9 @@ public sealed class Pawn : Thing
 public sealed class PawnEquipment { public List<Thing> AllEquipmentListForReading = []; }
 public sealed class PawnApparel { public List<Thing> WornApparel = []; }
 public sealed class PawnInventory { public List<Thing> innerContainer = []; }
-public enum LookMode { Value }
+public enum LookMode { Value, Deep }
 
-public static class Scribe_Collections
+public static partial class Scribe_Collections
 {
     public static bool Loading;
     public static Dictionary<string, object> Fields = [];

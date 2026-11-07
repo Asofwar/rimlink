@@ -168,7 +168,7 @@ public sealed class ColonyArchive(
         return new ArchiveOutcome.Archived(row.Id);
     }
 
-    // Legacy colonies retain O -> S. A protected history must release both before taking A -> O -> S.
+    // A restore cut can constrain the owner even before the colony has its own custody history.
     // Recheck under O/S closes the first-history race without ever acquiring A under an owner lock.
     private async Task<ArchiveLock> AcquireArchiveLockAsync(long playerId)
     {
@@ -180,7 +180,8 @@ public sealed class ColonyArchive(
             long[] affected = await CleanupOwners(playerId);
             bool protectedHistory = await db.OutpostSnapshotLinks.AnyAsync(p => affected.Contains(p.PlayerId))
                 || await db.PawnCustody.AnyAsync(p => affected.Contains(p.PlayerId))
-                || await db.OutpostDeliveryAttempts.AnyAsync(p => affected.Contains(p.PlayerId));
+                || await db.OutpostDeliveryAttempts.AnyAsync(p => affected.Contains(p.PlayerId))
+                || await new Outposts.OutpostRestoreEvidence(db, saveFiles).HasCurrentRestoreOwnerAsync(playerId, default);
             if (!protectedHistory) return new(owner, storage, null);
             storage.Dispose(); storage = null; owner.Dispose(); owner = null;
             while (true)
@@ -297,7 +298,7 @@ public sealed class ColonyArchive(
         if (await TileTaken(row.Tile)) return new RestoreOutcome.TileTaken();
 
         OutpostLifecycleOperation? lifecycle = held.Authority is null ? null
-            : await outpostLifecycle.PrepareRestoreHeldAsync(held.Authority, row.PlayerId, archiveId, restoredBy, default);
+            : await outpostLifecycle.PrepareRestoreHeldAsync(held.Authority, row.PlayerId, archiveId, row.Dir, restoredBy, default);
         string dir = Path.Combine(data.Root, row.Dir);
         var versions = await files.CopyIn(row.PlayerId, dir);
         if (versions is null)

@@ -1,5 +1,6 @@
 using Grpc.Core;
 using Rimlink.Server.Application.Admin;
+using Rimlink.Server.Hosting;
 
 namespace Rimlink.Server.Rest;
 
@@ -86,6 +87,7 @@ public static class AdminAuth
         http.Items[typeof(Actor)] = actor;
         http.Items[typeof(ApiScope)] = scopes;
         http.Response.Headers.CacheControl = "no-store";
+        UnauthenticatedConnectionLimiter.MarkAuthenticated(http);
 
         try
         {

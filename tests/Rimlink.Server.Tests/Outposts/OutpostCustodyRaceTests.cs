@@ -38,7 +38,7 @@ public sealed class OutpostCustodyRaceTests
         var removed = metadata.Clone(); removed.Registry[0].Tombstone = true;
         removed.OrdinaryOutgoing.Add(OrdinaryCapture.Create(send, localId, metadata.Scope));
         var post = h.F.F.H.Snapshot(removed, removed: [localId]);
-        using var host = h.StartHost(); using var assignmentScope = host.Services.CreateScope(); using var sendScope = host.Services.CreateScope();
+        using var host = await h.StartHostAsync(); using var assignmentScope = host.Services.CreateScope(); using var sendScope = host.Services.CreateScope();
         var assignment = assignmentScope.ServiceProvider.GetRequiredService<OutpostAssignmentService>();
         var transfer = sendScope.ServiceProvider.GetRequiredService<TransferService>();
         async Task<bool> Assign()

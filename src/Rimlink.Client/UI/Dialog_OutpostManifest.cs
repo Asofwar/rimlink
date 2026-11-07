@@ -13,6 +13,8 @@ namespace Rimlink.Client.UI;
 public sealed class Dialog_OutpostManifest : Window
 {
     private ManifestPreview? staged;
+    private OutpostManifestAdminPreview? command;
+    private string reason = "Rimlink.Outposts.ManifestReasonDefault".Translate();
     private bool busy;
     private string status = "Rimlink.Outposts.ManifestHelp";
     private string? details;
@@ -21,26 +23,33 @@ public sealed class Dialog_OutpostManifest : Window
     public override void PreOpen() { base.PreOpen(); forcePause = true; doCloseX = true; absorbInputAroundWindow = true; }
     public override void DoWindowContents(Rect rect)
     {
-        Text.Font = GameFont.Medium; Widgets.Label(new(0, 0, rect.width, 40), "Rimlink.Outposts.ManifestTitle".Translate()); Text.Font = GameFont.Small;
-        Widgets.Label(new(0, 44, rect.width, 100), status.Translate());
+        bool isolated = RimlinkSession.Login?.OutpostIsolatedAcceptance == true;
+        Text.Font = isolated ? GameFont.Small : GameFont.Medium;
+        Widgets.Label(new(0, 0, rect.width, 40), (isolated ? "Rimlink.Outposts.ManifestTitleIsolated" : "Rimlink.Outposts.ManifestTitle").Translate()); Text.Font = GameFont.Small;
+        Widgets.Label(new(0, 44, rect.width, 50), status.Translate());
+        Widgets.Label(new(0, 96, 130, 30), "Rimlink.Outposts.ManifestReason".Translate());
+        string nextReason = Widgets.TextField(new(140, 96, rect.width - 140, 30), reason, 1024);
+        if (nextReason != reason) { reason = nextReason; command = null; }
         if (details is not null)
         {
-            var area = new Rect(0, 148, rect.width, rect.height - 238); float height = Math.Max(area.height, Text.CalcHeight(details, area.width - 20));
+            var area = new Rect(0, 138, rect.width, rect.height - 268); float height = Math.Max(area.height, Text.CalcHeight(details, area.width - 20));
             Widgets.BeginScrollView(area, ref scroll, new(0, 0, area.width - 20, height)); Widgets.Label(new(0, 0, area.width - 20, height), details); Widgets.EndScrollView();
         }
-        if (Widgets.ButtonText(new(0, rect.height - 80, rect.width, 34), "Rimlink.Outposts.ManifestStage".Translate(), !busy)) _ = Stage();
-        if (Widgets.ButtonText(new(0, rect.height - 40, rect.width, 34), "Rimlink.Outposts.ManifestConfirm".Translate(), !busy && staged is not null)) _ = Confirm();
+        if (Widgets.ButtonText(new(0, rect.height - 120, rect.width, 34), "Rimlink.Outposts.ManifestStage".Translate(), active: !busy)) _ = Stage();
+        if (Widgets.ButtonText(new(0, rect.height - 80, rect.width, 34), "Rimlink.Outposts.ManifestPreview".Translate(), active: !busy && staged is not null)) _ = PreviewCommand();
+        if (Widgets.ButtonText(new(0, rect.height - 40, rect.width, 34), "Rimlink.Outposts.ManifestConfirm".Translate(), active: !busy && command is not null)) _ = Confirm();
     }
     public ManifestPreview? Staged => staged?.Clone();
     public bool Busy => busy;
     public string StatusKey => status;
+    public string? CommandDigest => command is null ? null : Convert.ToHexStringLower(command.IntentSha256.Span);
     public Task StageAsync() => Stage();
     public Task ConfirmAsync() => Confirm();
     private async Task Stage()
     {
         var connection = RimlinkSession.Connection; var login = connection?.Login; var game = Current.Game;
         if (connection is null || login?.Role != Role.Admin) return;
-        busy = true; staged = null; status = "Rimlink.Outposts.ManifestWorking";
+        busy = true; staged = null; command = null; status = "Rimlink.Outposts.ManifestWorking";
         try
         {
             var api = new OutpostManifestClient(connection); var binding = await api.Binding(RimlinkSession.RecoveryToken);
@@ -63,14 +72,39 @@ public sealed class Dialog_OutpostManifest : Window
         finally { await MainThread.Get(() => { busy = false; return true; }); }
         void Check() { if (Current.Game != game || RimlinkSession.Connection != connection || !ReferenceEquals(connection.Login, login)) throw new OperationCanceledException(); }
     }
+    private async Task PreviewCommand()
+    {
+        var connection = RimlinkSession.Connection; var login = connection?.Login; var preview = staged?.Clone(); string selectedReason = reason;
+        if (connection is null || login?.Role != Role.Admin || preview is null) return;
+        busy = true; command = null;
+        try
+        {
+            var result = await new OutpostManifestClient(connection).PreviewConfirmation(preview, Guid.NewGuid().ToString("D"), selectedReason, RimlinkSession.RecoveryToken);
+            await MainThread.Get(() =>
+            {
+                if (RimlinkSession.Connection == connection && ReferenceEquals(connection.Login, login) && reason == selectedReason && staged?.ManifestId == preview.ManifestId)
+                {
+                    command = result.Blockers.Count == 0 && result.CanonicalCommand.Length > 0 ? result.Clone() : null;
+                    status = "Rimlink.Outposts.ManifestReview";
+                    details = "Rimlink.Outposts.ManifestCommand".Translate(Convert.ToHexStringLower(result.IntentSha256.Span), selectedReason, string.Join(", ", result.Blockers));
+                }
+                return true;
+            });
+        }
+        catch (Exception error) { await MainThread.Get(() => { status = "Rimlink.Outposts.ManifestFailed"; details = Net.RpcErrorDetail.Read(error) is { } refusal ? RefusalText.Of(refusal) : "Rimlink.Outposts.ManifestFailed".Translate(); return true; }); }
+        finally { await MainThread.Get(() => { busy = false; return true; }); }
+    }
+    public Task PreviewAsync(string? auditReason = null)
+    { if (auditReason is not null) { reason = auditReason; command = null; } return PreviewCommand(); }
     private async Task Confirm()
     {
         var connection = RimlinkSession.Connection; var login = connection?.Login; var preview = staged?.Clone();
-        if (connection is null || login?.Role != Role.Admin || preview is null) return;
+        var selectedCommand = command?.Clone();
+        if (connection is null || login?.Role != Role.Admin || preview is null || selectedCommand is null) return;
         busy = true;
         try
         {
-            await new OutpostManifestClient(connection).Confirm(preview, RimlinkSession.RecoveryToken);
+            await new OutpostManifestClient(connection).Confirm(preview, selectedCommand, RimlinkSession.RecoveryToken);
             await MainThread.Get(() => { if (RimlinkSession.Connection == connection && ReferenceEquals(connection.Login, login)) { status = "Rimlink.Outposts.ManifestConfirmed"; staged = null; } return true; });
         }
         catch (Exception error) { await MainThread.Get(() => { status = "Rimlink.Outposts.ManifestFailed"; details = Rimlink.Client.Net.RpcErrorDetail.Read(error) is { } refusal ? RefusalText.Of(refusal) : "Rimlink.Outposts.ManifestFailed".Translate(); return true; }); }

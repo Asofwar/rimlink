@@ -15,5 +15,6 @@
   <ItemGroup>
     <Compile Include="..\..\tools\Rimlink.BridgeTools\Support\ItemSpec.cs" Link="Linked\ItemSpec.cs" />
     <Compile Include="..\..\tools\Rimlink.BridgeTools\Support\FlowGuard.cs" Link="Linked\FlowGuard.cs" />
+    <Compile Include="..\..\tools\Rimlink.BridgeTools\Support\ColonyCoverage.cs" Link="Linked\ColonyCoverage.cs" />
   </ItemGroup>
 </Project>

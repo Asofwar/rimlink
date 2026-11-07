@@ -3,6 +3,7 @@ using Google.Protobuf;
 using Microsoft.EntityFrameworkCore;
 using Rimlink.Protocol;
 using Rimlink.Protocol.V1;
+using Rimlink.Server.Application.Economy;
 using Rimlink.Server.Application.Saves;
 using Rimlink.Server.Grpc;
 using Rimlink.Server.Storage.Entities;
@@ -79,7 +80,7 @@ public sealed partial class PawnCustodyBridge
         db.OutpostParcelLinks.Add(new OutpostParcelLink { ParcelId = parcelId, WorldId = scope.WorldInstanceId, PlayerId = player.Id,
             SaveGeneration = player.SaveGeneration, RestoreBoundary = scope.RestoreBoundary, BatchId = evidence.TransitionId,
             Payload = bytes, PayloadDigest = SHA256.HashData(bytes), TransitionId = evidence.TransitionId,
-            ValueX100 = (long)Math.Clamp(delivered.Pawns.Sum(p => (decimal)p.MarketValueX100), 0, long.MaxValue) });
+            ValueX100 = (long)Math.Clamp(ServerWealth.PhysicalValueX100(parcel), 0, long.MaxValue) });
         foreach (var pawn in tagged)
         {
             var row = await db.PawnCustody.SingleAsync(p => p.Id == pawn.Registry.PawnCustodyId, ct); await db.Entry(row).ReloadAsync(ct);
@@ -88,11 +89,13 @@ public sealed partial class PawnCustodyBridge
         }
     }
 
-    internal static async Task<bool> IsHandoffSourceAsync(Storage.RimlinkDbContext db, OutpostTransition source, OutpostParcelLink parcel, CancellationToken ct)
+    internal static async Task<bool> IsHandoffSourceAsync(Storage.RimlinkDbContext db, OutpostTransition source, OutpostParcelLink parcel, CancellationToken ct,
+        bool crossOwnerOnly = false)
     {
         if (source.Kind != "CustodyTransfer") return false;
         foreach (var evidence in Parts(CustodyTransferEvidence.Parser.ParseFrom(source.Intent)))
             if (evidence.RecipientPlayerId == parcel.PlayerId && evidence.ParcelIds.Contains(parcel.ParcelId)
+                && (!crossOwnerOnly || evidence.ActorPlayerId != evidence.RecipientPlayerId)
                 && evidence.RemovalSnapshot.Scope.WorldInstanceId == parcel.WorldId && await SourceMatchesAsync(db, evidence, ct)) return true;
         return false;
     }

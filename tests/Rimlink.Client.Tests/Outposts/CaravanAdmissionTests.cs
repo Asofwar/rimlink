@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using Google.Protobuf;
 using Rimlink.Client.Outposts;
+using Rimlink.Protocol;
 using Rimlink.Protocol.V1;
 using Xunit;
 
@@ -43,7 +44,35 @@ public sealed class CaravanAdmissionTests
     [Fact] public void Prepared_caravan_change_refuses_removal_without_local_restore()
     { var f = Facts(); var after = f with { Caravan = f.Caravan.Clone() }; after.Caravan.Tile++; Assert.False(CaravanAdmission.Revalidate(f, after).Allowed); Assert.True(CaravanAdmission.Revalidate(f, f).Allowed); }
     [Fact] public void Double_click_uses_one_operation_id_and_no_second_removal_run()
-    { var gate = new CaravanAdmissionGate(); Assert.True(gate.TryBegin("world:owner:Caravan_1", out var first)); Assert.False(gate.TryBegin("world:owner:Caravan_1", out var second)); Assert.Equal(first, second); gate.Finish("world:owner:Caravan_1"); Assert.True(gate.TryBegin("world:owner:Caravan_1", out var third)); Assert.NotEqual(first, third); }
+    { var gate = new CaravanAdmissionGate(); Assert.True(gate.TryBegin("world:owner:Caravan_1", out var first)); Assert.False(gate.TryBegin("world:owner:Caravan_1", out var second)); Assert.Equal(first, second); gate.Finish("world:owner:Caravan_1", first); Assert.True(gate.TryBegin("world:owner:Caravan_1", out var third)); Assert.NotEqual(first, third); }
+
+    [Fact]
+    public void Completion_from_the_previous_game_cannot_release_the_new_caravan_run()
+    {
+        var gate = new CaravanAdmissionGate();
+        Assert.True(gate.TryBegin("Caravan_1", out var previous));
+        Assert.True(gate.Busy); gate.Reset(); Assert.False(gate.Busy);
+        Assert.True(gate.TryBegin("Caravan_1", out var current));
+        Assert.NotEqual(previous, current);
+        Assert.False(gate.Finish("Caravan_1", previous));
+        Assert.False(gate.TryBegin("Caravan_1", out var stillCurrent));
+        Assert.Equal(current, stillCurrent);
+        Assert.True(gate.Busy); Assert.True(gate.Finish("Caravan_1", current)); Assert.False(gate.Busy);
+    }
+
+    [Fact]
+    public void Admission_operation_id_is_valid_in_the_post_removal_save()
+    {
+        var gate = new CaravanAdmissionGate();
+        Assert.True(gate.TryBegin("Caravan_1", out var requestId));
+        new SaveRecoveryData
+        {
+            Version = SaveRecoveryData.CurrentVersion,
+            SnapshotId = Guid.NewGuid().ToString("N"),
+            Removed = [requestId]
+        }.Validate();
+    }
+
     [Fact] public void Intent_digest_covers_the_complete_capture_and_excludes_only_itself()
     { var f = Facts(); var request = new OutpostPrepareRequest { Caravan = f.Caravan, Workers = { f.Workers }, IntentDigest = ByteString.CopyFromUtf8("old") }; var plain = request.Clone(); plain.IntentDigest = ByteString.Empty;
         Assert.Equal(SHA256.HashData(plain.ToByteArray()), CaravanAdmission.IntentDigest(request).ToByteArray()); request.Caravan.Tile++; Assert.NotEqual(CaravanAdmission.IntentDigest(plain), CaravanAdmission.IntentDigest(request)); }

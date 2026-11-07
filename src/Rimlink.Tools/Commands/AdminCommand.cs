@@ -3,7 +3,7 @@ using System.CommandLine;
 namespace Rimlink.Tools.Commands;
 
 /// <summary>`rimlink-tools admin &lt;command&gt; [args] --server URL --token T`: thin wrapper over the REST API.</summary>
-public static class AdminCommand
+public static partial class AdminCommand
 {
     public static Command Build()
     {
@@ -14,6 +14,7 @@ public static class AdminCommand
         name.Description += " | auctions | auction cancel <id> [reason]";
         var args = new Argument<string[]>("args") { Arity = ArgumentArity.ZeroOrMore };
         name.Description += " | colonies [playerId] | colony revoke <ownerPlayerId> <memberPlayerId>";
+        name.Description += " | outposts inspect [--player ID] [--operation ID] [--limit N] [--cursor VALUE] | outposts preview|initialize|activate-domain-format|resolve --request FILE | outposts manifest inspect ID|upload FILE|confirm --request FILE";
         name.Description += " | influence | influence-setting <settlementId> | influence-archive-setting <archiveId> | influence-disable <settlementId> <requestId> <worldId> <generation> <allianceId> <version> | influence-archive-disable <archiveId> <settlementId> <requestId> <worldId> <generation> <allianceId> <version> | influence-color <allianceId> <worldId> <paletteIndex> <requestId>";
 
         var command = new Command("admin", "Run an admin operation on a running server") { server, token, insecure, name, args };
@@ -31,6 +32,7 @@ public static class AdminCommand
         string rest1 = string.Join(' ', a.Skip(1));
         return command switch
             {
+                "outposts" => await RunOutposts(rest, a),
                 var influence when influence.StartsWith("influence", StringComparison.Ordinal) => await RunInfluence(rest, influence, a),
                 "online" => await rest.Get("players/online"),
                 "colonies" => await rest.Get(a.Length > 0 ? $"colonies?playerId={a[0]}" : "colonies"),

@@ -22,7 +22,7 @@ public sealed partial class OutpostLifecycleTests
     [InlineData("closed-unaccepted")]
     public async Task Reset_requires_close_and_accepted_physical_receipts(string obligation)
     {
-        using var f = await LifecycleFixture.Create(obligation);
+        using var f = await LifecycleFixture.Create(obligation, runtimeQualified: true);
         string before = await f.Cut();
         using var scope = f.Host.Services.CreateScope();
         await Assert.ThrowsAsync<RpcException>(() => scope.ServiceProvider.GetRequiredService<AdminOperations>().ResetPlayer(Actor.Api, 1));
@@ -33,7 +33,7 @@ public sealed partial class OutpostLifecycleTests
     [Fact]
     public async Task Recreate_one_blocked_owner_changes_none()
     {
-        using var f = await LifecycleFixture.Create();
+        using var f = await LifecycleFixture.Create(runtimeQualified: true);
         f.H.Db.Accounts.Add(new Account { Id = 2, Player = new Player { Id = 2, Name = "Idle", SaveGeneration = 7, SaveWriteEpoch = 9 } });
         await f.H.Db.SaveChangesAsync();
         string before = await f.Cut();
@@ -46,7 +46,7 @@ public sealed partial class OutpostLifecycleTests
     [Fact]
     public async Task Archive_settles_then_pauses_and_keeps_slot_tile_generation()
     {
-        using var f = await LifecycleFixture.Create();
+        using var f = await LifecycleFixture.Create(runtimeQualified: true);
         var old = await f.H.Row();
         var oldCustody = await f.H.Db.PawnCustody.AsNoTracking().SingleAsync();
         f.H.F.Time.Advance(TimeSpan.FromMinutes(31.5)); // 20/hour: exactly 10 + 1/2.
@@ -76,7 +76,7 @@ public sealed partial class OutpostLifecycleTests
     [InlineData("Completed", true)]
     public async Task Crash_each_archive_phase_blocks_normal_startup(string phase, bool completed)
     {
-        using var f = await LifecycleFixture.Create();
+        using var f = await LifecycleFixture.Create(runtimeQualified: true);
         using var scope = f.Host.Services.CreateScope();
         scope.ServiceProvider.GetRequiredService<OutpostLifecycle>().Checkpoint = at =>
         { if (at == phase) throw new IOException("simulated lifecycle interruption: " + phase); };
@@ -97,7 +97,7 @@ public sealed partial class OutpostLifecycleTests
     [Fact]
     public async Task Restore_same_colony_resumes_now()
     {
-        using var f = await LifecycleFixture.Create();
+        using var f = await LifecycleFixture.Create(runtimeQualified: true);
         f.H.F.Time.Advance(TimeSpan.FromMinutes(31.5));
         long archive = await f.Archive();
         f.H.F.Time.Advance(TimeSpan.FromDays(5));
@@ -126,20 +126,30 @@ internal sealed class LifecycleFixture : IDisposable
         Host = HygieneFixtures.HygieneServer().WithoutWorld().WithDataDir(shared.Data.Root).KeepDataDir()
             .WithSetting("Outposts:AnchorDirectory", Path.Combine(shared.Root, "external"))
             .WithSetting("Outposts:StorageContract", "sqlite-local-v1")
-            .WithServices(s => { s.AddSingleton(shared.Files); s.AddSingleton(shared.Owners); s.AddSingleton(shared.Anchor); s.AddSingleton<TimeProvider>(h.F.Time); });
+            .WithServices(s => { s.AddSingleton(shared.Files); s.AddSingleton(shared.Owners); s.AddSingleton(shared.Anchor); s.AddSingleton<TimeProvider>(h.F.Time); })
+            .WithOutpostUnitQualification();
     }
-    public static async Task<LifecycleFixture> Create(string obligation = "active")
+    public static async Task<LifecycleFixture> Create(string obligation = "active", bool runtimeQualified = false)
     {
         var h = await MutationHarness.Create(prepareOnly: obligation == "prepared");
         if (obligation == "closed-unaccepted") await h.Service.MutateAsync(1, h.Request(OutpostMutationKind.Close), default);
         h.Db.WorldObjects.Add(new Rimlink.Server.Storage.Entities.WorldObject { OwnerPlayerId = 1, Type = WorldObjectTypes.Settlement, Name = "Nova Home", Tile = 33, CreatedAt = DateTime.UtcNow });
         await h.Db.SaveChangesAsync();
+        if (runtimeQualified) await OutpostUnitComposition.Activate(h.F.H.H);
         var f = new LifecycleFixture(h); _ = f.Host.Services; return f;
     }
     public async Task<long> Archive()
     {
+        await OutpostUnitComposition.Activate(H.F.H.H);
         using var scope = Host.Services.CreateScope();
         return Assert.IsType<ArchiveOutcome.Archived>(await scope.ServiceProvider.GetRequiredService<ColonyArchive>().Archive(1, "admin", Actor.System)).ArchiveId;
+    }
+    internal async Task RetireLegacyOffline()
+    {
+        // Produce a genuine legacy v1 retirement using the existing storage primitive with the network host stopped.
+        await Host.DisposeAsync(); var root = H.F.H.H;
+        var lifecycle = new OutpostLifecycle(root.Db, root.Authority, root.Files, new(root.Files), H.F.Service, new(H.F.Time));
+        Assert.True(await lifecycle.TryRecreateAsync("legacy-offline-fixture", _ => Task.CompletedTask, _ => Task.CompletedTask, default));
     }
     public async Task<string> Cut()
     {

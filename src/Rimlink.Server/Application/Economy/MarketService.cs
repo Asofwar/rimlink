@@ -254,6 +254,7 @@ public sealed class LotExpiryService(IServiceScopeFactory scopes, ILogger<LotExp
             do
             {
                 using var scope = scopes.CreateScope();
+                if (!Rimlink.Server.Hosting.OutpostDomainHostedServices.CanWrite(scope.ServiceProvider)) continue;
                 int n = await scope.ServiceProvider.GetRequiredService<MarketService>().ExpireDue(DateTime.UtcNow);
                 if (n > 0) log.LogInformation("Expired {Count} market lots", n);
             }

@@ -87,7 +87,9 @@ public sealed class OutpostBackupCapture(RimlinkDbContext db, DataDirectory data
         var identity = new OutpostBackupIdentity(head.FormatVersion, head.InstallationId, head.WorldId, head.RestoreBoundary,
             head.HeadId, head.HeadDigest, head.TransitionId!, readiness.State.ToString());
         var proofs = await ReadProofsAsync(db, ct);
-        byte[] domainDigest = (await OutpostDomainDigest.ComputeAsync(db, ct)).ToByteArray();
+        var domain = await OutpostAuthority.ReadStoredChainAsync(db, new Rimlink.Server.Application.Saves.SaveFiles(data), head, observed.Committed, currentRuntime: true, ct);
+        byte[] domainDigest = domain.Digest.ToByteArray();
+        var domainBinding = new OutpostBackupDomain(1, domain.Format, new(domain.Schema.ProfileId, domain.Schema.Digest.ToByteArray()));
         string snapshot = Path.Combine(data.Root, "rimlink.db-backup-" + Guid.NewGuid().ToString("N"));
         string temp = Path.GetFullPath(output) + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
@@ -109,7 +111,7 @@ public sealed class OutpostBackupCapture(RimlinkDbContext db, DataDirectory data
                 {
                     Pack(snapshot, BackupArchive.DatabaseFile);
                     foreach (string root in new[] { data.SavesRoot, data.Archive }) Walk(root);
-                    byte[] manifest = new OutpostBackupManifest(1, identity, now.Utc, domainDigest, inventory.ToArray(), proofs.ToArray()).Encode();
+                    byte[] manifest = new OutpostBackupManifest(2, identity, now.Utc, domainDigest, inventory.ToArray(), proofs.ToArray(), domainBinding).Encode();
                     using var content = new MemoryStream(manifest, writable: false);
                     tar.WriteEntry(new PaxTarEntry(TarEntryType.RegularFile, OutpostBackupManifest.FileName) { DataStream = content });
                     void Walk(string directory)

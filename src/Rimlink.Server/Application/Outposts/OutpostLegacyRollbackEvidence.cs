@@ -15,7 +15,8 @@ public sealed partial class OutpostLifecycleEvidence
 {
     // Absence is namespace-wide and across all epochs, including tombstones, received mail and historical senders.
     // Mechanical lifecycle/legacy-rollback rows alone do not confer game custody.
-    internal async Task<bool> HasLocalProtectedHistoryAsync(OutpostScopeMessage scope, CancellationToken ct)
+    internal async Task<bool> HasLocalProtectedHistoryAsync(OutpostScopeMessage scope, CancellationToken ct,
+        IReadOnlyDictionary<string, OutpostTransition>? pendingHandoffSources = null)
     {
         string world = scope.WorldInstanceId, boundary = scope.RestoreBoundary; long owner = scope.OwnerPlayerId, generation = scope.SaveGeneration;
         foreach (var version in await db.SaveVersions.AsNoTracking().Where(v => v.PlayerId == owner && v.SaveGeneration == generation).ToListAsync(ct))
@@ -23,15 +24,24 @@ public sealed partial class OutpostLifecycleEvidence
             var recovery = SaveRecoveryData.ReadXml(new MemoryStream(files.ReadEvidence(version), false), out _);
             if (recovery.Outposts.Present) return true;
         }
-        return await db.OutpostSnapshotLinks.AnyAsync(r => r.WorldId == world && r.PlayerId == owner && r.SaveGeneration == generation && r.RestoreBoundary == boundary, ct)
+        if (await db.OutpostSnapshotLinks.AnyAsync(r => r.WorldId == world && r.PlayerId == owner && r.SaveGeneration == generation && r.RestoreBoundary == boundary, ct)
             || await db.PawnCustody.AnyAsync(r => r.WorldId == world && r.PlayerId == owner && r.SaveGeneration == generation && r.RestoreBoundary == boundary, ct)
             || await db.Outposts.AnyAsync(r => r.WorldId == world && r.PlayerId == owner && r.SaveGeneration == generation && r.RestoreBoundary == boundary, ct)
             || await db.OutpostOperations.AnyAsync(r => r.WorldId == world && r.PlayerId == owner && r.SaveGeneration == generation && r.RestoreBoundary == boundary, ct)
-            || await db.OutpostParcelLinks.AnyAsync(r => r.WorldId == world && r.PlayerId == owner && r.SaveGeneration == generation && r.RestoreBoundary == boundary, ct)
             || await db.OutpostDeliveryAttempts.AnyAsync(r => r.WorldId == world && r.PlayerId == owner && r.SaveGeneration == generation && r.RestoreBoundary == boundary, ct)
             || await db.OutpostOrdinaryReturns.AnyAsync(r => r.WorldId == world && r.PlayerId == owner && r.SaveGeneration == generation && r.RestoreBoundary == boundary, ct)
             || await db.OutpostTransitions.AnyAsync(r => r.WorldId == world && r.PlayerId == owner && r.SaveGeneration == generation && r.RestoreBoundary == boundary
-                && r.Kind != "Lifecycle" && r.Kind != "Rollback" && r.Kind != "WorldBind", ct);
+                && r.Kind != "Lifecycle" && r.Kind != "Rollback" && r.Kind != "WorldBind", ct)) return true;
+
+        var parcels = db.OutpostParcelLinks.AsNoTracking().Where(r =>
+            r.WorldId == world && r.PlayerId == owner && r.SaveGeneration == generation && r.RestoreBoundary == boundary);
+        if (pendingHandoffSources is null) return await parcels.AnyAsync(ct);
+        // A first incoming handoff still belongs to its sender until a protected delivery is accepted.
+        foreach (var parcel in await parcels.ToListAsync(ct))
+            if (parcel.AcceptedSnapshotId is not null || !pendingHandoffSources.TryGetValue(parcel.TransitionId, out var transition)
+                || transition.WorldId != world || transition.RestoreBoundary != boundary
+                || !await PawnCustodyBridge.IsHandoffSourceAsync(db, transition, parcel, ct, crossOwnerOnly: true)) return true;
+        return false;
     }
 
     internal LifecycleLegacySnapshot ReadLegacySnapshot(SaveVersion version, string world, string? directory = null)

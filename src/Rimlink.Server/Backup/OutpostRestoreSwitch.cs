@@ -79,8 +79,7 @@ public sealed partial class OutpostRestoreProcedure
         await VerifyInventoryAsync(intent.Selection.DataDirectory, intent.NewFiles, ct);
         byte[] manifestBytes = await File.ReadAllBytesAsync(Path.Combine(staged, OutpostBackupManifest.FileName), ct);
         if (!SHA256.HashData(manifestBytes).AsSpan().SequenceEqual(intent.ManifestDigest)) throw new InvalidDataException("restore-staged-manifest-changed");
-        var manifest = JsonSerializer.Deserialize<OutpostBackupManifest>(manifestBytes, OutpostBackupManifest.Json)
-            ?? throw new InvalidDataException("restore-staged-manifest-missing");
+        var manifest = OutpostBackupManifest.Decode(manifestBytes);
         await ValidateCutAsync(intent.Selection.DataDirectory, manifest, ct);
         journal = journal with { Phase = RestorePhase.InstalledVerified, Revision = checked(journal.Revision + 1) };
         StoreJournal(journalRoot, journal);
@@ -96,7 +95,7 @@ public sealed partial class OutpostRestoreProcedure
         return target;
     }
 
-    private static async Task<bool> FileMatchesAsync(string path, OutpostBackupFile? expected, CancellationToken ct)
+    internal static async Task<bool> FileMatchesAsync(string path, OutpostBackupFile? expected, CancellationToken ct)
     {
         RejectLinks(path);
         if (Directory.Exists(path)) return false;

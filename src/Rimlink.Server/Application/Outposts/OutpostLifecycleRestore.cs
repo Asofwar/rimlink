@@ -8,15 +8,16 @@ namespace Rimlink.Server.Application.Outposts;
 public sealed partial class OutpostLifecycle
 {
     internal async Task<OutpostLifecycleOperation> PrepareRestoreHeldAsync(OutpostLease lease, long playerId,
-        long archiveId, string actor, CancellationToken ct)
+        long archiveId, string archiveDirectory, string actor, CancellationToken ct)
     {
         lease.Require(authority);
         if (!lease.CoversOwner(playerId) || lease.LifecycleOperationId is not null) throw new InvalidOperationException("lifecycle-owned-barrier-required");
         var previous = await db.OutpostLifecycleOperations.AsNoTracking().Where(r => r.Kind == "Archive" && r.Phase == "Completed").ToListAsync(ct);
         var sources = previous.Where(r => OutpostLifecycleEvidence.Decode<LifecycleProgress>(r.Progress).ArchiveId == archiveId).ToArray();
-        if (sources.Length != 1) throw new OutpostEvidenceUnavailableException("lifecycle-restore-source-missing");
-        var source = OutpostLifecycleEvidence.Intent(sources[0]);
-        if (source.PlayerId != playerId || !source.Owners.All(lease.CoversOwner)) throw new OutpostEvidenceUnavailableException("lifecycle-restore-owner-mismatch");
+        if (sources.Length > 1) throw new OutpostEvidenceUnavailableException("lifecycle-restore-source-ambiguous");
+        var source = sources.Length == 1 ? OutpostLifecycleEvidence.Intent(sources[0]) : null;
+        if (source is not null && (source.PlayerId != playerId || !source.Owners.All(lease.CoversOwner)))
+            throw new OutpostEvidenceUnavailableException("lifecycle-restore-owner-mismatch");
         var head = await db.OutpostAuthority.AsNoTracking().SingleAsync(ct);
         var scopes = new List<LifecycleOwner>();
         foreach (long owner in lease.OwnerIds)
@@ -25,10 +26,15 @@ public sealed partial class OutpostLifecycle
             scopes.Add(new(new Protocol.V1.OutpostScopeMessage { WorldInstanceId = head.WorldId, OwnerPlayerId = owner,
                 SaveGeneration = player.SaveGeneration, SaveWriteEpoch = player.SaveWriteEpoch, RestoreBoundary = head.RestoreBoundary }.ToByteArray()));
         }
+        if (source is null)
+        {
+            var scope = Protocol.V1.OutpostScopeMessage.Parser.ParseFrom(scopes[Array.IndexOf(lease.OwnerIds.ToArray(), playerId)].Scope);
+            await new OutpostRestoreEvidence(db, files).ValidateLegacyCutArchiveAsync(scope, archiveId, archiveDirectory, ct);
+        }
         var cut = clock.Sample(); string id = Guid.NewGuid().ToString("D");
-        var intent = source with { Id = id, Kind = "Restore", Actor = actor, HeadId = head.HeadId, HeadDigest = head.HeadDigest,
-            Owners = lease.OwnerIds.ToArray(), Scopes = scopes.ToArray(), Directory = Path.Combine("archive", "outpost-evidence", id),
-            CutUtc = cut.Utc, Cut = cut, Versions = [], Files = [], ArchiveId = archiveId };
+        var intent = new LifecycleIntent(1, id, "Restore", head.WorldId, head.RestoreBoundary, actor, head.HeadId, head.HeadDigest,
+            lease.OwnerIds.ToArray(), scopes.ToArray(), Path.Combine("archive", "outpost-evidence", id), cut.Utc, cut,
+            source?.Outposts ?? [], [], [], playerId, archiveId);
         byte[] encoded = OutpostLifecycleEvidence.Encode(intent);
         var row = new OutpostLifecycleOperation { Id = id, WorldId = head.WorldId, Actor = actor, Kind = "Restore", RequestId = id,
             RestoreBoundary = head.RestoreBoundary, Phase = "Prepared", Intent = encoded, IntentDigest = SHA256.HashData(encoded), CreatedAt = cut.Utc };

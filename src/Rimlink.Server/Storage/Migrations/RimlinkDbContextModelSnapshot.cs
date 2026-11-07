@@ -1031,6 +1031,89 @@ namespace Rimlink.Server.Storage.Migrations
                     b.ToTable("modpack_publication", (string)null);
                 });
 
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.OutpostAdminCommandRecord", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ActorKey")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("AuditId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<byte[]>("AuditProjection")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<byte[]>("Command")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<byte[]>("CommandDigest")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NextHeadId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RequestId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("Result")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("TransitionId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuditId")
+                        .IsUnique();
+
+                    b.HasIndex("NextHeadId")
+                        .IsUnique();
+
+                    b.HasIndex("TransitionId")
+                        .IsUnique();
+
+                    b.HasIndex("ActorKey", "Action", "RequestId")
+                        .IsUnique();
+
+                    b.ToTable("outpost_admin_commands", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_outpost_admin_action", "length(Action) BETWEEN 1 AND 64");
+
+                            t.HasCheckConstraint("CK_outpost_admin_actor", "length(ActorKey) = 64 AND ActorKey NOT GLOB '*[^0-9a-f]*'");
+
+                            t.HasCheckConstraint("CK_outpost_admin_audit", "AuditId > 0 AND length(AuditProjection) BETWEEN 1 AND 65536");
+
+                            t.HasCheckConstraint("CK_outpost_admin_command", "length(Command) BETWEEN 1 AND 65536 AND length(CommandDigest) = 32");
+
+                            t.HasCheckConstraint("CK_outpost_admin_ids", "length(Id) = 36 AND length(RequestId) = 36 AND length(TransitionId) = 36 AND length(NextHeadId) = 36");
+
+                            t.HasCheckConstraint("CK_outpost_admin_reason", "length(CAST(Reason AS BLOB)) BETWEEN 1 AND 1024");
+
+                            t.HasCheckConstraint("CK_outpost_admin_result", "length(Result) BETWEEN 1 AND 65536");
+                        });
+                });
+
             modelBuilder.Entity("Rimlink.Server.Storage.Entities.OutpostAssignment", b =>
                 {
                     b.Property<string>("Id")

@@ -44,7 +44,7 @@ public sealed partial class OutpostRestoreProcedure
                 journal = journal with { Phase = RestorePhase.Fenced, Revision = checked(journal.Revision + 1) };
                 StoreJournal(actual.Root, journal);
             }
-            if (journal.Phase is RestorePhase.MainPrepared or RestorePhase.MainCommitted or RestorePhase.Completed)
+            if (journal.Phase is RestorePhase.InstalledVerified or RestorePhase.MainPrepared or RestorePhase.MainCommitted or RestorePhase.Completed)
                 return await CommitMainAsync(actual.Intent, journal, actual.Root, anchor, authority, ct);
             if (anchor.ReadEnvelope(authority) != OutpostRestoreFence.Marker(actual.Intent, journal.IntentDigest))
                 return Held("restore-external-marker-or-witness-mismatch");
@@ -68,9 +68,9 @@ public sealed partial class OutpostRestoreProcedure
         { return fenced ? Held("restore-resume-evidence-refused: " + error.Message) : Refused("restore-resume-refused: " + error.Message); }
     }
 
-    private sealed record LoadedRestore(string Root, RestoreIntent Intent, RestoreJournal Journal, byte[] IntentBytes);
+    internal sealed record LoadedRestore(string Root, RestoreIntent Intent, RestoreJournal Journal, byte[] IntentBytes);
 
-    private static LoadedRestore LoadJournal(string dataDir, string anchorDir, string restoreId)
+    internal static LoadedRestore LoadJournal(string dataDir, string anchorDir, string restoreId)
     {
         if (!Guid.TryParseExact(restoreId, "D", out var id) || id == Guid.Empty) throw new InvalidDataException("restore-resume-id-invalid");
         string data = Path.TrimEndingDirectorySeparator(Path.GetFullPath(dataDir));

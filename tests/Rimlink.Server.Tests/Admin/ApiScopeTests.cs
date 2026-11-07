@@ -1,6 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.AspNetCore.Connections;
+using Microsoft.AspNetCore.Connections.Features;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Rimlink.Server.Application.Admin;
@@ -24,6 +27,49 @@ public class ApiScopeTests
         .WithToken(1, "mod", ModToken, "moderate")
         .WithToken(2, "chatter", ChatToken, "chat")
         .WithToken(3, "boss", BossToken, "admin");
+
+    [Theory]
+    [InlineData(AdminRestExtensions.ApiToken, "/api/admin/status", 200, true)]
+    [InlineData(ReadToken, "/api/admin/modpack", 200, true)]
+    [InlineData("invalid-token", "/api/admin/status", 401, false)]
+    [InlineData(ReadToken, "/api/admin/config", 403, false)]
+    public async Task Connection_is_authenticated_only_after_token_and_scope_checks(string token, string path, int status, bool marked)
+    {
+        using var fixture = Server();
+        await using var connection = new DefaultConnectionContext();
+        var items = connection.Features.Get<IConnectionItemsFeature>()!;
+        var response = await fixture.Server.SendAsync(http =>
+        {
+            http.Request.Method = HttpMethods.Get;
+            http.Request.Path = path;
+            http.Request.Headers.Authorization = "Bearer " + token;
+            http.Features.Set(items);
+        });
+
+        Assert.Equal(status, response.Response.StatusCode);
+        Assert.Equal(marked, items.Items.TryGetValue("rimlink.authenticated", out var value) && value is true);
+    }
+
+    [Theory]
+    [InlineData(false, 200, true)]
+    [InlineData(true, 403, false)]
+    public async Task Panel_connection_requires_valid_session_and_csrf_for_writes(bool write, int status, bool marked)
+    {
+        using var fixture = Server();
+        string cookie = await fixture.PanelLogin();
+        await using var connection = new DefaultConnectionContext();
+        var items = connection.Features.Get<IConnectionItemsFeature>()!;
+        var response = await fixture.Server.SendAsync(http =>
+        {
+            http.Request.Method = write ? HttpMethods.Post : HttpMethods.Get;
+            http.Request.Path = write ? "/api/admin/players/1/reset" : "/api/admin/status";
+            http.Request.Headers.Cookie = $"{PanelTestExtensions.CookieName}={cookie}";
+            http.Features.Set(items);
+        });
+
+        Assert.Equal(status, response.Response.StatusCode);
+        Assert.Equal(marked, items.Items.TryGetValue("rimlink.authenticated", out var value) && value is true);
+    }
 
     [Fact]
     public async Task ScopesGateRoutes()

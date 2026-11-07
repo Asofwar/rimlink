@@ -64,7 +64,8 @@ public sealed partial class OutpostSnapshotGuard
         }
     }
 
-    private async Task ValidateAdmissionStoredAsync(Dictionary<string, OutpostTransition> transitions, List<OutpostSnapshotLink> links, CancellationToken ct)
+    private async Task ValidateAdmissionStoredAsync(Dictionary<string, OutpostTransition> transitions, List<OutpostSnapshotLink> links,
+        IReadOnlyDictionary<string, OutpostAdminSemanticView> adminSemantics, CancellationToken ct)
     {
         var operations = await db.OutpostOperations.AsNoTracking().Where(o => o.Kind == "Found" || o.Kind == "Assign").ToDictionaryAsync(o => o.Id, ct);
         foreach (var operation in operations.Values)
@@ -81,7 +82,9 @@ public sealed partial class OutpostSnapshotGuard
                 || !transitions.TryGetValue(operation.Id, out var prepared) || prepared.Kind != "Prepare" || !prepared.Intent.AsSpan().SequenceEqual(operation.Intent)
                 || prepared.WorldId != operation.WorldId || prepared.PlayerId != operation.PlayerId || prepared.SaveGeneration != operation.SaveGeneration || prepared.RestoreBoundary != operation.RestoreBoundary
                 || !transitions.TryGetValue(operation.TransitionId ?? "", out var latest) || latest.WorldId != operation.WorldId || latest.PlayerId != operation.PlayerId
-                || latest.SaveGeneration != operation.SaveGeneration || latest.RestoreBoundary != operation.RestoreBoundary || !latest.Intent.AsSpan().SequenceEqual(operation.Intent)
+                || latest.SaveGeneration != operation.SaveGeneration || latest.RestoreBoundary != operation.RestoreBoundary
+                || !(adminSemantics.TryGetValue(latest.Id, out var semantic) ? semantic.BusinessIntent is { } bytes && bytes.AsSpan().SequenceEqual(operation.Intent)
+                    : latest.Intent.AsSpan().SequenceEqual(operation.Intent))
                 || result.TransitionId != operation.TransitionId || result.TransitionDigest.Length != 0 || !result.Scope.Equals(intent.Scope)
                 || result.ClientRequestId != operation.RequestId || !result.IntentDigest.Equals(intent.IntentDigest) || !result.PreparedIntent.Equals(intent)
                 || operation.State is not ("Prepared" or "CancelFenced" or "Committed" or "Cancelled")
@@ -90,7 +93,8 @@ public sealed partial class OutpostSnapshotGuard
                 || intent.Workers.Any(w => !ParseMetadata(pre.Metadata).WorkerCaptures.Any(c => c.Equals(w))))
                 throw Unavailable("required-admission-evidence-unavailable");
             string[] kinds = operation.State switch { "Prepared" => ["Prepare"], "CancelFenced" => ["CancelFence"], "Committed" => ["Commit"], _ => ["AbortNoRemoval", "AbortWithReturn"] };
-            if (!kinds.Contains(latest.Kind) || !await db.Outposts.AnyAsync(o => o.Id == operation.OutpostId && o.PlayerId == operation.PlayerId && o.WorldId == operation.WorldId, ct))
+            string? kind = adminSemantics.TryGetValue(latest.Id, out var validated) ? validated.BusinessKind : latest.Kind;
+            if (!kinds.Contains(kind) || !await db.Outposts.AnyAsync(o => o.Id == operation.OutpostId && o.PlayerId == operation.PlayerId && o.WorldId == operation.WorldId, ct))
                 throw Unavailable("required-admission-evidence-unavailable");
         }
         foreach (var assignment in await db.OutpostAssignments.AsNoTracking().ToListAsync(ct))

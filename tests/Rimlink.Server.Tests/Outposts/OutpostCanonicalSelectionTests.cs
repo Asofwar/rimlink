@@ -41,7 +41,7 @@ public sealed class OutpostCanonicalSelectionTests
         await Select(h.Db, h.Authority, selected.Id);
         if (entry)
         {
-            using var host = h.StartHost(); using var services = host.Services.CreateScope();
+            using var host = await h.StartHostAsync(); using var services = host.Services.CreateScope();
             var lot = await services.ServiceProvider.GetRequiredService<MarketService>().Post(1, request);
             var custody = await h.Row();
             var transition = await h.Db.OutpostTransitions.AsNoTracking().SingleAsync(t => t.Id == custody.FrontierTransitionId);
@@ -88,7 +88,7 @@ public sealed class OutpostCanonicalSelectionTests
             ? new PostRequest { Pawn = h.Blob.Clone(), Price = 150, GameTick = 1000, ClientRequestId = Guid.NewGuid().ToString("N") }
             : new TransferRequest { ToPlayerId = 2, Items = new(), Pawns = new() { Pawns = { h.Blob.Clone() } }, GameTick = 1000, ClientRequestId = Guid.NewGuid().ToString("N") };
         await h.Depart(request);
-        using var host = h.StartHost(); using var scope = host.Services.CreateScope();
+        using var host = await h.StartHostAsync(); using var scope = host.Services.CreateScope();
         Func<Task> deliver;
         if (escrow)
         {

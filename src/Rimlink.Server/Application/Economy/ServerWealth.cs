@@ -5,6 +5,7 @@ using Rimlink.Server.Hosting;
 using Rimlink.Server.Storage;
 using Rimlink.Server.Storage.Entities;
 using Lot = Rimlink.Server.Storage.Entities.Lot;
+using Parcel = Rimlink.Server.Storage.Entities.Parcel;
 using Rimlink.Server.Application.Saves;
 
 namespace Rimlink.Server.Application.Economy;
@@ -47,8 +48,13 @@ public sealed class ServerWealth(RimlinkDbContext db, IOptions<EconomyOptions> o
         {
             if (outpostParcels.TryGetValue(parcel.Id, out var link))
             {
-                if (link.AcceptedSnapshotId is null) sum += link.ValueX100 / 100m;
-                continue; // Never count its ordinary PawnList a second time.
+                if (link.AcceptedSnapshotId is not null) continue;
+                if (OutpostParcelPayload.Parser.ParseFrom(link.Payload).ManifestId.Length > 0)
+                {
+                    sum += link.ValueX100 / 100m;
+                    continue;
+                }
+                // Ordinary custody handoffs retain the parcel's original valuation trust boundary.
             }
             bool onMap = received.Contains(parcel.Id);
             if (!onMap || parcel.Kind != ParcelKindDb.Withdraw) sum += parcel.Silver;
@@ -80,8 +86,20 @@ public sealed class ServerWealth(RimlinkDbContext db, IOptions<EconomyOptions> o
     public static bool DeclaredByAnother(ParcelKindDb kind) =>
         kind is ParcelKindDb.Gift or ParcelKindDb.Trade or ParcelKindDb.Loot or ParcelKindDb.RaidReturn or ParcelKindDb.Captive;
 
-    public static long ValueOf(ItemList? items) =>
-        Saturate(items?.Items.Sum(i => (decimal)i.MarketValueX100 * Math.Max(0, i.Count)) / 100m ?? 0);
+    internal static decimal PhysicalValueX100(Parcel parcel) =>
+        ItemValueX100(ItemList.Parser.ParseFrom(parcel.Items))
+        + PawnList.Parser.ParseFrom(parcel.Pawns).Pawns.Sum(p => (decimal)p.MarketValueX100)
+        + (parcel.Kind == ParcelKindDb.Withdraw ? parcel.Silver * 100m : 0);
+
+    private static decimal ItemValueX100(ItemList? items)
+    {
+        decimal sum = 0;
+        foreach (var item in items?.Items ?? [])
+            sum = Math.Min(long.MaxValue * 100m, sum + (decimal)Math.Max(0, item.MarketValueX100) * Math.Max(0, item.Count));
+        return sum;
+    }
+
+    public static long ValueOf(ItemList? items) => Saturate(ItemValueX100(items) / 100m);
 
     public static long ValueOf(PawnBlob? pawn) => pawn is null ? 0 : Saturate(pawn.MarketValueX100 / 100m);
 

@@ -22,7 +22,7 @@ public sealed partial class OutpostCustodyBridgeTests
         var outgoing = new TransferRequest { ToPlayerId = 2, Items = new(), ClientRequestId = Guid.NewGuid().ToString("N"),
             GameTick = 1000, Pawns = new() { Pawns = { h.Blob.Clone() } } };
         await h.Depart(outgoing);
-        using var host = h.StartHost(); using var scope = host.Services.CreateScope();
+        using var host = await h.StartHostAsync(); using var scope = host.Services.CreateScope();
         var parcel = await scope.ServiceProvider.GetRequiredService<TransferService>().Send(1, outgoing);
         await scope.ServiceProvider.GetRequiredService<GiftService>().Answer(2, parcel.Id, true);
         if (started)

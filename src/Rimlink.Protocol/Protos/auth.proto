@@ -80,6 +80,8 @@ message LoginReply {
   // Zero until the fully initialized feature is actually available.
   uint32 outpost_version = 15;
   string outpost_restore_boundary = 16;
+  // Diagnostic only: never grants readiness or overrides product qualification.
+  bool outpost_isolated_acceptance = 17;
 }
 
 message ColonyRestore {

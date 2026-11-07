@@ -21,7 +21,7 @@ public sealed partial class OutpostCustodyBridgeTests
         var request = RaidFixtures.Launch(2, 1, mirror ? PawnMode.PawnSnapshot : PawnMode.PawnReal, requestId: Guid.NewGuid().ToString("N"));
         request.Pawns = new() { Pawns = { h.Blob.Clone() } }; request.Pawns.Pawns[0].Registry.NonAuthoritativeMirror = mirror;
         if (!mirror) await h.Depart(request);
-        using var host = h.StartHost(); using var scope = host.Services.CreateScope();
+        using var host = await h.StartHostAsync(); using var scope = host.Services.CreateScope();
         var raids = scope.ServiceProvider.GetRequiredService<RaidService>();
         var raid = await raids.Launch(1, request);
         var row = await h.Row(); Assert.Equal(1, row.PlayerId); Assert.Equal(SnapshotHarness.Custody, row.Id);
@@ -40,7 +40,7 @@ public sealed partial class OutpostCustodyBridgeTests
         using var h = await CustodyHarness.Returned(); await PrepareRaidTarget(h);
         var request = RaidFixtures.Launch(2, 1, PawnMode.PawnReal, requestId: Guid.NewGuid().ToString("N")); request.Pawns = new() { Pawns = { h.Blob.Clone() } };
         await h.Depart(request);
-        using var host = h.StartHost(); using var scope = host.Services.CreateScope();
+        using var host = await h.StartHostAsync(); using var scope = host.Services.CreateScope();
         var raids = scope.ServiceProvider.GetRequiredService<RaidService>();
         var raid = await raids.Launch(1, request);
         if (expired) Assert.Equal(1, await raids.ExpireDue(DateTime.UtcNow.AddYears(1)));
@@ -63,7 +63,7 @@ public sealed partial class OutpostCustodyBridgeTests
         using var h = await CustodyHarness.Returned(); await PrepareRaidTarget(h);
         var launch = RaidFixtures.Launch(2, 1, PawnMode.PawnReal, requestId: Guid.NewGuid().ToString("N")); launch.Pawns = new() { Pawns = { h.Blob.Clone() } };
         await h.Depart(launch);
-        using var host = h.StartHost(); using var scope = host.Services.CreateScope();
+        using var host = await h.StartHostAsync(); using var scope = host.Services.CreateScope();
         var raids = scope.ServiceProvider.GetRequiredService<RaidService>();
         var raid = await raids.Launch(1, launch); await raids.Announce(2, raid.Id, 1000); await raids.Land(2, raid.Id, 1000);
         var after = h.Blob.Clone(); after.ScribeXmlZstd = ByteString.CopyFromUtf8("changed-in-combat"); after.Registry.NonAuthoritativeMirror = true;
@@ -95,7 +95,7 @@ public sealed partial class OutpostCustodyBridgeTests
         using var h = await CustodyHarness.Returned(); await PrepareRaidTarget(h);
         var launch = RaidFixtures.Launch(2, 1, PawnMode.PawnReal, requestId: Guid.NewGuid().ToString("N")); launch.Pawns = new() { Pawns = { h.Blob.Clone() } };
         await h.Depart(launch);
-        using var host = h.StartHost(); using var scope = host.Services.CreateScope(); var raids = scope.ServiceProvider.GetRequiredService<RaidService>();
+        using var host = await h.StartHostAsync(); using var scope = host.Services.CreateScope(); var raids = scope.ServiceProvider.GetRequiredService<RaidService>();
         var raid = await raids.Launch(1, launch); await raids.Announce(2, raid.Id, 1000); await raids.Land(2, raid.Id, 1000);
         var after = h.Blob.Clone(); after.Registry.NonAuthoritativeMirror = true;
         if (fault == "uuid") after.Registry.PawnCustodyId = Guid.NewGuid().ToString("D");

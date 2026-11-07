@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Rimlink.Server.Application.Saves;
@@ -13,7 +14,13 @@ internal sealed record RestorePlayerMap(long PlayerId, long Generation, long Wri
 internal sealed record RestoreOutpostMap(OutpostRow Before, OutpostRow After);
 internal sealed record RestoreCustodyMap(PawnCustodyRecord Before, PawnCustodyRecord After);
 internal sealed record RestoreMainPlan(int Version, RestoreIntent Journal, byte[] JournalDigest, OutpostBackupManifest Cut,
-    string NextHeadId, string SourceDirectory, RestorePlayerMap[] Players, RestoreOutpostMap[] Outposts, RestoreCustodyMap[] Custody, RestoreParcelMap[] Parcels);
+    string NextHeadId, string SourceDirectory, RestorePlayerMap[] Players, RestoreOutpostMap[] Outposts, RestoreCustodyMap[] Custody, RestoreParcelMap[] Parcels,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] RestoreDomainStep? DomainStep = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] byte[]? CutManifest = null);
+internal sealed record RestoreDomainStep(int Version, OutpostDomainFormat From, OutpostDomainFormat To, string Action,
+    OutpostSchemaBinding Source, OutpostSchemaBinding Target,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] RestoreQualifiedMigration? Migration = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] RestoreExecutorArtifact? Executor = null);
 internal sealed record RestoreMainProgress(int Version, string RootId, string? CompletionId);
 internal sealed record RestoreCheckpointMap(OutpostRow Before, OutpostRow After);
 internal sealed record RestoreCompletionPlan(int Version, string RestoreId, byte[] RootDigest, ClockSample Cut, RestoreCheckpointMap[] Checkpoints,
@@ -33,29 +40,55 @@ public sealed partial class OutpostRestoreEvidence(RimlinkDbContext db, SaveFile
     internal static bool Same<T>(T a, T b) => Encode(a).AsSpan().SequenceEqual(Encode(b));
     internal static RestoreMainPlan Plan(OutpostTransition transition)
     {
-        var plan = Decode<RestoreMainPlan>(transition.Intent);
+        var plan = DecodePlan(transition.Intent);
         var selected = plan.Journal.Selection; var source = plan.Cut.Authority;
         OutpostRestoreJournalCodec.ValidateSelection(selected);
-        if (transition.Kind != "BulkRestore" || plan.Version != 1 || transition.Id != selected.RestoreId
+        if (transition.Kind != "BulkRestore" || plan.Version is not (1 or 2) || transition.Id != selected.RestoreId
             || transition.WorldId != source.WorldId || transition.RestoreBoundary != selected.TargetBoundary
             || transition.PlayerId != 0 || transition.SaveGeneration != 0 || transition.Actor != "offline-restore"
             || transition.OldHeadId != source.HeadId || transition.PredecessorId != source.TransitionId || transition.NextHeadId != plan.NextHeadId
             || source.RestoreBoundary == selected.TargetBoundary || !Same(plan.Journal.Source, source)
             || plan.JournalDigest.Length != 32 || !SHA256.HashData(Encode(plan.Journal)).AsSpan().SequenceEqual(plan.JournalDigest)
-            || !SHA256.HashData(plan.Cut.Encode()).AsSpan().SequenceEqual(plan.Journal.ManifestDigest)
+            || !SHA256.HashData(ManifestBytes(plan)).AsSpan().SequenceEqual(plan.Journal.ManifestDigest)
             || !Same(plan.Cut.Files, plan.Journal.NewFiles) || !Same(plan.Journal.SelectionDigest, OutpostRestoreJournalCodec.Digest(selected))
             || plan.SourceDirectory != $"archive/outpost-restores/{transition.Id}/cut"
             || plan.Players.Length > 10000 || plan.Outposts.Length > 10000 || plan.Custody.Length > 10000 || plan.Parcels.Length > 10000
             || !plan.Parcels.Select(p => p.Original.ParcelId).SequenceEqual(plan.Parcels.Select(p => p.Original.ParcelId).Distinct().Order())
             || !plan.Players.Select(p => p.PlayerId).SequenceEqual(plan.Players.Select(p => p.PlayerId).Distinct().Order())
             || plan.Players.Any(p => p.PlayerId <= 0 || p.Generation < 0 || p.WriteEpoch < 0)) throw Invalid("restore-main-plan-mismatch");
+        ValidateDomainStep(plan);
         OutpostRestoreFence.Validate(plan.Journal);
         return plan;
     }
 
     internal static async Task<RestoreMainPlan> CreatePlanAsync(RimlinkDbContext source, RestoreIntent journal,
-        byte[] journalDigest, OutpostBackupManifest cut, CancellationToken ct)
+        byte[] journalDigest, OutpostBackupManifest cut, CancellationToken ct, byte[]? cutManifest = null, int version = 1, RestoreDomainStep? recordedStep = null, bool allowPostSchema = false)
     {
+        RestoreDomainStep? domainStep = null;
+        if (version == 2)
+        {
+            if (cutManifest is null || !Same(OutpostBackupManifest.Decode(cutManifest), cut)
+                || !SHA256.HashData(cutManifest).AsSpan().SequenceEqual(journal.ManifestDigest)) throw Invalid("restore-original-manifest-mismatch");
+            var row = await source.OutpostAuthority.AsNoTracking().SingleAsync(ct);
+            string databasePath = new SqliteConnectionStringBuilder(source.Database.GetConnectionString()).DataSource;
+            var sourceFiles = new SaveFiles(DataDirectory.Existing(Path.GetDirectoryName(databasePath)!));
+            var observed = await OutpostAuthority.ReadStoredChainAsync(source, sourceFiles, row,
+                new(row.HeadId, Google.Protobuf.ByteString.CopyFrom(row.HeadDigest)), currentRuntime: false, ct);
+            if (recordedStep is not null)
+            {
+                ValidateSourceDomain(recordedStep, cut, observed, allowPostSchema);
+                domainStep = Decode<RestoreDomainStep>(Encode(recordedStep));
+            }
+            else
+            {
+                cut.ValidateDomain(observed);
+                var schema = new OutpostSchemaBinding(observed.Schema.ProfileId, observed.Schema.Digest.ToByteArray());
+                domainStep = observed.Schema.IsCurrent
+                    ? new(1, observed.Format, OutpostDomainFormat.V2, "NoDdl", schema, schema with { Digest = schema.Digest.ToArray() })
+                    : await OutpostRestoreSchemaMigration.SelectAsync(source, observed, ct);
+            }
+        }
+        else if (version != 1 || cutManifest is not null) throw Invalid("restore-main-plan-version");
         var players = await source.Players.AsNoTracking().OrderBy(p => p.Id).ToListAsync(ct);
         if (players.Count > 10000) throw Invalid("restore-owner-map-limit");
         var owners = new List<RestorePlayerMap>();
@@ -80,8 +113,8 @@ public sealed partial class OutpostRestoreEvidence(RimlinkDbContext db, SaveFile
             return new RestoreCustodyMap(o, after);
         }).ToArray();
         var parcels = await CreateParcelMapsAsync(source, journal, cut, owners, ct);
-        return new(1, journal, journalDigest, cut, Guid.NewGuid().ToString("D"),
-            $"archive/outpost-restores/{journal.Selection.RestoreId}/cut", owners.ToArray(), outposts, custody, parcels);
+        return new(version, journal, journalDigest, cut, Guid.NewGuid().ToString("D"),
+            $"archive/outpost-restores/{journal.Selection.RestoreId}/cut", owners.ToArray(), outposts, custody, parcels, domainStep, cutManifest?.ToArray());
     }
 
     public async Task ValidateStoredAsync(CancellationToken ct, OutpostTransition? staged = null)
@@ -117,11 +150,11 @@ public sealed partial class OutpostRestoreEvidence(RimlinkDbContext db, SaveFile
                 string retained = Path.Combine(files.DataRoot, plan.SourceDirectory);
                 await OutpostRestoreProcedure.ValidateRetainedCutAsync(retained, plan.Cut, async source =>
                 {
-                    var expected = await CreatePlanAsync(source, plan.Journal, plan.JournalDigest, plan.Cut, ct);
+                    var expected = await CreatePlanAsync(source, plan.Journal, plan.JournalDigest, plan.Cut, ct, plan.CutManifest, plan.Version, plan.DomainStep);
                     expected = expected with { NextHeadId = plan.NextHeadId };
                     if (!Same(expected, plan)) throw Invalid("restore-source-projection-map-mismatch");
                     await ValidateCurrentProjectionsAsync(root, plan, transitions, source, ct);
-                }, ct);
+                }, ct, ManifestBytes(plan));
                 await ValidateParcelMapsStoredAsync(root, plan, authorizations, authorizedParcels, ct);
                 foreach (var map in plan.Custody)
                 {

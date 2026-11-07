@@ -83,4 +83,17 @@ public class SaveMetaReaderTests : IDisposable
     {
         Assert.Equal(0, SaveMetaReader.Read(Rws("")).SaveGeneration);
     }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("<ticksGame>0</ticksGame>")]
+    public void TickZeroDoesNotReadHistoryEventTickLists(string tick)
+    {
+        string path = Rws("");
+        File.WriteAllText(path, File.ReadAllText(path)
+            .Replace("<ticksGame>4321</ticksGame>", tick)
+            .Replace("<maps>", "<history><historyEventsManager><colonistEvents><vals><li><ticksGame /></li></vals></colonistEvents></historyEventsManager></history><maps>"));
+
+        Assert.Equal(0, SaveMetaReader.Read(path).GameTick);
+    }
 }

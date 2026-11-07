@@ -1,6 +1,9 @@
 using Grpc.Core;
+using Microsoft.EntityFrameworkCore;
+using Rimlink.Protocol;
 using Rimlink.Protocol.V1;
 using Rimlink.Server.Application.Economy;
+using Rimlink.Server.Storage;
 
 namespace Rimlink.Server.Grpc;
 
@@ -48,7 +51,7 @@ public sealed class WalletGrpcService(WalletService wallet, EconomyGate gate, Tr
     }
 }
 
-public sealed class MailboxGrpcService(MailboxService mailbox, GiftService gifts) : Protocol.V1.Mailbox.MailboxBase
+public sealed class MailboxGrpcService(MailboxService mailbox, GiftService gifts, RimlinkDbContext db) : Protocol.V1.Mailbox.MailboxBase
 {
     public override async Task<ParcelList> List(Empty request, ServerCallContext context)
     {
@@ -58,8 +61,15 @@ public sealed class MailboxGrpcService(MailboxService mailbox, GiftService gifts
         return list;
     }
 
-    public override async Task<Parcel> Get(ParcelRef request, ServerCallContext context) =>
-        await mailbox.ToProto(await mailbox.Get(context.GetSession().PlayerId, request.ParcelId));
+    public override async Task<Parcel> Get(ParcelRef request, ServerCallContext context)
+    {
+        var session = context.GetSession();
+        var parcel = await mailbox.Get(session.PlayerId, request.ParcelId);
+        if (session.OutpostVersion != OutpostRecoveryData.CurrentVersion
+            && await db.OutpostParcelLinks.AnyAsync(p => p.ParcelId == parcel.Id, context.CancellationToken))
+            throw RpcErrors.Failed(ErrorCode.OutpostClientRequired, RefusalKeys.OutpostsClient, "custody-recipient-client-required");
+        return await mailbox.ToProto(parcel);
+    }
 
     public override async Task<Empty> Deliver(DeliverRequest request, ServerCallContext context)
     {

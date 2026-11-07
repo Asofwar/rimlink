@@ -9,7 +9,7 @@ namespace Rimlink.Server.Backup;
 
 public sealed partial class OutpostRestoreProcedure
 {
-    private sealed record BackoutInstalled(int Version, byte[] MainDigest, OutpostBackupFile[] Files);
+    internal sealed record BackoutInstalled(int Version, byte[] MainDigest, OutpostBackupFile[] Files);
 
     private async Task<OutpostBackupFile[]> BackoutNewFilesAsync(RestoreIntent intent, RestoreJournal journal, string journalRoot, CancellationToken ct)
     {
@@ -17,7 +17,7 @@ public sealed partial class OutpostRestoreProcedure
         if (journal.Phase is not (RestorePhase.MainPrepared or RestorePhase.MainCommitted) && !(journal.Phase == RestorePhase.BackingOut && File.Exists(document)))
             return intent.NewFiles;
         byte[] mainBytes = ReadJournalBytes(Path.Combine(journalRoot, "main.json"));
-        var plan = OutpostRestoreEvidence.Decode<RestoreMainPlan>(mainBytes);
+        var plan = OutpostRestoreEvidence.DecodePlan(mainBytes);
         if (!OutpostRestoreEvidence.Same(plan.Journal, intent) || !plan.JournalDigest.AsSpan().SequenceEqual(journal.IntentDigest))
             throw new InvalidDataException("restore-backout-main-plan-mismatch");
         _ = OutpostRestoreEvidence.Plan(RootTransition(plan));
@@ -61,7 +61,7 @@ public sealed partial class OutpostRestoreProcedure
         var expected = plan.Journal.NewFiles.ToDictionary(f => f.Path, StringComparer.Ordinal);
         foreach (var file in plan.Journal.NewFiles)
             expected.Add(plan.SourceDirectory + "/" + file.Path, file with { Path = plan.SourceDirectory + "/" + file.Path });
-        byte[] manifest = plan.Cut.Encode();
+        byte[] manifest = OutpostRestoreEvidence.ManifestBytes(plan);
         string manifestPath = plan.SourceDirectory + "/" + OutpostBackupManifest.FileName;
         expected.Add(manifestPath, new(manifestPath, manifest.Length, SHA256.HashData(manifest)));
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase); long total = 0;
@@ -87,7 +87,15 @@ public sealed partial class OutpostRestoreProcedure
         if (!transitions.TryGetValue(rootId, out var root))
         {
             // MainPrepared may precede its sole DB transaction. Verify the exact original C, not an invented R.
-            await ValidateCutAsync(copy, plan.Cut, ct);
+            if (IsAdditive(plan))
+            {
+                var schema = await OutpostDomainSchema.ObserveAsync(database, ct);
+                await ValidatePreRAdditiveStateAsync(database, plan, allowPostSchema: schema.IsCurrent, ct, dataRoot: copy);
+                var preRProof = new OutpostBackupManifest(2, plan.Cut.Authority, plan.Cut.CutUtc, plan.Cut.DomainDigest, [], plan.Cut.Proofs,
+                    new(1, plan.DomainStep!.From, new(schema.ProfileId, schema.Digest.ToByteArray())));
+                await ValidateCutAsync(copy, preRProof, ct);
+            }
+            else await ValidateCutAsync(copy, plan.Cut, ct);
             return;
         }
         if (!OutpostRestoreEvidence.Same(OutpostRestoreEvidence.Plan(root), plan)
@@ -106,8 +114,12 @@ public sealed partial class OutpostRestoreProcedure
         string state = await new OutpostLifecycleEvidence(database, files).IsNoActiveWorldAsync(ct) ? "NoActiveWorld" : "Ready";
         var identity = new OutpostBackupIdentity(authority.FormatVersion, authority.InstallationId, authority.WorldId, authority.RestoreBoundary,
             authority.HeadId, authority.HeadDigest, authority.TransitionId, state);
-        var proof = new OutpostBackupManifest(1, identity, root.CreatedAt, (await OutpostDomainDigest.ComputeAsync(database, ct)).ToByteArray(),
-            [], (await OutpostBackupCapture.ReadProofsAsync(database, ct)).ToArray());
+        // Use the verified frozen UTC coordinate, not the unspecified Kind returned for the SQLite timestamp.
+        var domain = await OutpostAuthority.ReadStoredChainAsync(database, files, authority,
+            new(authority.HeadId, ByteString.CopyFrom(authority.HeadDigest)), currentRuntime: false, ct);
+        var proof = new OutpostBackupManifest(2, identity, plan.Cut.CutUtc, domain.Digest.ToByteArray(),
+            [], (await OutpostBackupCapture.ReadProofsAsync(database, ct)).ToArray(),
+            new(1, domain.Format, new(domain.Schema.ProfileId, domain.Schema.Digest.ToByteArray())));
         // Verify C→R→completion and every real source proof on an owned copy. Do not invent an external E or publish anything.
         await ValidateCutAsync(copy, proof, ct);
     }

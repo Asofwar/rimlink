@@ -82,7 +82,7 @@ public sealed class OutpostNestedRestoreTests
     [InlineData(true, false, true)][InlineData(true, true, true)]
     public async Task Rollback_then_restore_preserves_Q_source_before_or_after_fresh_capture(bool freshBetween, bool home, bool restoreBefore)
     {
-        using var f = await LifecycleFixture.Create(); if (home) await OutpostLifecycleTests.CloseAndReceive(f);
+        using var f = await LifecycleFixture.Create(runtimeQualified: true); if (home) await OutpostLifecycleTests.CloseAndReceive(f);
         var physical = await f.H.Db.SaveVersions.AsNoTracking().SingleAsync(v => v.PlayerId == 1 && v.IsCurrent);
         if (restoreBefore) await OutpostRestoreBridgeTests.Restore(f);
         else f.Host.Dispose();
@@ -188,6 +188,7 @@ public sealed class OutpostNestedRestoreTests
         return HygieneFixtures.HygieneServer().WithoutWorld().WithDataDir(shared.Data.Root).KeepDataDir()
             .WithSetting("Outposts:AnchorDirectory", Path.Combine(shared.Root, "external"))
             .WithSetting("Outposts:StorageContract", "sqlite-local-v1")
+            .WithOutpostUnitQualification()
             .WithServices(s => { s.AddSingleton(shared.Files); s.AddSingleton(shared.Owners); s.AddSingleton(shared.Anchor); s.AddSingleton<TimeProvider>(f.H.F.Time); });
     }
 }

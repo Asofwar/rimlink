@@ -54,6 +54,7 @@ public static class RimlinkSession
 
     public static void Begin(ServerEndpoint endpoint, RimlinkConnection connection, LoginReply login)
     {
+        Game.Outposts.OutpostAcceptance.Reset();
         Endpoint = endpoint;
         Connection = connection;
         Login = login;
@@ -72,13 +73,16 @@ public static class RimlinkSession
         LastState = connection.State;
     }
 
-    /// <summary>Forgets the session; the connection is disposed by the caller.</summary>
+    /// <summary>Forgets the session on the main thread; the connection is disposed by the caller.</summary>
     public static void End()
     {
+        Game.Outposts.OutpostAcceptance.Reset();
         SaveSync.Detach(); PendingDownload = null; RecoveryNeeded = false; RecoveryNeedsSave = false;
         recoveryLifetime.Cancel(); Recovery = null;
+        // The menu can dispose the world before the next main-thread callback.
+        Game.Outposts.OutpostSync.Reset();
         var ending = Connection;
-        MainThread.Post(() => { if (Connection is null || ReferenceEquals(Connection, ending)) { Game.Influence.InfluenceSync.Reset(); Game.Outposts.OutpostSync.Reset(); } });
+        MainThread.Post(() => { if (Connection is null || ReferenceEquals(Connection, ending)) Game.Influence.InfluenceSync.Reset(); });
         if (Connection is { } c) c.EventReceived -= Inbox.Enqueue;
         if (Live is { } live) _ = live.Close();
         Live = null;

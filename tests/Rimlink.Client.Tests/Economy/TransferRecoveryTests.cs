@@ -107,6 +107,24 @@ public sealed class TransferRecoveryTests : IDisposable
         Assert.Equal(OutboxPhase.RecoveryRequired, Open().Entries.Single().Phase);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SelectedProtectedDownloadKeepsTheOriginalSnapshotAndCannotAcceptAnOlderRemoval(bool rollback)
+    {
+        var f = Outposts.OutpostSourceDownloadTests.Fixture(rollback);
+        var outbox = new TransferOutbox(path, new ConsoleLog(), f.Header.SaveGeneration, f.Header.SaveWriteEpoch);
+        var entry = outbox.Prepare(Send(2, Items(("Steel", 5))));
+        var snapshot = f.Recovery with { Removed = [entry.Id] };
+        var original = snapshot.Outposts.Metadata.ToByteArray();
+
+        outbox.ReconcileSelectedSnapshot(snapshot, 100, f.Header);
+
+        Assert.Equal(rollback ? OutboxPhase.Prepared : OutboxPhase.Ready, Assert.Single(outbox.Entries).Phase);
+        Assert.Equal(4, snapshot.WriteEpoch);
+        Assert.Equal(original, snapshot.Outposts.Metadata.ToByteArray());
+    }
+
     [Fact]
     public void CorruptOutboxIsNeverReplacedWithAnEmptyOne()
     {

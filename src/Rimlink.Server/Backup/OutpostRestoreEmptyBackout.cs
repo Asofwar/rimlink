@@ -14,7 +14,7 @@ public sealed partial class OutpostRestoreProcedure
         if (intent.Selection.Mode != RestoreMode.ImportNewHost || intent.OldFiles.Length != 0
             || journal.OldSetKind != RestoreOldSetKind.VerifiedEmpty || !journal.OldSetUsable)
             return Refused("restore-backout-verified-empty-required");
-        var marker = (FreshAnchorFence)OutpostRestoreFence.Marker(intent, journal.IntentDigest);
+        var marker = (FreshAnchorFence)await BackoutMainMarkerAsync(intent, journal, journalRoot, anchor, held, ct, terminalEmpty: true);
         var finished = marker with { State = FreshFenceState.BackedOutEmpty };
         var observed = anchor.ReadEnvelope(held);
         bool resuming = journal.Phase is RestorePhase.BackingOut or RestorePhase.BackedOut;
@@ -54,7 +54,7 @@ public sealed partial class OutpostRestoreProcedure
             if (Directory.Exists(full) && !Directory.EnumerateFileSystemEntries(full).Any()) Directory.Delete(full);
         }
         RequireEmptyAfterBackout(intent);
-        if (anchor.ReadEnvelope(held) != marker) return Refused("restore-backout-empty-marker-changed");
+        if (await BackoutMainMarkerAsync(intent, journal, journalRoot, anchor, held, ct) != marker) return Refused("restore-backout-empty-marker-changed");
         anchor.WriteEnvelopeDurable(held, finished, CancellationToken.None);
         Checkpoint?.Invoke("AfterBackoutPublication");
         StoreJournal(journalRoot, journal with { Phase = RestorePhase.BackedOut, Revision = checked(journal.Revision + 1) });

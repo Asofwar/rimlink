@@ -1,0 +1,60 @@
+---
+pageId: admins/discord
+contentRevision: 3
+---
+
+# Discord-бот
+
+Применимость: Rimlink 0.9.0 · RimWorld 1.7 · протокол 1.
+
+## Как пользоваться {#usage}
+
+Бот — отдельный процесс/контейнер с секцией RimlinkBot. Server.Url указывает HTTPS сервера, ApiToken — отдельный именованный серверный токен с нужными scope. StateFile сохраняет позицию feed, его каталог должен быть постоянным.
+
+В Discord Developer Portal создай бота, включи необходимый Message Content intent для чат-моста, добавь его в выбранную гильдию с минимальными правами. Задай Discord.Token, GuildId, Language (en/ru), ModeratorRoleIds, AdminRoleIds и id каналов Server/Raids/Market/Moderation/Chat. Нулевые id из примера не являются готовой конфигурацией.
+
+Для TLS настрой CertificateSha256 (pin) либо доверенную цепочку с CertificateName при необходимости. Проверь чтение статуса, ограничения ролей и публичный чат на тестовом канале, затем включай мост.
+
+## Запуск бота с минимальными правами {#bot-accept}
+
+Создай отдельный токен сервера и отдельный Discord bot token; заполни ненулевые guild/channel id и role id. Нужные server scopes определяют доступ к API, Discord-роли — кому разрешены команды в guild. Совпадение имён ролей не создаёт серверное право.
+
+Сначала проверь status и отказ команды для обычного участника в тестовом канале. Затем включи публичный мост, проверь направление сообщений и запрет личного/альянсного канала. Для Message Content нужен intent в Developer Portal. Сохраняй StateFile в постоянном каталоге, иначе restart теряет позицию feed.
+
+Если бот видит 401/403, исправляй токен/scope, не выдавай сразу admin. Если TLS не проходит, сверяй pin/имя/цепочку; Insecure=true не production-решение.
+
+
+### Полный путь запуска из исходников
+
+1. Нужны checkout Rimlink той же версии, SDK из global.json, доступный HTTPS-сервер и Discord application. В Developer Portal включи Message Content; приглашение использует scopes bot и applications.commands и права View Channels, Send Messages, Add Reactions, Read Message History. Не выдавай Administrator.
+2. Собери отдельный каталог (не каталог уже запущенного бота):
+
+~~~powershell
+dotnet publish src/Rimlink.Discord -c Release -o ./build/discord-bot
+Copy-Item ./deploy/discord.appsettings.example.json ./build/discord-bot/appsettings.json
+~~~
+
+3. Открой [образец конфигурации](https://github.com/Asofwar/rimlink/blob/main/deploy/discord.appsettings.example.json), заполни RimlinkBot в скопированном appsettings.json. Файл читается **рядом с DLL**, а не из произвольного рабочего каталога. Замени Url, оба токена, GuildId, роли и каналы; Channels.*=0 отключает группу. Укажи абсолютный StateFile в постоянном доступном на запись каталоге и проверенный CertificateSha256 либо доверенную цепочку/имя. Не коммить рабочий файл с секретами.
+4. Минимальные серверные scopes: read — события и /status, /online, /market; read + chat — двусторонний публичный мост; moderate + chat — ещё /player и модерация; admin — только если нужны административные команды. Discord-роли задаются отдельно. Токен из Admin:Tokens сервера должен совпасть с Server:ApiToken бота.
+5. При необходимости переопредели несекретные поля окружением; секреты передавай через защищённое окружение службы, не вставляй их в историю терминала:
+
+~~~powershell
+$env:RimlinkBot__Server__Url = 'https://play.example.com:25560'
+$env:RimlinkBot__StateFile = 'E:/RimlinkData/discord/feed-state'
+dotnet ./build/discord-bot/rimlink-discord.dll
+~~~
+
+6. Ожидаемый результат: процесс остаётся запущен, /status отвечает в тестовой гильдии, обычному участнику отказано в /kick, двусторонний тестовый публичный чат проходит с chat-scope, а личный/альянсный не появляется. Отсутствующие токены останавливают процесс при проверке конфигурации; 401/403/TLS ошибки лечат настройкой, не отключением защиты.
+7. Остановка — Ctrl+C в этой консоли либо штатная остановка службы. Перед обновлением сохрани appsettings.json и StateFile; после старта с тем же StateFile бот продолжит feed. При gap перечитай текущее состояние: потерянные события не восстанавливаются выдуманными сообщениями. Не удаляй state-файл ради устранения ошибки входа.
+
+Это инструкция запуска, не отчёт о выполненном подключении к живому Discord.
+
+## Ограничения и безопасность {#limits}
+
+Discord.Token и Server.ApiToken — разные секреты. Insecure=false по умолчанию; true только для изолированной сети. Серверные scopes и Discord-роли независимы. Мост пересылает публичный чат, не личные/союзные сообщения. Рестарт/gap требует перечитать состояние, а не выдумывать пропущенные события.
+
+## См. также {#related}
+
+- [TLS, вход и права](./security-auth.md)
+- [Мониторинг и журнал событий](./monitoring.md)
+- [Чат, сообщения и пинги](../players/chat-pings.md)

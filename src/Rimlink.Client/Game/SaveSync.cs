@@ -34,6 +34,8 @@ public static class SaveSync
     }
     private static Task<UploadResult>? upload;
     private static Action<SaveSnapshot>? beforeExactUpload;
+    private static Outposts.OutpostAcceptanceContext? exactAcceptance;
+    private static string? exactStage;
 
     /// <summary>Main-thread file capture; durable journal callback runs before any bytes can be uploaded.</summary>
     public static async Task<UploadResult> SaveExactAsync(Action<SaveSnapshot>? journal = null)
@@ -41,15 +43,22 @@ public static class SaveSync
         var waiting = await MainThread.Get(() => SaveExactNow(journal));
         return await waiting;
     }
+    internal static async Task<UploadResult> SaveExactAsync(Action<SaveSnapshot>? journal, Outposts.OutpostAcceptanceContext? acceptance, string stage)
+    {
+        var waiting = await MainThread.Get(() => SaveExactNowCore(journal, acceptance, stage));
+        return await waiting;
+    }
 
     /// <summary>Main thread only: capture immediately, without an await gap after a protected departure.</summary>
     public static Task<UploadResult> SaveExactNow(Action<SaveSnapshot>? journal = null)
+        => SaveExactNowCore(journal, null, null);
+    private static Task<UploadResult> SaveExactNowCore(Action<SaveSnapshot>? journal, Outposts.OutpostAcceptanceContext? acceptance, string? stage)
     {
         if (!HasColonyToSave || IsSaving || writesBlocked || beforeExactUpload is not null)
             throw new InvalidOperationException("an exact own snapshot cannot be written now");
-        IsSaving = true; upload = null; beforeExactUpload = journal;
+        IsSaving = true; upload = null; beforeExactUpload = journal; exactAcceptance = acceptance; exactStage = stage;
         try { GameDataSaveLoader.SaveGame(SaveFileName); }
-        finally { beforeExactUpload = null; IsSaving = false; }
+        finally { beforeExactUpload = null; exactAcceptance = null; exactStage = null; IsSaving = false; }
         return upload ?? Task.FromResult(new UploadResult(null, null, new IOException("the exact snapshot was not written")));
     }
     private static SaveUploadQueue uploads = new();
@@ -73,7 +82,7 @@ public static class SaveSync
     {
         try
         {
-            if (Outposts.PawnCustodyRegistry.IsOwnGame && Current.Game is { } own)
+            if (Outposts.PawnCustodyRegistry.IsOwnSave && Current.Game is { } own)
             {
                 var evidence = own.GetComponent<RimlinkGameComponent>();
                 var registry = own.GetComponent<Outposts.PawnCustodyRegistry>();
@@ -181,8 +190,11 @@ public static class SaveSync
         }
         var shopList = Shop.ShopSync.Build(snapshot.Meta.GameTick);
         var outbox = RimlinkSession.Outbox;
+        var acceptance = exactAcceptance; var stage = exactStage;
         var task = uploads.Enqueue(snapshot, async (copy, cancellation) =>
         {
+            await Outposts.OutpostAcceptance.ReachAsync(stage + "-local-durable", acceptance, copy.Id);
+            cancellation.ThrowIfCancellationRequested();
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
             timeout.CancelAfter(TimeSpan.FromSeconds(90));
             return await connection.ForAuthentication(authentication!, () => new SaveTransfer(connection).UploadAsync(copy.Path, copy.Meta, timeout.Token));

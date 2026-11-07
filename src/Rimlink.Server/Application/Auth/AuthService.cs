@@ -8,6 +8,7 @@ using Rimlink.Server.Grpc;
 using Rimlink.Server.Hosting;
 using Rimlink.Server.Storage.Entities;
 using Rimlink.Server.Storage;
+using Rimlink.Server.Application.Outposts;
 
 namespace Rimlink.Server.Application.Auth;
 
@@ -17,7 +18,7 @@ public sealed class AuthService(
     ISteamTicketVerifier steam,
     LoginGate gate,
     IOptions<AuthOptions> authOptions,
-    ILogger<AuthService> log)
+    ILogger<AuthService> log, OutpostFeature outposts)
 {
     public async Task<LoginResult> Register(string login, string password, string playerName, LoginContext ctx)
     {
@@ -121,10 +122,15 @@ public sealed class AuthService(
             (player.RecoveryVersion > 0 || player.SaveWriteEpoch > 0) && ctx.RecoveryVersion != SaveRecoveryData.CurrentVersion)
             return LoginResult.Failed(StatusCode.FailedPrecondition, ErrorCode.RecoveryClientRequired, RefusalKeys.RecoveryClientRequired,
                 "this colony requires a client with snapshot recovery support");
+        bool custody = await OutpostSnapshotGuard.RequiresCustodyAsync(db, player.Id, CancellationToken.None);
         if ((ctx.OutpostVersion != OutpostRecoveryData.CurrentVersion || ctx.RecoveryVersion != SaveRecoveryData.CurrentVersion)
-            && await db.PawnCustody.AnyAsync(p => p.PlayerId == player.Id))
+            && custody)
             return LoginResult.Failed(StatusCode.FailedPrecondition, ErrorCode.OutpostClientRequired, RefusalKeys.OutpostsClient,
                 "this colony requires a client with outpost custody support");
+        if (account.Role != Storage.Entities.Role.Admin && !outposts.Readiness.CanResolveCustody
+            && (await db.OutpostSnapshotLinks.AnyAsync(p => p.PlayerId == player.Id) || custody))
+            return LoginResult.Failed(StatusCode.FailedPrecondition, ErrorCode.OutpostUnavailable, RefusalKeys.OutpostsUnavailable,
+                "outpost recovery is not qualified for this server composition");
         var session = sessions.Start(account, player, ctx.Ip, out var replaced);
         session.OutpostVersion = ctx.RecoveryVersion == SaveRecoveryData.CurrentVersion ? ctx.OutpostVersion : 0;
         if (replaced is not null) log.LogInformation("Session of {Player} replaced by a new login from {Ip}", player.Name, ctx.Ip);

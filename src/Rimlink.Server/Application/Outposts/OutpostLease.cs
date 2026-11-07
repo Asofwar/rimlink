@@ -20,6 +20,7 @@ public sealed class OutpostLease : IAsyncDisposable
 
     public IReadOnlyList<long> OwnerIds { get { Require(owner); return ownerIds; } }
     public bool CoversOwner(long ownerId) { Require(owner); return ownerIds.Contains(ownerId); }
+    internal void RequireCustodyReadiness() { Require(owner); owner.RequireRuntimeCustody(); }
 
     internal void Require(OutpostAuthority expected)
     {

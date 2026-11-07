@@ -6,7 +6,7 @@ using Rimlink.Server.Storage;
 
 namespace Rimlink.Server.Application.Outposts;
 
-public class OutpostAnchorStore
+public partial class OutpostAnchorStore
 {
     private readonly string dataRoot;
     private readonly IOptions<OutpostOptions> options;

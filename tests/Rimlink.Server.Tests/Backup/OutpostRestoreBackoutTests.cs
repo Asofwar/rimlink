@@ -10,6 +10,28 @@ namespace Rimlink.Server.Tests.Backup;
 
 public class OutpostRestoreBackoutTests
 {
+    [Fact]
+    public async Task Fixture_observation_does_not_checkpoint_a_partially_backed_out_database()
+    {
+        var (f, restore, _) = await OutpostRestoreResumeTests.Interrupt("AfterCompletionCommitted");
+        using (f)
+        {
+            var selected = Select(restore);
+            var request = selected with { ConfirmationDigest = OutpostRestoreJournalCodec.BackoutDigest(selected) };
+            var procedure = new OutpostRestoreProcedure
+            { Checkpoint = point => { if (point == "AfterBackoutCompleted:rimlink.db") throw new StopBackout(); } };
+            await Assert.ThrowsAsync<StopBackout>(() => procedure.BackoutAsync(request, default));
+            string database = Path.Combine(restore.Inspection.DataDirectory, BackupArchive.DatabaseFile);
+            byte[] before = File.ReadAllBytes(database);
+
+            await f.Cut();
+
+            Assert.Equal(before, File.ReadAllBytes(database));
+            var result = await new OutpostRestoreProcedure().BackoutAsync(request, default);
+            Assert.True(result.Outcome == RestoreOutcome.BackedOut, result.Reason);
+        }
+    }
+
     [Theory]
     [InlineData("AfterOldSetRetained")]
     [InlineData("AfterSwitchEffect:rimlink.db")]

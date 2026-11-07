@@ -23,6 +23,28 @@ public sealed class OutpostAdmissionReceiptTests
         var receipt = OutpostAdmissionReceipts.Create(request, reply, noRemoval: true);
         Assert.Equal(OutpostCancelKind.AbortNoRemoval, receipt.CancellationKind); Assert.Equal(request.Caravan.GameBranchId, receipt.NoRemovalBranchId);
     }
+
+    [Fact]
+    public void Generic_recovery_reply_for_the_original_prepare_cannot_become_a_cancellation_receipt()
+    {
+        var (request, prepared) = Example();
+        var refused = prepared.Clone(); refused.Status = OutpostOperationStatus.RecoveryRequired;
+        Assert.Throws<InvalidDataException>(() => OutpostAdmissionReceipts.CreateNoRemoval(request, prepared, refused));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Created_or_already_observed_cancellation_fence_can_authorize_its_exact_receipt(bool alreadyFenced)
+    {
+        var (request, prepared) = Example();
+        var fence = prepared.Clone();
+        fence.Status = OutpostOperationStatus.RecoveryRequired;
+        fence.TransitionId = Guid.NewGuid().ToString("D");
+        var receipt = OutpostAdmissionReceipts.CreateNoRemoval(request, alreadyFenced ? fence : prepared, fence);
+        Assert.Equal(fence.TransitionId, receipt.TransitionId);
+        Assert.Equal(OutpostCancelKind.AbortNoRemoval, receipt.CancellationKind);
+    }
     [Theory]
     [InlineData("intent")][InlineData("scope")][InlineData("digest")][InlineData("request")][InlineData("status")]
     public void Unbound_or_terminal_reply_cannot_authorize_a_removal(string fault)

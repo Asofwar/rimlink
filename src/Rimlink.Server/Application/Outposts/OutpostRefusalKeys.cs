@@ -13,7 +13,7 @@ public static class OutpostRefusalKeys
         if (session.OutpostVersion != OutpostRecoveryData.CurrentVersion)
             throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.OutpostClientRequired, RefusalKeys.OutpostsClient,
                 "outpost custody client version required");
-        if (!feature.IsAvailable || feature.Startup.State != OutpostStartupState.Ready)
+        if (!feature.IsAvailable)
             throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.OutpostUnavailable, RefusalKeys.OutpostsUnavailable,
                 "outpost custody graph is not available");
     }

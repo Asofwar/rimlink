@@ -8,11 +8,12 @@ using Rimlink.Server.Grpc;
 
 namespace Rimlink.Server.Rest;
 
-public static class OutpostAdminEndpoints
+public static partial class OutpostAdminEndpoints
 {
     private const int MaxJsonBytes = 360 * 1024; // One base64-encoded 256 KiB chunk plus bounded metadata.
     public static void MapOutpostAdmin(this WebApplication app)
     {
+        MapAuthorityAdmin(app);
         var group = app.MapGroup("/api/admin/outposts/manifest").RequireAdmin();
         group.AddEndpointFilter(async (context, next) =>
         {
@@ -29,12 +30,12 @@ public static class OutpostAdminEndpoints
             Json(await service.BindingAsync(context.Actor(), ct))).RequireScope(ApiScope.Admin);
         group.MapPost("/stage", async (HttpContext context, OutpostManifestUploads uploads, OutpostManifestService service, CancellationToken ct) =>
             Json(await uploads.StageAsync(context.Actor(), "rest:" + context.ReceiptIdentity(), await Read<OutpostManifestChunk>(context, ct), service, ct))).RequireScope(ApiScope.Admin);
-        group.MapPost("/read", async (HttpContext context, OutpostManifestService service, CancellationToken ct) =>
-            Json(await service.ReadAsync(context.Actor(), await Read<OutpostManifestPageRequest>(context, ct), ct))).RequireScope(ApiScope.Admin);
-        group.MapPost("/confirm", async (HttpContext context, OutpostManifestService service, CancellationToken ct) =>
+        group.MapPost("/read", async (HttpContext context, OutpostAdminService service, CancellationToken ct) =>
+            Json(await service.ReadManifestPageAsync(context.Actor(), await Read<OutpostManifestPageRequest>(context, ct), ct))).RequireScope(ApiScope.Admin);
+        group.MapPost("/confirm", async (HttpContext context, OutpostAdminService service, CancellationToken ct) =>
         {
             var request = await Read<OutpostManifestConfirmation>(context, ct);
-            return Json(await service.ConfirmAsync(context.Actor(), request.ManifestId, request.ExpectedDigest, ct));
+            return Json(await service.ConfirmManifestTransportAsync(context.Actor(), request, ct));
         }).RequireScope(ApiScope.Admin);
     }
 

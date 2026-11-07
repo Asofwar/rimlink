@@ -3,6 +3,18 @@ namespace Rimlink.Client.Outposts;
 
 public static class OutpostAdmissionCancellation
 {
+    public static OutpostCancelRequest CreateRequest(OutpostPrepareRequest request, OutpostCancelKind kind, long expectedRevision) => new()
+    {
+        Scope = request.Scope.Clone(),
+        ClientRequestId = request.ClientRequestId,
+        IntentDigest = request.IntentDigest,
+        Kind = kind,
+        // Keep the original proof durable until the fresh cancellation snapshot is accepted.
+        CancellationProof = request.PreRemoval.Clone(),
+        ExpectedRevision = expectedRevision,
+        ContinuousBranchId = kind == OutpostCancelKind.AbortNoRemoval ? request.Caravan.GameBranchId : ""
+    };
+
     public static OutpostCancelKind Select(OutpostPrepareRequest request, OutpostSaveMetadata metadata, string gameBranchId, bool removedLocally)
     {
         if (!OutpostReconciliation.SameScope(request.Scope, metadata.Scope) || request.Workers.Count == 0) throw new InvalidDataException("cancellation has no exact owner evidence");

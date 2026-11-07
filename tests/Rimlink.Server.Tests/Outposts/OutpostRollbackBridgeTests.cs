@@ -17,7 +17,7 @@ public sealed class OutpostRollbackBridgeTests
     [Fact]
     public async Task Normal_current_snapshot_has_no_epoch_bridge()
     {
-        using var f = await LifecycleFixture.Create();
+        using var f = await LifecycleFixture.Create(runtimeQualified: true);
         using var services = f.Host.Services.CreateScope(); var provider = services.ServiceProvider;
         await using var lease = await provider.GetRequiredService<Rimlink.Server.Application.Outposts.OutpostAuthority>().AcquireAsync([1], default);
         var current = await f.H.Db.SaveVersions.AsNoTracking().SingleAsync(v => v.PlayerId == 1 && v.IsCurrent);
@@ -27,7 +27,7 @@ public sealed class OutpostRollbackBridgeTests
     [Fact]
     public async Task Bridge_comes_from_committed_exact_target_and_authorizes_only_original_live_own_registry()
     {
-        using var f = await LifecycleFixture.Create(); await OutpostLifecycleTests.CloseAndReceive(f);
+        using var f = await LifecycleFixture.Create(runtimeQualified: true); await OutpostLifecycleTests.CloseAndReceive(f);
         var target = await f.H.Db.SaveVersions.AsNoTracking().SingleAsync(v => v.PlayerId == 1 && v.IsCurrent);
         var original = JsonSerializer.Deserialize<SaveRecoveryData>(target.RecoveryJson!)!;
         var newer = f.H.F.H.Snapshot(original.Outposts.Metadata.Clone(), tick: target.GameTick + 100); await f.H.F.H.Accept(newer);
@@ -54,7 +54,7 @@ public sealed class OutpostRollbackBridgeTests
     [Fact]
     public async Task OpenCurrent_returns_old_exact_bytes_and_current_epoch_bridge_from_one_protected_cut()
     {
-        using var f = await LifecycleFixture.Create(); await OutpostLifecycleTests.CloseAndReceive(f);
+        using var f = await LifecycleFixture.Create(runtimeQualified: true); await OutpostLifecycleTests.CloseAndReceive(f);
         var target = await f.H.Db.SaveVersions.AsNoTracking().SingleAsync(v => v.PlayerId == 1 && v.IsCurrent);
         var original = JsonSerializer.Deserialize<SaveRecoveryData>(target.RecoveryJson!)!;
         await f.H.F.H.Accept(f.H.F.H.Snapshot(original.Outposts.Metadata.Clone(), tick: target.GameTick + 100));
@@ -79,7 +79,7 @@ public sealed class OutpostRollbackBridgeTests
     [InlineData(false)][InlineData(true)]
     public async Task Fresh_current_epoch_acceptance_preserves_historical_receipts_without_importing_or_crediting_again(bool received)
     {
-        using var f = await LifecycleFixture.Create(); if (received) await OutpostLifecycleTests.CloseAndReceive(f);
+        using var f = await LifecycleFixture.Create(runtimeQualified: true); if (received) await OutpostLifecycleTests.CloseAndReceive(f);
         var target = await f.H.Db.SaveVersions.AsNoTracking().SingleAsync(v => v.PlayerId == 1 && v.IsCurrent);
         var original = SaveStore.RecoveryOf(target); var metadata = original.Outposts.Metadata.Clone();
         await f.H.F.H.Accept(f.H.F.H.Snapshot(metadata.Clone(), tick: target.GameTick + 100));
@@ -106,7 +106,7 @@ public sealed class OutpostRollbackBridgeTests
     [Fact]
     public async Task Rollback_requires_fresh_accepted_current_epoch_bytes_before_another_mutation()
     {
-        using var f = await LifecycleFixture.Create(); var target = f.H.Post;
+        using var f = await LifecycleFixture.Create(runtimeQualified: true); var target = f.H.Post;
         await f.H.F.H.Accept(f.H.F.H.Snapshot(target.Recovery.Outposts.Metadata.Clone(), tick: 2000));
         f.H.F.Time.Advance(TimeSpan.FromHours(1));
         Assert.Equal(20, Assert.Single((await f.H.Service.StateAsync(1, new() { Scope = f.H.Scope.Clone() }, default)).Outposts).Stock);
@@ -137,7 +137,7 @@ public sealed class OutpostRollbackBridgeTests
     [InlineData("missing-bridge")][InlineData("transition")][InlineData("frontier")][InlineData("capture")][InlineData("receipt")]
     public async Task Changed_bridge_or_historical_bytes_never_grants_fresh_epoch_authority(string fault)
     {
-        using var f = await LifecycleFixture.Create(); var target = f.H.Post;
+        using var f = await LifecycleFixture.Create(runtimeQualified: true); var target = f.H.Post;
         await f.H.F.H.Accept(f.H.F.H.Snapshot(target.Recovery.Outposts.Metadata.Clone(), tick: 2000));
         using var services = f.Host.Services.CreateScope(); var provider = services.ServiceProvider;
         Assert.True(await provider.GetRequiredService<SaveStore>().Rollback(1, target.Version.Number));
@@ -168,7 +168,7 @@ public sealed class OutpostRollbackBridgeTests
     [InlineData("not-current")][InlineData("wrong-owner")][InlineData("wrong-hash")]
     public async Task Bridge_never_covers_a_different_download_cut(string fault)
     {
-        using var f = await LifecycleFixture.Create(); var target = f.H.Post;
+        using var f = await LifecycleFixture.Create(runtimeQualified: true); var target = f.H.Post;
         var newer = f.H.F.H.Snapshot(target.Recovery.Outposts.Metadata.Clone(), tick: 2000); await f.H.F.H.Accept(newer);
         using var services = f.Host.Services.CreateScope(); var provider = services.ServiceProvider;
         Assert.True(await provider.GetRequiredService<SaveStore>().Rollback(1, target.Version.Number));

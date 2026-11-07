@@ -11,6 +11,7 @@
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="Rimlink.BridgeTools" />
     <!-- Harmony is provided by the Harmony mod at runtime; only compile against it. -->
     <PackageReference Include="Lib.Harmony" ExcludeAssets="runtime" />
   </ItemGroup>

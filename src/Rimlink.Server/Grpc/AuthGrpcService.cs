@@ -1,4 +1,5 @@
 using Grpc.Core;
+using Rimlink.Server.Application.Outposts;
 using Microsoft.EntityFrameworkCore;
 using Rimlink.Protocol.V1;
 using Rimlink.Server.Application.Auth;
@@ -70,7 +71,8 @@ public sealed class AuthGrpcService(AuthService auth, WorldService worlds, SaveS
                     RecoveryVersion = Protocol.SaveRecoveryData.CurrentVersion,
                     DevModeAllowed = integrity.Value.DevModeAllowed(s.Account.Role),
                     ColonyRestore = s.Session.ColonyRestore,
-                    OutpostVersion = outposts.IsAvailable && outposts.Startup.State == Application.Outposts.OutpostStartupState.Ready
+                    OutpostIsolatedAcceptance = outposts.Readiness.Mode == OutpostRuntimeMode.IsolatedAcceptance,
+                    OutpostVersion = outposts.IsAvailable
                         && s.Session.OutpostVersion == Protocol.OutpostRecoveryData.CurrentVersion ? Protocol.OutpostRecoveryData.CurrentVersion : 0,
                 };
                 if (reply.OutpostVersion != 0)

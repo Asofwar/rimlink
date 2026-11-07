@@ -141,9 +141,20 @@ public sealed partial class OutpostLifecycleEvidence(RimlinkDbContext db, SaveFi
             {
                 var source = operations.Where(r => r.Kind == "Archive" && r.Phase == "Completed"
                     && Decode<LifecycleProgress>(r.Progress).ArchiveId == intent.ArchiveId).ToArray();
-                if (source.Length != 1 || Intent(source[0]).PlayerId != intent.PlayerId
-                    || !Intent(source[0]).Outposts.SequenceEqual(intent.Outposts) || intent.Versions.Length != 0 || intent.Files.Length != 0)
+                if (source.Length > 1 || intent.Versions.Length != 0 || intent.Files.Length != 0)
                     throw Invalid("lifecycle-restore-source-mismatch");
+                if (source.Length == 1)
+                {
+                    var original = Intent(source[0]);
+                    if (original.PlayerId != intent.PlayerId || !original.Outposts.SequenceEqual(intent.Outposts))
+                        throw Invalid("lifecycle-restore-source-mismatch");
+                }
+                else
+                {
+                    if (intent.Outposts.Length != 0) throw Invalid("lifecycle-restore-source-mismatch");
+                    var scope = OutpostScopeMessage.Parser.ParseFrom(intent.Scopes[Array.IndexOf(intent.Owners, intent.PlayerId)].Scope);
+                    await new OutpostRestoreEvidence(db, files).ValidateLegacyCutArchiveAsync(scope, intent.ArchiveId, null, ct);
+                }
             }
             if (row.Phase != "Prepared") await VerifyLocators(intent, ct);
             if (row.Phase == "Completed")

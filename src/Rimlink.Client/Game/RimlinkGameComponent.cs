@@ -70,7 +70,7 @@ public sealed class RimlinkGameComponent : GameComponent
                 RimlinkLog.Instance.Warn("outpost recovery metadata requires recovery: " + ex.Message);
             }
         }
-        if (Scribe.mode == LoadSaveMode.Saving && OutpostRecovery.Present && Outposts.PawnCustodyRegistry.IsOwnGame)
+        if (Scribe.mode == LoadSaveMode.Saving && OutpostRecovery.Present && Outposts.PawnCustodyRegistry.IsOwnSave)
         {
             var validation = Current.Game.GetComponent<Outposts.PawnCustodyRegistry>().ValidateOwnGame();
             if (validation.RecoveryRequired) throw new InvalidDataException("ambiguous own pawn custody registry");
@@ -294,6 +294,8 @@ public sealed class RimlinkGameComponent : GameComponent
         if (!RimlinkSession.RecoveryNeeded || RimlinkSession.Connection is not { State: ConnectionState.Connected } connection
             || Visits.VisitSession.InVisit || Live.MirrorMode.Active || Current.ProgramState != ProgramState.Playing
             || DateTime.UtcNow < nextRecovery || ReferenceEquals(recoveryOwner, connection) || SaveSync.WritesBlocked) return;
+        // The live operation owns its exact saves and reply until it hands them back to recovery.
+        if (Outposts.OutpostIncoming.Busy || Outposts.OutpostOutgoing.Busy || Outposts.OutpostSync.Mutating) return;
         if (RimlinkSession.RecoveryNeedsSave || RimlinkSession.Outbox?.Entries.Any(e => e.Phase == Rimlink.Client.Economy.OutboxPhase.Prepared) == true)
         {
             if (!SaveSync.IsSaving && !SaveSync.UploadInFlight) SaveSync.TriggerSave("recovery barrier");

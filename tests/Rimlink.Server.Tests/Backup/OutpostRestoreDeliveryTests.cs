@@ -12,6 +12,35 @@ namespace Rimlink.Server.Tests.Backup;
 
 public sealed class OutpostRestoreDeliveryTests
 {
+    [Fact]
+    public async Task Recall_after_restore_uses_current_parcel_scope_and_preserves_original_worker_capture()
+    {
+        using var f = await LifecycleFixture.Create();
+        var original = await f.H.Db.OutpostAssignments.AsNoTracking().SingleAsync();
+        var target = await f.H.Db.SaveVersions.AsNoTracking().SingleAsync(v => v.PlayerId == 1 && v.IsCurrent);
+        await OutpostRestoreBridgeTests.Restore(f);
+        var metadata = await OutpostRestoreAcceptanceTests.FreshMetadata(f, target);
+        var recovery = SaveStore.RecoveryOf(target);
+        var fresh = f.H.F.H.Snapshot(metadata, removed: recovery.Removed, returned: recovery.Returned);
+        await f.H.F.H.Accept(fresh);
+        var recall = f.H.Request(OutpostMutationKind.Recall);
+        recall.Scope = metadata.Scope.Clone();
+        recall.CanonicalSnapshot = AssignmentHarness.SnapshotProof(fresh);
+        recall.PawnCustodyIds.Add(original.PawnCustodyId);
+        recall.AssignmentIds.Add(original.Id);
+        MutationHarness.Digest(recall);
+        long id = Assert.Single((await f.H.Service.MutateAsync(1, recall, default)).ParcelIds);
+        var parcel = await f.H.Mailbox.ToProto(await f.H.Mailbox.Get(1, id));
+        var pawn = Assert.Single(parcel.Pawns.Pawns);
+        Assert.Equal(original.PawnCustodyId, pawn.Registry.PawnCustodyId);
+        Assert.Equal(metadata.Scope, pawn.Registry.Scope);
+        Assert.Null(Rimlink.Protocol.OutpostPayloadCompatibility.Refusal(parcel, 1));
+        var persisted = await f.H.Db.OutpostAssignments.AsNoTracking().SingleAsync();
+        Assert.Equal(original.Blob, persisted.Blob);
+        Assert.Equal(original.BlobDigest, persisted.BlobDigest);
+        Assert.Equal(original.FactsJson, persisted.FactsJson);
+    }
+
     [Theory]
     [InlineData("missing")][InlineData("changed")][InlineData("old-proof")][InlineData("relabelled-proof")]
     [InlineData("payload")][InlineData("owner")][InlineData("unaccepted")]
@@ -55,6 +84,10 @@ public sealed class OutpostRestoreDeliveryTests
         Assert.Equal(auth.Id, parcel.OutpostRestoreAuthorization.AuthorizationId);
         Assert.Equal(original.RestoreBoundary, parcel.OutpostPayload.Scope.RestoreBoundary);
         var metadata = await OutpostRestoreAcceptanceTests.FreshMetadata(f, target); var recovery = SaveStore.RecoveryOf(target);
+        var manifest = await f.H.Db.OutpostManifests.AsNoTracking().SingleAsync(m => m.Id == parcel.OutpostPayload.ManifestId);
+        var page = await f.H.Service.ReadManifestAsync(1, new() { Scope = metadata.Scope.Clone(), ParcelId = id,
+            ManifestId = manifest.Id, ExpectedDigest = Convert.ToHexStringLower(manifest.Digest) }, default);
+        Assert.Equal(manifest.Document, page.Data.ToByteArray());
         var fresh = f.H.F.H.Snapshot(metadata, removed: recovery.Removed, returned: recovery.Returned); await f.H.F.H.Accept(fresh);
         var request = new OutpostDeliveryRequest { Scope = metadata.Scope.Clone(), ClientRequestId = Guid.NewGuid().ToString("N"),
             ParcelId = id, PayloadDigest = ByteString.CopyFrom(original.PayloadDigest), CanonicalSnapshot = AssignmentHarness.SnapshotProof(fresh),

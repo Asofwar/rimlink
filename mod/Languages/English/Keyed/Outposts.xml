@@ -31,6 +31,12 @@
   <Rimlink.Outposts.ManifestWorking>Capturing and uploading complete geography…</Rimlink.Outposts.ManifestWorking>
   <Rimlink.Outposts.ManifestReview>Export staged, not yet active. Check its identity before confirming.</Rimlink.Outposts.ManifestReview>
   <Rimlink.Outposts.ManifestConfirmed>Manifest confirmed for this world and gameplay setup.</Rimlink.Outposts.ManifestConfirmed>
+  <Rimlink.Outposts.ManifestReason>Audit reason</Rimlink.Outposts.ManifestReason>
+  <Rimlink.Outposts.TitleIsolated>Outposts · ISOLATED ACCEPTANCE — NOT PRODUCT QUALIFIED</Rimlink.Outposts.TitleIsolated>
+  <Rimlink.Outposts.ManifestTitleIsolated>World manifest · ISOLATED ACCEPTANCE — NOT PRODUCT QUALIFIED</Rimlink.Outposts.ManifestTitleIsolated>
+  <Rimlink.Outposts.ManifestReasonDefault>Verify the exported world manifest</Rimlink.Outposts.ManifestReasonDefault>
+  <Rimlink.Outposts.ManifestPreview>Preview exact confirmation command</Rimlink.Outposts.ManifestPreview>
+  <Rimlink.Outposts.ManifestCommand>Command SHA-256: {0}\nReason: {1}\nBlockers: {2}\nConfirmation applies this exact command. A stale preview requires a new explicit preview. An uncertain response does not authorize a replacement request.</Rimlink.Outposts.ManifestCommand>
   <Rimlink.Outposts.ManifestFailed>The manifest could not be safely staged or confirmed. Check world compatibility and server diagnostics.</Rimlink.Outposts.ManifestFailed>
   <Rimlink.Outposts.ManifestDetails>Manifest: {0}
 Revision: {1}
@@ -60,6 +66,7 @@ DLC: {6}</Rimlink.Outposts.ManifestDetails>
   <Rimlink.Outposts.FractionEmpty>No fractional unit is currently retained.</Rimlink.Outposts.FractionEmpty>
   <Rimlink.Outposts.CommandComplete>Outpost command completed. Returns, if any, are in your home mailbox.</Rimlink.Outposts.CommandComplete>
   <Rimlink.Outposts.CommandHold>Operation is unresolved. Keep the original journal; do not create a replacement request.</Rimlink.Outposts.CommandHold>
+  <Rimlink.Outposts.CommandRefused>The outpost action did not complete. Refresh the outpost before trying again.</Rimlink.Outposts.CommandRefused>
   <Rimlink.Outposts.DeliveryComplete>Outpost parcel received and its exact snapshot accepted.</Rimlink.Outposts.DeliveryComplete>
   <Rimlink.Outposts.DeliveryHold>Parcel held for recovery. Do not spawn or restore its contents manually.</Rimlink.Outposts.DeliveryHold>
   <Rimlink.Outposts.State.Active>Producing, including while offline</Rimlink.Outposts.State.Active>

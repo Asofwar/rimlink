@@ -20,6 +20,7 @@ public sealed partial class OutpostLifecycle(RimlinkDbContext db, OutpostAuthori
             throw new InvalidOperationException("lifecycle-complete-owner-lease-required");
         if ((await authority.CheckHeldAsync(lease, ct)).State != OutpostStartupState.Ready)
             return new(false, "lifecycle-authority-not-ready", []);
+        authority.RequireRuntimeCustody();
         var head = await db.OutpostAuthority.AsNoTracking().SingleAsync(ct);
         var scopes = new List<OutpostScopeMessage>();
         foreach (long playerId in ordered)

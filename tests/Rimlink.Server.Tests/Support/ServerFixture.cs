@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Hosting;
 using Rimlink.Protocol.V1;
 using Rimlink.Server.Application.Auth;
@@ -19,6 +20,7 @@ namespace Rimlink.Server.Tests.Support;
 /// </summary>
 public class ServerFixture : WebApplicationFactory<Program>
 {
+    private ProviderDisposalCompletion? providerDisposal;
     private readonly Dictionary<string, string?> settings = new() { ["RateLimit:Disabled"] = "true", ["Backup:IntervalHours"] = "0" };
     private readonly List<Action<IServiceCollection>> serviceOverrides = [];
     private bool seedWorld = true;
@@ -77,6 +79,15 @@ public class ServerFixture : WebApplicationFactory<Program>
             services.AddSingleton<ISteamTicketVerifier, FakeSteamVerifier>();
             services.AddTransient<IStartupFilter, LoopbackIpStartupFilter>();
             foreach (var configure in serviceOverrides) configure(services);
+            var logging = services.Last(d => d.ServiceType == typeof(ILoggerFactory) && !d.IsKeyedService);
+            services.Remove(logging);
+            services.AddSingleton(_ => providerDisposal = new ProviderDisposalCompletion());
+            services.AddSingleton<ILoggerFactory>(provider =>
+            {
+                // Construct before logging/storage so the provider signals only after those resources have closed.
+                _ = provider.GetRequiredService<ProviderDisposalCompletion>();
+                return (ILoggerFactory)(logging.ImplementationFactory ?? throw new InvalidOperationException("test logger factory ownership is unknown"))(provider);
+            });
         });
     }
 
@@ -109,7 +120,14 @@ public class ServerFixture : WebApplicationFactory<Program>
     public string ReadStartupLog()
     {
         string logs = Path.Combine(DataDir, "logs");
-        return Directory.Exists(logs) ? string.Join("\n", Directory.GetFiles(logs, "server-*.log").Select(File.ReadAllText)) : "";
+        if (!Directory.Exists(logs)) return "";
+        return string.Join("\n", Directory.GetFiles(logs, "server-*.log").Select(path =>
+        {
+            // A failed startup can still be closing its writer when the test reads its original diagnostic.
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            using var reader = new StreamReader(stream);
+            return reader.ReadToEnd();
+        }));
     }
 
     public GrpcChannel CreateChannel() =>
@@ -120,6 +138,8 @@ public class ServerFixture : WebApplicationFactory<Program>
         base.Dispose(disposing);
         if (disposing)
         {
+            // The entry point may already be disposing this provider; a second Dispose can otherwise return early.
+            providerDisposal?.Finished.Task.GetAwaiter().GetResult();
             // Pooled connections outlive the host and keep the database open: Windows then refuses the delete, Linux deletes it anyway.
             if (connectionString is not null) SqliteConnection.ClearPool(new SqliteConnection(connectionString));
             if (!keepDataDir)
@@ -127,5 +147,11 @@ public class ServerFixture : WebApplicationFactory<Program>
                 try { Directory.Delete(DataDir, recursive: true); } catch (IOException) { }
             }
         }
+    }
+
+    private sealed class ProviderDisposalCompletion : IDisposable
+    {
+        internal TaskCompletionSource Finished { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public void Dispose() => Finished.TrySetResult();
     }
 }

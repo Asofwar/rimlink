@@ -99,7 +99,7 @@ internal sealed class SnapshotServer : IDisposable
     public LoginReply Player { get; private set; } = null!;
     private SnapshotServer() => Server = HygieneFixtures.HygieneServer()
         .WithSetting("Outposts:AnchorDirectory", Path.Combine(anchor.Root, "external"))
-        .WithSetting("Outposts:StorageContract", "sqlite-local-v1");
+        .WithSetting("Outposts:StorageContract", "sqlite-local-v1").WithOutpostUnitQualification();
     public static async Task<SnapshotServer> Create()
     {
         var f = new SnapshotServer();
@@ -109,6 +109,7 @@ internal sealed class SnapshotServer : IDisposable
             sp.GetRequiredService<OutpostAnchorStore>().Provision();
             string world = await sp.GetRequiredService<RimlinkDbContext>().World.Select(w => w.InfluenceInstanceId).SingleAsync();
             Assert.Equal(OutpostStartupState.Ready, (await sp.GetRequiredService<OutpostAuthority>().InitializeAsync(new(world, "fixture", true), default)).State);
+            await OutpostUnitComposition.Activate(sp);
         }
         f.Player = await f.Server.RegisterAndLogin("nova", playerName: "Nova");
         return f;
@@ -131,7 +132,7 @@ internal sealed class SnapshotServer : IDisposable
         Server.KeepDataDir().Dispose();
         Server = HygieneFixtures.HygieneServer().WithoutWorld().WithDataDir(directory)
             .WithSetting("Outposts:AnchorDirectory", Path.Combine(anchor.Root, "external"))
-            .WithSetting("Outposts:StorageContract", "sqlite-local-v1");
+            .WithSetting("Outposts:StorageContract", "sqlite-local-v1").WithOutpostUnitQualification();
     }
     public void Dispose() { Server.Dispose(); anchor.Dispose(); }
 }

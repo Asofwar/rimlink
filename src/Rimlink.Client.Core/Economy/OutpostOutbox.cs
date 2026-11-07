@@ -179,9 +179,7 @@ public sealed partial class TransferOutbox
         if (e.ReplyUnknown && entry.Kind != OutboxKind.OutpostBeginDelivery)
         {
             var known = await client.Operation(new() { Scope = e.Scope.Clone(), ClientRequestId = e.ClientRequestId, IntentDigest = e.IntentDigest }, ct);
-            if (known.ClientRequestId != e.ClientRequestId || !known.IntentDigest.Equals(e.IntentDigest)
-                || !OutpostReconciliation.SameScope(known.Scope, e.Scope)) throw new InvalidDataException("operation reply changed the durable intent");
-            if (known.Status is OutpostOperationStatus.Committed or OutpostOperationStatus.Cancelled) return true;
+            if (Completed(known)) return true;
             if (entry.Kind == OutboxKind.OutpostPrepare && known.Status == OutpostOperationStatus.Prepared) return null;
             if (known.Status != OutpostOperationStatus.Prepared) return null;
         }
@@ -189,19 +187,23 @@ public sealed partial class TransferOutbox
         {
             case OutpostPrepareRequest r:
                 var prepared = await client.Prepare(r, ct);
-                if (prepared.ClientRequestId != e.ClientRequestId || !prepared.IntentDigest.Equals(e.IntentDigest)
-                    || !OutpostReconciliation.SameScope(prepared.Scope, e.Scope))
-                    throw new InvalidDataException("prepare reply changed the durable intent");
-                if (prepared.Status is OutpostOperationStatus.Committed or OutpostOperationStatus.Cancelled) return true;
+                if (Completed(prepared)) return true;
                 // Prepared authorizes a later game action; it is not a completed operation or a reason to discard its only journal.
                 MarkReplyUnknown(entry.Id); return null;
-            case OutpostProofRequest r: await client.Commit(r, ct); return true;
-            case OutpostCancelRequest r: await client.Cancel(r, ct); return true;
-            case OutpostMutationRequest r: await client.Mutate(r, ct); return true;
+            case OutpostProofRequest r: return Finish(await client.Commit(r, ct));
+            case OutpostCancelRequest r: return Finish(await client.Cancel(r, ct));
+            case OutpostMutationRequest r: return Finish(await client.Mutate(r, ct));
             case OutpostDeliveryRequest r:
                 var reply = await client.BeginDelivery(r, ct); RecordOutpostReply(entry.Id, reply);
                 return reply.AckOnly && e.AcceptedReceipt is not null ? true : null;
             default: throw new InvalidDataException("unsupported outpost replay");
+        }
+        bool Completed(OutpostOperationReply reply) => reply.Status == OutpostOperationStatus.Committed
+            || entry.Kind != OutboxKind.OutpostMutate && reply.Status == OutpostOperationStatus.Cancelled;
+        bool? Finish(OutpostOperationReply reply)
+        {
+            if (Completed(reply)) return true;
+            MarkReplyUnknown(entry.Id); return null;
         }
     }
 }

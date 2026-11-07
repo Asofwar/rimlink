@@ -144,8 +144,20 @@ public static class Incoming
 
     /// <summary>The player-facing reason when blobs declare defs this game does not have (a mod is missing here), else null.</summary>
     public static string? MissingDefs(ItemList? items, PawnList? pawns)
+        => MissingDefs(items, pawns, null);
+    internal static string? MissingDefs(ItemList? items, PawnList? pawns, Func<string, bool, bool>? availability)
     {
-        var missing = BlobDefs.Missing(items, pawns, d => DefDatabase<ThingDef>.GetNamedSilentFail(d) is not null, k => DefDatabase<PawnKindDef>.GetNamedSilentFail(k) is not null);
+        bool ThingExists(string name)
+        {
+            bool actual = DefDatabase<ThingDef>.GetNamedSilentFail(name) is not null;
+            return actual && (availability?.Invoke("thing:" + name, actual) ?? true);
+        }
+        bool KindExists(string name)
+        {
+            bool actual = DefDatabase<PawnKindDef>.GetNamedSilentFail(name) is not null;
+            return actual && (availability?.Invoke("kind:" + name, actual) ?? true);
+        }
+        var missing = BlobDefs.Missing(items, pawns, ThingExists, KindExists);
         return missing.Count == 0 ? null : "Rimlink.Economy.MissingDefs".Translate(string.Join(", ", missing));
     }
 

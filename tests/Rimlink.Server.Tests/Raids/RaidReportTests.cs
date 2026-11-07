@@ -87,6 +87,21 @@ public class RaidReportTests
     }
 
     [Fact]
+    public async Task Reports_without_request_id_resolve_distinct_raids()
+    {
+        var p = await NovaAndBob(RaidServer().WithSetting("Raids:TargetCooldownHours", "0").WithSetting("Raids:PairCooldownHours", "0"));
+        using var fixture = p.Fixture;
+        for (int n = 0; n < 2; n++)
+        {
+            var raid = await Landed(p, pawns: 1, mode: n == 0 ? PawnMode.PawnSnapshot : PawnMode.PawnReal);
+            await p.B.Raids.ReportAsync(Report(raid.Id, 80000 + n, (0, PawnOutcome.OutcomeDead)), p.B.Auth);
+        }
+        var raids = (await p.N.Raids.MineAsync(new Empty(), p.N.Auth)).Raids;
+        Assert.Equal(2, raids.Count);
+        Assert.All(raids, raid => Assert.Equal(RaidState.RaidResolved, raid.State));
+    }
+
+    [Fact]
     public async Task SnapshotReportReturnsNoPawns()
     {
         var p = await NovaAndBob();

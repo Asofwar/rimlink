@@ -6,12 +6,14 @@ public sealed class SaveStorageLock(string dataDir)
     private readonly SemaphoreSlim gate = new(1, 1);
     private FileStream? lease;
 
-    public async Task WaitAsync(CancellationToken cancellationToken = default)
+    public Task WaitAsync(CancellationToken cancellationToken = default) => WaitCoreAsync(create: true, cancellationToken);
+
+    private async Task WaitCoreAsync(bool create, CancellationToken cancellationToken)
     {
         await gate.WaitAsync(cancellationToken);
         try
         {
-            while ((lease = TryOpen(dataDir)) is null)
+            while ((lease = TryOpen(dataDir, create)) is null)
                 await Task.Delay(25, cancellationToken);
         }
         catch
@@ -34,6 +36,13 @@ public sealed class SaveStorageLock(string dataDir)
         return new Held(this);
     }
 
+    // Read-only inspection must not create a missing fence as a side effect of GET.
+    internal async Task<IDisposable> HoldExistingAsync(CancellationToken cancellationToken = default)
+    {
+        await WaitCoreAsync(create: false, cancellationToken);
+        return new Held(this);
+    }
+
     public static IDisposable Hold(string dataDir)
     {
         while (true)
@@ -43,11 +52,14 @@ public sealed class SaveStorageLock(string dataDir)
         }
     }
 
-    private static FileStream? TryOpen(string dataDir)
+    private static FileStream? TryOpen(string dataDir, bool create = true)
     {
         try
         {
-            return new FileStream(Path.Combine(dataDir, "save-storage.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            string path = Path.Combine(dataDir, "save-storage.lock");
+            if (!create && (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidDataException("inspection-lock-path-link");
+            return new FileStream(path, create ? FileMode.OpenOrCreate : FileMode.Open, FileAccess.ReadWrite, FileShare.None);
         }
         catch (IOException ex) when ((ex.HResult & 0xFFFF) is 11 or 32 or 33)
         {

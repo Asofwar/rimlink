@@ -17,7 +17,7 @@ public sealed partial class OutpostCustodyBridgeTests
     {
         using var h = await CustodyHarness.Returned(); h.AddRecipient(1);
         h.Db.Wallets.Add(new Rimlink.Server.Storage.Entities.Wallet { PlayerId = 2, Balance = 1000 }); await h.Db.SaveChangesAsync();
-        var evidence = await h.Depart(); using var host = h.StartHost(); long lotId;
+        var evidence = await h.Depart(); using var host = await h.StartHostAsync(); long lotId;
         using (var scope = host.Services.CreateScope())
             lotId = (await scope.ServiceProvider.GetRequiredService<MarketService>().Post(1,
                 new PostRequest { Pawn = h.Blob.Clone(), Price = 150, ClientRequestId = evidence.ClientRequestId, GameTick = 1000 })).Id;

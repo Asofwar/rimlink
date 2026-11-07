@@ -9,6 +9,8 @@ namespace Rimlink.Server.Application.Outposts;
 
 public enum OutpostDatabaseRole { Anchor, Domain }
 
+internal sealed record OutpostSqliteIdentity(string NativeVersion, string SourceId, string Vfs, string NativeSha256, string ProviderVersion);
+
 public sealed record OutpostSqliteReport(
     string NativeVersion,
     string SourceId,
@@ -40,12 +42,21 @@ public static class OutpostSqliteBackend
 
     // Requires exclusive use of this connection while validating. The native installation and the
     // selected SQLitePCL provider must be trusted and immutable (no concurrent replacement/switch).
-    public static OutpostSqliteReport Validate(SqliteConnection connection, OutpostDatabaseRole role)
+    public static OutpostSqliteReport Validate(SqliteConnection connection, OutpostDatabaseRole role) => ValidateCore(connection, role, null);
+
+    // Identity only: the read-only handle cannot prove the separate writer connection’s durability.
+    internal static OutpostSqliteIdentity ValidateReadOnlyIdentity(SqliteConnection connection, SqliteTransaction? transaction = null)
+    {
+        var report = ValidateCore(connection, null, transaction);
+        return new(report.NativeVersion, report.SourceId, report.Vfs, report.NativeSha256, report.ProviderVersion);
+    }
+
+    private static OutpostSqliteReport ValidateCore(SqliteConnection connection, OutpostDatabaseRole? role, SqliteTransaction? transaction)
     {
         ArgumentNullException.ThrowIfNull(connection);
         try
         {
-            if (role is not (OutpostDatabaseRole.Anchor or OutpostDatabaseRole.Domain))
+            if (role is not (null or OutpostDatabaseRole.Anchor or OutpostDatabaseRole.Domain))
                 throw new InvalidDataException("outpost-sqlite-unknown-role");
             if (connection.State != ConnectionState.Open || connection.Handle is not { IsInvalid: false, IsClosed: false })
                 throw new InvalidDataException("outpost-sqlite-connection-not-open");
@@ -53,22 +64,31 @@ public static class OutpostSqliteBackend
                 !(OperatingSystem.IsWindows() || OperatingSystem.IsLinux()))
                 throw new InvalidDataException("outpost-sqlite-unsupported-platform");
 
-            ValidateFileDatabase(connection);
-            ValidateCompileOptions(connection);
-            string journal = Convert.ToString(Scalar(connection, "PRAGMA main.journal_mode;")) ?? "";
-            int synchronous = Convert.ToInt32(Scalar(connection, "PRAGMA main.synchronous;"));
-            bool accepted = role == OutpostDatabaseRole.Anchor
-                ? journal == "persist" && synchronous == 3
-                : journal == "wal" && synchronous is 2 or 3;
-            if (!accepted) throw new InvalidDataException("outpost-sqlite-journal-or-synchronous-mismatch");
+            if (transaction is not null && transaction.Connection != connection)
+                throw new InvalidDataException("outpost-sqlite-transaction-mismatch");
+            int readOnly = raw.sqlite3_db_readonly(connection.Handle!, "main");
+            if (readOnly != (role is null ? 1 : 0))
+                throw new InvalidDataException("outpost-sqlite-connection-access-mismatch");
+            ValidateFileDatabase(connection, transaction);
+            ValidateCompileOptions(connection, transaction);
+            string journal = ""; int synchronous = -1;
+            if (role is not null)
+            {
+                journal = Convert.ToString(Scalar(connection, "PRAGMA main.journal_mode;", transaction)) ?? "";
+                synchronous = Convert.ToInt32(Scalar(connection, "PRAGMA main.synchronous;", transaction));
+                bool accepted = role == OutpostDatabaseRole.Anchor
+                    ? journal == "persist" && synchronous == 3
+                    : journal == "wal" && synchronous is 2 or 3;
+                if (!accepted) throw new InvalidDataException("outpost-sqlite-journal-or-synchronous-mismatch");
+            }
 
             if (typeof(SqliteConnection).Assembly.GetName().Version?.ToString() != "10.0.14.0" ||
                 typeof(raw).Assembly.GetName().Version?.ToString() != ProviderVersion ||
                 raw.GetNativeLibraryName() != "e_sqlite3")
                 throw new InvalidDataException("outpost-sqlite-managed-provider-mismatch");
 
-            if (!Equals(Scalar(connection, "SELECT sqlite_version();"), NativeVersion) ||
-                !Equals(Scalar(connection, "SELECT sqlite_source_id();"), NativeSourceId) ||
+            if (!Equals(Scalar(connection, "SELECT sqlite_version();", transaction), NativeVersion) ||
+                !Equals(Scalar(connection, "SELECT sqlite_source_id();", transaction), NativeSourceId) ||
                 raw.sqlite3_libversion().utf8_to_string() != NativeVersion ||
                 raw.sqlite3_sourceid().utf8_to_string() != NativeSourceId)
                 throw new InvalidDataException("outpost-sqlite-native-identity-mismatch");
@@ -83,9 +103,10 @@ public static class OutpostSqliteBackend
         }
     }
 
-    private static void ValidateFileDatabase(SqliteConnection connection)
+    private static void ValidateFileDatabase(SqliteConnection connection, SqliteTransaction? transaction)
     {
         using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText = "PRAGMA database_list;";
         using var reader = command.ExecuteReader();
         int mainCount = 0;
@@ -102,9 +123,10 @@ public static class OutpostSqliteBackend
         if (mainCount != 1) throw new InvalidDataException("outpost-sqlite-main-not-file-backed");
     }
 
-    private static void ValidateCompileOptions(SqliteConnection connection)
+    private static void ValidateCompileOptions(SqliteConnection connection, SqliteTransaction? transaction)
     {
         using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText = "PRAGMA compile_options;";
         using var reader = command.ExecuteReader();
         int count = 0;
@@ -180,9 +202,10 @@ public static class OutpostSqliteBackend
         }
     }
 
-    private static object? Scalar(SqliteConnection connection, string sql)
+    private static object? Scalar(SqliteConnection connection, string sql, SqliteTransaction? transaction)
     {
         using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText = sql;
         return command.ExecuteScalar();
     }

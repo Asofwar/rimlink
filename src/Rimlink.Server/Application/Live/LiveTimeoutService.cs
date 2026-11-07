@@ -32,9 +32,10 @@ public sealed class LiveTimeoutService(IServiceScopeFactory scopes, IOptions<Liv
             {
                 try
                 {
+                    using var scope = scopes.CreateScope();
+                    if (!Rimlink.Server.Hosting.OutpostDomainHostedServices.CanWrite(scope.ServiceProvider)) continue;
                     var now = DateTime.UtcNow;
                     if (Sweep is { } sweep) await sweep(now);
-                    using var scope = scopes.CreateScope();
                     int n = await scope.ServiceProvider.GetRequiredService<LiveSessionService>().ExpireDue(now);
                     if (n > 0) log.LogInformation("Live sweep: {Count} sessions timed out", n);
                 }

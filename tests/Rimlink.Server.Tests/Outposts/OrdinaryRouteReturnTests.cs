@@ -35,7 +35,7 @@ public sealed partial class OrdinaryReturnTests
                     Blob = new PawnBlob { Name = "Original guest is not local return", ScribeXmlZstd = ByteString.CopyFromUtf8("guest") } } } }
         };
         var cancel = await Removed(h, original);
-        using var host = h.StartHost(); using var scope = host.Services.CreateScope();
+        using var host = await h.StartHostAsync(); using var scope = host.Services.CreateScope();
         var returns = scope.ServiceProvider.GetRequiredService<OrdinaryReturnService>();
         Assert.Equal(OrdinaryOperationStatus.Unknown, (await returns.ResolveAsync(1, new() { Operation = cancel }, default)).Status);
         var result = await returns.BeginReturnAsync(1, cancel, default);

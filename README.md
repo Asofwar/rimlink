@@ -2,6 +2,8 @@
   <img src="docs/images/banner.jpg" alt="Rimlink: persistent multiplayer for RimWorld 1.7">
 </p>
 
+Version **0.9.0** includes the passive-outpost implementation with Product qualification **Pending** and the capability disabled. Real two-client G1–G7 acceptance and the final branch review are complete; the seven required fixes have been verified. These checks retain their actual source/build boundaries and do not qualify the release build for Product activation. Administrative readiness and isolated acceptance are described in the [EN](wiki/en/admins/passive-outposts.md) and [RU](wiki/ru/admins/passive-outposts.md) Wiki sources. Update the server and client mod together.
+
 <p align="center">
   <a href="https://github.com/Asofwar/rimlink/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/Asofwar/rimlink"></a>
   <a href="https://github.com/Asofwar/rimlink/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Asofwar/rimlink/actions/workflows/ci.yml/badge.svg"></a>

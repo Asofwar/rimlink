@@ -35,8 +35,14 @@ public static class OutpostDomainDigest
         ("outpost_ordinary_returns", "Id")
     ];
 
-    public static async Task<ByteString> ComputeAsync(RimlinkDbContext db, CancellationToken ct)
+    // The legacy overload is intentionally frozen; callers must obtain a newer format from the verified chain.
+    public static Task<ByteString> ComputeAsync(RimlinkDbContext db, CancellationToken ct) =>
+        ComputeAsync(db, OutpostDomainFormat.V1, ct);
+
+    public static async Task<ByteString> ComputeAsync(RimlinkDbContext db, OutpostDomainFormat format, CancellationToken ct)
     {
+        if (format is not (OutpostDomainFormat.V1 or OutpostDomainFormat.V2))
+            throw new ArgumentOutOfRangeException(nameof(format));
         ArgumentNullException.ThrowIfNull(db);
         ct.ThrowIfCancellationRequested();
         if (db.Database.GetDbConnection() is not SqliteConnection connection)
@@ -51,9 +57,10 @@ public static class OutpostDomainDigest
             var transaction = db.Database.CurrentTransaction?.GetDbTransaction();
             using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
             var writer = new DigestWriter(hash);
-            writer.Text("Rimlink.Outposts.DomainDigest/v1");
-            writer.Integer(Tables.Length);
-            foreach (var table in Tables)
+            writer.Text(format == OutpostDomainFormat.V1 ? "Rimlink.Outposts.DomainDigest/v1" : "Rimlink.Outposts.DomainDigest/v2");
+            var tables = format == OutpostDomainFormat.V1 ? Tables : [.. Tables, ("outpost_admin_commands", "Id")];
+            writer.Integer(tables.Length);
+            foreach (var table in tables)
             {
                 ct.ThrowIfCancellationRequested();
                 writer.Marker(0x10);

@@ -20,8 +20,8 @@ public sealed partial class OutpostRestoreEvidence
         var proof = OutpostSnapshotProof.Parser.ParseFrom(intent.Rollback!.Target);
         var current = OutpostScopeMessage.Parser.ParseFrom(intent.ResultScopes![0].Scope);
         if (!current.Equals(metadata.Scope)) throw Invalid("rollback-snapshot-current-scope-mismatch");
-        var target = await SourceVersionAsync(proof, ct); var original = ReadActualDownload(target).Outposts.Metadata;
-        var expected = await CreateRollbackSourceBridgeAsync(operationId, target, current, false, ct);
+        var target = await SourceVersionAsync(proof, ct); var original = ReadActualDownload(target.Version, target.Archive).Outposts.Metadata;
+        var expected = await CreateRollbackSourceBridgeAsync(operationId, target.Version, current, false, ct, target.Archive);
         if (metadata.RollbackBridge is { } bridge && !bridge.Equals(expected.Actual)
             || metadata.RollbackFromViewBridge is { } view && !view.Equals(expected.View))
             throw Invalid("rollback-source-bridge-mismatch");

@@ -65,10 +65,11 @@ public sealed partial class PawnCustodyBridge
         {
             if (evidence.SourceAuthorizerPlayerId != session.HostPlayerId) return false;
             var report = RaidReport.Parser.ParseFrom(evidence.SourcePayload);
+            var requestId = report.ClientRequestId.Length == 0 ? null : report.ClientRequestId;
             if (report.LiveSessionId != session.Id || report.ClientRequestId != evidence.ClientRequestId
                 || !evidence.SourceRequestIntent.Equals(ByteString.CopyFrom(System.Security.Cryptography.SHA256.HashData(report.ToByteArray())))
                 || !await db.Transfers.AsNoTracking().AnyAsync(t => t.Kind == "live-visit" && t.FromPlayerId == session.HostPlayerId && t.ToPlayerId == session.GuestPlayerId
-                    && t.RequestTargetId == session.Id && t.ClientRequestId == report.ClientRequestId && t.RequestIntent != null
+                    && t.RequestTargetId == session.Id && t.ClientRequestId == requestId && t.RequestIntent != null
                     && t.RequestIntent.SequenceEqual(evidence.SourceRequestIntent.ToByteArray()), ct)) return false;
             var selected = report.Clone(); selected.Outcomes.Clear();
             foreach (var pawn in evidence.Pawns.Pawns)

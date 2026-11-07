@@ -27,6 +27,7 @@ public sealed class RaidExpiryService(IServiceScopeFactory scopes, ILogger<RaidE
             do
             {
                 using var scope = scopes.CreateScope();
+                if (!Rimlink.Server.Hosting.OutpostDomainHostedServices.CanWrite(scope.ServiceProvider)) continue;
                 int n = await scope.ServiceProvider.GetRequiredService<RaidService>().ExpireDue(DateTime.UtcNow);
                 if (n > 0) log.LogInformation("Expired {Count} raids", n);
             }

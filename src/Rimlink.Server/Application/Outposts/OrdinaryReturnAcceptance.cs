@@ -22,7 +22,15 @@ public sealed partial class OutpostSnapshotGuard
         OutpostTransition transition, CancellationToken ct, bool historicalRollback = false)
     {
         var row = await db.OutpostOrdinaryReturns.AsNoTracking().SingleOrDefaultAsync(r => r.Id == receipt.OrdinaryReturnAttemptId, ct);
-        if (row is null || transition.Kind != "OrdinaryReturnStarted" || row.Id != transition.Id)
+        if (row is null || row.Id != transition.Id) throw Unavailable("ordinary-return-receipt-source");
+        string? kind = transition.Kind; byte[]? businessIntent = transition.Intent;
+        if (transition.Kind == "AdminResolved")
+        {
+            var transitions = await db.OutpostTransitions.AsNoTracking().ToDictionaryAsync(t => t.Id, ct);
+            var semantic = await OutpostAdminResolveEvidence.ReadValidatedAsync(db, files, transition, transitions, ct);
+            kind = semantic.BusinessKind; businessIntent = semantic.BusinessIntent;
+        }
+        if (kind != "OrdinaryReturnStarted" || businessIntent is null || !businessIntent.AsSpan().SequenceEqual(row.Intent))
             throw Unavailable("ordinary-return-receipt-source");
         var intent = ReadOrdinaryReturnIntent(row); var capture = intent.Capture;
         if (!metadata.Scope.Equals(intent.Scope) && !historicalRollback || !receipt.Snapshot.Equals(intent.CanonicalSnapshot)

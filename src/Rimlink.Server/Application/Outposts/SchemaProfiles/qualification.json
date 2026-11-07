@@ -1,0 +1,196 @@
+{
+  "version": 1,
+  "qualificationId": "rimlink-outposts-schema-20261105-0520",
+  "scope": "Exact catalog recognition and additive migration qualification only; not authority format activation, feature readiness or game acceptance.",
+  "descriptorOrder": "__EFMigrationsHistory MigrationId COLLATE BINARY; full sqlite_schema type COLLATE BINARY,name COLLATE BINARY; nullable SQL preserved verbatim",
+  "toolchain": {
+    "sdk": "10.0.402",
+    "runtime": ".NET 10.0.13",
+    "efCore": "10.0.14.0",
+    "microsoftDataSqlite": "10.0.14.0",
+    "nativeSqlite": "3.53.3",
+    "linux": "Ubuntu-24.04 / ext4 / taskset 0-1",
+    "windows": "Windows / NTFS"
+  },
+  "source": {
+    "migration": "src/Rimlink.Server/Storage/Migrations/20261105014436_OutpostAdminCommands.cs",
+    "migrationSourceSha256": "243e89b0bdfdd1a9e61d5d65f5466cad1f224ad30f986b31b295417e22af7900",
+    "worker": "tests/Rimlink.Server.Tests/Outposts/OutpostCrossExecutorSchemaTests.cs",
+    "workerSourceSha256": "005b7fa3610d6c0892bba4c704d626cbe44944e7592a341f01568fb752c27596"
+  },
+  "legacyCuts": [
+    {
+      "profile": "rimlink-outposts-schema/v1-crlf",
+      "v1Digest": "d997fc5e6acce1f9381ae0945fdea701cbaddc715431ec0b14c9b99ce33df03a",
+      "prefixSha256": "c6b349205269e1429f22544112d9e3d68d71a3a2b804d1b1c38338fc90446d7d",
+      "archiveSha256": "def9933421650f8fef97baadad28f8124047ea8d64961408185189c2964c7105"
+    },
+    {
+      "profile": "rimlink-outposts-schema/v1-lf",
+      "v1Digest": "796b149daea451b6a9cbbf32704198be720274a6df3aef5ffaecadb65bdb5bf5",
+      "prefixSha256": "50e06216c4d5b715e639a6f91e5f59b39eba770ba39833a6300649dc19acd046",
+      "archiveSha256": "c6722ac547677280a985d4959ef72bb7817f346057aad7e803e2345ef81cfdb0"
+    }
+  ],
+  "profiles": [
+    {
+      "id": "rimlink-outposts-schema/v1-crlf",
+      "descriptor": "v1-crlf.json",
+      "descriptorSha256": "de2714285e9601759a7c9bc224c4a8b5a97496476d9e8732a7258c84f22c7baf",
+      "fixture": "build/schema-cross-20261105-0520/schema-pre-crlf.db",
+      "fixtureSha256": "ac2a50aca8ad8f7e865a6961038db2d7c1e718935e3c521b17a2b8f0df892aa0",
+      "validators": [
+        {
+          "executor": "windows",
+          "log": "build/outpost-task15-windows-profile-v1-crlf.log",
+          "testsPassed": 1
+        },
+        {
+          "executor": "linux",
+          "log": "build/outpost-task15-linux-profile-v1-crlf.log",
+          "testsPassed": 1
+        }
+      ]
+    },
+    {
+      "id": "rimlink-outposts-schema/v1-lf",
+      "descriptor": "v1-lf.json",
+      "descriptorSha256": "6c21b7f5385262f44891ef459b2a5bd9f48e2587afd3c13b55bc2516c1e7e679",
+      "fixture": "build/schema-cross-20261105-0520/schema-pre-lf.db",
+      "fixtureSha256": "f3694c142d05d25383b213b915b8b2d58aedc4b549a2c2e68d572772f1a03471",
+      "validators": [
+        {
+          "executor": "windows",
+          "log": "build/outpost-task15-windows-profile-v1-lf.log",
+          "testsPassed": 1
+        },
+        {
+          "executor": "linux",
+          "log": "build/outpost-task15-linux-profile-v1-lf.log",
+          "testsPassed": 1
+        }
+      ]
+    },
+    {
+      "id": "rimlink-outposts-schema/v2-crlf-crlf",
+      "descriptor": "v2-crlf-crlf.json",
+      "descriptorSha256": "73ef95ae47f0bd493ce2ea2d8ab1e1e4b1c8d4fa25ca2b3fa0d746f4732c374a",
+      "fixture": "build/schema-cross-20261105-0520/schema-pre-crlf.db.migrated",
+      "fixtureSha256": "59f1202efbab1ce3b498fc62078e26da803f873d5eb57187fc54363a7c4d9de4",
+      "validators": [
+        {
+          "executor": "windows",
+          "log": "build/outpost-task15-windows-profile-v2-crlf-crlf.log",
+          "testsPassed": 1
+        },
+        {
+          "executor": "linux",
+          "log": "build/outpost-task15-linux-profile-v2-crlf-crlf.log",
+          "testsPassed": 1
+        }
+      ]
+    },
+    {
+      "id": "rimlink-outposts-schema/v2-lf-lf",
+      "descriptor": "v2-lf-lf.json",
+      "descriptorSha256": "b6bea3816a1adc5963ca0f1e63c833474d5b92081d79a160d1e4b78db6f8cbd2",
+      "fixture": "build/schema-cross-20261105-0520/post-lf-lf.db",
+      "fixtureSha256": "bebcdc0fca9eaf8a67fa7e864f750015d563798453ad7653bc9f1224eaf4e64b",
+      "validators": [
+        {
+          "executor": "windows",
+          "log": "build/outpost-task15-windows-profile-v2-lf-lf.log",
+          "testsPassed": 1
+        },
+        {
+          "executor": "linux",
+          "log": "build/outpost-task15-linux-profile-v2-lf-lf.log",
+          "testsPassed": 1
+        }
+      ]
+    },
+    {
+      "id": "rimlink-outposts-schema/v2-crlf-lf",
+      "descriptor": "v2-crlf-lf.json",
+      "descriptorSha256": "312b2b46df2ecf0ff8b89e5a831619e6278fe4e51b4ed83cb5a6be44da9aebee",
+      "fixture": "build/schema-cross-20261105-0520/post-crlf-lf.db",
+      "fixtureSha256": "98f563582ffabf5b6c49b66274f441249df83dfe911d94a8b4a142001c22e54e",
+      "validators": [
+        {
+          "executor": "windows",
+          "log": "build/outpost-task15-windows-profile-v2-crlf-lf.log",
+          "testsPassed": 1
+        },
+        {
+          "executor": "linux",
+          "log": "build/outpost-task15-linux-profile-v2-crlf-lf.log",
+          "testsPassed": 1
+        }
+      ]
+    },
+    {
+      "id": "rimlink-outposts-schema/v2-lf-crlf",
+      "descriptor": "v2-lf-crlf.json",
+      "descriptorSha256": "96adc83a1e5c6eb12aeb1aa2e7bef60b912f7066be12235b5b46c96111d414da",
+      "fixture": "build/schema-cross-20261105-0520/post-lf-crlf.db",
+      "fixtureSha256": "59a4a1e3c7658eed86fc2ce076288a1e63ec9dd4919af6583c55a73ed464bd4d",
+      "validators": [
+        {
+          "executor": "windows",
+          "log": "build/outpost-task15-windows-profile-v2-lf-crlf.log",
+          "testsPassed": 1
+        },
+        {
+          "executor": "linux",
+          "log": "build/outpost-task15-linux-profile-v2-lf-crlf.log",
+          "testsPassed": 1
+        }
+      ]
+    }
+  ],
+  "additiveEdges": [
+    {
+      "source": "rimlink-outposts-schema/v1-crlf",
+      "target": "rimlink-outposts-schema/v2-crlf-crlf",
+      "executor": "windows",
+      "migrationId": "20261105014436_OutpostAdminCommands",
+      "recipeSha256": "64358bbb34d8080afaaeeb745041b9fdeccadc28af8ce84666734ce3b8324525",
+      "log": "build/outpost-task15-homogeneous-windows-migration-green.log",
+      "testsPassed": 1
+    },
+    {
+      "source": "rimlink-outposts-schema/v1-lf",
+      "target": "rimlink-outposts-schema/v2-lf-lf",
+      "executor": "linux",
+      "migrationId": "20261105014436_OutpostAdminCommands",
+      "recipeSha256": "a5ee5d52c1d25f13d4f1d75e74f3cd02763b0667d81f3a74f23d62e7cea8b3f4",
+      "log": "build/outpost-task15-homogeneous-linux-migration-green.log",
+      "testsPassed": 1
+    },
+    {
+      "source": "rimlink-outposts-schema/v1-crlf",
+      "target": "rimlink-outposts-schema/v2-crlf-lf",
+      "executor": "linux",
+      "migrationId": "20261105014436_OutpostAdminCommands",
+      "recipeSha256": "a5ee5d52c1d25f13d4f1d75e74f3cd02763b0667d81f3a74f23d62e7cea8b3f4",
+      "log": "build/outpost-task15-cross-full-linux-migration-green.log",
+      "testsPassed": 1
+    },
+    {
+      "source": "rimlink-outposts-schema/v1-lf",
+      "target": "rimlink-outposts-schema/v2-lf-crlf",
+      "executor": "windows",
+      "migrationId": "20261105014436_OutpostAdminCommands",
+      "recipeSha256": "64358bbb34d8080afaaeeb745041b9fdeccadc28af8ce84666734ce3b8324525",
+      "log": "build/outpost-task15-cross-full-windows-migration-green.log",
+      "testsPassed": 1
+    }
+  ],
+  "checks": {
+    "retainedSourceBytesUnchanged": true,
+    "legacyPrefixAndV1DigestUnchanged": true,
+    "allOriginalCatalogTuplesUnchanged": true,
+    "exactCutHeadAndDomainDigestVerified": true,
+    "readOnlyProfileValidationOnBothExecutors": true
+  }
+}

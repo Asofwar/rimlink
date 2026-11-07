@@ -39,7 +39,7 @@ async function call(method, url, body) {
     let detail = null;
     try {
       const problem = await response.json();
-      detail = problem.detail || problem.title || null;
+      detail = problem.detail || problem.title || [problem.code, problem.reason].filter(Boolean).join(': ') || null;
     } catch {
       // No JSON body.
     }

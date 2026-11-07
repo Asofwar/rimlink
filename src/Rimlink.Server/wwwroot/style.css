@@ -141,6 +141,7 @@ dialog.confirm { border: 1px solid var(--border); border-radius: var(--radius); 
 dialog.confirm::backdrop { background: rgb(0 0 0 / 0.45); }
 dialog.confirm input { width: 100%; }
 pre.diff { background: var(--surface-2); padding: 8px; border-radius: 6px; max-height: 240px; overflow: auto; white-space: pre-wrap; }
+.outpost-command { width: 100%; box-sizing: border-box; overflow-wrap: anywhere; font-family: monospace; }
 
 /* Login */
 .login-page { min-height: 100vh; display: grid; place-items: center; padding: var(--gap); }

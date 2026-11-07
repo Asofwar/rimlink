@@ -7,7 +7,14 @@ namespace Rimlink.Server.Application.Outposts;
 /// </summary>
 public static class OutpostStorageProfile
 {
-    public static void Validate(string dataDirectory, string anchorDirectory, string contract, string qualifiedLinuxFileSystem)
+    internal static string CanonicalExistingDirectory(string path) => ExistingDirectory(path);
+    public static void Validate(string dataDirectory, string anchorDirectory, string contract, string qualifiedLinuxFileSystem) =>
+        _ = Observe(dataDirectory, anchorDirectory, contract, qualifiedLinuxFileSystem);
+
+    internal sealed record Observation(string DataDirectory, string AnchorDirectory,
+        OutpostInitializeFileSystemFacts DataFileSystem, OutpostInitializeFileSystemFacts AnchorFileSystem);
+
+    internal static Observation Observe(string dataDirectory, string anchorDirectory, string contract, string qualifiedLinuxFileSystem)
     {
         if (!string.Equals(contract, "sqlite-local-v1", StringComparison.Ordinal))
             throw new InvalidDataException("Storage contract must be explicitly accepted as sqlite-local-v1.");
@@ -20,8 +27,7 @@ public static class OutpostStorageProfile
                 throw new InvalidDataException("Storage directories overlap.");
             if (!OperatingSystem.IsWindows() && !OperatingSystem.IsLinux())
                 throw new InvalidDataException("Storage contract is unsupported on this operating system.");
-            ValidateFileSystem(data, qualifiedLinuxFileSystem);
-            ValidateFileSystem(anchor, qualifiedLinuxFileSystem);
+            return new(data, anchor, ObserveFileSystem(data, qualifiedLinuxFileSystem), ObserveFileSystem(anchor, qualifiedLinuxFileSystem));
         }
         catch (InvalidDataException) { throw; }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException or System.Security.SecurityException)
@@ -76,7 +82,7 @@ public static class OutpostStorageProfile
         candidate.Equals(parent, comparison) || candidate.StartsWith(
             Path.EndsInDirectorySeparator(parent) ? parent : parent + Path.DirectorySeparatorChar, comparison);
 
-    private static void ValidateFileSystem(string path, string qualifiedLinuxFileSystem)
+    private static OutpostInitializeFileSystemFacts ObserveFileSystem(string path, string qualifiedLinuxFileSystem)
     {
         StringComparison comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
         // Select the longest actual mount before querying its format. Never fall back to a parent's filesystem
@@ -98,5 +104,6 @@ public static class OutpostStorageProfile
         {
             throw new InvalidDataException("Storage filesystem must be explicitly qualified as its actual local ext4, xfs, or btrfs mount.");
         }
+        return new(mounts[0].Mount, actual);
     }
 }

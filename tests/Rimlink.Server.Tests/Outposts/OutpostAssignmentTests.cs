@@ -138,11 +138,19 @@ public sealed class OutpostAssignmentTests
     public async Task No_removal_cancel_requires_fresh_fence_receipt_and_blocks_late_commit()
     {
         using var f = await AssignmentHarness.Create();
-        await f.Service.PrepareAsync(1, f.Request, default);
-        var fence = await f.Service.CancelAsync(1, f.Cancel(OutpostCancelKind.AbortNoRemoval), default);
+        var prepared = await f.Service.PrepareAsync(1, f.Request, default);
+        await f.H.Accept(f.H.Snapshot(f.Pre.Recovery.Outposts.Metadata.Clone()));
+        var fence = await f.Service.CancelAsync(1, f.Cancel(OutpostCancelKind.AbortNoRemoval, f.Pre), default);
         Assert.Equal(OutpostOperationStatus.RecoveryRequired, fence.Status);
+        Assert.NotEqual(prepared.TransitionId, fence.TransitionId);
+        Assert.Equal("CancelFenced", (await f.Db.OutpostOperations.AsNoTracking().SingleAsync()).State);
         var safe = await f.NoRemoval(fence);
-        var result = await f.Service.CancelAsync(1, f.Cancel(OutpostCancelKind.AbortNoRemoval, safe), default);
+        var current = f.H.Snapshot(safe.Recovery.Outposts.Metadata.Clone());
+        await f.H.Accept(current);
+        var stale = await f.Service.CancelAsync(1, f.Cancel(OutpostCancelKind.AbortNoRemoval, safe), default);
+        Assert.Equal(OutpostOperationStatus.RecoveryRequired, stale.Status);
+        Assert.Equal("CancelFenced", (await f.Db.OutpostOperations.AsNoTracking().SingleAsync()).State);
+        var result = await f.Service.CancelAsync(1, f.Cancel(OutpostCancelKind.AbortNoRemoval, current), default);
         Assert.Equal(OutpostOperationStatus.Cancelled, result.Status);
         Assert.Equal(result, await f.Service.CommitAsync(1, f.Proof(safe), default));
         Assert.Equal(700, await f.Wallet.Available(1)); Assert.Empty(await f.Wallet.History(1));

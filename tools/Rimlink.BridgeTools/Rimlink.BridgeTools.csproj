@@ -14,6 +14,8 @@
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../Rimlink.OutpostAcceptanceHost/AcceptanceControlPipe.cs" Link="Acceptance/AcceptanceControlPipe.cs" />
+    <Compile Include="../Rimlink.OutpostAcceptanceHost/AcceptanceHold.cs" Link="Acceptance/AcceptanceHold.cs" />
     <PackageReference Include="Lib.Harmony" ExcludeAssets="runtime" />
   </ItemGroup>
   <ItemGroup>

@@ -64,8 +64,16 @@ public static partial class Outgoing
                 await MainThread.Get(() => { Check(); if (!TransferOutbox.ReadyFor(pending, login)) throw new InvalidDataException("exact removal has not been accepted"); return true; });
                 await connection.ForAuthentication(login!, () => call(TransferOutbox.Decode(pending)));
                 outbox.Remove(pending.Id);
-                await MainThread.Get(() => { Check(); RimlinkSession.State.Economy.MarkWealthStale();
-                    Messages.Message(successMessage, MessageTypeDefOf.PositiveEvent, false); return true; });
+                await MainThread.Get(() =>
+                {
+                    // A successful live proposal can already have started the guest session.
+                    if (CurrentGame(game, connection, login))
+                    {
+                        RimlinkSession.State.Economy.MarkWealthStale();
+                        Messages.Message(successMessage, MessageTypeDefOf.PositiveEvent, false);
+                    }
+                    return true;
+                });
             }
             catch (RpcException error) when (TransferOutbox.IsDefinitive(error))
             {

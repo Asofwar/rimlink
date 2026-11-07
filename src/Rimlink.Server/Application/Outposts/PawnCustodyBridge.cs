@@ -33,6 +33,7 @@ public sealed partial class PawnCustodyBridge(RimlinkDbContext db, OutpostAuthor
             throw Invalid("custody-transfer-shape");
         if (checkReadiness && (await authority.CheckHeldAsync(lease, ct)).State != OutpostStartupState.Ready)
             throw Invalid("custody-authority-not-ready");
+        if (checkReadiness) lease.RequireCustodyReadiness();
         var proof = evidence.RemovalSnapshot;
         var scope = proof?.Scope;
         var player = await db.Players.AsNoTracking().SingleOrDefaultAsync(p => p.Id == actorId, ct);

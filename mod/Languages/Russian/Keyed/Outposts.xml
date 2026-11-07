@@ -31,6 +31,12 @@
   <Rimlink.Outposts.ManifestWorking>Экспортируем и загружаем полную географию…</Rimlink.Outposts.ManifestWorking>
   <Rimlink.Outposts.ManifestReview>Экспорт загружен, но ещё не активен. Проверь его идентичность перед подтверждением.</Rimlink.Outposts.ManifestReview>
   <Rimlink.Outposts.ManifestConfirmed>Манифест подтверждён для этого мира и набора игровых данных.</Rimlink.Outposts.ManifestConfirmed>
+  <Rimlink.Outposts.ManifestReason>Причина для журнала</Rimlink.Outposts.ManifestReason>
+  <Rimlink.Outposts.TitleIsolated>Аванпосты · ИЗОЛИРОВАННАЯ ПРИЁМКА — PRODUCT НЕ КВАЛИФИЦИРОВАН</Rimlink.Outposts.TitleIsolated>
+  <Rimlink.Outposts.ManifestTitleIsolated>Манифест мира · ИЗОЛИРОВАННАЯ ПРИЁМКА — PRODUCT НЕ КВАЛИФИЦИРОВАН</Rimlink.Outposts.ManifestTitleIsolated>
+  <Rimlink.Outposts.ManifestReasonDefault>Проверка экспортированного манифеста мира</Rimlink.Outposts.ManifestReasonDefault>
+  <Rimlink.Outposts.ManifestPreview>Предпросмотр точной команды подтверждения</Rimlink.Outposts.ManifestPreview>
+  <Rimlink.Outposts.ManifestCommand>SHA-256 команды: {0}\nПричина: {1}\nБлокирующие причины: {2}\nПодтверждается именно эта команда. Устаревший предпросмотр нужно явно повторить. Неопределённый ответ не разрешает заменять запрос.</Rimlink.Outposts.ManifestCommand>
   <Rimlink.Outposts.ManifestFailed>Не удалось безопасно загрузить или подтвердить манифест. Проверь совместимость мира и диагностику сервера.</Rimlink.Outposts.ManifestFailed>
   <Rimlink.Outposts.ManifestDetails>Манифест: {0}
 Ревизия: {1}
@@ -60,6 +66,7 @@ DLC: {6}</Rimlink.Outposts.ManifestDetails>
   <Rimlink.Outposts.FractionEmpty>Сохранённой дробной части сейчас нет.</Rimlink.Outposts.FractionEmpty>
   <Rimlink.Outposts.CommandComplete>Команда выполнена. Возвращаемое имущество, если оно есть, находится в почте домашней колонии.</Rimlink.Outposts.CommandComplete>
   <Rimlink.Outposts.CommandHold>Операция не завершена. Сохрани исходный журнал; не создавай заменяющий запрос.</Rimlink.Outposts.CommandHold>
+  <Rimlink.Outposts.CommandRefused>Действие с аванпостом не выполнено. Обнови данные аванпоста перед повторной попыткой.</Rimlink.Outposts.CommandRefused>
   <Rimlink.Outposts.DeliveryComplete>Посылка аванпоста получена, точный снимок принят сервером.</Rimlink.Outposts.DeliveryComplete>
   <Rimlink.Outposts.DeliveryHold>Посылка удержана для восстановления. Не создавай и не возвращай её содержимое вручную.</Rimlink.Outposts.DeliveryHold>
   <Rimlink.Outposts.State.Active>Добывает, в том числе пока ты офлайн</Rimlink.Outposts.State.Active>

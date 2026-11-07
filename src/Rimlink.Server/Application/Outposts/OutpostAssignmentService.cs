@@ -14,7 +14,7 @@ using Parcel = Rimlink.Server.Storage.Entities.Parcel;
 namespace Rimlink.Server.Application.Outposts;
 
 /// <summary>Admission obligations: no local return is inferred from a timeout or a missing receipt.</summary>
-public sealed class OutpostAssignmentService(RimlinkDbContext db, OutpostAuthority authority,
+public sealed partial class OutpostAssignmentService(RimlinkDbContext db, OutpostAuthority authority,
     OutpostSnapshotGuard snapshots, OutpostManifestService manifests, OutpostTileClaims tiles,
     WalletService wallet, EconomyGate gate, EconomyGuard economy, OutpostClock clock)
 {
@@ -141,14 +141,16 @@ public sealed class OutpostAssignmentService(RimlinkDbContext db, OutpostAuthori
         if (request.Kind is not (OutpostCancelKind.AbortNoRemoval or OutpostCancelKind.ReturnAfterRemoval)) throw Refuse(ErrorCode.OutpostPayloadInvalid, "cancellation-kind");
         if (request.Kind == OutpostCancelKind.AbortNoRemoval && request.ContinuousBranchId != intent.Caravan.GameBranchId)
             return await RecoveryAsync(operation, ct);
+        bool creatingNoRemovalFence = request.Kind == OutpostCancelKind.AbortNoRemoval && operation.State == "Prepared";
         OutpostSaveMetadata? proof = null;
         if (request.CancellationProof is not null)
         {
-            try { proof = await ProofAsync(request.Scope, request.CancellationProof, true, ct); }
+            // The fence may reference the original pre-save; completion still requires a current post-fence save.
+            try { proof = await ProofAsync(request.Scope, request.CancellationProof, !creatingNoRemovalFence, ct); }
             catch (RpcException) { return await RecoveryAsync(operation, ct); }
         }
         bool removed = proof is not null && HasReceipt(proof, operation.Id, operation, OutpostCancelKind.Unspecified);
-        if (request.Kind == OutpostCancelKind.AbortNoRemoval && operation.State == "Prepared")
+        if (creatingNoRemovalFence)
         {
             if (removed || await db.PawnCustody.AnyAsync(p => p.LocationId == operation.Id && p.LocationKind == "Removed", ct))
                 return await RecoveryAsync(operation, ct);
@@ -161,51 +163,10 @@ public sealed class OutpostAssignmentService(RimlinkDbContext db, OutpostAuthori
             && HasReceipt(proof, operation.TransitionId!, operation, OutpostCancelKind.AbortNoRemoval);
         if (!noRemoval && !(request.Kind == OutpostCancelKind.ReturnAfterRemoval && removed)) return await RecoveryAsync(operation, ct);
         if (request.ExpectedRevision != outpost.Revision) return await RecoveryAsync(operation, ct);
-        string id = Guid.NewGuid().ToString("D"); long revision = outpost.Revision + 1; var now = clock.Sample(); var parcelIds = new List<long>();
+        string id = Guid.NewGuid().ToString("D"); var now = clock.Sample();
         await TransitionAsync(lease, operation, id, noRemoval ? "AbortNoRemoval" : "AbortWithReturn", async token =>
         {
-            long parcelId = 0;
-            if (!noRemoval)
-            {
-                var pawns = new PawnList();
-                foreach (var worker in intent.Workers)
-                {
-                    var pawn = worker.Pawn.Clone(); pawn.Registry.AssignmentId = worker.AssignmentId; pawn.Registry.Tombstone = false;
-                    pawns.Pawns.Add(pawn);
-                }
-                var parcel = new Parcel { ToPlayerId = playerId, Kind = ParcelKindDb.LotReturn, Pawns = pawns.ToByteArray(),
-                    SizeBytes = pawns.CalculateSize(), CreatedAt = now.Utc, ClientRequestId = request.ClientRequestId, RequestKind = "outpost-return" };
-                db.Parcels.Add(parcel); await db.SaveChangesAsync(token); parcelId = parcel.Id; parcelIds.Add(parcelId);
-                var manifest = await db.OutpostManifests.AsNoTracking().SingleAsync(m => m.Id == intent.ManifestId, token);
-                var payload = new OutpostParcelPayload { SchemaVersion = 1, Kind = OutpostPayloadKind.Workers, Scope = intent.Scope.Clone(),
-                    OutpostId = intent.OutpostId, BatchOperationId = id, ManifestId = intent.ManifestId, ManifestDigest = intent.ManifestDigest,
-                    ValuationRevision = manifest.Revision, ChildCount = 1 };
-                payload.PawnCustodyIds.Add(intent.Workers.Select(w => w.PawnCustodyId)); payload.AssignmentIds.Add(intent.Workers.Select(w => w.AssignmentId));
-                OutpostParcelContents.Bind(payload, null, pawns, parcel.Silver);
-                byte[] bytes = payload.ToByteArray();
-                db.OutpostParcelLinks.Add(new() { ParcelId = parcelId, WorldId = operation.WorldId, PlayerId = playerId,
-                    SaveGeneration = operation.SaveGeneration, RestoreBoundary = operation.RestoreBoundary, BatchId = id,
-                    Payload = bytes, PayloadDigest = SHA256.HashData(bytes), TransitionId = id,
-                    ValueX100 = intent.Workers.Sum(w => w.Pawn.MarketValueX100) });
-            }
-            foreach (var worker in intent.Workers)
-            {
-                await db.OutpostAssignments.Where(a => a.Id == worker.AssignmentId).ExecuteUpdateAsync(s => s.SetProperty(a => a.Active, false)
-                    .SetProperty(a => a.EndedAt, now.Utc).SetProperty(a => a.ReturnBatchId, noRemoval ? null : id), token);
-                string location = noRemoval ? worker.Pawn.Registry.PawnReferenceToken : parcelId.ToString(CultureInfo.InvariantCulture);
-                string? assignment = noRemoval ? EmptyToNull(worker.Pawn.Registry.AssignmentId) : worker.AssignmentId;
-                await db.PawnCustody.Where(p => p.Id == worker.PawnCustodyId).ExecuteUpdateAsync(s => s.SetProperty(p => p.LocationKind, noRemoval ? "Home" : "ReturnPending")
-                    .SetProperty(p => p.LocationId, location).SetProperty(p => p.AssignmentId, assignment).SetProperty(p => p.Tombstone, !noRemoval)
-                    .SetProperty(p => p.FrontierTransitionId, id).SetProperty(p => p.Revision, p => p.Revision + 1), token);
-            }
-            if (intent.Kind == OutpostPrepareKind.Found)
-            {
-                await db.Outposts.Where(o => o.Id == outpost.Id).ExecuteUpdateAsync(s => s.SetProperty(o => o.State, "Closed")
-                    .SetProperty(o => o.OccupiesSlot, false).SetProperty(o => o.ClosedAt, now.Utc).SetProperty(o => o.Revision, revision).SetProperty(o => o.LastTransitionId, id), token);
-                await db.OutpostReservations.Where(r => r.OperationId == operation.Id).ExecuteUpdateAsync(s => s.SetProperty(r => r.Active, false), token);
-            }
-            else await db.Outposts.Where(o => o.Id == outpost.Id).ExecuteUpdateAsync(s => s.SetProperty(o => o.Revision, revision).SetProperty(o => o.LastTransitionId, id), token);
-            await StoreResultAsync(operation, OutpostOperationStatus.Cancelled, "Cancelled", id, revision, parcelIds, token);
+            await StageCancellationCoreAsync(db, lease, operation, intent, outpost, noRemoval, id, now.Utc, token);
         }, ct);
         return await LoadReplyAsync(operation.Id, ct);
     }
@@ -220,6 +181,7 @@ public sealed class OutpostAssignmentService(RimlinkDbContext db, OutpostAuthori
     internal async Task ScopeAsync(OutpostLease lease, long playerId, OutpostScopeMessage scope, CancellationToken ct)
     {
         if ((await authority.CheckHeldAsync(lease, ct)).State != OutpostStartupState.Ready) throw Refuse(ErrorCode.OutpostUnavailable, "authority-not-ready");
+        lease.RequireCustodyReadiness();
         var head = await db.OutpostAuthority.AsNoTracking().SingleAsync(ct); var player = await db.Players.AsNoTracking().SingleOrDefaultAsync(p => p.Id == playerId, ct);
         if (scope is null || player is null || scope.OwnerPlayerId != playerId || scope.WorldInstanceId != head.WorldId
             || scope.SaveGeneration != player.SaveGeneration || scope.SaveWriteEpoch != player.SaveWriteEpoch || scope.RestoreBoundary != head.RestoreBoundary)

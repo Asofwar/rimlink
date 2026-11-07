@@ -39,6 +39,21 @@ public sealed partial class OrdinaryReturnService(RimlinkDbContext db, OutpostAu
         }
         var positive = await SourceAsync(db, request, ct);
         if (positive is not null) return positive;
+        await ValidateNegativeAsync(db, request, ct);
+        if (!begin) return new() { Status = OrdinaryOperationStatus.Unknown };
+        var head = await db.OutpostAuthority.AsNoTracking().SingleAsync(ct);
+        string id = request.ReturnAttemptId;
+        var record = CreateRecord(request, payload);
+        await authority.CommitHeldAsync(lease, new(id, record.WorldId, playerId, record.SaveGeneration, record.RestoreBoundary,
+            "OrdinaryReturnStarted", "player:" + playerId.ToString(CultureInfo.InvariantCulture),
+            new(head.HeadId, ByteString.CopyFrom(head.HeadDigest)), request.ToByteString()), async (_, token) =>
+                await StageReturnCoreAsync(db, record, request, token), ct);
+        return await ReplyAsync(record, request, ct);
+    }
+
+    internal static async Task ValidateNegativeAsync(RimlinkDbContext db, OrdinaryCancelRequest request, CancellationToken ct)
+    {
+        long playerId = request.Scope.OwnerPlayerId; var capture = request.Capture;
         // An absent source is not a return grant: the following branch and custody checks are mandatory.
         var canonical = await db.SaveVersions.AsNoTracking().SingleOrDefaultAsync(v => v.PlayerId == playerId && v.IsCurrent, ct);
         if (canonical?.SnapshotId != request.CanonicalSnapshot.SnapshotId || canonical.SaveGeneration != request.Scope.SaveGeneration
@@ -60,26 +75,26 @@ public sealed partial class OrdinaryReturnService(RimlinkDbContext db, OutpostAu
                     && !recovery.Outposts.Metadata.Frontier.Any(f => f.TransitionId == row.FrontierTransitionId))
                 throw Refuse(ErrorCode.RecoveryRequired, "ordinary-return-custody-conflict");
         }
-        if (!begin) return new() { Status = OrdinaryOperationStatus.Unknown };
-        var head = await db.OutpostAuthority.AsNoTracking().SingleAsync(ct);
-        string id = request.ReturnAttemptId;
-        var record = new OutpostOrdinaryReturn { Id = id, WorldId = request.Scope.WorldInstanceId, PlayerId = playerId,
+    }
+
+    internal static OutpostOrdinaryReturn CreateRecord(OrdinaryCancelRequest request, OrdinaryReturnPayload payload)
+    {
+        var capture = request.Capture;
+        return new OutpostOrdinaryReturn { Id = request.ReturnAttemptId, WorldId = request.Scope.WorldInstanceId, PlayerId = request.Scope.OwnerPlayerId,
             SaveGeneration = request.Scope.SaveGeneration, SaveWriteEpoch = request.Scope.SaveWriteEpoch, RestoreBoundary = request.Scope.RestoreBoundary,
             RequestKind = (int)capture.RequestKind, RequestId = capture.ClientRequestId, LocalOperationId = capture.LocalOperationId,
             DerivedRequestKind = (int)(capture.DerivedRoute?.RequestKind ?? OrdinaryRequestKind.Unspecified),
             DerivedRequestId = capture.DerivedRoute?.ClientRequestId ?? "", Intent = request.ToByteArray(), Payload = payload.ToByteArray(),
             PayloadDigest = SHA256.HashData(payload.ToByteArray()) };
-        await authority.CommitHeldAsync(lease, new(id, record.WorldId, playerId, record.SaveGeneration, record.RestoreBoundary,
-            "OrdinaryReturnStarted", "player:" + playerId.ToString(CultureInfo.InvariantCulture),
-            new(head.HeadId, ByteString.CopyFrom(head.HeadDigest)), request.ToByteString()), async (_, token) =>
-            {
-                db.OutpostOrdinaryReturns.Add(record);
-                foreach (var item in capture.Pawns)
-                    await db.PawnCustody.Where(p => p.Id == item.Pawn.Registry.PawnCustodyId).ExecuteUpdateAsync(s =>
-                        s.SetProperty(p => p.LocationKind, "LocalReturnPending").SetProperty(p => p.LocationId, id)
-                         .SetProperty(p => p.FrontierTransitionId, id).SetProperty(p => p.Revision, p => p.Revision + 1), token);
-            }, ct);
-        return await ReplyAsync(record, request, ct);
+    }
+
+    internal static async Task StageReturnCoreAsync(RimlinkDbContext db, OutpostOrdinaryReturn record, OrdinaryCancelRequest request, CancellationToken ct)
+    {
+        db.OutpostOrdinaryReturns.Add(record);
+        foreach (var item in request.Capture.Pawns)
+            await db.PawnCustody.Where(p => p.Id == item.Pawn.Registry.PawnCustodyId).ExecuteUpdateAsync(s =>
+                s.SetProperty(p => p.LocationKind, "LocalReturnPending").SetProperty(p => p.LocationId, record.Id)
+                 .SetProperty(p => p.FrontierTransitionId, record.Id).SetProperty(p => p.Revision, p => p.Revision + 1), ct);
     }
 
     internal static async Task RequireNoFenceAsync(RimlinkDbContext db, long actor, OrdinaryRequestKind kind, string requestId, CancellationToken ct)

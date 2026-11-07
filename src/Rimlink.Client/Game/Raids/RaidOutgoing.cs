@@ -97,18 +97,24 @@ public static class RaidOutgoing
         Messages.Message("Rimlink.Raid.PodsReturned".Translate(), new LookTargets(DropCellFinder.TradeDropSpot(home), home), MessageTypeDefOf.NeutralEvent, historical: false);
     }
 
-    /// <summary>Copies of the pawns go; the originals stay. No save is needed: nothing left the game.</summary>
+    /// <summary>Copies leave the game. Tagged pawns need an accepted capture of their current state.</summary>
     private static void LaunchSnapshot(PlayerRef target, IReadOnlyList<Pawn> pawns, RaidTiming timing, RaidArrival arrival)
     {
         if (!RimlinkSession.Active || RimlinkSession.Raids is not { } raids) return;
-        var list = new PawnList();
+        var list = new PawnList(); var captures = new List<Rimlink.Protocol.V1.OutpostWorkerCapture>();
         try
         {
             foreach (var pawn in pawns)
             {
-                var blob = ThingBlobs.SerializePawn(pawn);
-                if (blob.Registry is { } registry) registry.NonAuthoritativeMirror = true;
-                list.Pawns.Add(blob);
+                if (Outposts.PawnCustodyRegistry.CurrentRegistry?.Capture(pawn) is null)
+                {
+                    list.Pawns.Add(ThingBlobs.SerializePawn(pawn));
+                    continue;
+                }
+                var worker = Outposts.OutpostWorkerCapture.Capture(pawn, profile: null).Worker
+                    ?? throw new InvalidDataException("snapshot pawn has no current custody capture");
+                var mirror = worker.Pawn.Clone(); mirror.Registry.NonAuthoritativeMirror = true;
+                list.Pawns.Add(mirror); captures.Add(worker);
             }
         }
         catch (Exception ex)
@@ -124,14 +130,45 @@ public static class RaidOutgoing
         }
         var request = Build(target, PawnMode.PawnSnapshot, timing, arrival, list, Find.TickManager.TicksGame);
         var outbox = RimlinkSession.Outbox;
-        var entry = outbox?.Add(request);
         var connection = RimlinkSession.Connection!;
         var authentication = connection.Login!;
         var game = Current.Game;
+        Task<SaveSync.UploadResult>? accepted = null;
+        if (captures.Count > 0)
+        {
+            try
+            {
+                var metadata = game.GetComponent<RimlinkGameComponent>().OutpostRecovery.Metadata;
+                foreach (var capture in captures)
+                {
+                    var previous = metadata.WorkerCaptures.SingleOrDefault(c => c.PawnCustodyId == capture.PawnCustodyId);
+                    if (previous is not null) metadata.WorkerCaptures.Remove(previous);
+                    metadata.WorkerCaptures.Add(capture);
+                }
+                accepted = SaveSync.SaveExactNow();
+            }
+            catch (Exception ex)
+            {
+                Messages.Message("Rimlink.Raid.Refused".Translate(ex.Message), MessageTypeDefOf.RejectInput, historical: false);
+                return;
+            }
+        }
+        var entry = accepted is null ? outbox?.Add(request) : null;
         _ = Task.Run(async () =>
         {
             try
             {
+                if (accepted is not null)
+                {
+                    var saved = await accepted;
+                    if (!saved.Uploaded) throw saved.Error ?? new IOException("snapshot custody capture was not accepted");
+                    entry = await MainThread.Get(() =>
+                    {
+                        if (RimlinkSession.Connection != connection || !ReferenceEquals(connection.Login, authentication) || Current.Game != game)
+                            throw new OperationCanceledException("snapshot raid owner changed");
+                        return outbox?.Add(request);
+                    });
+                }
                 var raid = await connection.ForAuthentication(authentication, () => raids.Launch(request, CancellationToken.None));
                 if (entry is not null) outbox!.Remove(entry.Id);
                 MainThread.Post(() =>
@@ -150,7 +187,8 @@ public static class RaidOutgoing
             catch (Exception ex)
             {
                 var refusal = Rimlink.Client.Net.RpcErrorDetail.Read(ex);
-                RimlinkLog.Instance.Warn($"raid launch unanswered, kept in the outbox: {refusal.Message}");
+                RimlinkLog.Instance.Warn(entry is null ? $"raid launch stopped: {refusal.Message}"
+                    : $"raid launch unanswered, kept in the outbox: {refusal.Message}");
                 MainThread.Post(() => Messages.Message("Rimlink.Economy.Unanswered".Translate(RefusalText.Of(refusal)), MessageTypeDefOf.NegativeEvent, historical: false));
             }
         });

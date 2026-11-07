@@ -142,12 +142,19 @@ public static class RaidResolver
                 {
                     outcome.Outcome = PawnOutcome.OutcomeFled;
                     if (exit.PawnBlob.Length > 0) outcome.Blob = PawnBlob.Parser.ParseFrom(exit.PawnBlob);
+                    // Vanilla keeps escaped pawns in WorldPawns until the reported transfer removes them.
+                    if (FindRaider(id, map) is { } departed) survivors.Add(departed);
                     foreach (var item in ItemList.Parser.ParseFrom(exit.Loot).Items) loot.Add(new LootStack(item, null, null));
                     summary.Fled++;
                 }
                 else if (FindRaider(id, map) is { } pawn && !pawn.Dead && pawn.IsPrisonerOfColony)
                 {
                     outcome.Outcome = PawnOutcome.OutcomeCaptured;
+                    if (raid.PawnMode == (int)PawnMode.PawnReal && Outposts.PawnCustodyRegistry.CurrentRegistry?.Capture(pawn) is not null)
+                    {
+                        outcome.Blob = ThingBlobs.SerializePawn(pawn);
+                        survivors.Add(pawn); // The recipient receives this worker through its protected parcel.
+                    }
                     summary.Captured++;
                 }
                 else if (FindRaider(id, map) is { } alive && !alive.Dead && OnTheMap(alive))

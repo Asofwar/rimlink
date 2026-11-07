@@ -68,12 +68,14 @@ public sealed partial class OutpostRestoreEvidence
         };
     }
 
-    private async Task<SaveVersion> SourceVersionAsync(OutpostSnapshotProof proof, CancellationToken ct)
+    private Task<(SaveVersion Version, string? Archive)> ResolveSourceLocationAsync(OutpostSnapshotLink link, CancellationToken ct) =>
+        new OutpostLifecycleEvidence(db, files).ResolveSnapshotAsync(link, ct);
+
+    private async Task<(SaveVersion Version, string? Archive)> SourceVersionAsync(OutpostSnapshotProof proof, CancellationToken ct)
     {
         var codec = new OutpostLifecycleEvidence(db, files); var link = await codec.RollbackLinkAsync(proof, ct);
         var source = await codec.ResolveSnapshotAsync(link, ct);
-        if (source.Archive is not null) throw Invalid("source-retired-locator-required");
-        return source.Version;
+        return source;
     }
 
     private async Task<(OutpostLifecycleOperation Row, LifecycleIntent Intent, OutpostTransition Transition)> SourceRollbackAsync(string operationId, CancellationToken ct)
@@ -89,10 +91,10 @@ public sealed partial class OutpostRestoreEvidence
     }
 
     internal async Task<(OutpostRollbackBridge? Actual, OutpostRollbackFromViewBridge? View)> CreateRollbackSourceBridgeAsync(
-        string operationId, SaveVersion target, OutpostScopeMessage current, bool requireCurrentCustody, CancellationToken ct)
+        string operationId, SaveVersion target, OutpostScopeMessage current, bool requireCurrentCustody, CancellationToken ct, string? archive = null)
     {
         var (row, intent, transition) = await SourceRollbackAsync(operationId, ct);
-        var resolver = new SourceResolver(this, ct); var actual = await resolver.ActualAsync(target);
+        var resolver = new SourceResolver(this, ct); var actual = await resolver.ActualAsync(target, archive);
         var view = await resolver.RollbackAsync(row, intent, transition, actual.Snapshot, current); var graph = resolver.Graph();
         if (requireCurrentCustody)
             foreach (var map in view.RegistryMap)

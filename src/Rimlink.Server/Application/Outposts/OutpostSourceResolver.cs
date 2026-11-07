@@ -42,7 +42,10 @@ public sealed partial class OutpostRestoreEvidence
         private static OutpostAuthorizationReference Reference(OutpostAuthorizedSnapshotView view) => new()
         { TransitionId = view.TransitionId, TransitionDigest = view.TransitionDigest };
 
-        internal async Task<OutpostActualSnapshotSource> ActualAsync(SaveVersion version)
+        internal Task<OutpostActualSnapshotSource> ActualAsync((SaveVersion Version, string? Archive) located) =>
+            ActualAsync(located.Version, located.Archive);
+
+        internal async Task<OutpostActualSnapshotSource> ActualAsync(SaveVersion version, string? archive = null)
         {
             string id = version.SnapshotId ?? throw Invalid("source-actual-id-missing");
             if (sources.TryGetValue(id, out var cached))
@@ -55,7 +58,14 @@ public sealed partial class OutpostRestoreEvidence
             string key = "s:" + id; Enter(key);
             try
             {
-                var original = owner.ReadActualDownload(version).Outposts;
+                if (archive is null)
+                {
+                    var expected = SaveStore.RecoveryOf(version).Outposts;
+                    if (!expected.Present) throw Invalid("source-actual-protected-metadata-missing");
+                    var retained = await owner.SourceLinkAsync(version, expected.Metadata, ct);
+                    archive = (await owner.ResolveSourceLocationAsync(retained, ct)).Archive;
+                }
+                var original = owner.ReadActualDownload(version, archive).Outposts;
                 if (!original.Present) throw Invalid("source-actual-protected-metadata-missing");
                 var value = original.Metadata;
                 var link = await owner.SourceLinkAsync(version, value, ct);
@@ -144,9 +154,12 @@ public sealed partial class OutpostRestoreEvidence
             finally { Leave(key); }
         }
 
-        internal async Task<OutpostSourceReference> EffectiveAsync(SaveVersion target, OutpostScopeMessage scope)
+        internal Task<OutpostSourceReference> EffectiveAsync((SaveVersion Version, string? Archive) located, OutpostScopeMessage scope) =>
+            EffectiveAsync(located.Version, scope, located.Archive);
+
+        internal async Task<OutpostSourceReference> EffectiveAsync(SaveVersion target, OutpostScopeMessage scope, string? archive = null)
         {
-            var actual = await ActualAsync(target);
+            var actual = await ActualAsync(target, archive);
             if (actual.Snapshot.Scope.Equals(scope)) return new() { ActualSnapshotId = actual.Snapshot.SnapshotId };
             var roots = await owner.SourceRestoreRootsAsync(scope, ct);
             var rollbacks = await owner.SourceRollbackRootsAsync(scope, ct);

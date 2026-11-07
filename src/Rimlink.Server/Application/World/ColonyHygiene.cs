@@ -77,7 +77,8 @@ public sealed class ColonyHygieneService(IServiceScopeFactory scopes, IOptions<H
                     try
                     {
                         using var scope = scopes.CreateScope();
-                        await scope.ServiceProvider.GetRequiredService<ColonyHygiene>().SweepDue(time.GetUtcNow().UtcDateTime);
+                        if (Rimlink.Server.Hosting.OutpostDomainHostedServices.CanWrite(scope.ServiceProvider))
+                            await scope.ServiceProvider.GetRequiredService<ColonyHygiene>().SweepDue(time.GetUtcNow().UtcDateTime);
                     }
                     catch (Exception ex) when (ex is not OperationCanceledException)
                     {

@@ -70,7 +70,7 @@ public sealed partial class OutpostRestoreProcedure
                 StoreJournal(actual.Root, journal with { Phase = RestorePhase.BackedOut, Revision = checked(journal.Revision + 1) });
                 return BackedOutResult(actual.Intent, previous);
             }
-            var marker = previous with { Restore = new(selected.RestoreId, selected.TargetBoundary, ByteString.CopyFrom(journal.IntentDigest)) };
+            var marker = ((KnownAnchorEnvelope)await BackoutMainMarkerAsync(actual.Intent, journal, actual.Root, anchor, authority, ct)).Record;
             if (external != marker) return Refused("restore-backout-marker-missing-or-already-published");
             if (journal.Phase is not (RestorePhase.OldSetRetained or RestorePhase.Switching or RestorePhase.InstalledVerified or RestorePhase.MainPrepared or RestorePhase.MainCommitted or RestorePhase.BackingOut)
                 || !journal.OldSetUsable) return Refused("restore-backout-old-set-not-qualified");
@@ -89,7 +89,8 @@ public sealed partial class OutpostRestoreProcedure
             journal = await RestorePreviousFilesAsync(actual.Intent, journal, actual.Root, nextFiles, ct);
             await VerifyInventoryAsync(selected.DataDirectory, actual.Intent.OldFiles, ct);
             await ValidateBackedOutAsync(actual.Intent, ct);
-            if (anchor.Read(authority) != marker) return Refused("restore-backout-marker-changed");
+            if (await BackoutMainMarkerAsync(actual.Intent, journal, actual.Root, anchor, authority, ct) != new KnownAnchorEnvelope(marker))
+                return Refused("restore-backout-marker-changed");
             anchor.WriteDurable(authority, previous, CancellationToken.None);
             Checkpoint?.Invoke("AfterBackoutPublication");
             StoreJournal(actual.Root, journal with { Phase = RestorePhase.BackedOut, Revision = checked(journal.Revision + 1) });

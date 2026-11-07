@@ -55,7 +55,19 @@ public sealed class OutpostRestoreCrashTests
         else Assert.NotEmpty(startup.Reason!);
         var procedure = new OutpostRestoreProcedure();
         var result = await procedure.ResumeAsync(request.Inspection.DataDirectory, request.Inspection.AnchorDirectory, request.RestoreId, default);
-        Assert.Equal((RestoreOutcome.Completed, ""), (result.Outcome, result.Reason));
+        if (result.Outcome != RestoreOutcome.Completed || result.Reason != "")
+        {
+            shared.KeepForDiagnostics = true;
+            var roots = new[] { shared.Data.Root, Path.Combine(shared.Data.Root, "restore-work", request.RestoreId, "staged"),
+                Path.Combine(shared.Data.Root, "restore-work", request.RestoreId, "retained") };
+            var inventory = roots.ToDictionary(root => root, root => Directory.Exists(root)
+                ? Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories).Where(path => !path.Contains(Path.DirectorySeparatorChar + "restore-work" + Path.DirectorySeparatorChar) || root != shared.Data.Root)
+                    .Select(path => DiagnosticFile(root, path)).ToArray() : []);
+            File.WriteAllText(Path.Combine(shared.Root, "failed-restore-diagnostic.json"), JsonSerializer.Serialize(new
+            { result, termination, Native = shared.SqliteFailure.LastFailure, inventory }, new JsonSerializerOptions { WriteIndented = true }));
+        }
+        Assert.True(result.Outcome == RestoreOutcome.Completed && result.Reason == "",
+            $"Unexpected resume: {result}; termination: {termination}; native OS error: {shared.SqliteFailure.LastFailure}; retained fixture: {shared.Root}");
         Assert.Equal(new OutpostStartupResult(OutpostStartupState.Ready), await shared.Authority.OpenAsync(default));
         f.H.Db.ChangeTracker.Clear();
         Assert.Equal(0, (await f.H.Row()).Stock);
@@ -71,6 +83,18 @@ public sealed class OutpostRestoreCrashTests
         Assert.Equal(result.HeadDigest, repeated.HeadDigest);
         Assert.Equal(1, await f.H.Db.OutpostTransitions.CountAsync(t => t.Kind == "BulkRestore"));
         Assert.Equal(0, (await f.H.Row()).Stock);
+    }
+
+    private static object DiagnosticFile(string root, string path)
+    {
+        try
+        {
+            byte[] bytes = File.ReadAllBytes(path);
+            return new { Path = Path.GetRelativePath(root, path), Length = bytes.Length,
+                Sha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)),
+                Sidecar = path.EndsWith("-shm", StringComparison.Ordinal) || path.EndsWith("-wal", StringComparison.Ordinal) ? Convert.ToBase64String(bytes) : null };
+        }
+        catch (IOException error) { return new { Path = Path.GetRelativePath(root, path), Error = error.Message }; }
     }
 
     // Selected only by the owned parent fixture. A hard kill bypasses every procedure finally/Dispose block.
