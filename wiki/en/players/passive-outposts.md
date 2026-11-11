@@ -1,6 +1,6 @@
 ---
 pageId: players/passive-outposts
-contentRevision: 12
+contentRevision: 13
 ---
 
 # Passive outposts: workers, stock and recovery
@@ -47,6 +47,8 @@ Archive pauses production. Reset requires the outpost closed, all physical recei
 Since 0.10.0 the common save envelope is extended with separate guild field12 and independent GuildVersion. Personal registries/receipts are retained in full, and a mixed save requires both families. Manifest reads share bounded page/hash checks, while access to a guild catalog is tied to its fixed parcel.
 
 If the server refuses a guild resource request because the owner changed, the stock is insufficient, or the recipient changed, refresh the outpost details and submit a new request. A confirmed refusal removes the old request from automatic retry. Temporary server unavailability leaves it queued for reconciliation.
+
+To open a guild battle you need the same game and Rimlink builds as the server's arbiter and the same mods in the same order, that is, the server's modpack with nothing added. Where the game and the mods are installed does not matter: an ordinary Steam installation with Workshop mods qualifies. Personal mod settings do not get in the way. On a mismatch the client does not open the battle and stays in its own colony.
 
 To toggle combat readiness in a guild arena, select one of your fighters and choose **Draft selected fighter** or **Undraft selected fighter**. After the arbiter executes the order, the game displays the updated fighter status.
 

@@ -1,11 +1,11 @@
 ---
 pageId: players/live
-contentRevision: 9
+contentRevision: 10
 ---
 
 # Live: живая карта
 
-Применимость: Rimlink 0.10.1 · RimWorld 1.7 · протокол 1.
+Применимость: Rimlink 0.10.2 · RimWorld 1.7 · протокол 1.
 
 <img class="wiki-art" src="/illustrations/live.svg" alt="Владелец симулирует карту; гость передаёт приказы и получает обновления." width="960" height="440" />
 <p class="wiki-caption">Владелец симулирует карту; гость передаёт приказы и получает обновления.</p>

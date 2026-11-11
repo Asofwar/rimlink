@@ -1,10 +1,10 @@
 {
-  "productVersion": "0.10.1",
+  "productVersion": "0.10.2",
   "protocolVersion": 1,
   "pages": [
     {
       "id": "index",
-      "contentRevision": 5,
+      "contentRevision": 6,
       "sections": [
         "usage",
         "limits",
@@ -35,7 +35,7 @@
     },
     {
       "id": "overview",
-      "contentRevision": 7,
+      "contentRevision": 8,
       "sections": [
         "usage",
         "limits",
@@ -76,7 +76,7 @@
     },
     {
       "id": "compatibility",
-      "contentRevision": 7,
+      "contentRevision": 8,
       "sections": [
         "usage",
         "limits",
@@ -117,7 +117,7 @@
     },
     {
       "id": "faq",
-      "contentRevision": 7,
+      "contentRevision": 8,
       "sections": [
         "usage",
         "limits",
@@ -158,7 +158,7 @@
     },
     {
       "id": "glossary",
-      "contentRevision": 7,
+      "contentRevision": 8,
       "sections": [
         "usage",
         "limits",
@@ -189,7 +189,7 @@
     },
     {
       "id": "players/getting-started",
-      "contentRevision": 7,
+      "contentRevision": 8,
       "sections": [
         "usage",
         "limits",
@@ -230,7 +230,7 @@
     },
     {
       "id": "players/install",
-      "contentRevision": 7,
+      "contentRevision": 8,
       "sections": [
         "usage",
         "limits",
@@ -261,7 +261,7 @@
     },
     {
       "id": "players/connect",
-      "contentRevision": 10,
+      "contentRevision": 11,
       "sections": [
         "usage",
         "limits",
@@ -312,7 +312,7 @@
     },
     {
       "id": "players/modpacks",
-      "contentRevision": 7,
+      "contentRevision": 8,
       "sections": [
         "usage",
         "limits",
@@ -359,7 +359,7 @@
     },
     {
       "id": "players/world",
-      "contentRevision": 7,
+      "contentRevision": 8,
       "sections": [
         "usage",
         "limits",
@@ -401,7 +401,7 @@
     },
     {
       "id": "players/saves-recovery",
-      "contentRevision": 9,
+      "contentRevision": 10,
       "sections": [
         "usage",
         "limits",
@@ -448,7 +448,7 @@
     },
     {
       "id": "players/chat-pings",
-      "contentRevision": 7,
+      "contentRevision": 8,
       "sections": [
         "usage",
         "limits",
@@ -485,7 +485,7 @@
     },
     {
       "id": "players/economy",
-      "contentRevision": 11,
+      "contentRevision": 12,
       "sections": [
         "usage",
         "limits",
@@ -563,7 +563,7 @@
     },
     {
       "id": "players/gifts-trades",
-      "contentRevision": 8,
+      "contentRevision": 9,
       "sections": [
         "usage",
         "limits",
@@ -624,7 +624,7 @@
     },
     {
       "id": "players/auctions",
-      "contentRevision": 7,
+      "contentRevision": 8,
       "sections": [
         "usage",
         "limits",
@@ -667,7 +667,7 @@
     },
     {
       "id": "players/procurement",
-      "contentRevision": 7,
+      "contentRevision": 8,
       "sections": [
         "usage",
         "limits",
@@ -710,7 +710,7 @@
     },
     {
       "id": "players/raids-incidents",
-      "contentRevision": 10,
+      "contentRevision": 11,
       "sections": [
         "usage",
         "limits",
@@ -762,7 +762,7 @@
     },
     {
       "id": "players/visits",
-      "contentRevision": 8,
+      "contentRevision": 9,
       "sections": [
         "usage",
         "limits",
@@ -808,7 +808,7 @@
     },
     {
       "id": "players/live",
-      "contentRevision": 9,
+      "contentRevision": 10,
       "sections": [
         "usage",
         "limits",
@@ -872,7 +872,7 @@
     },
     {
       "id": "players/coop",
-      "contentRevision": 7,
+      "contentRevision": 8,
       "sections": [
         "usage",
         "limits",
@@ -916,7 +916,7 @@
     },
     {
       "id": "players/community",
-      "contentRevision": 12,
+      "contentRevision": 13,
       "sections": [
         "usage",
         "limits",
@@ -965,7 +965,7 @@
     },
     {
       "id": "players/guild-influence",
-      "contentRevision": 7,
+      "contentRevision": 8,
       "sections": [
         "usage",
         "limits",
@@ -1013,7 +1013,7 @@
     },
     {
       "id": "players/troubleshooting",
-      "contentRevision": 7,
+      "contentRevision": 8,
       "sections": [
         "usage",
         "limits",
@@ -1056,7 +1056,7 @@
     },
     {
       "id": "admins/getting-started",
-      "contentRevision": 7,
+      "contentRevision": 8,
       "sections": [
         "usage",
         "limits",
@@ -1097,7 +1097,7 @@
     },
     {
       "id": "admins/hosting",
-      "contentRevision": 14,
+      "contentRevision": 15,
       "sections": [
         "usage",
         "limits",
@@ -1144,7 +1144,7 @@
     },
     {
       "id": "admins/configuration",
-      "contentRevision": 13,
+      "contentRevision": 14,
       "sections": [
         "usage",
         "limits",
@@ -1180,7 +1180,7 @@
     },
     {
       "id": "admins/security-auth",
-      "contentRevision": 15,
+      "contentRevision": 16,
       "sections": [
         "usage",
         "limits",
@@ -1232,7 +1232,7 @@
     },
     {
       "id": "admins/modpacks",
-      "contentRevision": 7,
+      "contentRevision": 8,
       "sections": [
         "usage",
         "limits",
@@ -1273,7 +1273,7 @@
     },
     {
       "id": "admins/gameplay-policy",
-      "contentRevision": 10,
+      "contentRevision": 11,
       "sections": [
         "usage",
         "limits",
@@ -1315,7 +1315,7 @@
     },
     {
       "id": "admins/administration",
-      "contentRevision": 7,
+      "contentRevision": 8,
       "sections": [
         "usage",
         "limits",
@@ -1356,7 +1356,7 @@
     },
     {
       "id": "admins/cli",
-      "contentRevision": 13,
+      "contentRevision": 14,
       "sections": [
         "usage",
         "limits",
@@ -1389,7 +1389,7 @@
     },
     {
       "id": "admins/api",
-      "contentRevision": 14,
+      "contentRevision": 15,
       "sections": [
         "usage",
         "limits",
@@ -1422,7 +1422,7 @@
     },
     {
       "id": "admins/backup-recovery",
-      "contentRevision": 18,
+      "contentRevision": 19,
       "sections": [
         "usage",
         "limits",
@@ -1477,7 +1477,7 @@
     },
     {
       "id": "admins/updating",
-      "contentRevision": 7,
+      "contentRevision": 8,
       "sections": [
         "usage",
         "limits",
@@ -1508,7 +1508,7 @@
     },
     {
       "id": "admins/monitoring",
-      "contentRevision": 7,
+      "contentRevision": 8,
       "sections": [
         "usage",
         "limits",
@@ -1550,7 +1550,7 @@
     },
     {
       "id": "admins/discord",
-      "contentRevision": 8,
+      "contentRevision": 9,
       "sections": [
         "usage",
         "limits",
@@ -1582,7 +1582,7 @@
     },
     {
       "id": "admins/troubleshooting",
-      "contentRevision": 7,
+      "contentRevision": 8,
       "sections": [
         "usage",
         "limits",
@@ -1613,7 +1613,7 @@
     },
     {
       "id": "developers/architecture",
-      "contentRevision": 7,
+      "contentRevision": 8,
       "sections": [
         "usage",
         "limits",
@@ -1654,7 +1654,7 @@
     },
     {
       "id": "developers/build",
-      "contentRevision": 7,
+      "contentRevision": 8,
       "sections": [
         "usage",
         "limits",
@@ -1685,7 +1685,7 @@
     },
     {
       "id": "developers/protocol",
-      "contentRevision": 35,
+      "contentRevision": 36,
       "sections": [
         "usage",
         "limits",
@@ -1745,7 +1745,7 @@
     },
     {
       "id": "developers/storage",
-      "contentRevision": 19,
+      "contentRevision": 20,
       "sections": [
         "usage",
         "limits",
@@ -1796,7 +1796,7 @@
     },
     {
       "id": "developers/client",
-      "contentRevision": 36,
+      "contentRevision": 37,
       "sections": [
         "usage",
         "limits",
@@ -1853,7 +1853,7 @@
     },
     {
       "id": "developers/localization",
-      "contentRevision": 9,
+      "contentRevision": 10,
       "sections": [
         "usage",
         "limits",
@@ -1885,7 +1885,7 @@
     },
     {
       "id": "developers/testing",
-      "contentRevision": 29,
+      "contentRevision": 30,
       "sections": [
         "usage",
         "capture-prototype",
@@ -1969,7 +1969,7 @@
     },
     {
       "id": "developers/contributing",
-      "contentRevision": 7,
+      "contentRevision": 8,
       "sections": [
         "usage",
         "limits",
@@ -2000,7 +2000,7 @@
     },
     {
       "id": "players/passive-outposts",
-      "contentRevision": 12,
+      "contentRevision": 13,
       "sections": [
         "usage",
         "production",
@@ -2045,7 +2045,7 @@
     },
     {
       "id": "admins/passive-outposts",
-      "contentRevision": 36,
+      "contentRevision": 37,
       "sections": [
         "usage",
         "commands",

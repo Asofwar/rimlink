@@ -28,25 +28,28 @@ public static class BattleProfileCapture
         var inventory=new BattleRuntimeInventoryV1{Version=1,GameBuildSha256=Hash(facts.GameBuildPath),RuntimeBuildSha256=Hash(facts.RuntimeBuildPath),
             ClientBuildSha256=Hash(facts.ClientBuildPath),ExecutorBuildSha256=Hash(facts.ExecutorBuildPath)};
         inventory.Mods.AddRange(facts.Mods.Select(m=>m.Clone()));inventory.ActiveDlc.AddRange(facts.ActiveDlc.Order(StringComparer.Ordinal));
-        int directories=0,files=0;var entries=new List<BattleFileInventoryEntry>();
+        // Pin the four builds that decide what a battle computes; the mods' gameplay content is pinned by the loaded-definitions
+        // document. Listing whole directories tied a profile to one copy of the game and broke on any unrelated file.
+        var entries=new List<BattleFileInventoryEntry>();
         foreach(var root in roots)
         {
             if(root.Kind is not(BattleInventoryRoot.Game or BattleInventoryRoot.Runtime or BattleInventoryRoot.Mod))throw Invalid();
-            string absolute=Path.GetFullPath(root.Path);BattleExecutorSettings.RequireNoLinks(absolute);
-            var pending=new Stack<string>();pending.Push(absolute);
-            while(pending.TryPop(out string? directory))
-            {
-                if(++directories>32768)throw Invalid();
-                foreach(string path in Directory.EnumerateFileSystemEntries(directory))
-                {
-                    if((File.GetAttributes(path)&FileAttributes.ReparsePoint)!=0)throw Invalid();
-                    if(Directory.Exists(path)){pending.Push(path);continue;}
-                    if(++files>16384)throw Invalid();
-                    using var input=new FileStream(path,FileMode.Open,FileAccess.Read,FileShare.Read);
-                    entries.Add(new(){Root=root.Kind,RootId=root.Id,RelativePath=Path.GetRelativePath(absolute,path).Replace(Path.DirectorySeparatorChar,'/'),SizeBytes=input.Length,Sha256=ByteString.CopyFrom(SHA256.HashData(input))});
-                }
-            }
+            BattleExecutorSettings.RequireNoLinks(Path.GetFullPath(root.Path));
         }
+        var comparison=OperatingSystem.IsWindows()?StringComparison.OrdinalIgnoreCase:StringComparison.Ordinal;
+        void Pin(string build,BattleInventoryRoot kind)
+        {
+            string full=Path.GetFullPath(build);
+            // The most specific root of the right kind that holds the file, so a mod inside the game folder is still a mod.
+            var root=roots.Where(r=>r.Kind==kind && full.StartsWith(Path.TrimEndingDirectorySeparator(Path.GetFullPath(r.Path))+Path.DirectorySeparatorChar,comparison))
+                .OrderByDescending(r=>Path.GetFullPath(r.Path).Length).FirstOrDefault()??throw Invalid();
+            string relative=Path.GetRelativePath(Path.GetFullPath(root.Path),full).Replace(Path.DirectorySeparatorChar,'/');
+            if(entries.Any(e=>e.Root==kind && e.RootId==root.Id && e.RelativePath==relative))return;
+            using var input=new FileStream(full,FileMode.Open,FileAccess.Read,FileShare.Read);
+            entries.Add(new(){Root=kind,RootId=root.Id,RelativePath=relative,SizeBytes=input.Length,Sha256=ByteString.CopyFrom(SHA256.HashData(input))});
+        }
+        Pin(facts.GameBuildPath,BattleInventoryRoot.Game);Pin(facts.RuntimeBuildPath,BattleInventoryRoot.Runtime);
+        Pin(facts.ClientBuildPath,BattleInventoryRoot.Mod);Pin(facts.ExecutorBuildPath,BattleInventoryRoot.Mod);
         inventory.Files.AddRange(entries.OrderBy(e=>((int)e.Root)+"/"+e.RootId+"/"+e.RelativePath,StringComparer.Ordinal));
         inventory.Config=Put(BattleDocumentKind.Config,facts.Config);inventory.LoadedDefs=Put(BattleDocumentKind.Defs,facts.LoadedDefs);
         byte[] inventoryBytes=inventory.ToByteArray();_=BattleManifestContracts.ReadInventory(inventoryBytes);

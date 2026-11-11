@@ -60,13 +60,22 @@ public sealed class BattleExecutorProfile
 
     public byte[] ReadTemplate() => ReadReference(archive ?? throw Invalid(),profile.Template);
 
-    public void VerifyViewerRuntime(IReadOnlyList<BattleRuntimeRootPath> roots,BattleRuntimeFacts actual)
+    // A viewer never simulates: it loads the arbiter's snapshot and applies its deltas. What has to match is what decides
+    // whether that snapshot loads the same way: the builds, the mods in order, their gameplay content and loaded definitions.
+    // Where the files live, other files beside them and the player's own mod settings do not, so a Steam install qualifies.
+    public void VerifyViewerRuntime(BattleRuntimeFacts actual)
     {
         var compatibility=viewerCompatibility ?? BattleManifestContracts.ReadViewerCompatibility(ReadReference(archive ?? throw Invalid(),profile.ViewerCompatibility));
         RequireViewerCompatibility(profile, compatibility);
-        VerifyRuntime(roots,actual);
-        using var input=new FileStream(actual.ExecutorBuildPath,FileMode.Open,FileAccess.Read,FileShare.Read);
-        if(!SHA256.HashData(input).AsSpan().SequenceEqual(profile.ViewerBuildSha256.Span))throw Invalid();
+        if (!inventory.Mods.SequenceEqual(actual.Mods) || !inventory.ActiveDlc.SequenceEqual(actual.ActiveDlc)
+            || !Matches(actual.LoadedDefs,inventory.LoadedDefs)) throw Invalid();
+        RequireHash(actual.GameBuildPath,inventory.GameBuildSha256);RequireHash(actual.RuntimeBuildPath,inventory.RuntimeBuildSha256);
+        RequireHash(actual.ClientBuildPath,inventory.ClientBuildSha256);RequireHash(actual.ExecutorBuildPath,profile.ViewerBuildSha256);
+    }
+    private static void RequireHash(string path,ByteString expected)
+    {
+        using var input=new FileStream(path,FileMode.Open,FileAccess.Read,FileShare.Read);
+        if(!SHA256.HashData(input).AsSpan().SequenceEqual(expected.Span))throw Invalid();
     }
     public void VerifyRuntime(IReadOnlyList<BattleRuntimeRootPath> roots,BattleRuntimeFacts actual)
     {
@@ -81,32 +90,16 @@ public sealed class BattleExecutorProfile
         var required=inventory.Files.Select(f=>(f.Root,f.RootId)).Concat(profile.ExcludedRuntimePaths.Select(f=>(f.Root,f.RootId)))
             .Concat(inventory.Mods.Select(m=>(BattleInventoryRoot.Mod,m.RootId))).ToHashSet();
         if (!required.SetEquals(mapped.Keys)) throw Invalid();
-        var expected=inventory.Files.ToDictionary(f=>(f.Root,f.RootId,f.RelativePath));
-        var exclusions=profile.ExcludedRuntimePaths.Select(e=>(e.Root,e.RootId,e.RelativePath)).ToHashSet();
-        if (exclusions.Overlaps(expected.Keys)) throw Invalid();
-        var found=new HashSet<(BattleInventoryRoot,string,string)>();int directories=0,files=0;
-        foreach(var pair in mapped)
+        // The inventory pins files by content, not directories by listing: every pinned file must be present unchanged
+        // under its root, while other files beside it (logs, other mods, store files) are not this profile's business.
+        foreach(var entry in inventory.Files)
         {
-            var stack=new Stack<string>();stack.Push(pair.Value);
-            while(stack.TryPop(out var directory))
-            {
-                if (++directories>32768) throw Invalid();
-                foreach(string path in Directory.EnumerateFileSystemEntries(directory))
-                {
-                    var attributes=File.GetAttributes(path);
-                    if ((attributes&FileAttributes.ReparsePoint)!=0) throw Invalid();
-                    if ((attributes&FileAttributes.Directory)!=0) { stack.Push(path);continue; }
-                    if (++files>16384+profile.ExcludedRuntimePaths.Count) throw Invalid();
-                    string relative=Path.GetRelativePath(pair.Value,path).Replace(Path.DirectorySeparatorChar,'/');
-                    var key=(pair.Key.Item1,pair.Key.Item2,relative);
-                    if (exclusions.Contains(key)) continue;
-                    if (!expected.TryGetValue(key,out var entry) || !found.Add(key)) throw Invalid();
-                    using var input=new FileStream(path,FileMode.Open,FileAccess.Read,FileShare.Read);
-                    if (input.Length!=entry.SizeBytes || !SHA256.HashData(input).AsSpan().SequenceEqual(entry.Sha256.Span) || input.Position!=entry.SizeBytes) throw Invalid();
-                }
-            }
+            string path=Path.Combine(mapped[(entry.Root,entry.RootId)],entry.RelativePath.Replace('/',Path.DirectorySeparatorChar));
+            BattleExecutorSettings.RequireNoLinks(path);
+            if (!File.Exists(path)) throw Invalid();
+            using var input=new FileStream(path,FileMode.Open,FileAccess.Read,FileShare.Read);
+            if (input.Length!=entry.SizeBytes || !SHA256.HashData(input).AsSpan().SequenceEqual(entry.Sha256.Span)) throw Invalid();
         }
-        if (found.Count!=expected.Count) throw Invalid();
         RequireBuild(actual.GameBuildPath,inventory.GameBuildSha256,mapped);
         RequireBuild(actual.RuntimeBuildPath,inventory.RuntimeBuildSha256,mapped);
         RequireBuild(actual.ClientBuildPath,inventory.ClientBuildSha256,mapped);

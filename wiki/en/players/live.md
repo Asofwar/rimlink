@@ -1,11 +1,11 @@
 ---
 pageId: players/live
-contentRevision: 9
+contentRevision: 10
 ---
 
 # Live: the active map
 
-Applies to: Rimlink 0.10.1 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.10.2 · RimWorld 1.7 · protocol 1.
 
 <img class="wiki-art" src="/illustrations/live.svg" alt="The owner simulates the map; the guest sends orders and receives updates." width="960" height="440" />
 <p class="wiki-caption">The owner simulates the map; the guest sends orders and receives updates.</p>

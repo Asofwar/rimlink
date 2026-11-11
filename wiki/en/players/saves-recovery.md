@@ -1,11 +1,11 @@
 ---
 pageId: players/saves-recovery
-contentRevision: 9
+contentRevision: 10
 ---
 
 # Saves and recovery
 
-Applies to: Rimlink 0.10.1 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.10.2 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 

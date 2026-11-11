@@ -1,6 +1,6 @@
 ---
 pageId: admins/passive-outposts
-contentRevision: 36
+contentRevision: 37
 ---
 
 # Outposts: readiness, administration and isolated acceptance
@@ -106,6 +106,24 @@ Use the guild freeze action from the same panel to close admission across the cu
 The server returns `OutpostConflict` with the `Guild.Claim` key for a confirmed claim conflict. It checks permissions, revision, stock and recipient before creating the parcel. The client removes that request from automatic retry. A `GuildUnavailable` reply keeps it queued for reconciliation. If the server already fulfilled the same request, it returns the original receipt.
 
 Checks cover four activation interruption points and basic R3 stock/campaign restoration. Isolated 0.10.0 runs preserved two accepted deliveries, delivered a pending parcel after a port change and replaced the executor on an occupied arena after the operator stopped a started battle. Interrupted materialization and restoration of an applied result with an occupied arena still need in-game acceptance. Server 0.10.0 requires no HISTORY/RESTORE seal. Take a backup before activating V3 on a live server: the activation is not reversible by a setting. Since 0.10.1 a world with format V3 serves both guild outposts and personal outposts: personal ones are advertised to players with `Outposts:Enabled=true`, and manifest confirmation, the commands that resolve stuck operations and successor-world binding are accepted at V2 and at V3. Checked in RimWorld 1.7.5005 on a local server with one client: enabling with `anchor provision`, V3 activation, manifest confirmation, a personal outpost with a worker, a wood delivery into the colony and a neutral guild outpost in the same world. A guild battle with an arbiter and two players in such a world were not repeated on the 0.10.1 build. See the [Product matrix](../developers/testing.md#guild-capture-product).
+
+## Preparing the guild battle arbiter {#guild-arbiter}
+
+The arbiter is the operator's own RimWorld process that computes a battle. It needs the players' mods in the same order (the server's modpack), a save data folder of its own and a running Steam client when the mods come from the Workshop. A separate copy of the game is not required: the arbiter can run from the installation the operator plays from.
+
+1. Create the arbiter's save data folder and enable the modpack's mods there in the players' order.
+2. Start the game with that folder (`-savedatafolder=...`), begin an ordinary new colony on a 250×250 map without joining a Rimlink server, save it and copy the save file into an empty folder as `template.rws`. The arena is built over this map: the colony's content is removed.
+3. Start the game with `-savedatafolder=...` and `-rimlinkExecutorCapture=<that folder>`. The main menu shows "Battle arbiter: profile captured" and the folder receives `profile.pb`, `profile-archive`, `profile-capture.json` and an `executor-settings.json` skeleton. Close the game.
+4. Create the arbiter's secret file: at least 32 printable ASCII characters without spaces. In the server settings set `GuildCapture:Enabled=true`, `GuildCapture:ExecutorId`, `GuildCapture:ExecutorTokenSha256` (SHA-256 of the secret) and `GuildCapture:ApprovedProfileDigest` (`ProfileDigest` from `profile-capture.json`), restart the server and activate format V3.
+5. Run `rimlink-tools admin guild-capture profile publish <folder> <ExecutorId> "<reason>"`.
+6. In `executor-settings.json` fill `ExecutorId`, `WorldInstanceId` and `RestoreBoundary` (`scope.worldId` and `scope.boundary` from `guild-capture inspect`), `Endpoint` (`https://host:port/`), `CertificateSha256` (the server certificate fingerprint) and `CredentialPath` (the secret file).
+7. Run the arbiter with `-savedatafolder=...` and `-rimlinkExecutorConfig=<executor-settings.json>`. Its menu shows "Battle arbiter: waiting for assignment" and `guild-capture inspect` names it in `availableExecutorId`.
+
+A profile pins the game, runtime and Rimlink client builds, the mod list, the content of the mods' gameplay files and the loaded definitions. After an update of the game, of Rimlink or of any modpack mod, capture the profile again, approve it and update `ApprovedProfileDigest`: until then the arbiter takes no assignment and campaigns end in a technical cancellation without a penalty.
+
+A player needs the same game and Rimlink client builds and the same mods in the same order with the same gameplay content to take part in a battle. Where the files live (Steam, Workshop, the `Mods` folder), other files in the game folder and personal mod settings do not matter: the player's client does not compute the battle, it shows the arbiter's state.
+
+Checked in RimWorld 1.7.5005 on a local server: a profile captured in a separate copy of the game, approved with `profile publish`, the arbiter registered and became available; a client from the Steam installation in another folder passed the compatibility check against that profile. A whole battle with the new profile format was not run: a campaign is scheduled no sooner than 24 hours ahead.
 
 ## See also {#related}
 

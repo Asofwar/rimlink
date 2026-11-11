@@ -1,11 +1,11 @@
 ---
 pageId: developers/client
-contentRevision: 36
+contentRevision: 37
 ---
 
 # Client, mod and live
 
-Applies to: Rimlink 0.10.1 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.10.2 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 
@@ -73,6 +73,10 @@ Pre-Start `BattlePreparedViewer` is wired: a dedicated durable HOME copy is crea
 Consent, campaign declaration, defender assignment and claims persist exact protobuf bytes before sending through the existing TransferOutbox. Cold recovery checks the digest, player, generation/epoch, restore boundary and selected acceptance stand. Replay retains the original request UUID; changed intent using that UUID is refused. An unknown reply stays on disk. Personal-save Removed/Returned lists cannot acknowledge these commands. These operations are not unresolved physical custody; the separate GuildBeginDelivery retains its stricter barriers.
 
 The dev companion exposes `rimlink/guild_outposts`, `rimlink/guild_consent`, `rimlink/guild_campaign` and `rimlink/guild_claim`, calling the shipping Core API/outbox from the own colony. This is not a finished player screen or evidence of native resource delivery.
+
+## Battle compatibility {#battle-compatibility}
+
+A profile inventory holds four pinned files: the game build, the runtime build, the client core and the Rimlink client. The mods' gameplay content is pinned by the loaded-definitions document (the gameplay file hash of every mod and the list of its definitions). At start and before a battle the arbiter checks mods, DLC, mod settings, definitions and the pinned files under its own roots; other files in those directories are not examined. A viewer (`VerifyViewerRuntime`) checks builds, mods, DLC and definitions and does not check mod settings or where files live: it does not simulate the battle. The definitions document has the format `rimlink-battle-loaded-defs-v2` and no longer embeds the settings hash. A run with `-rimlinkExecutorCapture=<folder>` captures the profile of that installation: the roots are the game directory, the runtime directory and the directory of every loaded mod, wherever it is. The operator procedure is in [arbiter preparation](../admins/passive-outposts.md#guild-arbiter).
 
 ## Executor operator-file format {#executor-settings-format}
 

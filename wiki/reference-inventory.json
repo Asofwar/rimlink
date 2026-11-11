@@ -1380,7 +1380,7 @@
     "src/Rimlink.Server/Rest/PanelEndpoints.cs": "2432302681ef7c30a42d70ac000ae7ad161e6dd6b831defffa2d86e07529ef08",
     "src/Rimlink.Server/Rest/PublicEndpoints.cs": "e404451fb4c7fd82943ecc926a272acce595a467d0b680b75d716401602c99c2",
     "src/Rimlink.Tools/Commands/AdminCommand.cs": "9a1e7b687006473a8e16ecee5c73a1745501b33fad489c19a401d1ffe52ca259",
-    "src/Rimlink.Tools/Commands/GuildCaptureCommands.cs": "add5cc8c351185172c24e0eb8141aa490fd24767d5a5a698d172e8d678fedea9",
+    "src/Rimlink.Tools/Commands/GuildCaptureCommands.cs": "063bb71d239f6724b282c3e806b04ecba466c6a23e73529bca1e5c568ce7d76a",
     "src/Rimlink.Tools/Commands/OutpostAdminCommand.cs": "17a85e126da9315201f7f65ef9e50bd2465acdf1e37cfa39a6b0153aacba0920",
     "src/Rimlink.Server/Hosting/GuildCaptureOptions.cs": "856565ac6aabe779b7670fb2249211318e751c97c75a8befaafee75be9735cff",
     "src/Rimlink.Server/Rest/GuildCaptureAdminEndpoints.cs": "375b7a1b82c807a56cca476e27dd0de5f5eda538dae6a32462b0f17964c6f682"

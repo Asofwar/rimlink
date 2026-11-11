@@ -1,11 +1,11 @@
 ---
 pageId: developers/contributing
-contentRevision: 7
+contentRevision: 8
 ---
 
 # Contributing and wiki maintenance
 
-Applies to: Rimlink 0.10.1 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.10.2 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 

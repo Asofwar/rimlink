@@ -1,11 +1,11 @@
 ---
 pageId: admins/cli
-contentRevision: 13
+contentRevision: 14
 ---
 
 # Справочник CLI
 
-Применимость: Rimlink 0.10.1 · RimWorld 1.7 · протокол 1.
+Применимость: Rimlink 0.10.2 · RimWorld 1.7 · протокол 1.
 
 ## Как пользоваться {#usage}
 
@@ -140,10 +140,13 @@ guild-capture freeze FILE
 guild-capture abort FILE
 guild-capture profile stage KIND FILE
 guild-capture profile approve FILE
+guild-capture profile publish DIRECTORY EXECUTOR_ID REASON
 guild-capture profile revoke FILE
 ```
 
 Выполняйте эти команды через `rimlink-tools admin` с URL сервера и токеном администратора. `inspect` читает зафиксированное состояние и допуск Product. Размещение, отмена до старта, утверждение и отзыв принимают сохранённый JSON-объект запроса. Для точного повтора используйте тот же файл. Загрузка отправляет бинарный документ с номером вида из протокола (1–7). Поля и ограничения описаны в [справочнике REST](./api.md#guild-capture-setup).
+
+`profile publish` принимает папку, которую записал запуск арбитра с `-rimlinkExecutorCapture`: команда загружает все документы профиля, использует `profile-capture.json` как запись квалификации и утверждает профиль для указанного арбитра. В ответе есть `profileDigest`: его значение задаётся в `GuildCapture:ApprovedProfileDigest`. Полный порядок описан в [подготовке арбитра](./passive-outposts.md#guild-arbiter).
 
 Для размещения передайте в `place preview` JSON с полями `tile`, `resource` и `reason`. Сохраните ответ, после проверки добавьте `"confirmed": true` и передайте этот файл в `place`.
 

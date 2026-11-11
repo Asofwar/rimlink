@@ -49,6 +49,27 @@ public sealed class GuildProfileCaptureTools
         }
         catch(Exception error){return Bridge.Fail(error.Message);}
     }
+    [Tool("rimlink/guild_profile_verify",Description="Logged-in player: check this installation against a captured arbiter profile exactly as the battle viewer does before opening a battle")]
+    public async Task<object> Verify(IRimBridgeContext ctx,
+        [ToolParameter(Description="Folder written by -rimlinkExecutorCapture (profile.pb, profile-archive, profile-capture.json)",Required=true)]string directory)
+    {
+        try
+        {
+            directory=Path.GetFullPath(directory);
+            using var capture=JsonDocument.Parse(File.ReadAllBytes(Path.Combine(directory,"profile-capture.json")));
+            var profile=BattleExecutorProfile.Load(new(){ProfilePath=Path.Combine(directory,"profile.pb"),ArchiveRoot=Path.Combine(directory,"profile-archive"),
+                ProfileSha256=capture.RootElement.GetProperty("ProfileSha256").GetString()!,ProfileDigest=capture.RootElement.GetProperty("ProfileDigest").GetString()!});
+            return await Bridge.OnMain(ctx,()=>
+            {
+                var roots=BattleRuntimeCapture.ViewerRoots(profile);
+                var actual=BattleRuntimeCapture.Measure(new(){Roots=roots},viewer:true);
+                profile.VerifyViewerRuntime(actual);
+                return (object)new{success=true,compatible=true,profileDigest=Convert.ToHexStringLower(profile.Digest.Span),
+                    game=Path.GetDirectoryName(actual.GameBuildPath),client=actual.ClientBuildPath,mods=roots.Where(r=>r.Kind==BattleInventoryRoot.Mod).Select(r=>r.Path).ToArray()};
+            });
+        }
+        catch(Exception error){return Bridge.Fail(error.Message);}
+    }
     private static bool Same(string left,string right)=>Path.TrimEndingDirectorySeparator(Path.GetFullPath(left)).Equals(Path.TrimEndingDirectorySeparator(Path.GetFullPath(right)),OperatingSystem.IsWindows()?StringComparison.OrdinalIgnoreCase:StringComparison.Ordinal);
     private static bool Within(string file,string root)=>Same(file,root)||Path.GetFullPath(file).StartsWith(Path.TrimEndingDirectorySeparator(Path.GetFullPath(root))+Path.DirectorySeparatorChar,OperatingSystem.IsWindows()?StringComparison.OrdinalIgnoreCase:StringComparison.Ordinal);
     private static void NoLinks(string path)

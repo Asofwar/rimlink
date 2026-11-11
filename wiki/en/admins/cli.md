@@ -1,11 +1,11 @@
 ---
 pageId: admins/cli
-contentRevision: 13
+contentRevision: 14
 ---
 
 # CLI reference
 
-Applies to: Rimlink 0.10.1 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.10.2 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 
@@ -140,10 +140,13 @@ guild-capture freeze FILE
 guild-capture abort FILE
 guild-capture profile stage KIND FILE
 guild-capture profile approve FILE
+guild-capture profile publish DIRECTORY EXECUTOR_ID REASON
 guild-capture profile revoke FILE
 ```
 
 Run these through `rimlink-tools admin` with the server URL and admin token. `inspect` reads the committed state and Product admission. Placement, pre-Start cancellation, approval and revocation take a retained JSON request object. Keep the same file for an exact retry. Staging sends a binary document with its protocol kind number (1–7). See the [REST reference](./api.md#guild-capture-setup) for request fields and limits.
+
+`profile publish` takes the folder written by an arbiter run with `-rimlinkExecutorCapture`: it stages every profile document, uses `profile-capture.json` as the qualification record and approves the profile for the named arbiter. The reply carries `profileDigest`, the value of `GuildCapture:ApprovedProfileDigest`. The whole procedure is in [arbiter preparation](./passive-outposts.md#guild-arbiter).
 
 For placement, pass a JSON draft with `tile`, `resource` and `reason` to `place preview`. Save the response, add `"confirmed": true` after review and pass that file to `place`.
 

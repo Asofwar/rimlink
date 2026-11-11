@@ -66,7 +66,7 @@ public static class BattleRuntimeCapture
             Defs=m.AllDefs.Select(d=>d.GetType().FullName+":"+d.defName).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).Select(d=>
             {if(++count>65536)throw new InvalidDataException("loaded definition inventory exceeds bound");return d;}).ToArray()
         }).ToArray();
-        byte[] defs=JsonSerializer.SerializeToUtf8Bytes(new{Format="rimlink-battle-loaded-defs-v1",Packs=packs,ConfigSha256=SHA256.HashData(config)});
+        byte[] defs=JsonSerializer.SerializeToUtf8Bytes(new{Format="rimlink-battle-loaded-defs-v2",Packs=packs});
         if(config.Length>BattleManifestContracts.InventoryBytes || defs.Length>BattleManifestContracts.InventoryBytes)throw new InvalidDataException("measured battle documents exceed bounds");
         return new(mods,Outposts.OutpostManifestCapture.ActiveDlc(),config,defs,typeof(Pawn).Assembly.Location,typeof(object).Assembly.Location,
             typeof(BattleRules).Assembly.Location,typeof(BattleRuntimeCapture).Assembly.Location);

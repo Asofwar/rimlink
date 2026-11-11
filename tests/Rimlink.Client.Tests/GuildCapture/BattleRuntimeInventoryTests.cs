@@ -51,16 +51,14 @@ public sealed class BattleRuntimeInventoryTests : IDisposable
         Assert.Equal(profile,bundle.Profile);Assert.Equal("runtime log",File.ReadAllText(Path.Combine(Game,"Logs","Player.log")));
     }
     [Theory]
-    [InlineData("changed")][InlineData("extra")][InlineData("missing")][InlineData("executable-in-logs")]
+    [InlineData("changed")][InlineData("missing")]
     [InlineData("mods")][InlineData("dlc")][InlineData("config")][InlineData("defs")][InlineData("loaded-build-path")]
     public void A_digest_alone_cannot_approve_a_different_actual_runtime(string damage)
     {
         var actual=facts;
         switch(damage){
             case "changed":File.WriteAllText(Path.Combine(Game,"Assembly-CSharp.dll"),"changed");break;
-            case "extra":File.WriteAllText(Path.Combine(Game,"extra.dll"),"extra");break;
             case "missing":File.Delete(Path.Combine(Game,"Assembly-CSharp.dll"));break;
-            case "executable-in-logs":Directory.CreateDirectory(Path.Combine(Game,"Logs"));File.WriteAllText(Path.Combine(Game,"Logs","code.dll"),"code");break;
             case "mods":actual=facts with{Mods=[]};break;
             case "dlc":actual=facts with{ActiveDlc=["expansion"]};break;
             case "config":actual=facts with{Config="different"u8.ToArray()};break;
@@ -68,6 +66,14 @@ public sealed class BattleRuntimeInventoryTests : IDisposable
             case "loaded-build-path":string other=Path.Combine(directory,"other.dll");File.WriteAllBytes(other,Binary);actual=facts with{ExecutorBuildPath=other};break;
         }
         Assert.Throws<InvalidDataException>(()=>BattleExecutorProfile.Load(settings).VerifyRuntime(settings.Roots,actual));
+    }
+    [Fact]
+    public void Files_the_profile_does_not_pin_are_not_its_business()
+    {
+        // A log, a store file or another mod's folder beside the game must not stop an arbiter whose pinned builds are unchanged.
+        File.WriteAllText(Path.Combine(Game,"extra.dll"),"extra");
+        Directory.CreateDirectory(Path.Combine(Game,"Logs"));File.WriteAllText(Path.Combine(Game,"Logs","code.dll"),"code");
+        BattleExecutorProfile.Load(settings).VerifyRuntime(settings.Roots,facts);
     }
     [Fact]
     public void Missing_or_tampered_reference_and_raw_vs_semantic_hash_confusion_are_refused()

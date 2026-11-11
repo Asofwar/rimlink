@@ -672,6 +672,8 @@
   <Rimlink.GuildBattle.Executor.RecoveryRequired>Арбитр боя: требуется восстановление</Rimlink.GuildBattle.Executor.RecoveryRequired>
   <Rimlink.GuildBattle.Executor.RestoreCleanup>Арбитр боя: подтверждение очистки после восстановления</Rimlink.GuildBattle.Executor.RestoreCleanup>
   <Rimlink.GuildBattle.Executor.RestoreCleaned>Арбитр боя: восстановленная арена освобождена</Rimlink.GuildBattle.Executor.RestoreCleaned>
+  <Rimlink.GuildBattle.Executor.ProfileCaptured>Арбитр боя: профиль снят, закройте игру</Rimlink.GuildBattle.Executor.ProfileCaptured>
+  <Rimlink.GuildBattle.Executor.ProfileCaptureFailed>Арбитр боя: профиль не снят, смотрите журнал</Rimlink.GuildBattle.Executor.ProfileCaptureFailed>
   <Rimlink.GuildBattle.RecoveryRequired>Завершите восстановление боя перед входом игрока.</Rimlink.GuildBattle.RecoveryRequired>
   <Rimlink.GuildBattle.OpenFromCampaign>Откройте карту боя из его кампании.</Rimlink.GuildBattle.OpenFromCampaign>
   <Rimlink.GuildBattle.LiveView>Бой за форпост</Rimlink.GuildBattle.LiveView>

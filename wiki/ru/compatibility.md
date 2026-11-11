@@ -1,11 +1,11 @@
 ---
 pageId: compatibility
-contentRevision: 7
+contentRevision: 8
 ---
 
 # Версии и совместимость
 
-Применимость: Rimlink 0.10.1 · RimWorld 1.7 · протокол 1.
+Применимость: Rimlink 0.10.2 · RimWorld 1.7 · протокол 1.
 
 ## Как пользоваться {#usage}
 

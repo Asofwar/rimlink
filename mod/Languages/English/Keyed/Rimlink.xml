@@ -672,6 +672,8 @@
   <Rimlink.GuildBattle.Executor.RecoveryRequired>Battle arbiter: recovery required</Rimlink.GuildBattle.Executor.RecoveryRequired>
   <Rimlink.GuildBattle.Executor.RestoreCleanup>Battle arbiter: confirming restored arena cleanup</Rimlink.GuildBattle.Executor.RestoreCleanup>
   <Rimlink.GuildBattle.Executor.RestoreCleaned>Battle arbiter: restored arena released</Rimlink.GuildBattle.Executor.RestoreCleaned>
+  <Rimlink.GuildBattle.Executor.ProfileCaptured>Battle arbiter: profile captured, close the game</Rimlink.GuildBattle.Executor.ProfileCaptured>
+  <Rimlink.GuildBattle.Executor.ProfileCaptureFailed>Battle arbiter: profile capture failed, see the log</Rimlink.GuildBattle.Executor.ProfileCaptureFailed>
   <Rimlink.GuildBattle.RecoveryRequired>Finish battle recovery before opening a player session.</Rimlink.GuildBattle.RecoveryRequired>
   <Rimlink.GuildBattle.OpenFromCampaign>Open the battle map from its campaign.</Rimlink.GuildBattle.OpenFromCampaign>
   <Rimlink.GuildBattle.PreparedView>Prepared battle — no simulation</Rimlink.GuildBattle.PreparedView>

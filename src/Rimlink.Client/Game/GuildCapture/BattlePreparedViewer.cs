@@ -69,7 +69,7 @@ public sealed class BattlePreparedViewer
                 SaveGeneration=login.SaveGeneration,SaveWriteEpoch=login.SaveWriteEpoch};
             BattleGameContext.RequireIdleViewerHome(home);
             if(HasRetainedMarker(endpoint,login.Player.PlayerId))throw Invalid();
-            var actual=BattleRuntimeCapture.Measure(new(){Roots=roots},viewer:true);profile.VerifyViewerRuntime(roots,actual);
+            var actual=BattleRuntimeCapture.Measure(new(){Roots=roots},viewer:true);profile.VerifyViewerRuntime(actual);
             var component=Current.Game.GetComponent<RimlinkGameComponent>();
             component.OutpostRecovery=new(){Metadata=GuildDeliveryEvidence.PrepareRecipient(component.OutpostRecovery.Metadata,home,component.SaveGeneration,
                 component.SaveWriteEpoch,component.OutpostLoadFailure is not null,Current.Game.GetComponent<Outposts.PawnCustodyRegistry>().HasRecords)};
