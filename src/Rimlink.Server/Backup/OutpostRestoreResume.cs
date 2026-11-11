@@ -1,6 +1,5 @@
 using System.Security.Cryptography;
 using System.Text.Json;
-using Google.Protobuf;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Options;
 using Rimlink.Server.Application.Outposts;
@@ -18,7 +17,7 @@ public sealed partial class OutpostRestoreProcedure
         bool fenced = false;
         try
         {
-            var loaded = LoadJournal(dataDir, anchorDir, expectedRestoreId);
+            var loaded = LoadJournal(dataDir, anchorDir, expectedRestoreId, isolated);
             var selected = loaded.Intent.Selection;
             OutpostStorageProfile.Validate(selected.DataDirectory, selected.AnchorDirectory, selected.StorageContract, selected.QualifiedLinuxFileSystem);
             using var server = new FileStream(Path.Combine(selected.DataDirectory, BackupArchive.LockFile), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
@@ -26,7 +25,7 @@ public sealed partial class OutpostRestoreProcedure
             { AnchorDirectory = selected.AnchorDirectory, StorageContract = selected.StorageContract, QualifiedLinuxFileSystem = selected.QualifiedLinuxFileSystem }));
             using var authority = await anchor.AcquireAsync(ct);
             using var saves = await new SaveStorageLock(selected.DataDirectory).HoldAsync(ct);
-            var actual = LoadJournal(dataDir, anchorDir, expectedRestoreId);
+            var actual = LoadJournal(dataDir, anchorDir, expectedRestoreId, isolated);
             if (!loaded.IntentBytes.AsSpan().SequenceEqual(actual.IntentBytes)) return Held("restore-journal-changed-under-barrier");
             var journal = actual.Journal;
             var envelope = anchor.ReadEnvelope(authority);
@@ -35,12 +34,15 @@ public sealed partial class OutpostRestoreProcedure
             var inspected = await InspectAsync(selected.ArchivePath, selected.DataDirectory, selected.AnchorDirectory, ct);
             ValidateSelectedCut(actual.Intent, inspected);
             var previous = selected.ExternalRecord is null ? null : AnchorRecordCodec.Decode(selected.ExternalRecord);
-            if (journal.Phase == RestorePhase.Inspected && external == previous && previous is not null)
+            bool freshIsolated = isolated is not null && envelope is null;
+            if (journal.Phase == RestorePhase.Inspected && (freshIsolated || external == previous && previous is not null))
             {
                 await RecheckInitialFactsAsync(actual.Intent, inspected, ct);
                 await VerifyInventoryAsync(selected.DataDirectory, actual.Intent.OldFiles, ct);
+                await RequireUnoccupiedGuildDestinationAsync(selected.DataDirectory, actual.Intent.OldFiles, inspected.Manifest.Version == 3, ct);
+                if (freshIsolated) OutpostRestoreFence.RequireEmptyDestination(selected.DataDirectory);
                 fenced = true; // First attempted marker write has an unknown durable outcome on I/O failure.
-                anchor.WriteDurable(authority, previous with { Restore = new(selected.RestoreId, selected.TargetBoundary, ByteString.CopyFrom(journal.IntentDigest)) }, CancellationToken.None);
+                anchor.WriteEnvelopeDurable(authority, OutpostRestoreFence.Marker(actual.Intent, journal.IntentDigest), CancellationToken.None);
                 journal = journal with { Phase = RestorePhase.Fenced, Revision = checked(journal.Revision + 1) };
                 StoreJournal(actual.Root, journal);
             }
@@ -70,7 +72,7 @@ public sealed partial class OutpostRestoreProcedure
 
     internal sealed record LoadedRestore(string Root, RestoreIntent Intent, RestoreJournal Journal, byte[] IntentBytes);
 
-    internal static LoadedRestore LoadJournal(string dataDir, string anchorDir, string restoreId)
+    internal static LoadedRestore LoadJournal(string dataDir, string anchorDir, string restoreId, GuildAcceptanceRestorePermit? isolated = null)
     {
         if (!Guid.TryParseExact(restoreId, "D", out var id) || id == Guid.Empty) throw new InvalidDataException("restore-resume-id-invalid");
         string data = Path.TrimEndingDirectorySeparator(Path.GetFullPath(dataDir));
@@ -81,6 +83,7 @@ public sealed partial class OutpostRestoreProcedure
         var journal = JsonSerializer.Deserialize<RestoreJournal>(ReadJournalBytes(Path.Combine(root, "journal.json")), OutpostBackupManifest.Json)
             ?? throw new InvalidDataException("restore-journal-missing");
         var selection = intent.Selection;
+        if (selection.Isolated != isolated) throw GuildAcceptanceRestorePermit.Invalid();
         if (intent.Version != 1 || selection.Version != 1 || journal.Version != 1 || selection.RestoreId != restoreId || journal.RestoreId != restoreId
             || selection.DataDirectory != data || selection.AnchorDirectory != anchor || journal.Revision < 0 || !Enum.IsDefined(journal.Phase)
             || journal.OldSetReason.Length > 1024 || journal.IntentDigest.Length != 32 || intent.ManifestDigest.Length != 32

@@ -1,4 +1,5 @@
 using System.Net.Security;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 
 namespace Rimlink.Client.Net;
@@ -10,7 +11,7 @@ public sealed record ConnectionTransport(Uri Address, HttpMessageHandler Handler
     /// HTTP/2 over TLS with certificate pinning: a certificate whose fingerprint is not stored for the endpoint fails the
     /// handshake and is reported through <paramref name="unknown"/>, so the caller can ask the user and retry.
     /// </summary>
-    public static ConnectionTransport Pinned(ServerEndpoint endpoint, CertificatePinStore pins, Action<PinCheck> unknown)
+    public static ConnectionTransport Pinned(ServerEndpoint endpoint, CertificatePinStore pins, Action<PinCheck> unknown, string? requiredFingerprint = null)
     {
         var handler = new SocketsHttpHandler
         {
@@ -24,6 +25,7 @@ public sealed record ConnectionTransport(Uri Address, HttpMessageHandler Handler
                 {
                     if (certificate is null) return false;
                     using var cert = new X509Certificate2(certificate);
+                    if(requiredFingerprint is not null)return cert.GetCertHashString(HashAlgorithmName.SHA256).Equals(requiredFingerprint,StringComparison.OrdinalIgnoreCase);
                     var check = pins.Check(endpoint, cert);
                     if (check.Status == PinStatus.Trusted) return true;
                     unknown(check);

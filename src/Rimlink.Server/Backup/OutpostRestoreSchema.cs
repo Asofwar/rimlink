@@ -50,7 +50,7 @@ public sealed partial class OutpostRestoreProcedure
             throw new InvalidDataException("restore-schema-pre-r-authority-changed");
         var observed = await OutpostAuthority.ReadStoredChainAsync(db, new SaveFiles(DataDirectory.Existing(dataRoot ?? plan.Journal.Selection.DataDirectory)),
             authority, new(authority.HeadId, ByteString.CopyFrom(authority.HeadDigest)), currentRuntime: false, ct);
-        OutpostRestoreEvidence.ValidateSourceDomain(plan.DomainStep!, plan.Cut, observed, allowPostSchema);
+        OutpostRestoreEvidence.ValidateSourceDomain(plan.DomainStep!, plan.Cut, observed, allowPostSchema, plan.Journal.Selection.Isolated?.Source);
         var expected = await OutpostRestoreEvidence.CreatePlanAsync(db, plan.Journal, plan.JournalDigest, plan.Cut, ct,
             plan.CutManifest, plan.Version, plan.DomainStep, allowPostSchema);
         if (!OutpostRestoreEvidence.Same(expected with { NextHeadId = plan.NextHeadId }, plan))

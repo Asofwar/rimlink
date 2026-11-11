@@ -14,6 +14,7 @@ public static partial class OutpostAdminEndpoints
     public static void MapOutpostAdmin(this WebApplication app)
     {
         MapAuthorityAdmin(app);
+        MapGuildCaptureAdmin(app);
         var group = app.MapGroup("/api/admin/outposts/manifest").RequireAdmin();
         group.AddEndpointFilter(async (context, next) =>
         {

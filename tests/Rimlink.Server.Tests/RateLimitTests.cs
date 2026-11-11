@@ -49,6 +49,19 @@ public class RateLimitTests
     }
 
     [Fact]
+    public async Task Battle_control_renewal_allows_one_retry_but_is_not_a_hot_command_stream()
+    {
+        using var fixture=new ServerFixture().WithRateLimits().WithSetting("Auth:AllowPassword","true");
+        var player=await fixture.RegisterAndLogin("commander");
+        var api=new Protocol.V1.GuildCapture.GuildCaptureClient(fixture.CreateChannel());
+        for(int i=0;i<2;i++)
+            Assert.Equal(StatusCode.FailedPrecondition,(await Assert.ThrowsAsync<RpcException>(()=>api.ReconcileControlAsync(new(),Bearer(player.SessionToken)).ResponseAsync)).StatusCode);
+        Assert.Equal(StatusCode.ResourceExhausted,(await Assert.ThrowsAsync<RpcException>(()=>api.ReconcileControlAsync(new(),Bearer(player.SessionToken)).ResponseAsync)).StatusCode);
+        var other=await fixture.RegisterAndLogin("defender");
+        Assert.Equal(StatusCode.FailedPrecondition,(await Assert.ThrowsAsync<RpcException>(()=>api.ReconcileControlAsync(new(),Bearer(other.SessionToken)).ResponseAsync)).StatusCode);
+    }
+
+    [Fact]
     public async Task LimitsAreIndependentPerAccount()
     {
         using var fixture = new ServerFixture().WithRateLimits().WithSetting("Auth:AllowPassword", "true").WithSetting("RateLimit:Test", "2");

@@ -61,9 +61,12 @@ public sealed partial class OutpostAuthority
         if (command.Action == OutpostAdminActionKind.ActivateDomainFormat)
         {
             var activation = command.Activation!;
-            if (domain.Format != OutpostDomainFormat.V1 || activation.From != domain.Format || activation.To != OutpostDomainFormat.V2
+            bool guild = command.Version == 3;
+            if (domain.Format != (guild ? OutpostDomainFormat.V2 : OutpostDomainFormat.V1) || activation.From != domain.Format
+                || activation.To != (guild ? OutpostDomainFormat.V3 : OutpostDomainFormat.V2)
+                || guild && (!feature.CanActivateGuildFormat || !OutpostDomainSchema.HasGuildTables(domain.Schema))
                 || !activation.PreviousDomainDigest.AsSpan().SequenceEqual(tip.Effects) || command.Evidence.Length != 1) throw AdminMismatch();
-            return OutpostDomainFormat.V2;
+            return activation.To;
         }
         if (command.Action == OutpostAdminActionKind.Resolve && command.Version == 2)
         {

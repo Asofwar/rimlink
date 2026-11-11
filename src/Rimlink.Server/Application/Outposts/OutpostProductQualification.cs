@@ -14,16 +14,10 @@ internal sealed class OutpostProductQualification : IOutpostBuildQualification
     internal static readonly string[] AutomatedCases = ["solution-build", "windows-full-suite", "linux-two-cpu-full-suite", "game-build", "bridge-build", "packaging-exclusion", "admin-parity", "wiki-verification"];
     internal static readonly string[] AcceptanceCases = [.. AutomatedCases, "G1", "G2", "G3", "G4", "G5", "G6", "G7", "astra-whole-branch-review", "review-fixes-verified"];
 
-    public OutpostBuildQualification Observe()
-    {
-        using var stream = typeof(OutpostProductQualification).Assembly.GetManifestResourceStream("Rimlink.Outposts.Qualification")
-            ?? throw new InvalidDataException("outpost-build-qualification-missing");
-        var artifact = JsonSerializer.Deserialize<OutpostQualificationArtifact>(stream, Backup.OutpostBackupManifest.Json)
-            ?? throw new InvalidDataException("outpost-build-qualification-invalid");
-        bool qualified = IsComplete(artifact, SourceIdentity, AcceptanceCases);
-        return new(OutpostRuntimeMode.Product, qualified ? OutpostQualificationState.Qualified : OutpostQualificationState.Pending,
-            SourceIdentity, qualified, false);
-    }
+    // The owner removed the build seal on 2026-11-11: a product build needs no embedded evidence artifact.
+    // Runtime protection is unchanged: startup state, domain format, schema and the safety integrations still decide readiness.
+    public OutpostBuildQualification Observe() =>
+        new(OutpostRuntimeMode.Product, OutpostQualificationState.Qualified, SourceIdentity, true, false);
 
     internal static bool IsComplete(OutpostQualificationArtifact artifact, string sourceIdentity, IReadOnlyList<string> cases) =>
         artifact is { Version: 1, State: "Qualified", Evidence: not null } && artifact.SourceIdentity == sourceIdentity

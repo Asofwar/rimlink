@@ -41,7 +41,7 @@ public static class VisitSession
     /// <summary>Caravan (or pod) guests on the host's tile: copies of them go visiting; the originals wait where they are.</summary>
     public static void Begin(PlayerRef host, IReadOnlyList<Pawn> guests)
     {
-        if (!RimlinkSession.Active || RimlinkSession.Visits is not { } visits || RimlinkSession.Shop is not { } shop || Active || Pending is not null || Starting) return;
+        if (GuildCapture.BattleGameContext.Active || !RimlinkSession.Active || RimlinkSession.Visits is not { } visits || RimlinkSession.Shop is not { } shop || Active || Pending is not null || Starting) return;
         if (guests.Count == 0) { Messages.Message("Rimlink.Visit.NoPawns".Translate(), MessageTypeDefOf.RejectInput, historical: false); return; }
         List<PawnBlob> blobs;
         try
@@ -73,14 +73,14 @@ public static class VisitSession
                 MainThread.Post(() => { Starting = false; wait.Close(); Messages.Message("Rimlink.Visit.Failed".Translate(RefusalText.Of(refusal)), MessageTypeDefOf.RejectInput, historical: false); });
                 return;
             }
-            MainThread.Post(() => { Starting = false; SaveAndLoad(new VisitPending(ticket.VisitId, host.PlayerId, host.Name, blobs, shopList), wait, visits); });
+            MainThread.Post(() => { Starting = false; if (GuildCapture.BattleGameContext.Active) { wait.Close(); return; } SaveAndLoad(new VisitPending(ticket.VisitId, host.PlayerId, host.Name, blobs, shopList), wait, visits); });
         });
     }
 
     /// <summary>A live session (3b): the host's snapshot is loaded as a visit copy in mirror mode; the session is the ticket. Also used for a resync from inside the copy.</summary>
     public static void BeginLive(LiveSession session, Action onFailure)
     {
-        if (!RimlinkSession.Active || !IsCurrentLive(session) || RimlinkSession.Visits is not { } visits || RimlinkSession.Shop is not { } shop || Pending is not null || session.Host is null) { onFailure(); return; }
+        if (GuildCapture.BattleGameContext.Active || !RimlinkSession.Active || !IsCurrentLive(session) || RimlinkSession.Visits is not { } visits || RimlinkSession.Shop is not { } shop || Pending is not null || session.Host is null) { onFailure(); return; }
         var host = session.Host;
         var wait = new Dialog_Wait("Rimlink.Visit.Preparing".Translate(host.Name), new CancellationTokenSource());
         Find.WindowStack.Add(wait);
@@ -97,7 +97,7 @@ public static class VisitSession
         });
     }
 
-    private static bool IsCurrentLive(LiveSession? session) => session is null || Live.LiveGuest.Session?.Id == session.Id;
+    private static bool IsCurrentLive(LiveSession? session) => !GuildCapture.BattleGameContext.Active && (session is null || Live.LiveGuest.Session?.Id == session.Id);
 
     private static void Fail(VisitPending pending, Rimlink.Client.Visits.VisitClient visits, string reason, Action? onFailure)
     {

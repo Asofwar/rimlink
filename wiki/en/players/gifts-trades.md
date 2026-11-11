@@ -1,11 +1,11 @@
 ---
 pageId: players/gifts-trades
-contentRevision: 5
+contentRevision: 7
 ---
 
 # Gifts and two-way trades
 
-Applies to: Rimlink 0.9.2 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.10.0 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 
@@ -37,6 +37,9 @@ Threat/debt prevents adding new outflow. Return, confirm and cancel remain compl
 ## Limits and safety {#limits}
 
 The default trade lifetime is 7 days with at most 5 open trades. Closed trading and gift refusal are separate preferences. Accepting goods never requires sharing a password.
+
+
+Unreleased guild economy uses separate typed resource delivery acceptance. An ordinary mailbox receipt cannot confirm it: the client creates resources only after authorization and completes delivery after the exact snapshot is accepted. This path has not passed real-game acceptance and remains disabled.
 
 ## See also {#related}
 

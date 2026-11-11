@@ -23,7 +23,7 @@ public sealed class RecoveryCoordinator
         this.connection = connection; this.state = state; this.outbox = outbox; this.log = log; this.apply = apply; this.isCurrent = isCurrent ?? (() => true);
         Clients = new(new EconomyClient(connection), new Raids.RaidClient(connection), new Visits.ShopClient(connection), new Live.LiveClient(connection, log),
             new Social.TradesClient(connection), new Incidents.IncidentClient(connection), new Procurement.ProcurementClient(connection),
-            new Social.CommunityClient(connection), new Influence.InfluenceClient(connection), new Outposts.OutpostClient(connection));
+            new Social.CommunityClient(connection), new Influence.InfluenceClient(connection), new Outposts.OutpostClient(connection), new GuildCapture.GuildCaptureClient(connection));
     }
 
     public Task<ReplayReport> ReplayReadyAsync(CancellationToken ct)

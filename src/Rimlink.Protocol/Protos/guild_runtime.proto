@@ -1,0 +1,13 @@
+syntax = "proto3";
+package rimlink.v1;
+option csharp_namespace = "Rimlink.Protocol.V1";
+
+enum GuildRuntimeMode {
+  GUILD_RUNTIME_MODE_UNSPECIFIED = 0;
+  GUILD_RUNTIME_MODE_ISOLATED_ACCEPTANCE_V1 = 1;
+}
+// Explicit local test selection; protocol support does not enable Product.
+message GuildRuntimeTarget {
+  GuildRuntimeMode mode = 1;
+  string stand_id = 2;
+}

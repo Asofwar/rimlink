@@ -8,11 +8,11 @@ using Rimlink.Protocol;
 
 namespace Rimlink.Client.Economy;
 
-public enum OutboxKind { Send, Post, Deposit, Deliver, Launch, Land, Report, Buy, AckRemoval, Propose, TradeOpen, TradeSetSide, IncidentOrder, ProcurementCreate, ProcurementSupply, ProcurementCancel, AuctionPost, AuctionBid, AuctionCancel, Community, Influence, OutpostPrepare, OutpostCommit, OutpostCancel, OutpostMutate, OutpostBeginDelivery }
+public enum OutboxKind { Send, Post, Deposit, Deliver, Launch, Land, Report, Buy, AckRemoval, Propose, TradeOpen, TradeSetSide, IncidentOrder, ProcurementCreate, ProcurementSupply, ProcurementCancel, AuctionPost, AuctionBid, AuctionCancel, Community, Influence, OutpostPrepare, OutpostCommit, OutpostCancel, OutpostMutate, OutpostBeginDelivery, GuildBeginDelivery, GuildConsent, GuildCampaign, GuildClaim, GuildDefenderCommander }
 public enum OutboxPhase { Legacy, Prepared, Ready, Returning, RecoveryRequired }
 
 /// <summary>The typed clients a replay needs; a null client leaves entries of its kinds waiting.</summary>
-public sealed record OutboxClients(EconomyClient Economy, Raids.RaidClient? Raids, Visits.ShopClient? Shop, Live.LiveClient? Live = null, Social.TradesClient? Trades = null, Incidents.IncidentClient? Incidents = null, Procurement.ProcurementClient? Procurement = null, Social.CommunityClient? Community = null, Influence.InfluenceClient? Influence = null, Outposts.OutpostClient? Outposts = null);
+public sealed record OutboxClients(EconomyClient Economy, Raids.RaidClient? Raids, Visits.ShopClient? Shop, Live.LiveClient? Live = null, Social.TradesClient? Trades = null, Incidents.IncidentClient? Incidents = null, Procurement.ProcurementClient? Procurement = null, Social.CommunityClient? Community = null, Influence.InfluenceClient? Influence = null, Outposts.OutpostClient? Outposts = null, GuildCapture.GuildCaptureClient? Guild = null);
 
 /// <summary>One request whose answer has not been seen yet. The payload is the request itself, so it can be replayed or its contents returned.</summary>
 public sealed class OutboxEntry
@@ -32,6 +32,8 @@ public sealed class OutboxEntry
     public string? SnapshotId { get; set; }
     public OutpostJournal? Outpost { get; set; }
     public OrdinaryJournal? Ordinary { get; set; }
+    public GuildDeliveryJournal? Guild { get; set; }
+    public GuildOperationJournal? GuildOperation { get; set; }
 }
 
 public sealed record ReplayReport(int Completed, int Refused, int Pending);
@@ -64,7 +66,7 @@ public sealed partial class TransferOutbox
     {
         get { lock (gate) return entries.ToList(); }
     }
-    public bool HasUnresolved { get { lock (gate) return entries.Any(e => e.Phase == OutboxPhase.RecoveryRequired
+    public bool HasUnresolved { get { lock (gate) return entries.Any(e => e.Kind == OutboxKind.GuildBeginDelivery || e.Phase == OutboxPhase.RecoveryRequired
         || e.Phase == OutboxPhase.Legacy && NeedsSnapshot(e) || IsOutpost(e.Kind) && (e.Phase == OutboxPhase.Prepared
             || e.Outpost?.ReplyUnknown == true || e.Kind == OutboxKind.OutpostBeginDelivery && e.Outpost?.DeliveryReply is not null
                 && e.Outpost.AcceptedReceipt is null)); } }
@@ -143,7 +145,7 @@ public sealed partial class TransferOutbox
         {
             foreach (var entry in entries.ToArray())
             {
-                if (IsOutpost(entry.Kind) || entry.Phase == OutboxPhase.RecoveryRequired) continue;
+                if (IsGuildOperation(entry.Kind) || entry.Kind == OutboxKind.GuildBeginDelivery || IsOutpost(entry.Kind) || entry.Phase == OutboxPhase.RecoveryRequired) continue;
                 if (IsOrdinary(entry))
                 {
                     if (entry.Ordinary is null && selected) entry.Phase = OutboxPhase.RecoveryRequired;
@@ -196,6 +198,7 @@ public sealed partial class TransferOutbox
     {
         lock (gate)
         {
+            if (entries.SingleOrDefault(e => e.Id == id) is { Kind: OutboxKind.GuildBeginDelivery } guild && !CanRemoveGuild(guild)) throw InvalidGuildJournal();
             if (entries.RemoveAll(e => e.Id == id) > 0) Save();
         }
     }
@@ -211,7 +214,7 @@ public sealed partial class TransferOutbox
         lock (gate)
         {
             if (entries.FirstOrDefault(e => e.Id == id) is not { } entry) return false;
-            if (IsOutpost(entry.Kind)) { HoldForRecovery(entry.Id, refusal); return true; }
+            if (entry.Kind == OutboxKind.GuildBeginDelivery || IsOutpost(entry.Kind)) { HoldForRecovery(entry.Id, refusal); return true; }
             if (IsOrdinary(entry))
             {
                 // Record a business refusal without granting a return or downgrading an evidence hold.
@@ -254,6 +257,11 @@ public sealed partial class TransferOutbox
 
     public static IMessage Decode(OutboxEntry entry) => entry.Kind switch
     {
+        OutboxKind.GuildBeginDelivery => GuildDeliveryRequest.Parser.ParseFrom(entry.Payload),
+        OutboxKind.GuildConsent => GuildConsentRequest.Parser.ParseFrom(entry.Payload),
+        OutboxKind.GuildCampaign => GuildCampaignDeclaration.Parser.ParseFrom(entry.Payload),
+        OutboxKind.GuildDefenderCommander => GuildDefenderCommanderAssignment.Parser.ParseFrom(entry.Payload),
+        OutboxKind.GuildClaim => GuildClaimRequest.Parser.ParseFrom(entry.Payload),
         OutboxKind.OutpostPrepare => OutpostPrepareRequest.Parser.ParseFrom(entry.Payload),
         OutboxKind.OutpostCommit => OutpostProofRequest.Parser.ParseFrom(entry.Payload),
         OutboxKind.OutpostCancel => OutpostCancelRequest.Parser.ParseFrom(entry.Payload),
@@ -295,7 +303,7 @@ public sealed partial class TransferOutbox
         // replay lookup, so a request applied before the freeze still returns its result and a refused one was never applied.
         if (ex.StatusCode == StatusCode.ResourceExhausted) return false;
         if (EconomyClient.CodeOf(ex) is { } code) return code is not (ErrorCode.EconomyFrozen or ErrorCode.InfluenceUnavailable or ErrorCode.RecoveryRequired
-            or ErrorCode.RequestIntentMismatch or ErrorCode.SaveWriteEpochMismatch or ErrorCode.RecoveryClientRequired or ErrorCode.OutpostUnavailable);
+            or ErrorCode.RequestIntentMismatch or ErrorCode.SaveWriteEpochMismatch or ErrorCode.RecoveryClientRequired or ErrorCode.OutpostUnavailable or ErrorCode.GuildUnavailable);
         return ex.StatusCode is StatusCode.InvalidArgument or StatusCode.FailedPrecondition or StatusCode.NotFound
             or StatusCode.PermissionDenied or StatusCode.AlreadyExists or StatusCode.OutOfRange or StatusCode.Unimplemented;
     }
@@ -319,6 +327,8 @@ public sealed partial class TransferOutbox
         int completed = 0, refused = 0, pending = 0;
         foreach (var entry in Entries)
         {
+            if (entry.Kind == OutboxKind.GuildBeginDelivery && entry.Guild?.Authorization is not null && entry.Guild.AcceptedReceipt is null)
+            { pending++; continue; }
             if (IsOutpost(entry.Kind) && QuarantineForLogin(entry, authentication, clients.Outposts)) { pending++; continue; }
             if (IsOutpost(entry.Kind) && entry.Outpost?.DeliveryReply is not null && entry.Outpost.AcceptedReceipt is null)
             { pending++; continue; }
@@ -333,7 +343,7 @@ public sealed partial class TransferOutbox
                 if (!CanReplay(clients, entry.Kind)) { pending++; continue; }
                 outcome = await Attempt(clients, entry, authentication!, ct);
             }
-            if (outcome is null && !IsOutpost(entry.Kind) && entry.Ordinary is null)
+            if (outcome is null && entry.Kind != OutboxKind.GuildBeginDelivery && !IsOutpost(entry.Kind) && entry.Ordinary is null)
             {
                 await Task.Delay(TimeSpan.FromSeconds(2), ct);
                 outcome = await Attempt(clients, entry, authentication!, ct);
@@ -359,11 +369,12 @@ public sealed partial class TransferOutbox
     /// <summary>True: answered. False: refused for good (entry marked, or removed for a deliver). Null: still unknown.</summary>
     public static bool ReadyFor(OutboxEntry entry, LoginReply? login) => login is not null
         && entry.SaveGeneration == login.SaveGeneration && entry.SaveWriteEpoch == login.SaveWriteEpoch
-        && (IsOutpost(entry.Kind) ? OutpostReadyFor(entry, login) : IsOrdinary(entry) ? OrdinaryReadyFor(entry, login)
+        && (IsGuildOperation(entry.Kind) ? GuildOperationReadyFor(entry, login) : entry.Kind == OutboxKind.GuildBeginDelivery ? GuildReadyFor(entry, login) : IsOutpost(entry.Kind) ? OutpostReadyFor(entry, login) : IsOrdinary(entry) ? OrdinaryReadyFor(entry, login)
             : entry.Phase == OutboxPhase.Ready || entry.Phase == OutboxPhase.Legacy && !NeedsSnapshot(entry));
 
     private static bool CanReplay(OutboxClients clients, OutboxKind kind) => kind switch
     {
+        OutboxKind.GuildBeginDelivery or OutboxKind.GuildConsent or OutboxKind.GuildCampaign or OutboxKind.GuildClaim or OutboxKind.GuildDefenderCommander => clients.Guild is not null,
         OutboxKind.OutpostPrepare or OutboxKind.OutpostCommit or OutboxKind.OutpostCancel or OutboxKind.OutpostMutate
             or OutboxKind.OutpostBeginDelivery => clients.Outposts is not null,
         OutboxKind.Launch or OutboxKind.Land or OutboxKind.Report => clients.Raids is not null,
@@ -387,6 +398,7 @@ public sealed partial class TransferOutbox
     /// </summary>
     private static bool NothingToReturn(OutboxEntry entry)
     {
+        if (IsGuildOperation(entry.Kind)) return true;
         if (entry.Kind is OutboxKind.Deliver or OutboxKind.Land or OutboxKind.Buy or OutboxKind.AckRemoval or OutboxKind.IncidentOrder or OutboxKind.Community or OutboxKind.Influence) return true;
         return Decode(entry) switch
         {
@@ -412,6 +424,8 @@ public sealed partial class TransferOutbox
         if (!ReferenceEquals(economy.Connection.Login, authentication) || !ReadyFor(entry, authentication)) return null;
         try
         {
+            if (entry.Kind == OutboxKind.GuildBeginDelivery) return await economy.Connection.ForAuthentication(authentication,
+                () => AttemptGuild(clients.Guild!, entry, ct));
             if (IsOutpost(entry.Kind)) return await economy.Connection.ForAuthentication(authentication,
                 () => AttemptOutpost(clients.Outposts!, entry, ct));
             await economy.Connection.ForAuthentication(authentication, async () =>
@@ -447,6 +461,10 @@ public sealed partial class TransferOutbox
 
                     case OutboxKind.Community: await clients.Community!.Mutate(CommunityRequest.Parser.ParseFrom(entry.Payload), ct); break;
                     case OutboxKind.Influence: await clients.Influence!.Mutate(InfluenceMutation.Parser.ParseFrom(entry.Payload), ct); break;
+                    case OutboxKind.GuildConsent: await clients.Guild!.AcceptConsent(GuildConsentRequest.Parser.ParseFrom(entry.Payload), ct); break;
+                    case OutboxKind.GuildCampaign: await clients.Guild!.DeclareCampaign(GuildCampaignDeclaration.Parser.ParseFrom(entry.Payload), ct); break;
+                    case OutboxKind.GuildDefenderCommander: await clients.Guild!.AssignDefenderCommander(GuildDefenderCommanderAssignment.Parser.ParseFrom(entry.Payload), ct); break;
+                    case OutboxKind.GuildClaim: await clients.Guild!.ClaimResources(GuildClaimRequest.Parser.ParseFrom(entry.Payload), ct); break;
                 }
             });
             log.Info($"outbox: {entry.Kind} {entry.Id} answered on replay");
@@ -472,6 +490,7 @@ public sealed partial class TransferOutbox
         }
         catch (Exception ex)
         {
+            if (entry.Kind == OutboxKind.GuildBeginDelivery) MarkGuildReplyUnknown(entry.Id);
             if (IsOutpost(entry.Kind)) MarkReplyUnknown(entry.Id);
             log.Warn($"outbox: {entry.Kind} {entry.Id} still unanswered: {ex.Message}");
             return null;
@@ -482,7 +501,13 @@ public sealed partial class TransferOutbox
     {
         try
         {
-            if (File.Exists(path)) return JsonSerializer.Deserialize<List<OutboxEntry>>(File.ReadAllText(path), Json) ?? throw new InvalidDataException("empty outbox document");
+            if (File.Exists(path))
+            {
+                var loaded = JsonSerializer.Deserialize<List<OutboxEntry>>(File.ReadAllText(path), Json) ?? throw new InvalidDataException("empty outbox document");
+                foreach (var entry in loaded.Where(e => e.Kind == OutboxKind.GuildBeginDelivery)) _ = ReadGuild(entry);
+                foreach(var entry in loaded.Where(e=>IsGuildOperation(e.Kind))) _ = ReadGuildOperation(entry);
+                return loaded;
+            }
         }
         catch (Exception ex)
         {
@@ -496,7 +521,7 @@ public sealed partial class TransferOutbox
     {
         WriteDocument(path, JsonSerializer.SerializeToUtf8Bytes(entries, Json));
     }
-    private static void WriteDocument(string path, byte[] content)
+    internal static void WriteDocument(string path, byte[] content)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
         string temp = path + ".tmp-" + Guid.NewGuid().ToString("N");

@@ -2,7 +2,7 @@
   <img src="docs/images/banner.jpg" alt="Rimlink: persistent multiplayer for RimWorld 1.7">
 </p>
 
-Version **0.9.2** includes the passive-outpost implementation with Product qualification **Pending** and the capability disabled. Real two-client G1–G7 acceptance and the final branch review are complete; the seven required fixes have been verified. These checks retain their actual source/build boundaries and do not qualify the release build for Product activation. Administrative readiness and isolated acceptance are described in the [EN](wiki/en/admins/passive-outposts.md) and [RU](wiki/ru/admins/passive-outposts.md) Wiki sources. Update the server and client mod together.
+Version **0.10.0** adds guild resource outposts that change hands automatically after a battle run by the operator's arbiter, and removes the build qualification seal: passive outposts and guild capture are now enabled by server configuration and domain-format activation. Both settings are off by default. Setup is described in the [EN](wiki/en/admins/passive-outposts.md) and [RU](wiki/ru/admins/passive-outposts.md) Wiki sources. Update the server and client mod together.
 
 The server and CLI require the qualified .NET and ASP.NET runtime **10.0.14**; source builds use SDK **10.0.403**. The packaged runtime policy requires this patch explicitly. Keep original executors and runtime installations for unfinished frozen restore plans; see the [server setup](docs/server-setup.md).
 
@@ -21,6 +21,21 @@ raid or manage a colony together live.
 
 Rimlink is a clean-room project with its own protocol, server and client. It shares no code with other RimWorld multiplayer
 mods and does not work with them.
+
+## What's new in 0.10.0
+
+[Release 0.10.0](https://github.com/Asofwar/rimlink/releases/tag/v0.10.0) adds **guild outposts**: an administrator places up to 32 resource
+outposts (steel or wood) in the world, a guild leader accepts the ownership terms, and the outpost produces into a shared stock
+that the leader hands out to members' home colonies. Another guild can declare an attack; the battle is two standard squads of
+four fighters on an isolated map, simulated by a separate RimWorld process the server operator runs as the arbiter. The result
+transfers the outpost without the loser's confirmation; the previous owner keeps the stock produced so far.
+
+Passive outposts (personal, introduced in 0.9.0) and guild capture no longer need a qualification seal built into the server:
+`Outposts:Enabled` and `GuildCapture:Enabled` plus the documented activation steps turn them on. A world activated for guild
+capture (domain format V3) does not offer personal outposts. Guild capture needs the operator's arbiter process; without one
+no battle starts. The capture flow, delivery and backup restore were exercised in the real game on isolated stands on
+10–11 November 2026, on builds that preceded the final 0.10.0 source; see the
+[verification report](docs/verification/2026-11-08-guild-capture-product.md) for what was and was not re-run.
 
 ## What's new in 0.8.1
 

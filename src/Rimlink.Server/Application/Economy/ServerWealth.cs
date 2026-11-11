@@ -44,8 +44,16 @@ public sealed class ServerWealth(RimlinkDbContext db, IOptions<EconomyOptions> o
         var current = await db.SaveVersions.AsNoTracking().FirstOrDefaultAsync(v => v.PlayerId == playerId && v.IsCurrent);
         var received = SaveStore.RecoveryOf(current).ParcelIds.ToHashSet();
         var outpostParcels = await db.OutpostParcelLinks.AsNoTracking().Where(p => p.PlayerId == playerId).ToDictionaryAsync(p => p.ParcelId);
+        var guildParcels = await (from link in db.Set<GuildParcelLink>().AsNoTracking()
+            join claim in db.Set<GuildResourceClaim>().AsNoTracking() on link.ClaimId equals claim.Id
+            where claim.RecipientId == playerId select link).ToDictionaryAsync(p => p.ParcelId);
         foreach (var parcel in await db.Parcels.AsNoTracking().Where(p => p.ToPlayerId == playerId && p.DeliveredAt == null).ToListAsync())
         {
+            if (guildParcels.TryGetValue(parcel.Id, out var guildLink))
+            {
+                if (guildLink.AcceptedSnapshotId is null) sum += guildLink.ValueX100 / 100m;
+                continue;
+            }
             if (outpostParcels.TryGetValue(parcel.Id, out var link))
             {
                 if (link.AcceptedSnapshotId is not null) continue;

@@ -73,7 +73,7 @@ public static partial class OutpostAdminIntentCodec
             // No decoded field or caller-owned buffer is retained by reference.
             var r = new CanonicalReader((byte[])bytes.Clone());
             if (!r.Raw(8).SequenceEqual("RLOADMIN"u8)) throw Invalid();
-            int version = r.Number(); if (version is not (1 or 2)) throw Invalid();
+            int version = r.Number(); if (version is not (1 or 2 or 3)) throw Invalid();
             var actor = new Actor(r.Long(), r.Long(), (Role)r.Number(), r.Text(256));
             string request = r.Text(36), reason = r.Text(1024);
             var observation = ReadObservation(r);
@@ -135,8 +135,10 @@ public static partial class OutpostAdminIntentCodec
 
     private static void Validate(OutpostAdminIntent? i)
     {
-        if (i is null || i.Version is not (1 or 2) || !Enum.IsDefined(i.Action)) throw Invalid();
+        if (i is null || i.Version is not (1 or 2 or 3) || !Enum.IsDefined(i.Action)) throw Invalid();
         if (i.Version == 1 && i.Recovery is not null || i.Version == 2 && (i.Action != OutpostAdminActionKind.Resolve || i.Recovery is null || i.Resolution is not null)) throw Invalid();
+        if (i.Version == 3 && (i.Action != OutpostAdminActionKind.ActivateDomainFormat || i.Recovery is not null)
+            || i.Version < 3 && i.Expected.Committed?.DomainFormat == OutpostDomainFormat.V3) throw Invalid();
         ValidateActor(i.Actor); Uuid(i.RequestId); Text(i.Reason, 1024);
         ValidateObservation(i.Expected);
         if (i.Allocation is not { AuditId: > 0 } a || a.At.Kind != DateTimeKind.Utc) throw Invalid();
@@ -167,8 +169,12 @@ public static partial class OutpostAdminIntentCodec
         switch (i.Action)
         {
             case OutpostAdminActionKind.ActivateDomainFormat:
-                if (i.Activation is not { From: OutpostDomainFormat.V1, To: OutpostDomainFormat.V2 } f || committed.DomainFormat != f.From
-                    || f.MigrationId != OutpostDomainSchema.AdminMigrationId) throw Invalid();
+                var f = i.Activation ?? throw Invalid();
+                bool guild = i.Version == 3;
+                if (committed.DomainFormat != f.From || (guild
+                    ? f.From != OutpostDomainFormat.V2 || f.To != OutpostDomainFormat.V3 || f.MigrationId != GuildCapture.GuildDomainDigest.MigrationId
+                        || !OutpostDomainSchema.HasGuildTables(new(f.SourceSchema.ProfileId, ByteString.CopyFrom(f.SourceSchema.Digest), true))
+                    : f.From != OutpostDomainFormat.V1 || f.To != OutpostDomainFormat.V2 || f.MigrationId != OutpostDomainSchema.AdminMigrationId)) throw Invalid();
                 Hash(f.PreviousDomainDigest); Schema(f.SourceSchema); Schema(f.TargetSchema);
                 SameSchema(f.SourceSchema, f.TargetSchema); SameSchema(f.SourceSchema, committed.Schema);
                 break;

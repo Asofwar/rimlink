@@ -58,7 +58,10 @@ public class AuctionLifecycleTests
     [Fact]
     public async Task FrozenOrFailingAuctionsDoNotStarveLaterDeadlines()
     {
-        using var f = EconomyServer();
+        var clock = new ManualTimeProvider();
+        // The background sweep must stay earlier than the deadlines tested by the manual sweep.
+        var sweepAt = clock.Now.UtcDateTime.AddHours(3);
+        using var f = EconomyServer().WithServices(s => s.AddSingleton<TimeProvider>(clock));
         var frozen = await f.RegisterAndLogin("frozen"); var seller = await f.RegisterAndLogin("seller");
         using (var scope = f.Services.CreateScope())
         {
@@ -66,12 +69,12 @@ public class AuctionLifecycleTests
             for (int i = 0; i < 101; i++) db.Set<AuctionRow>().Add(new AuctionRow
             {
                 SellerPlayerId = i < 100 ? frozen.Player.PlayerId : seller.Player.PlayerId, Items = Items(("Steel", 1)).ToByteArray(), StartPrice = 1,
-                CreatedAt = DateTime.UtcNow.AddHours(-2), ExpiresAt = DateTime.UtcNow.AddHours(-1), MaxExpiresAt = DateTime.UtcNow.AddMinutes(-55),
+                CreatedAt = sweepAt.AddHours(-2), ExpiresAt = sweepAt.AddHours(-1), MaxExpiresAt = sweepAt.AddMinutes(-55),
             });
             await db.SaveChangesAsync();
             await scope.ServiceProvider.GetRequiredService<PlayerFreeze>().Set(frozen.Player.PlayerId, true, "test");
         }
-        Assert.Equal(1, await Sweep(f, DateTime.UtcNow));
+        Assert.Equal(1, await Sweep(f, sweepAt));
         Assert.Equal(seller.Player.PlayerId, await Db(f, db => db.Parcels.Select(p => p.ToPlayerId).SingleAsync()));
     }
 

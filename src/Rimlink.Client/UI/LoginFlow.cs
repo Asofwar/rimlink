@@ -16,8 +16,10 @@ public static class LoginFlow
     /// Main thread. The UI ignores the result; dev tooling passes preset credentials and pin answers and awaits where the
     /// flow ended. A preset login that ran out of attempts is <see cref="LoginOutcomeKind.Failed"/> with the server's reason.
     /// </summary>
-    public static Task<LoginOutcome> Run(ServerEndpoint endpoint, GameCredentials? credentials = null, IPinPrompt? pins = null, bool fromRestart = false)
+    public static Task<LoginOutcome> Run(ServerEndpoint endpoint, GameCredentials? credentials = null, IPinPrompt? pins = null, bool fromRestart = false, Rimlink.Client.GuildCapture.GuildAcceptanceSelection? acceptance = null)
     {
+        if(Game.GuildCapture.BattleExecutorStartup.Selected || !Game.GuildCapture.BattlePreparedViewer.PrepareEntryLogin())
+            return Task.FromResult(new LoginOutcome(LoginOutcomeKind.Failed,"Rimlink.GuildBattle.RecoveryRequired".Translate()));
         if (ModpackDownloadFlow.JoinBlocker() is { } blocker)
         {
             string error = (blocker switch { "Busy" => "Rimlink.Delivery.Error.Busy", "RestartRequired" => "Rimlink.Delivery.Error.RestartRequired", _ => "Rimlink.Delivery.Error.RecoveryRequired" }).Translate();
@@ -36,7 +38,7 @@ public static class LoginFlow
             RimlinkConnection? connection = null;
             try
             {
-                connection = new RimlinkConnection(endpoint, credentials, pins, RimlinkLog.Instance);
+                connection = new RimlinkConnection(endpoint, credentials, pins, RimlinkLog.Instance, acceptance: acceptance);
                 var reply = await Login(connection, credentials, endpoint, wait, cts.Token);
 
                 if (reply.SessionToken.Length == 0)
@@ -55,17 +57,18 @@ public static class LoginFlow
                 if (!ModpackJoinReadiness.MayContinue(deliveryVerified, reply.Role, fromRestart))
                     throw new IOException(await MainThread.Get(() => "Rimlink.Delivery.Error.InstalledMismatch".Translate().ToString()));
                 if (!deliveryVerified) RimlinkLog.Instance.Warn("manual admin login: modpack delivery remains unverified; backups retained");
+                var retainedHome=await MainThread.Get(()=>Game.GuildCapture.BattlePreparedViewer.ReadRetained(endpoint,reply.Player.PlayerId));
                 await MainThread.Get(() => { RimlinkSession.Begin(endpoint, connection, reply); return true; });
                 var outbox = RimlinkSession.Outbox!;
                 outbox.QuarantineOutsideScope(reply.SaveGeneration, reply.SaveWriteEpoch);
-                if (reply.OutpostVersion == 0 && outbox.HasUnresolved)
+                if (reply.OutpostVersion == 0 && reply.GuildVersion == 0 && outbox.HasUnresolved)
                     throw new IOException(await MainThread.Get(() => "Rimlink.Refusal.Recovery.Required".Translate().ToString()));
                 MainThread.Post(DevModeGuard.OnSessionBegan);
                 MainThread.Post(() => wait.Text = "Rimlink.Flow.LoadingWorld".Translate());
                 var world = await connection.ForAuthentication(reply,
                     () => connection.World.GetAsync(new Empty(), cancellationToken: cts.Token).ResponseAsync);
                 OutpostScopeMessage? outpostScope = null;
-                if (reply.OutpostVersion == OutpostRecoveryData.CurrentVersion)
+                if (reply.OutpostVersion == OutpostRecoveryData.CurrentVersion || reply.GuildVersion == GuildResourceContracts.CurrentVersion)
                 {
                     RequireCurrentLogin();
                     if (!world.Exists) throw new InvalidDataException("outpost world context is unavailable");
@@ -83,6 +86,14 @@ public static class LoginFlow
                     RimlinkSession.State.LoadSnapshot(objects, history, reply.Online.Count > 0 ? reply.Online : [reply.Player]);
                     ForeignSettlements.Subscribe(); return true;
                 });
+
+                if(retainedHome is not null)
+                {
+                    await RequireSaveMods(retainedHome.HomeFile);
+                    await retainedHome.RecoverRetainedHome(endpoint,connection,reply,cts.Token);
+                    MainThread.Post(() => wait.Close());
+                    return new LoginOutcome(LoginOutcomeKind.Loading);
+                }
 
                 string savePath = SaveSync.SaveFilePath;
                 var pending = SaveSync.Pending;

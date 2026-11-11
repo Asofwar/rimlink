@@ -1,17 +1,17 @@
 ---
 pageId: admins/passive-outposts
-contentRevision: 23
+contentRevision: 35
 ---
 
 # Outposts: readiness, administration and isolated acceptance
 
-## Product remains Pending {#usage}
+## Enabling outposts {#usage}
 
 The 10.0.14 executor uses the separate qualification rimlink-outposts-schema-20261107-runtime14 and its provider-v1 profile; the historical 10.0.13 qualification is unchanged. Qualification, provider profile and recorded Framework must match as one exact tuple. Unknown patches and mixed tuples refuse. Fresh/pre-DDL execution preserves exact artifact hash/MVID/provider/recipe equality; after proven post-schema state, legacy witness validation retains the no-DDL path. The server/CLI runtimeconfigs require 10.0.14 explicitly; do not bypass this policy with a runtime override.
 
-The project version is 0.9.2; changing the version does not enable Product.
+The project version is 0.10.0. The build qualification seal was removed in 0.10.0: the feature is enabled by server configuration and domain-format activation, while the startup-state, format, schema and storage checks apply as before.
 
-Version 0.9.2 ships a Pending embedded build artifact. `Outposts:Enabled=true`, an admin account, schema migration, a confirmed manifest or a successful private build cannot qualify Product. The release keeps the capability disabled. Update the server and client mod together.
+Build 0.10.0 needs no embedded qualification artifact. Personal outposts are advertised to players once `Outposts:Enabled=true` is set, the authority is initialized, the world manifest is confirmed, format V2 is activated and the startup state is Ready. The release keeps the capability disabled. Update the server and client mod together.
 
 The one readiness evaluator reports configuration, the fixed ten safety integrations and contract revisions, build qualification, actual startup state, chain-proved domain format, current schema, advertised capability, custody recovery and retained-history protection. Unknown fails closed. `Enabled=false` closes new gameplay, but never removes custody fences. Migrated domain v1 is `FormatActivationRequired`, not corrupt history: inspection and explicit v2 activation remain available while ordinary domain writers are closed. `NoActiveWorld` remains admin-only. Only the existing proved Completed Recreate path may bind a successor world through its separate evaluator gate; it does not enable ordinary recovery before real Ready.
 
@@ -28,6 +28,8 @@ Save the whole returned command before submitting it with `confirmed:true`. The 
 Initialization requires positively empty protected history, an already physically provisioned qualified NULL anchor, the actual world binding and exact schema/backend/location observation. It never initializes over missing/corrupt authority with history. An interrupted initialization needs the same original complete command/allocation; its digest alone is insufficient. Physical provisioning and restore/resume/backout remain separate stopped-server procedures, not online repair buttons.
 
 ## Manifest and recovery choices {#recovery}
+
+After a restore to a different address or port, the client checks a parcel against the v2 gameplay fingerprint of its confirmed manifest. Rimlink's local server list does not affect that fingerprint. Manifests without v2 still require an exact match against the original v1 fingerprint. On an isolated test stand, `rimlink/outpost_manifest_preview` shows both fingerprints without uploading or confirming a manifest.
 
 Before the first export, populate the server's def catalog from the active modpack. The full catalog must include the main world's biome names plus `Steel` and `WoodLog`. `rimlink-tools modpack defs` scans ThingDef and PawnKindDef only. Use the authenticated `PUT /api/admin/modpack/defs` with `{"defNames":[...]}` to submit the complete list, including biome names. This replaces the whole catalog, so retain the allowed item and pawn names when adding biomes. An empty catalog rejects a world manifest.
 
@@ -47,13 +49,13 @@ Archive/reset/backup diagnostics are advisory. A readiness-only observation does
 
 ## Isolated host and build-only qualification {#acceptance}
 
-`tools/Rimlink.OutpostAcceptanceHost` is a dev-only executable, excluded from ordinary published server/CLI/mod artifacts and the final Docker image. It uses the same application builder, routes, backend, authorization and storage checks. Its internal nonserialized provider identifies IsolatedAcceptance/Pending and waives only the circular requirement for the future Product acceptance seal. It does not waive integrations, automated prerequisites, client versions, authority, exact proofs or locks. There is no ordinary runtime flag or config key for this mode.
+`tools/Rimlink.OutpostAcceptanceHost` is a dev-only executable, excluded from ordinary published server/CLI/mod artifacts and the final Docker image. It uses the same application builder, routes, backend, authorization and storage checks. Its internal nonserialized provider identifies the IsolatedAcceptance mode of an isolated stand. It does not waive integrations, automated prerequisites, client versions, authority, exact proofs or locks. There is no ordinary runtime flag or config key for this mode.
 
 The dev executable carries the real panel files in its build output and uses that explicit web root. Comparing panel bytes against the embedded source inventory does not replace checking the rendered page in a browser. An admin-only host defers constructing domain writers and admits them when the same evaluator later observes real Ready after the proved successor bind. Each started writer continues rechecking the gate.
 
 Before a separately authorized Task16 start, an explicit stand descriptor must bind a canonical private root containing separate data, external anchor, backups/archive, game copy and two save roots; unique stand-owned host/guest game IDs; exact compiled mod/companion/core/protocol binaries; loopback port; configuration and prerequisite files. Preparation owns only empty private state and never provisions authority. Reparse/alias paths, hard links in owned state, foreign files, changed configuration, wrong binary identities/evidence or a second ownership lock refuse. Restart rechecks them. The host clears inherited configuration sources and loads only the owned stand file; it does not copy production auth, launch shared games, edit MCP configuration or terminate processes.
 
-Build-only `scripts/Seal-OutpostQualification.ps1` rebuilds the dev tool before evaluating an explicit evidence record. Candidate output remains Pending. Seal refuses unless every required automated case, actual G1–G7, real Astra whole-branch review and verified fixes has PASS evidence for the exact embedded safety-source identity, with matching evidence-file SHA-256. Tests using synthetic records prove refusal/evaluation logic only; they are not acceptance evidence. No real seal has been generated. The artifact is embedded in a later build and excluded from its own source hash; runtime configuration, admin APIs, data/anchor or a copied backup cannot change it. A relevant source change invalidates the old qualification.
+Build-only `scripts/Seal-OutpostQualification.ps1` rebuilds the dev tool before evaluating an explicit evidence record. Candidate writes Pending to its own output file. Seal refuses unless every required automated case, actual G1–G7, real Astra whole-branch review and verified fixes has PASS evidence for the exact embedded safety-source identity, with matching evidence-file SHA-256. Tests using synthetic records prove refusal/evaluation logic only; they are not acceptance evidence. No real seal has been generated, and server 0.10.0 does not need one. The artifact is embedded in a later build and excluded from its own source hash; runtime configuration, admin APIs, data/anchor or a copied backup cannot change it. A relevant source change invalidates the old qualification.
 
 For a positively empty stopped new stand, the separate `provision <stand.json>` command calls the existing `OutpostAnchorStore.Provision()`, verifies the physical Record=NULL singleton and creates no logical authority. Neither `prepare` nor `run` performs provisioning. Repeat provisioning, history, a partial store or a busy lock refuses while retaining files.
 
@@ -83,7 +85,25 @@ When RimWorld updates, rebuild the mod and the development companion against the
 
 Immutable trigger SQL in the outpost migrations uses explicit CRLF bytes, so an LF source checkout produces the same qualified catalog. The six existing profile IDs and digests are unchanged; unknown LF-only trigger catalogs still refuse without repair. Updating the assembly does not replace the executor of an already frozen restore plan.
 
-Real G1–G7 acceptance has completed on isolated two-client stands, followed by one final branch review and verification of all seven required fixes. Evidence preserves each source/build boundary: the affected game routes were checked in four real scenarios, and the final server-only valuation edge was checked separately. These results have not been resealed as a Product qualification for the release build. Product remains Pending/off. Builds and targeted unit/RPC checks do not replace two real clients. Never delete server.lock, save-storage.lock, an anchor, return fence or restore journal to force readiness.
+Real G1–G7 acceptance has completed on isolated two-client stands, followed by one final branch review and verification of all seven required fixes. Evidence preserves each source/build boundary: the affected game routes were checked in four real scenarios, and the final server-only valuation edge was checked separately. Since 0.10.0 enabling depends on configuration and format activation, without a seal. Builds and targeted unit/RPC checks do not replace two real clients. Never delete server.lock, save-storage.lock, an anchor, return fence or restore journal to force readiness.
+
+## What does V3 mean for guild capture? {#guild-domain-v3}
+
+V3 extends the same authority and external anchor with separate guild tables. In the Outposts panel, administrators can refresh Guild capture status to inspect the current committed guild state and admission. Select Activate guild domain format v3 to preview V2→V3 through the same retained-command workflow as V1→V2. Format activation and Product admission are separate checks. The [REST](./api.md#guild-capture-setup) and [CLI](./cli.md#guild-capture) references list the available setup operations.
+
+After restore, Guild capture status continues to show occupied arenas with a committed result or cancellation until cleanup is confirmed. The battle field `boundary` records the original boundary. The report field `scope.boundary` records the current one.
+
+The limit of 512 pending guild parcels applies to the whole world. Accepting the canonical save with a receipt frees capacity. At capacity, a new claim returns `OutpostConflict` with the `Guild.DeliveryCapacity` key before stock is deducted. Restore preflight refuses older backups that exceed the limit.
+
+To place a neutral guild outpost, select the placement action and enter a world tile, resource and reason. Preview and save the server command before confirming. The server rechecks eligibility and occupancy when it writes the outpost.
+
+To cancel a campaign before Start, refresh Guild capture status, select the cancellation action and campaign, and enter a reason. Preview and save the request before confirming. If the state has advanced, refresh the status and review a new request. A prepared arena stays occupied until cleanup is confirmed.
+
+Use the guild freeze action from the same panel to close admission across the current world. Refresh the status, preview and save the command, then confirm. The decision survives a server restart. To stop an already started battle, select the separate abort action and the battle, then preview, save and confirm the command. An abort leaves the arena occupied until the executor proves cleanup. The abort was verified through REST in RimWorld. Browser acceptance of this action is pending.
+
+The server returns `OutpostConflict` with the `Guild.Claim` key for a confirmed claim conflict. It checks permissions, revision, stock and recipient before creating the parcel. The client removes that request from automatic retry. A `GuildUnavailable` reply keeps it queued for reconciliation. If the server already fulfilled the same request, it returns the original receipt.
+
+Checks cover four activation interruption points and basic R3 stock/campaign restoration. Isolated 0.10.0 runs preserved two accepted deliveries, delivered a pending parcel after a port change and replaced the executor on an occupied arena after the operator stopped a started battle. Interrupted materialization and restoration of an applied result with an occupied arena still need in-game acceptance. Server 0.10.0 requires no HISTORY/RESTORE seal. Do not activate V3 operationally. In a world with format V3 personal outposts are not advertised to players: V3 serves guild outposts. See the [Product matrix](../developers/testing.md#guild-capture-product).
 
 ## See also {#related}
 

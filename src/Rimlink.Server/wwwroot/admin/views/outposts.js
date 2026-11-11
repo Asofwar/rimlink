@@ -5,16 +5,45 @@ import { t } from '../../shared/i18n.js';
 
 const MAX_INPUT = 1024 * 1024;
 export async function render(root) {
-  let current = null, frozen = null, originalInput = null, disposed = false, generation = 0;
+  let current = null, guild = null, frozen = null, originalInput = null, disposed = false, generation = 0;
   const diagnostics = h('div', { 'aria-live': 'polite' }), rows = h('div'), result = h('pre', { class: 'diff', 'aria-live': 'polite' });
   const owner = input({ type: 'number', min: 1 }), operation = input({ maxlength: 256 });
   const reason = input({ maxlength: 1024, required: true });
+  const guildReport = h('pre', { class: 'diff', 'aria-live': 'polite' });
+  const campaign = h('select');
+  const campaignField = field(t('outposts.guildCampaign'), campaign);
+  const battle = h('select');
+  const battleField = field(t('outposts.guildStartedBattle'), battle);
+  const tile = input({ type: 'number', min: 0, max: 2147483647, step: 1, required: true });
+  const resource = h('select', null, h('option', { value: '1' }, t('outposts.guildSteel')),
+    h('option', { value: '2' }, t('outposts.guildWood')));
+  const placementFields = h('div', { class: 'row' }, field(t('outposts.guildTile'), tile), field(t('outposts.guildResource'), resource));
+  const inspectGuild = busyButton(t('outposts.refresh'), async () => {
+    clearGuild();
+    const report = await api.get('guild-capture?limit=100');
+    if (disposed || !permission()) return;
+    guild = report;
+    replace(guildReport, JSON.stringify(report, null, 2));
+    const campaigns = (report.campaigns ?? []).filter(row => ['Scheduled', 'PreparingBattle'].includes(row.phase));
+    replace(campaign, h('option', { value: '' }, t('outposts.guildChooseCampaign')),
+      ...campaigns.map(row => h('option', { value: row.id }, row.id + ' · ' + row.scheduledAtUtc)));
+    const battles = (report.battles ?? []).filter(row => ['StartCommitted', 'AwaitingResult'].includes(row.phase));
+    replace(battle, h('option', { value: '' }, t('outposts.guildChooseBattle')),
+      ...battles.map(row => h('option', { value: row.id }, row.id + ' · ' + row.executorId)));
+  });
+  inspectGuild.disabled = true;
   const manifest = input({ maxlength: 36 }), digest = input({ maxlength: 64 });
   const draftFile = h('input', { type: 'file', accept: '.json,application/json' });
   const sidecarFile = h('input', { type: 'file', accept: '.bin,application/octet-stream' });
   const manifestFile = h('input', { type: 'file', accept: '.pb,.bin,application/octet-stream' });
   const action = h('select', null, [['initialize', 'outposts.action.initialize'], ['activate-domain-format', 'outposts.action.activate-domain-format'],
-    ['confirm-manifest', 'outposts.action.confirm-manifest'], ['resolve', 'outposts.action.resolve']].map(([value, label]) => h('option', { value }, t(label))));
+    ['activate-guild-domain-format', 'outposts.action.activate-guild-domain-format'],
+    ['confirm-manifest', 'outposts.action.confirm-manifest'], ['resolve', 'outposts.action.resolve'],
+    ['cancel-guild-campaign', 'outposts.action.cancel-guild-campaign'],
+    ['abort-guild-battle', 'outposts.action.abort-guild-battle'],
+    ['freeze-guild-capture', 'outposts.action.freeze-guild-capture'],
+    ['unfreeze-guild-capture', 'outposts.action.unfreeze-guild-capture'],
+    ['place-guild-outpost', 'outposts.action.place-guild-outpost']].map(([value, label]) => h('option', { value }, t(label))));
   const previewText = h('textarea', { readonly: true, rows: 12, class: 'outpost-command', 'aria-label': t('outposts.command') });
   const confirm = h('button', { type: 'button', class: 'primary', disabled: true }, t('outposts.confirm'));
   const save = h('button', { type: 'button', disabled: true }, t('outposts.saveCommand'));
@@ -26,11 +55,24 @@ export async function render(root) {
   function invalidate() {
     generation++; frozen = null; confirm.disabled = true; save.disabled = true; previewText.value = '';
   }
-  for (const control of [owner, operation, reason, manifest, digest, action, draftFile, sidecarFile]) control.addEventListener('input', invalidate);
+  function clearGuild() {
+    guild = null; replace(guildReport); replace(campaign, h('option', { value: '' }, t('outposts.guildChooseCampaign')));
+    replace(battle, h('option', { value: '' }, t('outposts.guildChooseBattle')));
+    if (frozen?.request || action.value === 'cancel-guild-campaign') invalidate();
+  }
+  function updateFields() {
+    campaignField.hidden = action.value !== 'cancel-guild-campaign';
+    battleField.hidden = action.value !== 'abort-guild-battle';
+    placementFields.hidden = action.value !== 'place-guild-outpost';
+  }
+  for (const control of [owner, operation, reason, manifest, digest, action, draftFile, sidecarFile, campaign, battle, tile, resource]) control.addEventListener('input', invalidate);
+  action.addEventListener('input', updateFields);
+  clearGuild(); updateFields();
   owner.addEventListener('input', () => { current = null; }); operation.addEventListener('input', () => { current = null; });
   append(root, h('h1', null, t('nav.outposts')), h('p', null, t('outposts.warning')),
     section(t('outposts.readiness'), diagnostics,
       h('div', { class: 'row' }, field(t('outposts.owner'), owner), field(t('outposts.operation'), operation), busyButton(t('outposts.refresh'), () => load())), rows, next),
+    section(t('outposts.guildCapture'), inspectGuild, guildReport),
     section(t('outposts.manifest'), h('div', { class: 'row' }, field(t('outposts.manifestId'), manifest), field(t('outposts.digest'), digest),
       busyButton(t('outposts.inspectManifest'), async () => {
         const response = await api.get('outposts/manifests/' + encodeURIComponent(manifest.value));
@@ -38,7 +80,8 @@ export async function render(root) {
         digest.value = response.digest; invalidate(); replace(summary, h('pre', { class: 'diff' }, JSON.stringify(response, null, 2)));
       })), summary, field(t('outposts.exportFile'), manifestFile), busyButton(t('outposts.upload'), upload)),
     section(t('outposts.control'), h('p', { class: 'muted' }, t('outposts.controlHelp')),
-      h('div', { class: 'row' }, field(t('outposts.action'), action), field(t('outposts.reason'), reason)),
+      h('div', { class: 'row' }, field(t('outposts.action'), action), field(t('outposts.reason'), reason),
+        campaignField, battleField), placementFields,
       field(t('outposts.resolveFile'), draftFile), field(t('outposts.originalInput'), sidecarFile),
       h('div', { class: 'actions' }, preview), field(t('outposts.command'), previewText),
       h('div', { class: 'actions' }, save, confirm), result));
@@ -73,8 +116,9 @@ export async function render(root) {
         { label: t('outposts.evidence'), render: row => h('details', null, h('summary', null, row.evidenceState), h('pre', { class: 'diff' }, JSON.stringify(row, null, 2))) }], value.rows ?? []));
       next.disabled = !value.hasMore;
       preview.disabled = !permission();
+      inspectGuild.disabled = !permission();
     } catch (error) {
-      if (!disposed) { invalidate(); current = null; preview.disabled = true; replace(diagnostics, h('p', { role: 'alert' }, t('outposts.unreachable'))); showError(error); }
+      if (!disposed) { invalidate(); current = null; preview.disabled = true; inspectGuild.disabled = true; clearGuild(); replace(diagnostics, h('p', { role: 'alert' }, t('outposts.unreachable'))); showError(error); }
     }
   }
   async function fileBytes(control, limit) {
@@ -90,6 +134,39 @@ export async function render(root) {
   async function prepare() {
     if (!permission() || !reason.reportValidity()) return;
     invalidate(); const selectedGeneration = generation; originalInput = null;
+    if (action.value === 'place-guild-outpost') {
+      if (!tile.reportValidity()) return;
+      if (!reason.value.trim() || reason.value.length > 500) throw new ApiError(400, t('outposts.guildPlacementReason'));
+      const value = await api.post('guild-capture/place/preview', { tile: tile.valueAsNumber, resource: Number(resource.value), reason: reason.value });
+      if (disposed || generation !== selectedGeneration) return;
+      frozen = { ...value, guildPlacement: true };
+      previewText.value = JSON.stringify(value, null, 2); save.disabled = false; replace(result); return;
+    }
+    if (action.value === 'cancel-guild-campaign') {
+      if (!guild?.scope || !guild.headId || !campaign.value || !reason.value.trim() || reason.value.length > 500)
+        throw new ApiError(400, t('outposts.guildCancelInputs'));
+      const request = { scope: guild.scope, expectedHeadId: guild.headId, campaignId: campaign.value,
+        requestId: crypto.randomUUID(), reason: reason.value };
+      frozen = { request }; previewText.value = JSON.stringify(request, null, 2); save.disabled = false;
+      replace(result); return;
+    }
+    if (action.value === 'abort-guild-battle') {
+      if (!guild?.scope || !guild.headId || !battle.value || !reason.value.trim() || reason.value.length > 500)
+        throw new ApiError(400, t('outposts.guildAbortInputs'));
+      const request = { scope: guild.scope, expectedHeadId: guild.headId, battleId: battle.value,
+        requestId: crypto.randomUUID(), reason: reason.value };
+      frozen = { request, guildAbort: true }; previewText.value = JSON.stringify(request, null, 2); save.disabled = false;
+      replace(result); return;
+    }
+    if (action.value === 'freeze-guild-capture' || action.value === 'unfreeze-guild-capture') {
+      const desired = action.value === 'freeze-guild-capture';
+      if (!guild?.scope || !guild.headId || guild.frozen === desired || !reason.value.trim() || reason.value.length > 500)
+        throw new ApiError(400, t('outposts.guildFreezeInputs'));
+      const request = { scope: guild.scope, expectedHeadId: guild.headId, requestId: crypto.randomUUID(),
+        frozen: desired, reason: reason.value };
+      frozen = { request, guildFreeze: true }; previewText.value = JSON.stringify(request, null, 2); save.disabled = false;
+      replace(result); return;
+    }
     const request = { action: action.value, requestId: crypto.randomUUID(), reason: reason.value };
     if (action.value === 'confirm-manifest') { request.manifestId = manifest.value; request.manifestDigest = digest.value; }
     if (action.value === 'resolve') {
@@ -105,22 +182,38 @@ export async function render(root) {
     if (!value.command || value.blockers?.length) return;
     frozen = value; previewText.value = JSON.stringify({ intentDigest: value.intentDigest, intent: value.intent }, null, 2); save.disabled = false;
   }
+  function retainedBody(selected) {
+    return selected.request ?? { command: selected.command, intentDigest: selected.intentDigest, confirmed: true,
+      ...(originalInput ? { originalInput } : {}) };
+  }
   save.addEventListener('click', () => {
     if (!frozen) return;
-    const body = { command: frozen.command, intentDigest: frozen.intentDigest, confirmed: true, ...(originalInput ? { originalInput } : {}) };
+    const body = retainedBody(frozen);
     const url = URL.createObjectURL(new Blob([JSON.stringify(body, null, 2)], { type: 'application/json' }));
-    const link = h('a', { download: 'outpost-command.json' }); link.href = url; link.click(); URL.revokeObjectURL(url); confirm.disabled = false;
+    const file = frozen.guildFreeze ? 'guild-capture-freeze.json' : frozen.guildAbort ? 'guild-battle-abort.json' : frozen.request ? 'guild-campaign-cancel.json'
+      : frozen.guildPlacement ? 'guild-placement.json' : 'outpost-command.json';
+    const link = h('a', { download: file });
+    link.href = url; link.click(); URL.revokeObjectURL(url); confirm.disabled = false;
   });
   confirm.addEventListener('click', async () => {
     if (!frozen || confirm.disabled || !permission()) return;
     const selected = frozen; confirm.disabled = true;
-    if (!await confirmDialog({ title: t('outposts.confirm'), text: t('outposts.confirmHelp', { digest: selected.intentDigest }), confirmLabel: t('outposts.confirm') })) { confirm.disabled = false; return; }
+    const text = selected.guildFreeze ? t(selected.request.frozen ? 'outposts.guildFreezeConfirm' : 'outposts.guildUnfreezeConfirm')
+      : selected.guildAbort ? t('outposts.guildAbortConfirm', { id: selected.request.battleId })
+      : selected.request ? t('outposts.guildCancelConfirm', { id: selected.request.campaignId })
+      : selected.guildPlacement ? t('outposts.guildPlaceConfirm', { tile: selected.command.tile,
+        resource: t(selected.command.resource === 1 ? 'outposts.guildSteel' : 'outposts.guildWood') })
+      : t('outposts.confirmHelp', { digest: selected.intentDigest });
+    if (!await confirmDialog({ title: t('outposts.confirm'), text, confirmLabel: t('outposts.confirm') })) { confirm.disabled = false; return; }
     if (frozen !== selected) return;
-    const route = { initialize: 'initialize', 'activate-domain-format': 'activate-domain-format', 'confirm-manifest': 'manifests/confirm', resolve: 'resolve' }[action.value];
+    const route = { initialize: 'initialize', 'activate-domain-format': 'activate-domain-format',
+      'activate-guild-domain-format': 'activate-domain-format', 'confirm-manifest': 'manifests/confirm', resolve: 'resolve' }[action.value];
     try {
-      const response = await api.post('outposts/' + route, { command: selected.command, intentDigest: selected.intentDigest, confirmed: true,
-        ...(originalInput ? { originalInput } : {}) });
-      if (disposed) return; invalidate(); replace(result, JSON.stringify(response, null, 2)); await load();
+      const path = selected.guildFreeze ? 'guild-capture/freeze' : selected.guildAbort ? 'guild-capture/abort' : selected.request ? 'guild-capture/cancel'
+        : selected.guildPlacement ? 'guild-capture/place' : 'outposts/' + route;
+      const response = await api.post(path, retainedBody(selected));
+      if (disposed) return; if (selected.request || selected.guildPlacement) clearGuild();
+      invalidate(); replace(result, JSON.stringify(response, null, 2)); await load();
     } catch (error) { if (!disposed) { replace(result, t('outposts.uncertain')); showError(error); } }
   });
   async function upload() {
@@ -135,7 +228,7 @@ export async function render(root) {
     }
     const expected = Array.from(hash, b => b.toString(16).padStart(2, '0')).join('');
     if (response.digest !== expected) throw new ApiError(400, t('outposts.uploadMismatch'));
-    manifest.value = response.manifestId; digest.value = response.digest; action.value = 'confirm-manifest';
+    manifest.value = response.manifestId; digest.value = response.digest; action.value = 'confirm-manifest'; updateFields();
     replace(result, t('outposts.staged')); await load();
   }
   await load(); return () => { disposed = true; invalidate(); originalInput = null; };

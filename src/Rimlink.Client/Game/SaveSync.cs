@@ -80,6 +80,8 @@ public static class SaveSync
     /// <summary>The durable intent must exist before vanilla can replace the own-colony file.</summary>
     public static bool BeforeSave(string fileName)
     {
+        if (GuildCapture.BattleGameContext.Active) return GuildCapture.BattleGameContext.MaySave(fileName);
+        if (GuildCapture.BattleExecutorStartup.Selected) return false;
         try
         {
             if (Outposts.PawnCustodyRegistry.IsOwnSave && Current.Game is { } own)
@@ -119,7 +121,7 @@ public static class SaveSync
         catch (Exception ex) { return new(LastSavedSnapshot, null, ex); }
     }
 
-    public static bool IsOurs(string fileName) => RimlinkSession.Active && fileName == SaveFileName;
+    public static bool IsOurs(string fileName) => !GuildCapture.BattleGameContext.Active && RimlinkSession.Active && fileName == SaveFileName;
 
     /// <summary>
     /// Blocks until the upload started by the last save finishes. False when no upload started (the save failed) or the
@@ -138,7 +140,7 @@ public static class SaveSync
     /// </summary>
     public static bool SaveLocallyForLater(string reason)
     {
-        if (!RimlinkSession.Active || Current.Game == null || Current.ProgramState != ProgramState.Playing || Visits.VisitSession.InVisit) return false; // a visit's game is the host's copy; the own colony is already uploaded
+        if (GuildCapture.BattleGameContext.Active || !RimlinkSession.Active || Current.Game == null || Current.ProgramState != ProgramState.Playing || Visits.VisitSession.InVisit) return false; // a visit's game is the host's copy; the own colony is already uploaded
         var pending = Pending;
         try
         {
@@ -255,7 +257,7 @@ public static class SaveSync
     public static bool Leaving => leaveThen is not null;
 
     /// <summary>The own colony is loaded and can be saved (not a visit's copy of another colony, not a menu or new-colony page).</summary>
-    public static bool HasColonyToSave => Current.Game != null && Current.ProgramState == ProgramState.Playing && !Visits.VisitSession.InVisit;
+    public static bool HasColonyToSave => !GuildCapture.BattleGameContext.Active && Current.Game != null && Current.ProgramState == ProgramState.Playing && !Visits.VisitSession.InVisit;
 
     /// <summary>
     /// Leaving the session (to the menu, to the OS): saves the colony, waits up to 60 s for the upload behind a long event, flags
@@ -293,7 +295,7 @@ public static class SaveSync
     /// <summary>Saves the multiplayer file (triggers the upload via the patch). False when nothing was queued.</summary>
     public static bool TriggerSave(string reason)
     {
-        if (!RimlinkSession.Active || Current.Game == null || IsSaving || Visits.VisitSession.InVisit || writesBlocked) return false;
+        if (GuildCapture.BattleGameContext.Active || !RimlinkSession.Active || Current.Game == null || IsSaving || Visits.VisitSession.InVisit || writesBlocked) return false;
         IsSaving = true;
         upload = null; // a save that fails leaves nothing to wait for
         LongEventHandler.QueueLongEvent(() =>

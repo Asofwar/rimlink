@@ -79,8 +79,18 @@ public sealed class PawnCustodySaveContextTests : IDisposable
         Assert.Empty(validation.Registry);
     }
 
+    [Fact]
+    public void Battle_handoff_blocks_home_custody_before_visit_or_mirror_flags_appear()
+    {
+        Rimlink.Client.Game.GuildCapture.BattleGameContext.Active = true;
+        Assert.False(PawnCustodyRegistry.IsOwnGame); Assert.False(PawnCustodyRegistry.IsOwnSave);
+        Assert.Empty(registry.ValidateOwnGame().Registry);
+        Assert.Throws<InvalidDataException>(() => registry.Bootstrap(new Pawn { thingIDNumber = 13 },envelope.Scope));
+    }
+
     private static void Reset()
     {
+        Rimlink.Client.Game.GuildCapture.BattleGameContext.Active = false;
         LiveGuest.Session = null;
         LiveGuest.Loading = false;
         VisitSession.InVisit = false;

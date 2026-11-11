@@ -5,6 +5,7 @@ option csharp_namespace = "Rimlink.Protocol.V1";
 
 import "google/protobuf/timestamp.proto";
 import "common.proto";
+import "guild_resources.proto";
 
 // Economy (sub-project 2): wallet, mailbox, market board and direct transfers.
 // Items and pawns travel as opaque Scribe XML blobs; the server reads only the descriptor fields.
@@ -59,6 +60,7 @@ enum ParcelKind {
   PARCEL_TRADE = 9;
   PARCEL_TRADE_RETURN = 10;
   PARCEL_OUTPOST = 11;
+  PARCEL_GUILD_RESOURCES = 12;
 }
 
 message Parcel {
@@ -77,6 +79,8 @@ message Parcel {
   bool awaiting_decision = 11;
   OutpostParcelPayload outpost_payload = 12;
   OutpostDeliveryRestoreAuthorization outpost_restore_authorization = 13;
+  GuildResourceParcelPayload guild_resource_payload = 14;
+  GuildColonyScope guild_restore_scope = 15;
 }
 
 message ParcelList { repeated Parcel parcels = 1; }

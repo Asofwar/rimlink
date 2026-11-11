@@ -41,14 +41,16 @@ public sealed class OutpostRuntimeReadinessTests
             { HasHistoryObservation = false, Startup = new(OutpostStartupState.RequiresInitialization) };
         using var provider = new ServiceCollection().AddSingleton(feature).BuildServiceProvider();
         Assert.True(OutpostDomainHostedServices.CanWrite(provider));
-        feature.ObserveDomain(OutpostDomainFormat.V2, true); feature.Startup = new(OutpostStartupState.Ready);
+        feature.ObserveDomain(OutpostDomainFormat.V2, true); feature.Startup = new(OutpostStartupState.Maintenance);
         Assert.False(OutpostDomainHostedServices.CanWrite(provider));
+        feature.Startup = new(OutpostStartupState.Ready);
+        Assert.True(OutpostDomainHostedServices.CanWrite(provider));
     }
     [Fact]
-    public async Task Pending_product_holds_hosted_writers_before_their_constructors_run()
+    public async Task Unready_product_holds_hosted_writers_before_their_constructors_run()
     {
         var feature = new OutpostFeature(Options.Create(new OutpostOptions { Enabled = true }), new OutpostProductQualification(), OutpostTestQualification.Integrations)
-            { Startup = new(OutpostStartupState.Ready) };
+            { Startup = new(OutpostStartupState.Maintenance) };
         feature.ObserveDomain(OutpostDomainFormat.V2, true);
         var tracker = new Tracker(); var services = new ServiceCollection();
         services.AddSingleton(_ => { tracker.Constructed++; return new Writer(tracker); });
@@ -60,7 +62,7 @@ public sealed class OutpostRuntimeReadinessTests
 
     [Theory]
     [InlineData(false)][InlineData(true)]
-    public async Task Real_product_with_enabled_configuration_refuses_protected_login_and_mutation(bool activate)
+    public async Task Real_product_with_enabled_configuration_serves_only_an_activated_domain(bool activate)
     {
         using var h = await SnapshotHarness.Create(); var save = h.Snapshot(); await h.Accept(save); var root = h.H;
         var account = await root.Db.Accounts.SingleAsync(); account.Login = "pending-owner"; account.PasswordHash = PasswordHasher.Hash("pw");
@@ -74,9 +76,10 @@ public sealed class OutpostRuntimeReadinessTests
             .WithServices(s => { s.AddSingleton(root.Files); s.AddSingleton(root.Owners); s.AddSingleton(root.Anchor); });
         using var scope = server.Services.CreateScope(); var provider = scope.ServiceProvider;
         var feature = provider.GetRequiredService<OutpostFeature>(); var decision = feature.Readiness;
-        Assert.Equal(OutpostRuntimeMode.Product, decision.Mode); Assert.Equal(OutpostQualificationState.Pending, decision.BuildQualification.State);
-        Assert.False(decision.AdvertiseCapability); Assert.False(decision.CanResolveCustody); Assert.False(decision.CanRunDomainWriters);
+        Assert.Equal(OutpostRuntimeMode.Product, decision.Mode); Assert.Equal(OutpostQualificationState.Qualified, decision.BuildQualification.State);
         Assert.Equal(activate ? OutpostStartupState.Ready : OutpostStartupState.FormatActivationRequired, decision.Startup.State);
+        Assert.Equal(activate, decision.AdvertiseCapability); Assert.Equal(activate, decision.CanResolveCustody); Assert.Equal(activate, decision.CanRunDomainWriters);
+        if (activate) { Assert.Empty(decision.Blockers); return; }
         var context = new LoginContext(ProtocolVersion.Current, null, [], "127.0.0.1")
             { RecoveryVersion = SaveRecoveryData.CurrentVersion, OutpostVersion = OutpostRecoveryData.CurrentVersion };
         var result = Assert.IsType<LoginResult.Failure>(await provider.GetRequiredService<AuthService>().LoginWithPassword("pending-owner", "pw", context));

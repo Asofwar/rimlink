@@ -1,0 +1,52 @@
+syntax = "proto3";
+package rimlink.v1;
+option csharp_namespace = "Rimlink.Protocol.V1";
+import "guild_battle.proto";
+import "battle_manifests.proto";
+import "guild_resources.proto";
+
+enum BattleViewerStage {
+  BATTLE_VIEWER_STAGE_UNSPECIFIED = 0;
+  BATTLE_VIEWER_STAGE_ENTERING = 1;
+  BATTLE_VIEWER_STAGE_VIEWING = 2;
+  BATTLE_VIEWER_STAGE_RETURNING_HOME = 3;
+}
+// Local durable handoff evidence only; never a personal save header or a control credential.
+message BattleViewerMarkerV1 {
+  uint32 version = 1;
+  string endpoint_id = 2;
+  BattleScopeMessage battle = 3;
+  GuildSnapshotProof home = 4;
+  int32 home_version = 5;
+  bytes profile_digest = 6;
+  bytes manifest_digest = 7;
+  BattleViewerStage stage = 8;
+}
+
+enum BattleExecutorCheckpointStage {
+  BATTLE_EXECUTOR_CHECKPOINT_STAGE_UNSPECIFIED = 0;
+  BATTLE_EXECUTOR_CHECKPOINT_STAGE_ASSIGNED = 1;
+  BATTLE_EXECUTOR_CHECKPOINT_STAGE_INITIAL = 2;
+  BATTLE_EXECUTOR_CHECKPOINT_STAGE_PREPARED = 3;
+  BATTLE_EXECUTOR_CHECKPOINT_STAGE_STARTED = 4;
+  BATTLE_EXECUTOR_CHECKPOINT_STAGE_FINAL_CAPTURED = 5;
+  BATTLE_EXECUTOR_CHECKPOINT_STAGE_APPLIED = 6;
+  BATTLE_EXECUTOR_CHECKPOINT_STAGE_AT_ENTRY = 7;
+  BATTLE_EXECUTOR_CHECKPOINT_STAGE_CLEANED = 8;
+  BATTLE_EXECUTOR_CHECKPOINT_STAGE_CANCELLED = 9;
+}
+message BattleExecutorCheckpointV1 {
+  uint32 version = 1;
+  string endpoint = 2;
+  bytes certificate_sha256 = 3;
+  bytes profile_file_sha256 = 4;
+  BattleRuntimeAssignmentV1 assignment = 5;
+  BattleExecutorCheckpointStage stage = 6;
+  bytes prepared_manifest = 7;
+  BattleStartAuthorization start = 8;
+  bytes final_envelope_sha256 = 9;
+  BattleAppliedReceipt applied = 10;
+  BattleCleanupReceipt cleanup = 11;
+  string cancellation_transition_id = 12;
+  BattleCleanupTerminalBindingV1 abort_terminal = 13;
+}

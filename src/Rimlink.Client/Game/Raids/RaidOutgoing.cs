@@ -19,6 +19,7 @@ public static class RaidOutgoing
 {
     public static string? CheckLimits(int pawns)
     {
+        if (GuildCapture.BattleGameContext.Active) return "Rimlink.Guild.BattleIsolation".Translate();
         if (pawns == 0) return "Rimlink.Raid.NoPawns".Translate();
         if (pawns > Limits.EconomyMaxPawnsPerParcel) return "Rimlink.Economy.TooManyPawns".Translate(Limits.EconomyMaxPawnsPerParcel);
         return null;
@@ -80,6 +81,7 @@ public static class RaidOutgoing
     /// <summary>Takes every pawn out of the caravan (unspawned, with their inventory) and removes the empty caravan from the world.</summary>
     private static List<Pawn> Disband(Caravan caravan)
     {
+        if (GuildCapture.BattleGameContext.Active) throw new InvalidOperationException("battle cannot disband a personal caravan");
         var pawns = caravan.PawnsListForReading.ToList();
         foreach (var pawn in pawns) caravan.RemovePawn(pawn);
         if (!caravan.Destroyed) caravan.Destroy();
@@ -89,6 +91,7 @@ public static class RaidOutgoing
     /// <summary>Pawns taken out of pods that will not raid after all come back home by pod.</summary>
     public static void ReturnPodPawnsHome(IEnumerable<Pawn> pawns)
     {
+        if (GuildCapture.BattleGameContext.Active) return;
         var home = Find.AnyPlayerHomeMap;
         if (home is null) return;
         var list = pawns.Cast<Thing>().ToList();

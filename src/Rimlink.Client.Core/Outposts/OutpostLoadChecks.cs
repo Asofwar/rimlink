@@ -21,7 +21,12 @@ public static class OutpostLoadChecks
             if (header.OutpostRollbackBridge is { } rollback)
             { metadata.Scope = rollback.CurrentScope.Clone(); metadata.RollbackBridge = rollback.Clone(); }
             else if (header.OutpostRestoreBridge is { } restore)
-            { metadata.Scope = OutpostSourceGraph.ValidateRoot(restore).EffectiveScope.Clone(); metadata.RestoreBridge = restore.Clone(); }
+            {
+                metadata.Scope = OutpostSourceGraph.ValidateRoot(restore).EffectiveScope.Clone();
+                metadata.RestoreBridge = restore.Clone();
+                if (metadata.GuildMetadata is { } guild)
+                    guild.Scope.RestoreBoundary = metadata.Scope.RestoreBoundary;
+            }
             else if (header.OutpostRollbackFromViewBridge is { } view)
             {
                 metadata.Scope = OutpostSourceGraph.ValidateRoot(view).EffectiveScope.Clone(); metadata.RollbackFromViewBridge = view.Clone();

@@ -60,7 +60,7 @@ public sealed partial class OutpostRestoreEvidence
                 {
                     if (await CutLifecycleEvidence(source).HasLocalProtectedHistoryAsync(original, ct))
                         throw Invalid("restore-fresh-snapshot-bridge-missing");
-                }, ct, ManifestBytes(plan));
+                }, ct, ManifestBytes(plan), plan.Journal.Selection.Isolated?.Source);
         }
         catch (Exception error) when (error is IOException or InvalidDataException or SqliteException)
         { throw Invalid("restore-fresh-snapshot-legacy-source-unavailable"); }

@@ -1,11 +1,11 @@
 ---
 pageId: players/saves-recovery
-contentRevision: 6
+contentRevision: 8
 ---
 
 # Saves and recovery
 
-Applies to: Rimlink 0.9.2 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.10.0 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 
@@ -43,8 +43,13 @@ Keep pending-snapshot.json, upload-*.rws and outbox.json in `Saves/Rimlink/<serv
 
 Never delete outbox or recovery journals based on an untrusted message. A rollback changes the colony timeline; it is not a rollback of the whole server economy.
 
+
+Unreleased guild receipts share rimlinkOutposts with existing evidence. Omitting field12 or an accepted receipt does not turn a snapshot into an ordinary save: the server refuses it before switching the canonical save. Restoring issued guild claims/parcels/deliveries is currently refused before data replacement; compatible recovery is still being developed.
+
 ## See also {#related}
 
 - [Backup and recovery](../admins/backup-recovery.md)
 - [Player troubleshooting](./troubleshooting.md)
 - [Wallet, mail and market](./economy.md)
+
+The upload acknowledgement and version list SaveInfo include raw_sha256 of the exact uncompressed bytes, outpost_version and outpost_restore_boundary from that stored version. The client checks these fields before handing a home colony to a prepared battle; a local file without the server acceptance proof is insufficient. Older versions without outpost metadata retain outpost_version0 and an empty boundary; a missing historical raw hash is never fabricated. Full native HOME handoff verification after this acknowledgement fix is still pending.

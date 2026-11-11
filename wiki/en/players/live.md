@@ -1,11 +1,11 @@
 ---
 pageId: players/live
-contentRevision: 7
+contentRevision: 8
 ---
 
 # Live: the active map
 
-Applies to: Rimlink 0.9.2 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.10.0 · RimWorld 1.7 · protocol 1.
 
 <img class="wiki-art" src="/illustrations/live.svg" alt="The owner simulates the map; the guest sends orders and receives updates." width="960" height="440" />
 <p class="wiki-caption">The owner simulates the map; the guest sends orders and receives updates.</p>
@@ -44,6 +44,9 @@ Coop uses a similar mirror, but assigned pawns belong to the host and are never 
 ## Limits and safety {#limits}
 
 The host must stay online. Live does not create an independent second save. Do not end a session by deleting journals or manually granting pawns.
+
+
+In Product development, the client postpones background recovery while guild delivery owns its exact snapshot and journal. Delivery is allowed only at home. The separate full guild battle map context is not implemented yet and is not a verified live scenario.
 
 ## See also {#related}
 

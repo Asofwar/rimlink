@@ -16,23 +16,33 @@ public sealed partial class OutpostAdminService
         return authority.ReadAdminProjectionAsync(observation, live, (observation, _) => Task.FromResult(observation), ct);
     }
 
-    public Task<OutpostAdminPreview> PreviewActivateDomainFormatAsync(Actor actor, string requestId, string reason, CancellationToken ct)
+    public Task<OutpostAdminPreview> PreviewActivateDomainFormatAsync(Actor actor, string requestId, string reason, CancellationToken ct) =>
+        PreviewActivationAsync(actor, requestId, reason, guild: false, ct);
+
+    public Task<OutpostAdminPreview> PreviewActivateGuildDomainFormatAsync(Actor actor, string requestId, string reason, CancellationToken ct) =>
+        PreviewActivationAsync(actor, requestId, reason, guild: true, ct);
+
+    private Task<OutpostAdminPreview> PreviewActivationAsync(Actor actor, string requestId, string reason, bool guild, CancellationToken ct)
     {
         actor.Require(Role.Admin);
         ValidatePreviewIdentity(requestId, reason);
         return authority.ReadAdminProjectionAsync(observation, live, async (observation, token) =>
         {
-            if (observation.Committed is not { DomainFormat: OutpostDomainFormat.V1 } expected)
+            if (guild && !authority.CanActivateGuildFormat)
+                return new OutpostAdminPreview(null, ["guild-readiness-unqualified"]);
+            if (observation.Committed is not { } expected || expected.DomainFormat != (guild ? OutpostDomainFormat.V2 : OutpostDomainFormat.V1)
+                || guild && !OutpostDomainSchema.HasGuildTables(new(expected.Schema.ProfileId, Google.Protobuf.ByteString.CopyFrom(expected.Schema.Digest), true)))
                 return new OutpostAdminPreview(null, ["admin-domain-activation-not-eligible"]);
             var tip = await db.OutpostTransitions.AsNoTracking().SingleAsync(t => t.Id == expected.TransitionId);
             long maximum = await db.AdminActions.Select(a => (long?)a.Id).MaxAsync(token) ?? 0;
             if (maximum == long.MaxValue) return new(null, ["admin-audit-allocation-unavailable"]);
             var schema = new OutpostSchemaBinding(expected.Schema.ProfileId, (byte[])expected.Schema.Digest.Clone());
-            var intent = new OutpostAdminIntent(1, actor, requestId, reason, observation,
+            var intent = new OutpostAdminIntent(guild ? 3 : 1, actor, requestId, reason, observation,
                 new(Guid.NewGuid().ToString("D"), Guid.NewGuid().ToString("D"), Guid.NewGuid().ToString("D"), maximum + 1, DateTime.UtcNow),
                 OutpostAdminActionKind.ActivateDomainFormat,
                 [new(OutpostAdminEvidenceKind.Transition, tip.Id, (byte[])tip.Digest.Clone())],
-                Activation: new(OutpostDomainFormat.V1, OutpostDomainFormat.V2, (byte[])tip.Effects.Clone(), schema, schema, OutpostDomainSchema.AdminMigrationId));
+                Activation: new(expected.DomainFormat, guild ? OutpostDomainFormat.V3 : OutpostDomainFormat.V2,
+                    (byte[])tip.Effects.Clone(), schema, schema, guild ? GuildCapture.GuildDomainDigest.MigrationId : OutpostDomainSchema.AdminMigrationId));
             var frozen = OutpostAdminIntentCodec.Freeze(intent);
             return new(new(frozen, SHA256.HashData(OutpostAdminIntentCodec.Encode(frozen)), false), []);
         }, ct);

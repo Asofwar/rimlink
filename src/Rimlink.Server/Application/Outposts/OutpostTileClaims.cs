@@ -18,7 +18,8 @@ public sealed class OutpostTileClaims(RimlinkDbContext db, OutpostAuthority auth
             ?? throw RpcErrors.Failed(ErrorCode.WorldNotCreated, RefusalKeys.WorldNotCreated, "the world has not been created yet");
         if (WorldService.NpcTilesOf(world).Contains(tile) ||
             await db.WorldObjects.AnyAsync(o => o.Tile == tile && o.Type == WorldObjectTypes.Settlement, ct) ||
-            await db.Outposts.AnyAsync(o => o.WorldId == world.InfluenceInstanceId && o.Tile == tile && o.OccupiesSlot, ct))
+            await db.Outposts.AnyAsync(o => o.WorldId == world.InfluenceInstanceId && o.Tile == tile && o.OccupiesSlot, ct) ||
+            await db.Set<GuildOutpostRow>().AnyAsync(o => o.WorldId == world.InfluenceInstanceId && o.Tile == tile, ct))
             throw Taken();
         var reservations = await db.OutpostReservations.AsNoTracking()
             .Where(r => r.WorldId == world.InfluenceInstanceId && r.Tile == tile && r.Active).ToListAsync(ct);
@@ -30,7 +31,8 @@ public sealed class OutpostTileClaims(RimlinkDbContext db, OutpostAuthority auth
     {
         string? world = await db.World.AsNoTracking().Select(w => w.InfluenceInstanceId).SingleOrDefaultAsync(ct);
         return world is not null && (await db.Outposts.AnyAsync(o => o.WorldId == world && o.Tile == tile && o.OccupiesSlot, ct) ||
-            await db.OutpostReservations.AnyAsync(r => r.WorldId == world && r.Tile == tile && r.Active, ct));
+            await db.OutpostReservations.AnyAsync(r => r.WorldId == world && r.Tile == tile && r.Active, ct) ||
+            await db.Set<GuildOutpostRow>().AnyAsync(o => o.WorldId == world && o.Tile == tile, ct));
     }
 
     private static global::Grpc.Core.RpcException Taken() => RpcErrors.Failed(ErrorCode.TileTaken, RefusalKeys.WorldTileTaken, "an outpost or settlement reserves this tile");

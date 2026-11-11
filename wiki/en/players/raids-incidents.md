@@ -1,11 +1,11 @@
 ---
 pageId: players/raids-incidents
-contentRevision: 7
+contentRevision: 9
 ---
 
 # Raids and paid incidents
 
-Applies to: Rimlink 0.9.2 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.10.0 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 
@@ -34,6 +34,8 @@ Open economy → **Events**: select target, catalog entry, level and pods where 
 Hostile/weather incidents obey raid protection and cooldowns; friendly entries have a separate short cooldown. Default target queue is two events. If an incident cannot run, expires before the target plays, or is cancelled by an administrator, payment is refunded. A successful event does not pay its target.
 
 For an unknown response, use **Retry original order**. Do not change target or purchase again until persisted intent resolves. **My orders** shows outcomes; an awaiting hostile incident also blocks goods export.
+
+During the guild outpost capture feature in development, ordinary raids, fighter departures and pod returns are blocked on the temporary battle map. Battle pawns do not belong to the personal colony. Capture works only on servers where the administrator has enabled it.
 
 ## Limits and safety {#limits}
 

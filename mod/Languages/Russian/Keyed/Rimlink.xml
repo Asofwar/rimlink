@@ -625,4 +625,67 @@
   <Rimlink.Away.Parcel.gift_return>подарок отклонён и вернулся</Rimlink.Away.Parcel.gift_return>
   <Rimlink.Away.Parcel.trade>сделка</Rimlink.Away.Parcel.trade>
   <Rimlink.Away.Parcel.trade_return>сделка вернулась</Rimlink.Away.Parcel.trade_return>
+  <Rimlink.Away.Parcel.guild_resources>ресурсы гильдии</Rimlink.Away.Parcel.guild_resources>
+  <Rimlink.Refusal.Guild.Client>Для гильдейских ресурсов требуется совместимый клиент.</Rimlink.Refusal.Guild.Client>
+  <Rimlink.Refusal.Guild.Unavailable>Гильдейские форпосты недоступны: сервер их не включил или не активировал.</Rimlink.Refusal.Guild.Unavailable>
+  <Rimlink.Refusal.Guild.Delivery>Доставка гильдии не подтверждена. Ресурсы удерживаются до восстановления.</Rimlink.Refusal.Guild.Delivery>
+  <Rimlink.Refusal.Guild.Claim>Запрос на выдачу отклонён. Обнови сведения о форпосте и проверь доступный запас и получателя.</Rimlink.Refusal.Guild.Claim>
+  <Rimlink.Refusal.Guild.DeliveryCapacity>Достигнут лимит ожидающих выдачи гильдейских посылок в мире. Отправь новый запрос после получения части посылок.</Rimlink.Refusal.Guild.DeliveryCapacity>
+  <Rimlink.Guild.Outposts.Title>Гильдейские форпосты</Rimlink.Guild.Outposts.Title>
+  <Rimlink.Guild.Outposts.AttackCampaign>Атака на клетку {0} · {1}\nКомандир · {2}</Rimlink.Guild.Outposts.AttackCampaign>
+  <Rimlink.Guild.Outposts.DefenceCampaign>Оборона клетки {0} · {1}\nКомандир · {2}</Rimlink.Guild.Outposts.DefenceCampaign>
+  <Rimlink.Guild.Outposts.NoCommander>Не назначен</Rimlink.Guild.Outposts.NoCommander>
+  <Rimlink.Guild.Outposts.ScheduleUnavailable>Время недоступно</Rimlink.Guild.Outposts.ScheduleUnavailable>
+  <Rimlink.Guild.Outposts.AssignDefender>Назначить защитника</Rimlink.Guild.Outposts.AssignDefender>
+  <Rimlink.Guild.Outposts.DefenderConfirm>Назначить {1} командиром обороны клетки {0}?</Rimlink.Guild.Outposts.DefenderConfirm>
+  <Rimlink.Guild.Outposts.DefenderAssigned>Командир обороны назначен. Защиту возглавит {0}.</Rimlink.Guild.Outposts.DefenderAssigned>
+  <Rimlink.Guild.Outposts.JoinBattle>Войти в бой</Rimlink.Guild.Outposts.JoinBattle>
+  <Rimlink.Guild.Outposts.NoPreparedBattle>Сейчас для вас нет доступного боя.</Rimlink.Guild.Outposts.NoPreparedBattle>
+  <Rimlink.Guild.Outposts.ClaimCount>Количество единиц для своей колонии</Rimlink.Guild.Outposts.ClaimCount>
+  <Rimlink.Guild.Outposts.Outpost>Форпост на клетке {0} · {1}</Rimlink.Guild.Outposts.Outpost>
+  <Rimlink.Guild.Outposts.OwnStock>Клетка {0} · {1} · запас {2}</Rimlink.Guild.Outposts.OwnStock>
+  <Rimlink.Guild.Outposts.OldStock>Запас прежнего форпоста · {0} · доступно {1}</Rimlink.Guild.Outposts.OldStock>
+  <Rimlink.Guild.Outposts.Acquire>Условия владения</Rimlink.Guild.Outposts.Acquire>
+  <Rimlink.Guild.Outposts.Claim>Запросить ресурсы</Rimlink.Guild.Outposts.Claim>
+  <Rimlink.Guild.Outposts.Attack>Объявить атаку</Rimlink.Guild.Outposts.Attack>
+  <Rimlink.Guild.Outposts.Empty>В этом мире пока нет гильдейских форпостов.</Rimlink.Guild.Outposts.Empty>
+  <Rimlink.Guild.Outposts.Loading>Ожидание ответа сервера…</Rimlink.Guild.Outposts.Loading>
+  <Rimlink.Guild.Outposts.DefenceHour>Начало обороны в {0}:00 UTC</Rimlink.Guild.Outposts.DefenceHour>
+  <Rimlink.Guild.Outposts.Terms>Занять клетку {0} от имени гильдии? Ресурс {1}, выработка {2} ед. в час, вместимость {3} ед. Первичная защита действует {4} ч. Лимит на гильдию {5} форпостов. Двухчасовое окно обороны начинается в {6}:00 UTC. При поражении форпост автоматически перейдёт победителю. Накопленный запас останется у вашей гильдии.</Rimlink.Guild.Outposts.Terms>
+  <Rimlink.Guild.Outposts.Acquired>Форпост занят.</Rimlink.Guild.Outposts.Acquired>
+  <Rimlink.Guild.Outposts.AttackConfirm>Объявить атаку на клетку {0}? Командир — {1}. Сервер назначит допустимое время боя.</Rimlink.Guild.Outposts.AttackConfirm>
+  <Rimlink.Guild.Outposts.Scheduled>Атака назначена на {0} UTC.</Rimlink.Guild.Outposts.Scheduled>
+  <Rimlink.Guild.Outposts.ClaimConfirm>Запросить ресурс «{1}» в количестве {0} ед. для своей колонии?</Rimlink.Guild.Outposts.ClaimConfirm>
+  <Rimlink.Guild.Outposts.ClaimQueued>Ресурсы поставлены в очередь на доставку в вашу колонию.</Rimlink.Guild.Outposts.ClaimQueued>
+  <Rimlink.Guild.Outposts.Unavailable>Для гильдейских действий нужна доступная домашняя колония и действующее подключение к серверу.</Rimlink.Guild.Outposts.Unavailable>
+  <Rimlink.Guild.DeliveryComplete>Гильдейские ресурсы получены.</Rimlink.Guild.DeliveryComplete>
+  <Rimlink.Guild.DeliveryHold>Выдача гильдейских ресурсов приостановлена. Повторное создание запрещено.</Rimlink.Guild.DeliveryHold>
+  <Rimlink.Refusal.Guild.Executor>Отклонены учётные данные, идентификатор, разрешённый профиль или lease игрового исполнителя.</Rimlink.Refusal.Guild.Executor>
+  <Rimlink.Guild.BattleIsolation>Действия личной колонии недоступны, пока открыта карта гильдейского боя.</Rimlink.Guild.BattleIsolation>
+  <Rimlink.GuildBattle.Executor.Loading>Арбитр боя: проверка runtime</Rimlink.GuildBattle.Executor.Loading>
+  <Rimlink.GuildBattle.Executor.Idle>Арбитр боя: ожидание назначения</Rimlink.GuildBattle.Executor.Idle>
+  <Rimlink.GuildBattle.Executor.Preparing>Арбитр боя: подготовка арены</Rimlink.GuildBattle.Executor.Preparing>
+  <Rimlink.GuildBattle.Executor.WaitingReady>Арбитр боя: ожидание готовности атакующего</Rimlink.GuildBattle.Executor.WaitingReady>
+  <Rimlink.GuildBattle.Executor.Running>Арбитр боя: бой идёт</Rimlink.GuildBattle.Executor.Running>
+  <Rimlink.GuildBattle.Executor.Delivering>Арбитр боя: доставка результата</Rimlink.GuildBattle.Executor.Delivering>
+  <Rimlink.GuildBattle.Executor.Cleaning>Арбитр боя: подтверждение очистки</Rimlink.GuildBattle.Executor.Cleaning>
+  <Rimlink.GuildBattle.Executor.RecoveryRequired>Арбитр боя: требуется восстановление</Rimlink.GuildBattle.Executor.RecoveryRequired>
+  <Rimlink.GuildBattle.Executor.RestoreCleanup>Арбитр боя: подтверждение очистки после восстановления</Rimlink.GuildBattle.Executor.RestoreCleanup>
+  <Rimlink.GuildBattle.Executor.RestoreCleaned>Арбитр боя: восстановленная арена освобождена</Rimlink.GuildBattle.Executor.RestoreCleaned>
+  <Rimlink.GuildBattle.RecoveryRequired>Завершите восстановление боя перед входом игрока.</Rimlink.GuildBattle.RecoveryRequired>
+  <Rimlink.GuildBattle.OpenFromCampaign>Откройте карту боя из его кампании.</Rimlink.GuildBattle.OpenFromCampaign>
+  <Rimlink.GuildBattle.LiveView>Бой за форпост</Rimlink.GuildBattle.LiveView>
+  <Rimlink.GuildBattle.Ready>Готов к атаке</Rimlink.GuildBattle.Ready>
+  <Rimlink.GuildBattle.JoinControl>Принять командование</Rimlink.GuildBattle.JoinControl>
+  <Rimlink.GuildBattle.WaitingControl>Ожидание подключения к бою</Rimlink.GuildBattle.WaitingControl>
+  <Rimlink.GuildBattle.ZoneProgress>Зона удерживается: {0}/{1} тиков</Rimlink.GuildBattle.ZoneProgress>
+  <Rimlink.GuildBattle.Draft>Мобилизовать бойца</Rimlink.GuildBattle.Draft>
+  <Rimlink.GuildBattle.Undraft>Демобилизовать бойца</Rimlink.GuildBattle.Undraft>
+  <Rimlink.GuildBattle.AttackerWin>Атакующие захватили форпост.</Rimlink.GuildBattle.AttackerWin>
+  <Rimlink.GuildBattle.DefenderWin>Защитники удержали форпост.</Rimlink.GuildBattle.DefenderWin>
+  <Rimlink.GuildBattle.Draw>Бой закончился ничьей.</Rimlink.GuildBattle.Draw>
+  <Rimlink.GuildBattle.TechnicalAbort>Бой завершён без результата.</Rimlink.GuildBattle.TechnicalAbort>
+  <Rimlink.GuildBattle.OperatorAbort>Оператор остановил бой без присуждения результата.</Rimlink.GuildBattle.OperatorAbort>
+  <Rimlink.GuildBattle.PreparedView>Подготовленный бой — без симуляции</Rimlink.GuildBattle.PreparedView>
+  <Rimlink.GuildBattle.ReturnHome>Вернуться в свою колонию</Rimlink.GuildBattle.ReturnHome>
 </LanguageData>

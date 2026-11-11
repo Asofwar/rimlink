@@ -14,30 +14,63 @@ public enum OutpostStartupState { Ready, RequiresInitialization, Maintenance, No
 public sealed record OutpostStartupResult(OutpostStartupState State, string Reason = "");
 
 public sealed class OutpostEvidenceUnavailableException(string reason) : InvalidOperationException(reason);
+internal sealed record GuildVerifiedCut(string WorldId, string Boundary, string HeadId, Google.Protobuf.ByteString HeadDigest,GuildCapture.GuildAcceptanceProvenance? Acceptance=null);
 
 public sealed class OutpostFeature
 {
     private readonly IOptions<OutpostOptions> options;
     private readonly IOutpostBuildQualification qualification;
     private readonly Func<OutpostIntegration[]> integrations;
+    private readonly GuildCapture.IGuildRuntimeAdmission guildAdmission;
+    private readonly IOptions<GuildCaptureOptions>? guildOptions;
     internal bool RuntimeComposition { get; }
     internal bool? HasHistoryObservation { get; set; }
     internal OutpostDomainFormat? VerifiedDomainFormat { get; private set; }
     internal bool CurrentSchemaVerified { get; private set; }
+    // Verification provenance for S-serialized transport, never a substitute for Product family readiness.
+    internal GuildVerifiedCut? GuildCut { get; set; }
 
     // Storage primitives/offline procedures have no network host and cannot advertise capability.
     internal OutpostFeature() : this(Options.Create(new OutpostOptions()), new OutpostProductQualification(), SafetyIntegrations, false) { }
     internal OutpostFeature(IOptions<OutpostOptions> options, IOutpostBuildQualification qualification,
-        Func<OutpostIntegration[]>? integrations = null, bool runtimeComposition = true)
+        Func<OutpostIntegration[]>? integrations = null, bool runtimeComposition = true,
+        GuildCapture.IGuildRuntimeAdmission? guildAdmission = null, IOptions<GuildCaptureOptions>? guildOptions = null)
     {
         this.options = options; this.qualification = qualification; this.integrations = integrations ?? SafetyIntegrations;
         RuntimeComposition = runtimeComposition;
+        this.guildAdmission = guildAdmission ?? new GuildCapture.GuildProductRuntimeAdmission();
+        this.guildOptions = guildOptions;
     }
     public OutpostReadinessDecision Readiness => OutpostReadiness.Evaluate(new(options.Value.Enabled, integrations(),
         qualification.Observe(), Startup, VerifiedDomainFormat, CurrentSchemaVerified, HasHistoryObservation));
     public bool IsAvailable => Readiness.AdvertiseCapability;
     internal void ObserveDomain(OutpostDomainFormat format, bool currentSchema)
     { VerifiedDomainFormat = format; CurrentSchemaVerified = currentSchema; HasHistoryObservation = true; }
+    internal GuildCapture.IGuildAcceptanceClockControl? GuildClock=>guildAdmission.ClockControl;
+    internal string? GuildAcceptanceStand=>guildAdmission.StandId;
+    internal GuildCapture.GuildRuntimeGrant? GuildGrant=>guildAdmission.Observe();
+    internal bool GuildProductConfigured => guildOptions?.Value.Enabled == true;
+    internal bool CanActivateGuildFormat
+    {
+        get
+        {
+            if (!RuntimeComposition) return true;
+            var build = qualification.Observe();
+            return build.Mode == OutpostRuntimeMode.IsolatedAcceptance
+                || GuildProductConfigured && GuildCapture.GuildCaptureReadiness.HasProductQualification(build, guildAdmission.QualifiedProductSource);
+        }
+    }
+    internal void RequireGuildProvenance(GuildCapture.GuildAcceptanceProvenance? identity)
+    {if(RuntimeComposition && identity is not null)GuildCapture.GuildRuntimeAdmission.RequireProvenance(qualification.Observe(),identity,guildAdmission.Observe());}
+    internal void RequireGuildReadiness(GuildCapture.GuildRuntimeUse use)
+    {
+        if (!RuntimeComposition) return;
+        var readiness = Readiness;
+        if (readiness.Mode == OutpostRuntimeMode.Product)
+            GuildCapture.GuildCaptureReadiness.RequireProduct(readiness, GuildCut, GuildProductConfigured, guildAdmission.QualifiedProductSource, use);
+        else
+            GuildCapture.GuildRuntimeAdmission.Require(readiness, GuildCut, guildAdmission.Observe(), use);
+    }
     internal void RequireCustodyReadiness()
     {
         if (RuntimeComposition && !Readiness.CanResolveCustody)
@@ -69,9 +102,16 @@ public sealed class OutpostFeature
 
     public static void Register(IServiceCollection services, IConfiguration configuration)
     {
+        services.AddOptions<GuildCaptureOptions>().Bind(configuration.GetSection(GuildCaptureOptions.Section))
+            .Validate(GuildCaptureOptions.Valid, "Enabled GuildCapture requires an executor identity and two SHA-256 digests")
+            .ValidateOnStart();
+        services.AddSingleton<Grpc.BattleExecutorAuthentication>();
         services.Configure<OutpostOptions>(configuration.GetSection(OutpostOptions.Section));
         services.AddSingleton<IOutpostBuildQualification, OutpostProductQualification>();
-        services.AddSingleton(sp => new OutpostFeature(sp.GetRequiredService<IOptions<OutpostOptions>>(), sp.GetRequiredService<IOutpostBuildQualification>()));
+        services.AddSingleton<GuildCapture.IGuildRuntimeAdmission,GuildCapture.GuildProductRuntimeAdmission>();
+        services.AddSingleton(sp => new OutpostFeature(sp.GetRequiredService<IOptions<OutpostOptions>>(),
+            sp.GetRequiredService<IOutpostBuildQualification>(), guildAdmission: sp.GetRequiredService<GuildCapture.IGuildRuntimeAdmission>(),
+            guildOptions: sp.GetRequiredService<IOptions<GuildCaptureOptions>>()));
         services.AddSingleton<OutpostAnchorStore>();
         services.AddSingleton<OutpostMainObservation>();
         services.AddScoped<OutpostAdminService>();
@@ -81,6 +121,33 @@ public sealed class OutpostFeature
         services.AddScoped<OutpostManifestService>();
         services.AddSingleton<OutpostManifestUploads>();
         services.AddScoped<OutpostTileClaims>();
+        services.AddScoped<GuildCapture.GuildLifecycle>();
+        services.AddScoped<GuildCapture.GuildCapturePolicy>();
+        services.AddSingleton(sp =>
+        {
+            var config = sp.GetRequiredService<IOptions<GuildCaptureOptions>>().Value;
+            var time = sp.GetRequiredService<TimeProvider>();
+            return config.Enabled ? new GuildCapture.BattleExecutorRegistry(time, config.ExecutorId, Convert.FromHexString(config.ApprovedProfileDigest))
+                : new GuildCapture.BattleExecutorRegistry(time);
+        });
+        services.AddScoped<GuildCapture.GuildOutpostService>();
+        services.AddScoped<GuildCapture.GuildCampaignScheduler>();
+        services.AddOutpostDomainHostedService<GuildCaptureHostedService>();
+        services.AddSingleton(sp => new GuildCapture.BattleProfileArchive(sp.GetRequiredService<Storage.DataDirectory>().Archive));
+        services.AddSingleton<GuildCapture.BattleStateLock>();
+        services.AddSingleton<GuildCapture.BattleTransportCache>();
+        services.AddSingleton<GuildCapture.BattleExecutorHandshakes>();
+        services.AddSingleton<GuildCapture.GuildOwnedProcessWitness>();
+        services.AddScoped<GuildCapture.BattleExecutorHelloService>();
+        services.AddScoped<GuildCapture.BattleReadyOfferService>();
+        services.AddScoped<GuildCapture.BattlePreparedViewService>();
+        services.AddScoped<GuildCapture.BattleControlTransport>();
+        services.AddSingleton<GuildCapture.BattleCleanupChallenges>();
+        services.AddScoped<GuildCapture.BattleTransportAdmission>();
+        services.AddScoped<GuildCapture.BattleExecutorWorkService>();
+        services.AddScoped<GuildCapture.BattlePreparedAdmission>();
+        services.AddScoped<GuildCapture.BattleResultStaging>();
+        services.AddSingleton(sp => new GuildCapture.BattleArtifactStore(sp.GetRequiredService<Storage.DataDirectory>().Archive));
         services.AddScoped<OutpostAssignmentService>();
         services.AddScoped<OutpostService>();
         services.AddScoped<OutpostParcels>();

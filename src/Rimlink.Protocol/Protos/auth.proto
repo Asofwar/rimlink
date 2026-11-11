@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package rimlink.v1;
 option csharp_namespace = "Rimlink.Protocol.V1";
+import "guild_runtime.proto";
 
 import "common.proto";
 import "modpack.proto";
@@ -40,6 +41,8 @@ message LoginRequest {
   repeated ModSettingsHash mod_settings = 6;
   uint32 recovery_version = 7;
   uint32 outpost_version = 8;
+  uint32 guild_version = 9;
+  GuildRuntimeTarget guild_runtime = 10;
 }
 
 message RegisterRequest {
@@ -52,6 +55,8 @@ message RegisterRequest {
   uint32 recovery_version = 6;
   string server_password = 7;
   uint32 outpost_version = 8;
+  uint32 guild_version = 9;
+  GuildRuntimeTarget guild_runtime = 10;
 }
 
 message AtHomeRequest { bool at_home = 1; bool coop_capable = 2; }
@@ -82,6 +87,8 @@ message LoginReply {
   string outpost_restore_boundary = 16;
   // Diagnostic only: never grants readiness or overrides product qualification.
   bool outpost_isolated_acceptance = 17;
+  uint32 guild_version = 18;
+  GuildRuntimeTarget guild_runtime = 19;
 }
 
 message ColonyRestore {

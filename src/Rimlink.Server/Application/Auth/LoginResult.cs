@@ -12,14 +12,19 @@ public sealed record LoginContext(int ProtocolVersion, string? ServerPassword, I
     public IReadOnlyList<ModSettingsHash> ModSettings { get; init; } = [];
     public uint RecoveryVersion { get; init; }
     public uint OutpostVersion { get; init; }
+    public uint GuildVersion { get; init; }
+    internal CancellationToken Cancellation { get; init; }
 
     public static LoginContext From(LoginRequest request, string ip) =>
-        new(request.ProtocolVersion, request.ServerPassword, request.Mods, ip) { ModSettings = request.ModSettings, RecoveryVersion = request.RecoveryVersion, OutpostVersion = request.OutpostVersion };
+        new(request.ProtocolVersion, request.ServerPassword, request.Mods, ip) { ModSettings = request.ModSettings, RecoveryVersion = request.RecoveryVersion, OutpostVersion = request.OutpostVersion, GuildVersion = request.GuildVersion };
 }
 
 public abstract record LoginResult
 {
-    public sealed record Success(Session Session, Account Account, Player Player) : LoginResult;
+    public sealed record Success(Session Session, Account Account, Player Player) : LoginResult
+    {
+        internal string? GuildRestoreBoundary { get; init; }
+    }
 
     public sealed record Failure(StatusCode Status, ErrorCode Code, string Key, string Message, params object[] Args) : LoginResult;
 

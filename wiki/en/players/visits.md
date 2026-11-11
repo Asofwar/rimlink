@@ -1,11 +1,11 @@
 ---
 pageId: players/visits
-contentRevision: 5
+contentRevision: 7
 ---
 
 # Visits and shops
 
-Applies to: Rimlink 0.9.2 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.10.0 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 
@@ -29,6 +29,8 @@ To sell at home, select an item → **For sale…**, set a price and save. The s
 The host may have a mod or DLC you lack; validation should stop before loading and identify dependencies. Never remove XML objects from a foreign save to force entry. Disabled visits or no host colony require another action, not forced loading.
 
 On return, check your home map and mailbox. A visit copy must not overwrite home. For real-time interaction request a live visit, which requires an online consenting host and different rules for returning actual guest pawns.
+
+Visits and ordinary live sessions cannot start from a temporary guild battle map; an earlier queued callback must not load it as the home colony either. Capture works only on servers where the administrator has enabled it; the battle viewer and home return were verified in the real game on isolated stands on 10–11 November 2026.
 
 ## Limits and safety {#limits}
 

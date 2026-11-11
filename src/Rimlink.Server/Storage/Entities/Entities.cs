@@ -211,7 +211,7 @@ public sealed class SaveVersion
     public string? RecoveryJson { get; set; }
 }
 
-public enum ParcelKindDb { Gift = 0, Purchase = 1, LotReturn = 2, Withdraw = 3, Admin = 4, Loot = 5, RaidReturn = 6, Captive = 7, GiftReturn = 8, Trade = 9, TradeReturn = 10 }
+public enum ParcelKindDb { Gift = 0, Purchase = 1, LotReturn = 2, Withdraw = 3, Admin = 4, Loot = 5, RaidReturn = 6, Captive = 7, GiftReturn = 8, Trade = 9, TradeReturn = 10, GuildResources = 12 }
 
 /// <summary>A player's gift waits for the recipient's decision; every other parcel has none.</summary>
 public enum ParcelDecisionDb { None = 0, Awaiting = 1, Accepted = 2, Refused = 3 }

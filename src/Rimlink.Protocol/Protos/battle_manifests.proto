@@ -1,0 +1,325 @@
+syntax = "proto3";
+package rimlink.v1;
+option csharp_namespace = "Rimlink.Protocol.V1";
+
+// All documents are canonical bounded artifacts. Control messages carry descriptors only.
+enum BattleDocumentKind {
+  BATTLE_DOCUMENT_KIND_UNSPECIFIED = 0;
+  BATTLE_DOCUMENT_KIND_INVENTORY = 1;
+  BATTLE_DOCUMENT_KIND_PROFILE = 2;
+  BATTLE_DOCUMENT_KIND_CONFIG = 3;
+  BATTLE_DOCUMENT_KIND_DEFS = 4;
+  BATTLE_DOCUMENT_KIND_TEMPLATE = 5;
+  BATTLE_DOCUMENT_KIND_VIEWER_COMPATIBILITY = 6;
+  BATTLE_DOCUMENT_KIND_QUALIFICATION = 7;
+  BATTLE_DOCUMENT_KIND_INITIAL_SNAPSHOT = 8;
+  BATTLE_DOCUMENT_KIND_PREPARED_MANIFEST = 9;
+  BATTLE_DOCUMENT_KIND_FINAL_SNAPSHOT = 10;
+  BATTLE_DOCUMENT_KIND_SIMULATION_JOURNAL = 11;
+  BATTLE_DOCUMENT_KIND_TRANSPORT_JOURNAL = 12;
+  BATTLE_DOCUMENT_KIND_TERMINAL_VIEW = 13;
+  BATTLE_DOCUMENT_KIND_FINAL_MANIFEST = 14;
+  BATTLE_DOCUMENT_KIND_COMMITTED_FINAL = 15;
+  BATTLE_DOCUMENT_KIND_TRANSPORT_SEAL = 16;
+}
+message BattleDocumentDescriptor {
+  BattleDocumentKind kind = 1;
+  bytes sha256 = 2;
+  int64 size_bytes = 3;
+}
+enum BattleInventoryRoot {
+  BATTLE_INVENTORY_ROOT_UNSPECIFIED = 0;
+  BATTLE_INVENTORY_ROOT_GAME = 1;
+  BATTLE_INVENTORY_ROOT_RUNTIME = 2;
+  BATTLE_INVENTORY_ROOT_MOD = 3;
+}
+message BattleModInventoryEntry {
+  int32 load_index = 1;
+  string package_id = 2;
+  string version = 3;
+  string root_id = 4;
+}
+message BattleFileInventoryEntry {
+  BattleInventoryRoot root = 1;
+  string root_id = 2;
+  string relative_path = 3;
+  int64 size_bytes = 4;
+  bytes sha256 = 5;
+}
+message BattleRuntimeInventoryV1 {
+  uint32 version = 1;
+  repeated BattleModInventoryEntry mods = 2;
+  bytes game_build_sha256 = 3;
+  bytes runtime_build_sha256 = 4;
+  bytes client_build_sha256 = 5;
+  bytes executor_build_sha256 = 6;
+  repeated string active_dlc = 7;
+  repeated BattleFileInventoryEntry files = 8;
+  BattleDocumentDescriptor config = 9;
+  BattleDocumentDescriptor loaded_defs = 10;
+}
+message BattleArenaSpec {
+  int32 width = 1;
+  int32 height = 2;
+  int32 zone_min_x = 3;
+  int32 zone_min_z = 4;
+  int32 zone_max_x = 5;
+  int32 zone_max_z = 6;
+}
+enum BattleFighterSide {
+  BATTLE_FIGHTER_SIDE_UNSPECIFIED = 0;
+  BATTLE_FIGHTER_SIDE_ATTACKER = 1;
+  BATTLE_FIGHTER_SIDE_DEFENDER = 2;
+}
+enum BattleFighterGender {
+  BATTLE_FIGHTER_GENDER_UNSPECIFIED = 0;
+  BATTLE_FIGHTER_GENDER_MALE = 1;
+  BATTLE_FIGHTER_GENDER_FEMALE = 2;
+}
+message BattleFighterSpec {
+  string fighter_id = 1;
+  BattleFighterSide side = 2;
+  string pawn_kind_def = 3;
+  string race_def = 4;
+  int32 age_years = 5;
+  BattleFighterGender gender = 6;
+  int32 x = 7;
+  int32 z = 8;
+  string weapon_def = 9;
+  repeated string apparel_defs = 10;
+  int32 shooting = 11;
+  int32 melee = 12;
+  // 0: historical unspecified; 1: fixed standard baseliner cosmetic genes/colors.
+  uint32 baseliner_appearance_version = 13;
+}
+message BattleRulesSpec {
+  int32 capture_ticks = 1;
+  int32 maximum_ticks = 2;
+  int32 wall_seconds = 3;
+  int32 ai_after_seconds = 4;
+  int32 transport_grace_seconds = 5;
+}
+message BattleAdmissionLimits {
+  int32 command_bytes = 1;
+  int32 commands_per_second_per_side = 2;
+  int32 pending_per_side = 3;
+  int32 snapshot_chunk_bytes = 4;
+  int64 snapshot_bytes = 5;
+  int32 full_delta_frame_bytes = 6;
+}
+message BattleExcludedRuntimePath {
+  BattleInventoryRoot root = 1;
+  string root_id = 2;
+  string relative_path = 3;
+}
+message BattleProfileV1 {
+  uint32 version = 1;
+  string profile_id = 2;
+  int64 revision = 3;
+  BattleDocumentDescriptor inventory = 4;
+  bytes executor_build_sha256 = 5;
+  bytes viewer_build_sha256 = 6;
+  BattleDocumentDescriptor viewer_compatibility = 7;
+  BattleDocumentDescriptor template = 8;
+  BattleRulesSpec rules = 9;
+  BattleArenaSpec arena = 10;
+  repeated BattleFighterSpec fighters = 11;
+  bytes roster_digest = 12;
+  BattleAdmissionLimits limits = 13;
+  uint32 snapshot_encoding_version = 14;
+  uint32 delta_encoding_version = 15;
+  repeated BattleExcludedRuntimePath excluded_runtime_paths = 16;
+  // V1 allows only the three named orders; no generic job or executable payload.
+  repeated string command_allowlist = 17;
+}
+message BattleCommanderBinding {
+  int64 player_id = 1;
+  bytes session_digest = 2;
+  int64 control_epoch = 3;
+  int64 membership_joined_utc_ticks = 4;
+  bool defender_ai = 5;
+  int64 alliance_id = 6;
+  string control_grant_id = 7;
+}
+message BattleEntitySide {
+  string fighter_id = 1;
+  string entity_id = 2;
+  BattleFighterSide side = 3;
+}
+message BattlePreparedManifestV1 {
+  uint32 version = 1;
+  string world_instance_id = 2;
+  string restore_boundary = 3;
+  string campaign_id = 4;
+  string battle_id = 5;
+  int64 attempt = 6;
+  int64 fence = 7;
+  string outpost_id = 8;
+  int64 owner_revision = 9;
+  int64 attacker_alliance_id = 10;
+  int64 defender_alliance_id = 11;
+  string executor_id = 12;
+  string runtime_instance_id = 13;
+  string executor_lease_id = 14;
+  int64 executor_lease_fence = 15;
+  bytes start_nonce = 16;
+  string profile_id = 17;
+  int64 profile_revision = 18;
+  bytes profile_digest = 19;
+  string approval_transition_id = 20;
+  BattleDocumentDescriptor measured_inventory = 21;
+  bytes rules_digest = 22;
+  BattleDocumentDescriptor template = 23;
+  bytes roster_digest = 24;
+  BattleDocumentDescriptor initial_snapshot = 25;
+  int32 initial_tick = 26;
+  BattleArenaSpec arena = 27;
+  repeated BattleEntitySide entities = 28;
+  BattleCommanderBinding attacker = 29;
+  BattleCommanderBinding defender = 30;
+  string preparation_transition_id = 31;
+  int64 production_cut_utc_ticks = 32;
+  int32 stock_at_cut = 33;
+  int64 remainder_at_cut = 34;
+  string acquisition_reservation_id = 35;
+  string slot_id = 36;
+  int64 slot_start_utc_ticks = 37;
+  int64 slot_end_utc_ticks = 38;
+  int64 readiness_deadline_utc_ticks = 39;
+  int32 proposal_sequence = 40;
+}
+
+enum BattleTerminalOutcome {
+  BATTLE_TERMINAL_OUTCOME_UNSPECIFIED = 0;
+  BATTLE_TERMINAL_OUTCOME_ATTACKER_WIN = 1;
+  BATTLE_TERMINAL_OUTCOME_DEFENDER_WIN = 2;
+  BATTLE_TERMINAL_OUTCOME_DRAW = 3;
+  BATTLE_TERMINAL_OUTCOME_TECHNICAL_ABORT = 4;
+}
+enum BattleTerminalReason {
+  BATTLE_TERMINAL_REASON_UNSPECIFIED = 0;
+  BATTLE_TERMINAL_REASON_ZONE_HELD = 1;
+  BATTLE_TERMINAL_REASON_SIDE_ELIMINATED = 2;
+  BATTLE_TERMINAL_REASON_MUTUAL_ELIMINATION = 3;
+  BATTLE_TERMINAL_REASON_TICK_LIMIT = 4;
+  BATTLE_TERMINAL_REASON_WALL_CLOCK_LIMIT = 5;
+  BATTLE_TERMINAL_REASON_TRANSPORT_LOST = 6;
+  BATTLE_TERMINAL_REASON_INVALID_STATE = 7;
+}
+message BattleTerminalPawn {
+  string fighter_id = 1;
+  string entity_id = 2;
+  BattleFighterSide side = 3;
+  int32 x = 4;
+  int32 z = 5;
+  bool alive = 6;
+  bool downed = 7;
+  bool mental = 8;
+  bool can_fight = 9;
+  float health = 10;
+}
+message BattleFinalManifestV1 {
+  uint32 version = 1;
+  string world_instance_id = 2;
+  string restore_boundary = 3;
+  string campaign_id = 4;
+  string battle_id = 5;
+  int64 attempt = 6;
+  int64 fence = 7;
+  string executor_id = 8;
+  string runtime_instance_id = 9;
+  string original_executor_lease_id = 10;
+  int64 original_executor_lease_fence = 11;
+  bytes start_nonce = 12;
+  bytes start_digest = 13;
+  bytes profile_digest = 14;
+  BattleDocumentDescriptor initial_snapshot = 15;
+  BattleDocumentDescriptor final_snapshot = 16;
+  BattleDocumentDescriptor simulation_journal = 17;
+  BattleDocumentDescriptor terminal_view = 18;
+  int32 terminal_tick = 19;
+  int32 held_ticks = 20;
+  BattleTerminalOutcome outcome = 21;
+  BattleTerminalReason reason = 22;
+  repeated BattleTerminalPawn pawns = 23;
+  int64 wall_elapsed_ms = 24;
+  int64 transport_lost_elapsed_ms = 25;
+  int64 terminal_view_sequence = 26;
+}
+
+message BattleTerminalViewV1 {
+  uint32 version = 1;
+  string world_instance_id = 2;
+  string restore_boundary = 3;
+  string battle_id = 4;
+  int64 attempt = 5;
+  int64 fence = 6;
+  bytes start_digest = 7;
+  int64 sequence = 8;
+  int32 terminal_tick = 9;
+  int32 held_ticks = 10;
+  BattleTerminalOutcome outcome = 11;
+  BattleTerminalReason reason = 12;
+  repeated BattleTerminalPawn pawns = 13;
+  BattleDocumentDescriptor snapshot = 14;
+}
+message BattleTransportWatermark {
+  BattleFighterSide side = 1;
+  int64 last_sequence = 2;
+}
+message BattleTransportSealV1 {
+  uint32 version = 1;
+  string world_instance_id = 2;
+  string restore_boundary = 3;
+  string battle_id = 4;
+  int64 attempt = 5;
+  int64 fence = 6;
+  bytes start_digest = 7;
+  BattleDocumentDescriptor commands = 8;
+  repeated BattleTransportWatermark watermarks = 9;
+  BattleDocumentDescriptor terminal_view = 10;
+  int64 terminal_view_sequence = 11;
+}
+message BattleCommittedFinalV1 {
+  uint32 version = 1;
+  bytes executor_envelope = 2;
+  BattleTransportSealV1 transport = 3;
+}
+message BattleAppliedReceipt {
+  uint32 version = 1;
+  string world_instance_id = 2;
+  string restore_boundary = 3;
+  string campaign_id = 4;
+  string battle_id = 5;
+  int64 attempt = 6;
+  int64 fence = 7;
+  string client_request_id = 8;
+  string transition_id = 9;
+  bytes committed_final_digest = 10;
+  BattleTerminalOutcome outcome = 11;
+  BattleTerminalReason reason = 12;
+  int64 previous_alliance_id = 13;
+  int64 current_alliance_id = 14;
+  int64 previous_owner_revision = 15;
+  int64 current_owner_revision = 16;
+  string old_stock_obligation_id = 17;
+  int32 old_stock_obligation_count = 18;
+  int32 current_stock = 19;
+  int64 current_remainder = 20;
+  int64 terminal_utc_ticks = 21;
+  int64 protected_until_utc_ticks = 22;
+  int32 consecutive_aborts = 23;
+  bool maintenance = 24;
+  string acquisition_reservation_id = 25;
+  string slot_id = 26;
+  string outpost_id = 27;
+}
+
+// Compact compatibility descriptor; the complete inventory remains a separate bounded artifact.
+message BattleViewerCompatibilityV1 {
+  uint32 version = 1;
+  BattleDocumentDescriptor inventory = 2;
+  bytes viewer_build_sha256 = 3;
+  uint32 snapshot_encoding_version = 4;
+  uint32 delta_encoding_version = 5;
+}

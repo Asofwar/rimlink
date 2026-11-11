@@ -95,7 +95,7 @@ public static class RimlinkApplication
             options.MaxReceiveMessageSize = Limits.MaxMessageBytes + 16 * 1024;
             options.Interceptors.Add<SessionInterceptor>();
             options.Interceptors.Add<RateLimitInterceptor>();
-        });
+        }).AddServiceOptions<BattleExecutorGrpcService>(options => options.MaxReceiveMessageSize = Rimlink.Server.Application.GuildCapture.BattleArtifactStore.ChunkBytes + 16384);
         builder.Services.AddHealthChecks();
         builder.Services.AddHostedService<TlsStartupCheck>();
         builder.Services.AddSingleton<ServerLock>();
@@ -181,6 +181,7 @@ public static class RimlinkApplication
 
         if (acceptance is not null)
         {
+            builder.Services.RemoveAll<IOutpostBuildQualification>();
             builder.Services.AddSingleton<IOutpostBuildQualification>(acceptance.Qualification);
             builder.Services.Replace(ServiceDescriptor.Singleton<OutpostClock>(sp =>
                 new(acceptance.OutpostTimeProvider ?? sp.GetRequiredService<TimeProvider>())));
@@ -218,6 +219,8 @@ public static class RimlinkApplication
         app.MapGrpcService<EventsGrpcService>();
         app.MapGrpcService<WorldGrpcService>();
         app.MapGrpcService<OutpostsGrpcService>();
+        app.MapGrpcService<GuildCaptureGrpcService>();
+        app.MapGrpcService<BattleExecutorGrpcService>();
         app.MapGrpcService<SavesGrpcService>();
         app.MapGrpcService<ModpackGrpcService>();
         app.MapGrpcService<ChatGrpcService>();

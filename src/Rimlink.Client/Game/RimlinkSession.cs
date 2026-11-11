@@ -54,6 +54,7 @@ public static class RimlinkSession
 
     public static void Begin(ServerEndpoint endpoint, RimlinkConnection connection, LoginReply login)
     {
+        if(GuildCapture.BattleExecutorStartup.Selected || GuildCapture.BattleGameContext.Active)throw new InvalidDataException("battle context cannot open a player session");
         Game.Outposts.OutpostAcceptance.Reset();
         Endpoint = endpoint;
         Connection = connection;

@@ -49,6 +49,7 @@ message SaveHeader {
   OutpostRollbackBridge outpost_rollback_bridge = 17;
   OutpostRestoreBridge outpost_restore_bridge = 18;
   OutpostRollbackFromViewBridge outpost_rollback_from_view_bridge = 19;
+  uint32 guild_version = 20; // Version of nested guild metadata; zero when that family is absent.
 }
 
 message SaveInfo {

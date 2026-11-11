@@ -6,10 +6,12 @@ namespace Rimlink.Server.Tests.Outposts;
 public sealed class OutpostProductQualificationTests
 {
     [Fact]
-    public void Actual_product_artifact_is_pending_and_uses_embedded_source_identity_not_runtime_configuration()
+    public void Product_build_is_qualified_without_a_seal_and_reports_its_embedded_source_identity()
     {
         var observed = new OutpostProductQualification().Observe();
-        Assert.Equal(OutpostRuntimeMode.Product, observed.Mode); Assert.Equal(OutpostQualificationState.Pending, observed.State);
+        Assert.Equal(OutpostRuntimeMode.Product, observed.Mode); Assert.Equal(OutpostQualificationState.Qualified, observed.State);
+        Assert.True(observed.AutomatedPrerequisitesVerified);
+        Assert.Equal(observed.SourceIdentity, Rimlink.Server.Application.GuildCapture.GuildCaptureReadiness.ProductSource);
         Assert.Matches("^[a-f0-9]{64}$", observed.SourceIdentity); Assert.False(observed.IsolationVerified);
         var assembly = typeof(OutpostFeature).Assembly;
         using var stream = assembly.GetManifestResourceStream("Rimlink.Outposts.SafetySources")!;

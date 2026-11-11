@@ -3,6 +3,7 @@ using RimBridgeServer.Sdk;
 using Rimlink.Client;
 using Rimlink.Client.Game;
 using Rimlink.Client.Net;
+using Rimlink.Client.GuildCapture;
 using Rimlink.Client.UI;
 using Verse;
 
@@ -26,11 +27,23 @@ public sealed class ConnectTools
         [ToolParameter(Description = "auto: register when the login is refused; never: log in only")] string register = "auto",
         [ToolParameter(Description = "Join password of the server, when it has one")] string? serverPassword = null,
         [ToolParameter(Description = "Also trust a certificate that differs from the pinned one")] bool trustChangedPin = false,
-        [ToolParameter(Description = "Seconds to wait for the login and, for an existing colony, the loaded map")] int timeoutSec = 120)
+        [ToolParameter(Description = "Seconds to wait for the login and, for an existing colony, the loaded map")] int timeoutSec = 120,
+        [ToolParameter(Description = "Explicit isolated guild acceptance stand UUID; requires its exact certificate pin")] string? acceptanceStandId = null,
+        [ToolParameter(Description = "Exact SHA-256 certificate pin for explicit isolated guild acceptance")] string? acceptanceCertificateSha256 = null)
     {
         if (string.IsNullOrWhiteSpace(login) || string.IsNullOrEmpty(password)) return Bridge.Fail("login and password are required");
         if (register is not ("auto" or "never")) return Bridge.Fail("register must be auto or never");
         if (timeoutSec < 1) return Bridge.Fail("timeoutSec must be at least 1");
+        GuildAcceptanceSelection? acceptance=null;
+        try
+        {
+            if(acceptanceStandId is not null || acceptanceCertificateSha256 is not null)
+            {
+                acceptance=new(acceptanceStandId??"",acceptanceCertificateSha256??"");
+                acceptance.RequireEndpoint(new ServerEndpoint(host.Trim(),port).Address);
+            }
+        }
+        catch(InvalidDataException){return Bridge.Fail("isolated acceptance requires a local endpoint, exact stand UUID and certificate pin");}
         if (!Bridge.TryEnterFlow("connect")) return Bridge.Fail($"{Bridge.RunningFlow} is still running");
         Task<LoginOutcome>? abandoned = null;
         try
@@ -49,7 +62,7 @@ public sealed class ConnectTools
                     RimlinkMod.Settings.Servers.Add(endpoint.ToSettingsLine());
                     RimlinkMod.Settings.Write();
                 }
-                return LoginFlow.Run(endpoint, new GameCredentials(preset), pins);
+                return LoginFlow.Run(endpoint, new GameCredentials(preset), pins, acceptance: acceptance);
             });
             if (started is not Task<LoginOutcome> flow) return started;
 
@@ -79,6 +92,8 @@ public sealed class ConnectTools
                 pin = pins.Decision,
                 registered = success && preset.Attempts == 2,
                 server = endpoint.Display,
+                runtimeMode = acceptance is null ? "Product" : "GuildCaptureIsolatedAcceptanceV1 / Product OFF",
+                acceptanceStandId = acceptance?.StandId,
                 map = tile,
                 nextStep = outcome.Kind == LoginOutcomeKind.NewColony ? "rimlink/start_colony" : null,
             };

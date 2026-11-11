@@ -1,11 +1,11 @@
 ---
 pageId: admins/configuration
-contentRevision: 6
+contentRevision: 12
 ---
 
 # Справочник конфигурации
 
-Применимость: Rimlink 0.9.2 · RimWorld 1.7 · протокол 1.
+Применимость: Rimlink 0.10.0 · RimWorld 1.7 · протокол 1.
 
 ## Как пользоваться {#usage}
 
@@ -26,6 +26,9 @@ contentRevision: 6
 ## Ограничения и безопасность {#limits}
 
 Admin:ApiToken, Admin:Tokens:*:Token, Auth:SteamWebApiKey и Server:ServerPassword — секреты. FeedBufferSize 100–100000, FeedPingSeconds 1–300; gift/trade сроки и MaxOpenTrades >=1. Integrity пороги неотрицательны, Freeze не ниже Warn кроме 0. Hygiene: sweep 1–168 ч, неотрицательные возраст/пороги и строго возрастающие 4 уровня. Incidents каталог требует уникальных id, допустимого Kind и положительных множителей; непустой список заменяет весь встроенный каталог.
+
+
+GuildCapture.BeginDelivery и GuildCapture.Manifest закрыты проверкой готовности: включённая настройка, активированный V3 и состояние запуска Ready. Новый отдельный executor handshake настраивается секцией GuildCapture ниже; он не открывает имущественные операции. Без квалификации ресурсные RPC возвращают GuildUnavailable.
 
 ## См. также {#related}
 
@@ -156,7 +159,7 @@ Live задаёт срок приглашения/ожидания восста�
 
 Incidents включает платные события, очередь на цель, BasePrice/MinPrice, предупреждение от WarnFromLevel, кулдаун по Kind и срок исполнения. Catalog:* задаёт Id, IncidentDef, необязательный FactionDef, Kind (Hostile/Weather/Kind), PriceMultiplier и необязательный PodsMultiplier. Не обещай поддержку def из отсутствующего мода.
 
-### Outposts — Pending
+### Outposts
 
 Enabled по умолчанию false и не заменяет acceptance qualification. AnchorDirectory должен находиться вне заменяемых data trees; sqlite-local-v1 допускает только проверенный локальный backend. Linux требует фактически квалифицированный ext4/xfs/btrfs, Windows — fixed NTFS. Секреты и runtime-флаги не могут включить IsolatedAcceptance или Qualified. [Подробности](./passive-outposts.md).
 
@@ -166,3 +169,19 @@ Enabled по умолчанию false и не заменяет acceptance qualif
 | `Outposts:AnchorDirectory` | `string` | `""` |
 | `Outposts:StorageContract` | `string` | `""` |
 | `Outposts:QualifiedLinuxFileSystem` | `string` | `""` |
+
+
+### GuildCapture
+
+Enabled по умолчанию false. Для работы Product нужны явное включение, отдельные записи общей и гильдейской квалификации точных исходников и проверенная authority V3 с активным миром без происхождения из изолированного тестового стенда. Штатный сервер отклоняет активацию V3 до появления обеих записей и явного включения. Печать квалификации сборки снята в 0.10.0: возможность включается настройкой сервера и активацией формата данных, а проверки состояния запуска, формата, схемы и хранилища действуют как прежде. ExecutorId — стабильное имя одного слота. ExecutorTokenSha256 — SHA-256 отдельного секрета арбитра в UTF-8. ApprovedProfileDigest — доменный хеш утверждённого профиля арбитра. При Enabled=true нужны непустой ASCII-идентификатор (буквы, цифры, точка, дефис, подчёркивание) и два хеша по 64 шестнадцатеричных символа. Некорректная конфигурация останавливает запуск.
+
+Офлайн-команда `scripts/Seal-OutpostQualification.ps1 -GuildCapture` осталась инструментом разработки: она сверяет файлы доказательств с идентификатором исходников сборки, но сервер её результат больше не требует. Нужны успешные HISTORY, HOME, SLICE, RESTORE, проверки отказов и производительности, паритета операторских команд, упаковки и ревью. Режим Candidate записывает Pending в свой выходной файл. Запись квалификации не меняет работающий сервер и не активирует V3.
+
+| Key | Type | Default |
+|---|---|---|
+| `GuildCapture:Enabled` | `bool` | `false` |
+| `GuildCapture:ExecutorId` | `string` | `""` |
+| `GuildCapture:ExecutorTokenSha256` | `string` | `""` |
+| `GuildCapture:ApprovedProfileDigest` | `string` | `""` |
+
+При `GuildCapture:Enabled=false` обычный сервер отказывает executor transport. Только отдельный evidence-backed dev-host с реальным common V3 readiness и scoped guild admission может открыть его при OFF; обязательная dedicated конфигурация проверяется и в этом случае. Это разрешение HOME/SLICE не является Product qualification.

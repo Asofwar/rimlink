@@ -34,6 +34,7 @@ public static class IncidentIncoming
     /// <summary>Called every frame by the game component; throttled, only on the home map, not in a visit or as a live guest.</summary>
     public static void Tick()
     {
+        if (GuildCapture.BattleGameContext.Active) return;
         if (DateTime.UtcNow - lastAttempt < TimeSpan.FromSeconds(5)) return;
         lastAttempt = DateTime.UtcNow;
         if (!RimlinkSession.Active || Visits.VisitSession.InVisit || Live.LiveGuest.Session is not null || RimlinkSession.Incidents is not { } client
@@ -68,7 +69,7 @@ public static class IncidentIncoming
                 {
                     RimlinkSession.State.Incidents.Update(updated);
                     RimlinkLog.Instance.Info($"incident {id} announced at tick {tick}, fires at {updated.FireTick}");
-                    if (updated.FireTick <= tick || Current.ProgramState != ProgramState.Playing) return;
+                    if (GuildCapture.BattleGameContext.Active || updated.FireTick <= tick || Current.ProgramState != ProgramState.Playing) return;
                     string label = LabelOf(updated);
                     Find.LetterStack.ReceiveLetter("Rimlink.Incident.WarningLabel".Translate(label),
                         "Rimlink.Incident.Warning".Translate(updated.Buyer?.Name ?? "?", label, updated.Level), LetterDefOf.ThreatBig);
@@ -89,6 +90,7 @@ public static class IncidentIncoming
 
     private static void Fire(IncidentClient client, Incident incident, Map map, RimlinkGameComponent component)
     {
+        if (GuildCapture.BattleGameContext.Active) return;
         long id = incident.Id;
         RimlinkSession.State.Incidents.Remove(id);
         var def = DefDatabase<IncidentDef>.GetNamedSilentFail(incident.IncidentDef);
@@ -189,7 +191,7 @@ public static class IncidentIncoming
     private static void Reported(long id, bool fired, string reason)
     {
         reporting.Remove(id);
-        Current.Game?.GetComponent<RimlinkGameComponent>()?.FiredIncidents.Remove(id);
+        if (!GuildCapture.BattleGameContext.Active) Current.Game?.GetComponent<RimlinkGameComponent>()?.FiredIncidents.Remove(id);
         RimlinkSession.State.Incidents.Remove(id);
         RimlinkLog.Instance.Info($"incident {id} reported {(fired ? "fired" : "failed: " + reason)}");
     }

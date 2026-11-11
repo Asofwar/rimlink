@@ -1,11 +1,11 @@
 ---
 pageId: admins/hosting
-contentRevision: 5
+contentRevision: 13
 ---
 
 # Hosting and startup
 
-Applies to: Rimlink 0.9.2 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.10.0 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 
@@ -58,8 +58,23 @@ For containers, inspect the DataDir mount and write permissions. Recreating a co
 
 Do not run multiple servers against one DataDir. Do not independently copy a live database and saves as an ad-hoc backup. TLS is required by default; plain HTTP is for isolated development only.
 
+
+appsettings.example.json keeps GuildCapture disabled by default. Its separate executor identity/profile/credential parameters are documented in the configuration reference; executor registration does not start a campaign or enable Product qualification. A dedicated DataDir, common storage barrier, and separate licensed game process remain prerequisites for the future battle stand.
+
 ## See also {#related}
 
 - [Configuration reference](./configuration.md)
 - [Monitoring and event feed](./monitoring.md)
 - [Backup and recovery](./backup-recovery.md)
+
+A separate development-only `tools/Rimlink.GuildAcceptanceHost` is excluded from the release package. Commands `prepare`, `provision`, `inspect`, `run` and `admit-slice` use a separate owned stand with an empty DataDir, anchor, three savedata roots, pinned source and binaries, and separate credentials. The server listens on loopback with TLS and allows two named password logins and one executor. A separate offline `restore` command admits a verified archive from an owned SLICE stand into a new owned stand. HTTP reset and restore are refused. See [backup and recovery](backup-recovery.md#guild-domain-v3).
+
+## Isolated capture setup clock {#guild-setup-clock}
+
+Only the dev `Rimlink.GuildAcceptanceHost` exposes operator `GET /api/admin/acceptance/clock/` and `POST /api/admin/acceptance/clock/advance` with the `admin` scope. A step requires HOME, first saves for both allowed test identities, the exact current cut/revision and no Active battle, including cleanup phases. Purpose is EligibilitySetup or ScheduledWindowNotice. A step is at most 7 days; the immutable bootstrap budget is 30 days/32 steps. It cannot cross the earliest declared window. New registrations are closed after the first advance.
+
+The step is a protected GuildCaptureOperation in the common chain; the domain clock publishes after commit. Exact replay never adds time twice; the verified prefix recovers before requests are admitted. This is not a separate financial ledger. Auth/TLS, leases, challenges, networking, AI and the 20-minute battle limit use real clocks. A step neither produces/issues resources nor enables SLICE/Product. Virtual days do not establish multi-day runtime stability.
+
+In the isolated host, the background scheduler keeps waiting for qualified HOME admission while GuildCapture.Enabled=false. Preparing a due campaign requires the verified common V3 authority and its current grant; a server with `GuildCapture:Enabled` off and without that admission starts no campaign. Simulation and resource issuance remain forbidden in HOME.
+
+The guild background scheduler waits for the SaveFiles storage barrier S when another writer temporarily withdraws the published cut. Full admission is checked under S→B; an early transient-cut check must not skip a preparation or cancellation pass. The unit regression proves writer waiting; repeated native delay verification after this fix is still pending.

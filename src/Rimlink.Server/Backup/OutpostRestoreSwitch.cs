@@ -80,7 +80,7 @@ public sealed partial class OutpostRestoreProcedure
         byte[] manifestBytes = await File.ReadAllBytesAsync(Path.Combine(staged, OutpostBackupManifest.FileName), ct);
         if (!SHA256.HashData(manifestBytes).AsSpan().SequenceEqual(intent.ManifestDigest)) throw new InvalidDataException("restore-staged-manifest-changed");
         var manifest = OutpostBackupManifest.Decode(manifestBytes);
-        await ValidateCutAsync(intent.Selection.DataDirectory, manifest, ct);
+        await ValidateCutAsync(intent.Selection.DataDirectory, manifest, ct, selectedAcceptance: intent.Selection.Isolated?.Source);
         journal = journal with { Phase = RestorePhase.InstalledVerified, Revision = checked(journal.Revision + 1) };
         StoreJournal(journalRoot, journal);
         Checkpoint?.Invoke("AfterInstalledVerified");

@@ -19,6 +19,9 @@ public sealed record OutpostRecoveryData
     private const int MaxBase64Chars = ((MaxMetadataBytes + 2) / 3) * 4;
     public OutpostSaveMetadata Metadata { get; init; } = new();
     public bool Present => Metadata.SchemaVersion != 0;
+    public bool RequiresPersonalFamily => Present && (Metadata.GuildMetadata is null || Metadata.Registry.Count != 0
+        || Metadata.Receipts.Count != 0 || Metadata.Frontier.Count != 0 || Metadata.WorkerCaptures.Count != 0
+        || Metadata.Caravans.Count != 0 || Metadata.OrdinaryOutgoing.Count != 0);
 
     public static OutpostRecoveryData ReadSection(XmlReader reader)
     {
@@ -58,6 +61,24 @@ public sealed record OutpostRecoveryData
         ValidateScope(Metadata.Scope);
         if (Metadata.Registry.Count > MaxEntries || Metadata.Receipts.Count > MaxEntries || Metadata.Frontier.Count > MaxEntries) throw Invalid();
         var sourceScopes = ValidateSourceBridge();
+        if (Metadata.GuildMetadata is { } guild)
+        {
+            GuildResourceContracts.ValidateMetadata(guild);
+            var scope = guild.Scope;
+            if (scope.WorldInstanceId != Metadata.Scope.WorldInstanceId || scope.PlayerId != Metadata.Scope.OwnerPlayerId
+                || scope.SaveGeneration != Metadata.Scope.SaveGeneration || scope.SaveWriteEpoch != Metadata.Scope.SaveWriteEpoch
+                || scope.RestoreBoundary != Metadata.Scope.RestoreBoundary) throw Invalid();
+            foreach (var receipt in guild.Receipts)
+            {
+                var before = receipt.BeforeSnapshot.Scope;
+                // Structural admission only; the server must prove the retained attempt and source bridge.
+                bool Allowed(OutpostScopeMessage source) => before.WorldInstanceId == source.WorldInstanceId
+                    && before.PlayerId == source.OwnerPlayerId && before.SaveGeneration == source.SaveGeneration
+                    && before.RestoreBoundary == source.RestoreBoundary && before.SaveWriteEpoch <= source.SaveWriteEpoch;
+                if (!Allowed(Metadata.Scope) && !sourceScopes.Any(Allowed)
+                    && !(Metadata.RollbackBridge is { } prior && Allowed(prior.SourceScope))) throw Invalid();
+            }
+        }
         ValidateAdmissions();
         ValidateRollbackBridge();
         if (Metadata.OrdinaryOutgoing.Count > MaxEntries) throw Invalid();

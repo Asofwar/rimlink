@@ -9,7 +9,7 @@ namespace Rimlink.Server.Application.Outposts;
 
 public sealed partial class OutpostAuthority
 {
-    internal sealed record StoredDomainObservation(OutpostDomainFormat Format, OutpostSchemaObservation Schema, ByteString Digest);
+    internal sealed record StoredDomainObservation(OutpostDomainFormat Format, OutpostSchemaObservation Schema, ByteString Digest,GuildCapture.GuildAcceptanceProvenance? Acceptance=null);
 
     /// <summary>Schema admission precedes typed readers. Only the cryptographically verified chain selects the domain writer.</summary>
     internal static async Task<StoredDomainObservation> ReadStoredChainAsync(RimlinkDbContext db, SaveFiles files,
@@ -23,6 +23,7 @@ public sealed partial class OutpostAuthority
         AuthorityHead head = GenesisHead();
         string? predecessor = null, boundWorld = null, boundInstallation = null, boundBoundary = null;
         OutpostTransition? tip = null;
+        Backup.GuildAcceptanceRestorePermit? isolatedRestore = null;
         OutpostDomainFormat format = OutpostDomainFormat.V1;
         foreach (var transition in OrderTransitions(retained))
         {
@@ -49,6 +50,8 @@ public sealed partial class OutpostAuthority
             else if (transition.Kind == "BulkRestore")
             {
                 var plan = OutpostRestoreEvidence.Plan(transition);
+                if (isolatedRestore is not null) throw Backup.GuildAcceptanceRestorePermit.Invalid();
+                isolatedRestore = plan.Journal.Selection.Isolated;
                 // An immutable v1 restore is not an implicit format activation. Versioned restore admission is separate.
                 if ((plan.Version == 1 ? format != OutpostDomainFormat.V1 : plan.DomainStep!.From != format)
                     || plan.Cut.Authority.InstallationId != boundInstallation
@@ -76,10 +79,13 @@ public sealed partial class OutpostAuthority
                     if (command.Action == OutpostAdminActionKind.ActivateDomainFormat)
                     {
                         var activation = command.Activation!;
-                        if (format != OutpostDomainFormat.V1 || activation.From != format || activation.To != OutpostDomainFormat.V2
+                        bool guild = command.Version == 3;
+                        if (format != (guild ? OutpostDomainFormat.V2 : OutpostDomainFormat.V1) || activation.From != format
+                            || activation.To != (guild ? OutpostDomainFormat.V3 : OutpostDomainFormat.V2)
+                            || guild && !OutpostDomainSchema.HasGuildTables(schema)
                             || tip is null || !activation.PreviousDomainDigest.AsSpan().SequenceEqual(tip.Effects))
                             throw new OutpostEvidenceUnavailableException("authority-chain-domain-format-mismatch");
-                        format = OutpostDomainFormat.V2;
+                        format = activation.To;
                     }
                     else if (format != OutpostDomainFormat.V2)
                         throw new OutpostEvidenceUnavailableException("authority-chain-domain-format-mismatch");
@@ -92,12 +98,25 @@ public sealed partial class OutpostAuthority
         }
         await OutpostAdminReceiptEvidence.ValidateAsync(db, retained, schema, ct);
         await OutpostAdminResolveEvidence.ValidateAllAsync(db, files, retained.ToDictionary(t => t.Id, StringComparer.Ordinal), ct);
+        if (format != OutpostDomainFormat.V3 && OutpostDomainSchema.HasGuildTables(schema))
+        {
+            try { await GuildCapture.GuildDomainDigest.RequireEmptyAsync(db, ct); }
+            catch (InvalidDataException error) { throw new OutpostEvidenceUnavailableException(error.Message); }
+        }
         // Compute exactly once with the verified fold. Never try the other hash when this one disagrees.
-        ByteString domainDigest = await OutpostDomainDigest.ComputeAsync(db, format, ct);
+        ByteString domainDigest;
+        try { domainDigest = await OutpostDomainDigest.ComputeAsync(db, format, ct); }
+        catch (InvalidDataException error) { throw new OutpostEvidenceUnavailableException(error.Message); }
         if (tip is null || boundWorld != row.WorldId || boundInstallation != row.InstallationId || boundBoundary != row.RestoreBoundary
             || head != expected || tip.Id != row.TransitionId || !tip.Effects.AsSpan().SequenceEqual(domainDigest.Span))
             throw new OutpostEvidenceUnavailableException("authority-protected-state-mismatch");
-        return new(format, schema, domainDigest);
+        var acceptance = format == OutpostDomainFormat.V3 ? await GuildCapture.GuildAuthorityEvidence.AcceptanceIdentityAsync(db, ct) : null;
+        if (isolatedRestore is not null)
+        {
+            if (isolatedRestore.Source != acceptance) throw Backup.GuildAcceptanceRestorePermit.Invalid();
+            acceptance = isolatedRestore.Target;
+        }
+        return new(format, schema, domainDigest, acceptance);
     }
 
     internal static IEnumerable<OutpostTransition> OrderTransitions(IEnumerable<OutpostTransition> transitions)

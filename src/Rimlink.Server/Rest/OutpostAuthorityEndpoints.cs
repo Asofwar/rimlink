@@ -52,12 +52,14 @@ public static partial class OutpostAdminEndpoints
         {
             var request = await ReadCommandJson<PreviewBody>(context, ct);
             OutpostAdminPreview preview;
-            if (request.Action is "initialize" or "activate-domain-format")
+            if (request.Action is "initialize" or "activate-domain-format" or "activate-guild-domain-format")
             {
                 if (request.ManifestId is not null || request.ManifestDigest is not null || request.Resolution is not null || request.Recovery is not null || request.OriginalInput is not null) throw new JsonException();
                 preview = request.Action == "initialize"
                     ? await service.PreviewInitializeAsync(context.Actor(), request.RequestId, request.Reason, ct)
-                    : await service.PreviewActivateDomainFormatAsync(context.Actor(), request.RequestId, request.Reason, ct);
+                    : request.Action=="activate-guild-domain-format"
+                        ? await service.PreviewActivateGuildDomainFormatAsync(context.Actor(),request.RequestId,request.Reason,ct)
+                        : await service.PreviewActivateDomainFormatAsync(context.Actor(), request.RequestId, request.Reason, ct);
             }
             else if (request.Action == "confirm-manifest" && request.ManifestId is not null && request.ManifestDigest is not null
                 && request.Resolution is null && request.Recovery is null && request.OriginalInput is null)

@@ -78,6 +78,7 @@ public sealed partial class TransferOutbox
         if (snapshot.Recovery is not { } recovery) return;
         ReconcileSnapshot(recovery, accepted, snapshot.GameTick, selected);
         ReconcileOrdinarySnapshot(snapshot, accepted, selected);
+        ReconcileGuildSnapshot(snapshot, accepted, selected);
         if (!accepted || !recovery.Outposts.Present || snapshot.RawSha256?.Length != 32) return;
         var scope = recovery.Outposts.Metadata.Scope;
         var proof = new OutpostSnapshotProof { Scope = scope.Clone(), SnapshotId = recovery.SnapshotId, RawSha256 = ByteString.CopyFrom(snapshot.RawSha256) };
@@ -104,13 +105,17 @@ public sealed partial class TransferOutbox
         lock (gate)
         {
             var old = entries.Where(e => IsOutpost(e.Kind) && !OutpostReconciliation.SameScope(Evidence(e).Scope, scope)
-                || e.Ordinary is not null && !OutpostReconciliation.SameScope(ReadOrdinary(e).Scope, scope)).ToArray();
+                || e.Ordinary is not null && !OutpostReconciliation.SameScope(ReadOrdinary(e).Scope, scope)
+                || e.Kind == OutboxKind.GuildBeginDelivery && OutsideScope(ReadGuild(e).Request.Scope)).ToArray();
             if (old.Length == 0) return null;
             string kept = path + $".before-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}.json";
             WriteDocument(kept, File.ReadAllBytes(path)); // Preserve the original document byte for byte before removing old work.
             foreach (var entry in old) entries.Remove(entry);
             Save(); return kept;
         }
+        bool OutsideScope(GuildColonyScope original) => original.WorldInstanceId != scope.WorldInstanceId || original.PlayerId != scope.OwnerPlayerId
+            || original.SaveGeneration != scope.SaveGeneration || original.SaveWriteEpoch != scope.SaveWriteEpoch
+            || original.RestoreBoundary != scope.RestoreBoundary;
     }
     private bool QuarantineForLogin(OutboxEntry entry, LoginReply? login, OutpostClient? client)
     {

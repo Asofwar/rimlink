@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text.Json;
+using Rimlink.Server.Application.GuildCapture;
 using Rimlink.Server.Application.Outposts;
 
 namespace Rimlink.OutpostAcceptanceHost;
@@ -9,13 +10,14 @@ internal sealed record BuildEvidence(int Version, string SourceIdentity, Accepta
 // This command only emits an artifact for a subsequent build. No hosted endpoint can invoke it.
 internal static class BuildQualificationStep
 {
-    internal static OutpostQualificationArtifact Evaluate(BuildEvidence record)
+    internal static OutpostQualificationArtifact Evaluate(BuildEvidence record, bool guildCapture = false)
     {
         string identity = OutpostProductQualification.SourceIdentity;
+        var cases = guildCapture ? GuildCaptureReadiness.AcceptanceCases : OutpostProductQualification.AcceptanceCases;
         if (record.Version != 1 || record.SourceIdentity != identity || record.Checks is null
-            || record.Checks.Length > OutpostProductQualification.AcceptanceCases.Length
+            || record.Checks.Length > cases.Length
             || record.Checks.Select(c => c.Case).Distinct(StringComparer.Ordinal).Count() != record.Checks.Length
-            || record.Checks.Any(c => !OutpostProductQualification.AcceptanceCases.Contains(c.Case, StringComparer.Ordinal)))
+            || record.Checks.Any(c => !cases.Contains(c.Case, StringComparer.Ordinal)))
             throw new InvalidDataException("qualification-evidence-record-invalid");
         var evidence = new List<OutpostQualificationEvidence>();
         foreach (var check in record.Checks)
@@ -27,13 +29,13 @@ internal static class BuildQualificationStep
             evidence.Add(new(check.Case, identity, check.Outcome, check.EvidenceSha256));
         }
         var candidate = new OutpostQualificationArtifact(1, "Qualified", identity, evidence.ToArray());
-        return OutpostProductQualification.IsComplete(candidate, identity, OutpostProductQualification.AcceptanceCases)
+        return OutpostProductQualification.IsComplete(candidate, identity, cases)
             ? candidate : candidate with { State = "Pending" };
     }
 
-    internal static void Write(string action, string recordPath, string outputPath)
+    internal static void Write(string action, string recordPath, string outputPath, bool guildCapture = false)
     {
-        var artifact = Evaluate(AcceptanceStandFiles.Read<BuildEvidence>(Path.GetFullPath(recordPath)));
+        var artifact = Evaluate(AcceptanceStandFiles.Read<BuildEvidence>(Path.GetFullPath(recordPath)), guildCapture);
         if (action == "build-seal" && artifact.State != "Qualified") throw new InvalidDataException("qualification-incomplete-product-remains-pending");
         if (action is not ("build-candidate" or "build-seal")) throw new InvalidDataException("qualification-command-invalid");
         if (action == "build-candidate") artifact = artifact with { State = "Pending" };

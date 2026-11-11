@@ -101,6 +101,45 @@ public sealed class OutpostManifestClientTests
     }
 
     [Fact]
+    public void Restored_manifest_checks_gameplay_without_binding_the_saved_server_address()
+    {
+        OutpostManifestClient.DefinitionPack[] packs = [new(0, "ludeon.rimworld", "core-content", ["Verse.ThingDef:Steel"])];
+        ModSettingsHash[] settings =
+        [
+            new() { PackageId = "asofwar.rimlink", Handle = "RimlinkMod", Hash = "endpoint-30026" },
+            new() { PackageId = "example.rules", Handle = "Rules", Hash = "rules-a" },
+        ];
+        var world = new WorldParams { Seed = "same", Rainfall = 2 };
+        var legacy = OutpostManifestClient.DefinitionFingerprint(packs, settings, legacy: true);
+        Assert.Equal("f49473871f6301290518023f6a8880e3f3c91cf6a6c63eaffba5ce90d1be7d06", Convert.ToHexStringLower(legacy.Span));
+        var document = new OutpostManifestDocument
+        {
+            Binding = new() { WorldInstanceId = "world-1", WorldParamsSha256 = ByteString.CopyFrom(SHA256.HashData(world.ToByteArray())) },
+            GameVersion = "1.7.5000",
+            GameDefsSha256 = legacy,
+            GameplayDefsSha256 = OutpostManifestClient.DefinitionFingerprint(packs, settings, legacy: false),
+        };
+
+        settings[0].Hash = "endpoint-30027";
+        var relocatedLegacy = OutpostManifestClient.DefinitionFingerprint(packs, settings, legacy: true);
+        Assert.NotEqual(legacy, relocatedLegacy);
+        var relocatedGameplay = OutpostManifestClient.DefinitionFingerprint(packs, settings, legacy: false);
+        OutpostManifestClient.RequireLocalMatch(document, world, "world-1", "1.7.5000", [], relocatedGameplay);
+        Assert.Throws<InvalidDataException>(() => OutpostManifestClient.RequireLocalMatch(document, world, "world-1", "1.7.5000", [], legacy));
+
+        settings[1].Hash = "rules-b";
+        var changedGameplay = OutpostManifestClient.DefinitionFingerprint(packs, settings, legacy: false);
+        Assert.Throws<InvalidDataException>(() => OutpostManifestClient.RequireLocalMatch(document, world, "world-1", "1.7.5000", [], changedGameplay));
+        settings[1].Hash = "rules-a";
+        packs[0] = packs[0] with { Content = "changed-core-content" };
+        Assert.NotEqual(relocatedGameplay, OutpostManifestClient.DefinitionFingerprint(packs, settings, legacy: false));
+
+        document.GameplayDefsSha256 = ByteString.Empty;
+        OutpostManifestClient.RequireLocalMatch(document, world, "world-1", "1.7.5000", [], legacy);
+        Assert.Throws<InvalidDataException>(() => OutpostManifestClient.RequireLocalMatch(document, world, "world-1", "1.7.5000", [], relocatedLegacy));
+    }
+
+    [Fact]
     public void Server_parameters_do_not_replace_evidence_of_a_changed_loaded_planet()
     {
         var server = new WorldParams { Seed = "shared", Temperature = 2 };

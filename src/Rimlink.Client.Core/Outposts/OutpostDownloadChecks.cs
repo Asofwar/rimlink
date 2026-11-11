@@ -20,12 +20,17 @@ public static class OutpostDownloadChecks
             recovery.Validate();
             if (rawHash.Length != 32 || recovery.SnapshotId != header.SnapshotId || recovery.Version != header.RecoveryVersion
                 || recovery.Generation != header.SaveGeneration) return Refuse();
+            if (header.GuildVersion != (recovery.Outposts.Metadata.GuildMetadata?.SchemaVersion ?? 0)
+                || header.OutpostMetadata?.GuildMetadata is not null && !header.OutpostMetadata.Equals(recovery.Outposts.Metadata)) return Refuse();
             if (!recovery.Outposts.Present) return active == 0 ? new(true, null, []) : Refuse();
             var metadata = recovery.Outposts.Metadata;
             var view = header.OutpostRestoreBridge is { } restore ? OutpostSourceGraph.ValidateRoot(restore)
                 : header.OutpostRollbackFromViewBridge is { } rollbackView ? OutpostSourceGraph.ValidateRoot(rollbackView) : null;
             var current = view?.EffectiveScope ?? header.OutpostRollbackBridge?.CurrentScope ?? metadata.Scope;
-            if (authentication?.Player is null || authentication.OutpostVersion != 1 || authentication.Player.PlayerId != current.OwnerPlayerId
+            if (authentication?.Player is null || recovery.Outposts.RequiresPersonalFamily && authentication.OutpostVersion != 1
+                || metadata.GuildMetadata is not null && (authentication.GuildVersion != GuildResourceContracts.CurrentVersion
+                    || header.GuildVersion != GuildResourceContracts.CurrentVersion || !metadata.Equals(header.OutpostMetadata))
+                || authentication.Player.PlayerId != current.OwnerPlayerId
                 || authentication.SaveGeneration != current.SaveGeneration || authentication.SaveWriteEpoch != current.SaveWriteEpoch
                 || authentication.OutpostRestoreBoundary != current.RestoreBoundary || header.SaveGeneration != current.SaveGeneration
                 || header.SaveWriteEpoch != current.SaveWriteEpoch) return Refuse();

@@ -72,3 +72,12 @@ namespace Rimlink.Client.Game.Live
     }
     public static class MirrorMode { public static bool Active; }
 }
+
+namespace Rimlink.Client.Game.GuildCapture
+{
+    public static class BattleGameContext
+    {
+        public static bool Active;
+        public static Rimlink.Protocol.V1.BattleScopeMessage? Scope;
+    }
+}

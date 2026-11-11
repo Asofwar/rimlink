@@ -15,6 +15,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Rimlink.Server\Rimlink.Server.csproj" />
     <ProjectReference Include="..\..\tools\Rimlink.OutpostAcceptanceHost\Rimlink.OutpostAcceptanceHost.csproj" />
+    <ProjectReference Include="../../tools/Rimlink.GuildAcceptanceHost/Rimlink.GuildAcceptanceHost.csproj" />
     <!-- Aliased: both rimlink-server and rimlink-tools define a global Program. -->
     <ProjectReference Include="..\..\src\Rimlink.Tools\Rimlink.Tools.csproj" Aliases="tools" />
   </ItemGroup>

@@ -18,7 +18,15 @@ public sealed partial class OutpostAuthority(RimlinkDbContext db, OutpostAnchorS
     internal OutpostStartupResult StartupObservation => feature.Startup;
     internal OutpostReadinessDecision ReadinessObservation => feature.Readiness;
     internal void RequireRuntimeCustody() => feature.RequireCustodyReadiness();
+    internal void RequireRuntimeGuild(GuildCapture.GuildRuntimeUse use=GuildCapture.GuildRuntimeUse.Transport)
+    {
+        if (feature.VerifiedDomainFormat != OutpostDomainFormat.V3)
+            throw new OutpostEvidenceUnavailableException("guild-domain-v3-required");
+        feature.RequireGuildReadiness(use);
+    }
     internal bool IsRuntimeComposition => feature.RuntimeComposition;
+    internal bool CanActivateGuildFormat => feature.CanActivateGuildFormat;
+    internal OutpostDomainFormat? VerifiedDomainFormat => feature.VerifiedDomainFormat;
 
     public async Task<OutpostLease> AcquireAsync(IReadOnlyList<long> ownerIds, CancellationToken ct)
     {
@@ -64,7 +72,7 @@ public sealed partial class OutpostAuthority(RimlinkDbContext db, OutpostAnchorS
         return await BeginCoreAsync(lease, intent, operation is null ? null : step.OperationId, ct, intent.Kind == "WorldBind");
     }
 
-    private async Task<OutpostDomainTransaction> BeginCoreAsync(OutpostLease lease, TransitionIntent intent, string? lifecycleOperation, CancellationToken ct, bool bindSuccessor = false, OutpostAdminIntent? admin = null)
+    private async Task<OutpostDomainTransaction> BeginCoreAsync(OutpostLease lease, TransitionIntent intent, string? lifecycleOperation, CancellationToken ct, bool bindSuccessor = false, OutpostAdminIntent? admin = null,GuildCapture.GuildAcceptanceProvenance? guildBootstrap=null)
     {
         lease.Require(this);
         if (intent.PlayerId < 0 || (intent.PlayerId > 0 && !lease.CoversOwner(intent.PlayerId)))
@@ -98,10 +106,27 @@ public sealed partial class OutpostAuthority(RimlinkDbContext db, OutpostAnchorS
             transition.PredecessorId = row.TransitionId;
             var domain = await ReadStoredChainAsync(db, files, row, current.Committed, currentRuntime: true, ct);
             var format = admin is null ? domain.Format : await ValidateAdminCommandHeldAsync(lease, admin, row, domain, ct);
+            if (GuildCapture.GuildAuthorityEvidence.IsKind(intent.Kind) && format != OutpostDomainFormat.V3)
+                throw new OutpostEvidenceUnavailableException("guild-domain-v3-required");
             if (bindSuccessor) feature.RequireSuccessorReadiness();
-            else if (admin is null && (intent.Kind is not ("StageManifest" or "ConfirmManifest") || await db.PawnCustody.AnyAsync(ct)))
-                RequireRuntimeCustody();
-            return new(this, db, anchor, feature, lease, current, transition, row, transaction, opened, lease.LifecycleOperationId, format);
+            else if (admin is null)
+            {
+                if(intent.Kind==GuildCapture.GuildAuthorityEvidence.AcceptanceBindingKind)
+                {
+                    if(guildBootstrap is null || feature.GuildCut is not{} bootstrapCut || guildBootstrap.WorldId!=row.WorldId || guildBootstrap.Boundary!=row.RestoreBoundary
+                        || await db.Set<GuildCaptureOperation>().AnyAsync(ct))throw new OutpostEvidenceUnavailableException("guild-acceptance-bootstrap-refused");
+                    GuildCapture.GuildRuntimeAdmission.Require(feature.Readiness,bootstrapCut with{Acceptance=guildBootstrap},feature.GuildGrant,GuildCapture.GuildRuntimeUse.Setup);
+                }
+                else if (GuildCapture.GuildAuthorityEvidence.IsKind(intent.Kind)) RequireRuntimeGuild(GuildCapture.GuildRuntimeAdmission.MutationUse(intent.Kind));
+                else if (intent.Kind == "SnapshotAccepted")
+                {
+                    var metadata = new Protocol.OutpostRecoveryData { Metadata = Protocol.V1.OutpostSaveMetadata.Parser.ParseFrom(intent.Intent) };
+                    if (metadata.Metadata.GuildMetadata is not null) RequireRuntimeGuild();
+                    if (metadata.RequiresPersonalFamily || metadata.Metadata.GuildMetadata is null) RequireRuntimeCustody();
+                }
+                else if (intent.Kind is not ("StageManifest" or "ConfirmManifest") || await db.PawnCustody.AnyAsync(ct)) RequireRuntimeCustody();
+            }
+            return new(this, db, anchor, feature, lease, current, transition, row, transaction, opened, lease.LifecycleOperationId, format, domain.Acceptance);
         }
         catch
         {
@@ -126,14 +151,17 @@ public sealed partial class OutpostAuthority(RimlinkDbContext db, OutpostAnchorS
         private readonly bool opened;
         private readonly string? lifecycleOperation;
         private readonly OutpostDomainFormat format;
+        private readonly GuildCapture.GuildAcceptanceProvenance? acceptance;
         private bool attempted, completed, disposed;
 
         internal OutpostDomainTransaction(OutpostAuthority owner, RimlinkDbContext db, OutpostAnchorStore anchor, OutpostFeature feature,
             OutpostLease lease, AnchorRecord current, OutpostTransition transition, Storage.Entities.OutpostAuthority row,
-            Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction, bool opened, string? lifecycleOperation, OutpostDomainFormat format)
+            Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction, bool opened, string? lifecycleOperation, OutpostDomainFormat format,
+            GuildCapture.GuildAcceptanceProvenance? acceptance)
         {
             this.owner = owner; this.db = db; this.anchor = anchor; this.feature = feature; this.lease = lease;
             this.current = current; this.transition = transition; this.row = row; this.transaction = transaction; this.opened = opened; this.lifecycleOperation = lifecycleOperation; this.format = format;
+            this.acceptance = acceptance;
         }
 
         internal void RequireAdminStage(RimlinkDbContext context, OutpostLease held, string id, DateTime at, string kind)
@@ -150,6 +178,8 @@ public sealed partial class OutpostAuthority(RimlinkDbContext db, OutpostAnchorS
             lease.Require(owner);
             if (disposed || attempted) throw new InvalidOperationException("outpost-commit-already-attempted");
             attempted = true;
+            var priorCut = feature.GuildCut;
+            feature.GuildCut = null;
             bool pendingWritten = false;
             try
             {
@@ -173,6 +203,11 @@ public sealed partial class OutpostAuthority(RimlinkDbContext db, OutpostAnchorS
                 await db.SaveChangesAsync(ct);
                 if (transition.Kind is "DomainFormatActivated" or "AdminManifestConfirmed" or "AdminResolved")
                     _ = await owner.ValidateAdminHeadAsync(row, next, ct);
+                var acceptance = format == OutpostDomainFormat.V3
+                    ? this.acceptance ?? await GuildCapture.GuildAuthorityEvidence.AcceptanceIdentityAsync(db, ct) : null;
+                feature.RequireGuildProvenance(acceptance);
+                var guildCut = format == OutpostDomainFormat.V3 && !await owner.IsNoActiveWorldAsync(ct)
+                    ? new GuildVerifiedCut(row.WorldId, row.RestoreBoundary, next.Id, next.Digest,acceptance) : null;
                 ct.ThrowIfCancellationRequested();
                 owner.CommitCheckpoint?.Invoke("BeforePending");
                 // Every write attempt may already be durable: from here cancellation cannot compensate.
@@ -184,12 +219,19 @@ public sealed partial class OutpostAuthority(RimlinkDbContext db, OutpostAnchorS
                 anchor.WriteDurable(lease.Anchor, current with { WorldId = nextWorld, Committed = next }, CancellationToken.None);
                 owner.CommitCheckpoint?.Invoke("AfterExternalCommit");
                 feature.ObserveDomain(format, true);
+                feature.GuildCut = guildCut;
                 completed = true;
                 return next;
             }
-            catch
+            catch (Exception error)
             {
                 if (pendingWritten) feature.Startup = new(OutpostStartupState.Maintenance, "protected-commit-reconciliation-required");
+                else if (error is OperationCanceledException && ct.IsCancellationRequested
+                    && priorCut is not null && feature.Startup.State == OutpostStartupState.Ready)
+                {
+                    await transaction.RollbackAsync(CancellationToken.None);
+                    feature.GuildCut = priorCut;
+                }
                 db.ChangeTracker.Clear();
                 throw;
             }
@@ -306,22 +348,27 @@ public sealed partial class OutpostAuthority(RimlinkDbContext db, OutpostAnchorS
         catch (Exception error) when (error is InvalidDataException or IOException or SqliteException)
         {
             LastOpenFailure = error;
+            feature.GuildCut = null;
             return feature.Startup = new(OutpostStartupState.Maintenance, "anchor-storage-unavailable");
         }
     }
 
     private async Task<OutpostStartupResult> OpenHeldAsync(OutpostAnchorStore.OutpostAnchorLease authorityLease, CancellationToken ct, string? lifecycleOperation = null)
     {
-        bool history = await HasHistoryAsync(ct);
+        ct.ThrowIfCancellationRequested();
+        var requestCancellation = ct;
+        // Once transport admission is withdrawn, finish checking the evidence under the same storage lease.
+        if (feature.GuildCut is not null) ct = CancellationToken.None;
+        feature.GuildCut = null;
         if (!File.Exists(anchor.DatabasePath))
-            return feature.Startup = history
+            return feature.Startup = await HasHistoryAsync(ct)
                 ? new(OutpostStartupState.Maintenance, "anchor-missing-with-history")
                 : new(OutpostStartupState.RequiresInitialization, "explicit-initialization-required");
         if (anchor.JournalRefusal() is { } refusal)
             return feature.Startup = new(OutpostStartupState.Maintenance, refusal);
         AnchorEnvelope? envelope = anchor.ReadEnvelope(authorityLease);
         if (envelope is null)
-            return feature.Startup = history
+            return feature.Startup = await HasHistoryAsync(ct)
                 ? new(OutpostStartupState.Maintenance, "anchor-uninitialized-with-history")
                 : new(OutpostStartupState.RequiresInitialization, "explicit-initialization-required");
         if (envelope is not KnownAnchorEnvelope known)
@@ -353,7 +400,7 @@ public sealed partial class OutpostAuthority(RimlinkDbContext db, OutpostAnchorS
         {
             await OpenDurableDomainAsync(ct);
             StoredDomainObservation domain;
-            try { domain = await ReadStoredChainAsync(db, files, row, expected, currentRuntime: true, ct); }
+            try { domain = await ReadStoredChainAsync(db, files, row, expected, currentRuntime: true, ct);feature.RequireGuildProvenance(domain.Acceptance); }
             catch (OutpostEvidenceUnavailableException error)
             { return feature.Startup = new(OutpostStartupState.Maintenance, error.Message); }
             if (record.Pending is { } uncommitted && !pendingCommitted &&
@@ -365,8 +412,12 @@ public sealed partial class OutpostAuthority(RimlinkDbContext db, OutpostAnchorS
             if (record.Pending is not null)
                 anchor.WriteDurable(authorityLease, record with { WorldId = row.WorldId, Committed = expected, Pending = null }, CancellationToken.None);
             feature.ObserveDomain(domain.Format, domain.Schema.IsCurrent);
-            return feature.Startup = new(await new OutpostLifecycleEvidence(db, files).IsNoActiveWorldAsync(ct)
+            feature.Startup = new(await IsNoActiveWorldAsync(ct)
                 ? OutpostStartupState.NoActiveWorld : OutpostStartupState.Ready);
+            if (feature.Startup.State == OutpostStartupState.Ready && domain.Format == OutpostDomainFormat.V3)
+                feature.GuildCut = new(row.WorldId, row.RestoreBoundary, row.HeadId, ByteString.CopyFrom(row.HeadDigest),domain.Acceptance);
+            requestCancellation.ThrowIfCancellationRequested();
+            return feature.Startup;
         }
         finally
         {
@@ -381,6 +432,7 @@ public sealed partial class OutpostAuthority(RimlinkDbContext db, OutpostAnchorS
 
     private Task<string> ReadWorldBindTargetAsync(OutpostTransition transition, CancellationToken ct) =>
         new OutpostLifecycleEvidence(db, files).ReadWorldBindTargetAsync(transition, ct);
+    private Task<bool> IsNoActiveWorldAsync(CancellationToken ct) => new OutpostLifecycleEvidence(db, files).IsNoActiveWorldAsync(ct);
 
     private static AuthorityHead GenesisHead() => new(Guid.Empty.ToString("D"), ByteString.CopyFrom(SHA256.HashData("rimlink-outpost-genesis-v1"u8)));
 
@@ -421,6 +473,7 @@ public sealed partial class OutpostAuthority(RimlinkDbContext db, OutpostAnchorS
     {
         // Admit the complete actual catalog before querying the v2-only table; a historical pre-admin v1 cut has no such reader.
         var schema = await OutpostDomainSchema.ObserveAsync(db, ct);
-        return schema.IsCurrent && await db.OutpostAdminCommands.AnyAsync(ct);
+        return schema.IsCurrent && await db.OutpostAdminCommands.AnyAsync(ct)
+            || OutpostDomainSchema.HasGuildTables(schema) && await GuildCapture.GuildDomainDigest.HasRowsAsync(db, ct);
     }
 }

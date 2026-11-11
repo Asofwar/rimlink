@@ -24,12 +24,13 @@ public static class Incoming
         spawnedThisSession.Clear();
         fetching.Clear();
         Outposts.OutpostIncoming.Reset();
+        GuildCapture.GuildIncoming.Reset();
     }
 
     /// <summary>Called every frame by the game component; throttled, and only while on the colony map.</summary>
     public static void Tick()
     {
-        if (SaveSync.WritesBlocked) return;
+        if (GuildCapture.BattleGameContext.Active || SaveSync.WritesBlocked) return;
         if (DateTime.UtcNow - lastAttempt < TimeSpan.FromSeconds(5)) return;
         if (Visits.VisitSession.InVisit) { lastAttempt = DateTime.UtcNow; return; } // the loaded game is the host's colony, not ours
         if (RimlinkSession.State.Economy.Pending.Count > 0) DeliverPending();
@@ -43,7 +44,7 @@ public static class Incoming
     public static void DeliverPending()
     {
         lastAttempt = DateTime.UtcNow;
-        if (!RimlinkSession.Active || Visits.VisitSession.InVisit || RimlinkSession.Economy is not { } economy || Current.ProgramState != ProgramState.Playing) return;
+        if (GuildCapture.BattleGameContext.Active || !RimlinkSession.Active || Visits.VisitSession.InVisit || RimlinkSession.Economy is not { } economy || Current.ProgramState != ProgramState.Playing) return;
         var map = Find.CurrentMap;
         if (map is null || !map.IsPlayerHome) return;
         var outbox = RimlinkSession.Outbox;
@@ -54,7 +55,7 @@ public static class Incoming
         {
             long id = parcel.Id;
             var component = Current.Game.GetComponent<RimlinkGameComponent>();
-            if (component.ParcelReceipts.Contains(id))
+            if (!GuildCapture.GuildIncoming.Protected(parcel) && component.ParcelReceipts.Contains(id))
             {
                 PrepareConfirmation(id, outbox);
                 RimlinkSession.State.Economy.MarkDelivered(id);
@@ -90,7 +91,9 @@ public static class Incoming
     {
         long id = parcel.Id;
         fetching.Remove(id);
-        if (!RimlinkSession.Active || Current.ProgramState != ProgramState.Playing || !Find.Maps.Contains(map) || spawnedThisSession.Contains(id)) return;
+        if (GuildCapture.GuildIncoming.Busy || Outposts.OutpostIncoming.Busy) return;
+        if (GuildCapture.BattleGameContext.Active || !RimlinkSession.Active || Current.ProgramState != ProgramState.Playing || !Find.Maps.Contains(map) || spawnedThisSession.Contains(id)) return;
+        if (GuildCapture.GuildIncoming.Protected(parcel)) { GuildCapture.GuildIncoming.Receive(parcel, map); return; }
         if (Outposts.OutpostIncoming.Protected(parcel)) { Outposts.OutpostIncoming.Receive(parcel, map); return; }
         var component = Current.Game.GetComponent<RimlinkGameComponent>();
         if (component.ParcelReceipts.Contains(id)) { PrepareConfirmation(id, outbox); RimlinkSession.State.Economy.MarkDelivered(id); return; }

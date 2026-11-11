@@ -7,6 +7,7 @@ namespace Rimlink.Protocol;
 public sealed record SaveRecoveryData
 {
     public const uint CurrentVersion = 1;
+    public const string BattleScopeNode = "rimlinkBattleScope";
     public const string ComponentClass = "Rimlink.Client.Game.RimlinkGameComponent";
     public const string VersionNode = "rimlinkRecoveryVersion", SnapshotNode = "rimlinkSnapshotId", EpochNode = "rimlinkSaveWriteEpoch";
     public const string ParcelsNode = "rimlinkParcelReceipts", RemovedNode = "rimlinkRemovedOperations", ReturnedNode = "rimlinkReturnedOperations";
@@ -34,6 +35,12 @@ public sealed record SaveRecoveryData
             throw new InvalidDataException("invalid save recovery receipts");
     }
 
+    public static bool HasBattleScope(Stream xml)
+    {
+        using var reader = XmlReader.Create(xml, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit });
+        return reader.ReadToFollowing(BattleScopeNode);
+    }
+
     public static SaveRecoveryData ReadXml(Stream xml, out byte[] rawHash)
     {
         using var hashed = new HashedInput(xml);
@@ -49,6 +56,7 @@ public sealed record SaveRecoveryData
                 continue;
             }
             if (reader.NodeType != XmlNodeType.Element) continue;
+            if (reader.Name == BattleScopeNode) throw new InvalidDataException("battle snapshot is not a personal colony save");
             if (reader.Depth == 0 && reader.Name != "savegame") throw new InvalidDataException("not a RimWorld save");
             if (reader.Depth == 1 && reader.Name == "game") game = true;
             if (game && reader.Depth == 2 && reader.Name == "components") components = true;
@@ -73,6 +81,7 @@ public sealed record SaveRecoveryData
         while (!advance || reader.Read())
         {
             advance = true;
+            if (reader.NodeType == XmlNodeType.Element && reader.Name == BattleScopeNode) throw new InvalidDataException("battle snapshot is not a personal colony save");
             if (reader.NodeType != XmlNodeType.Element || reader.Depth != 1) continue;
             string name = reader.Name;
             if (name == OutpostRecoveryData.SectionNode)

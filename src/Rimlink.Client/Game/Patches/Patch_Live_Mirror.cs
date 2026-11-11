@@ -1,6 +1,8 @@
 using HarmonyLib;
 using RimWorld;
 using Rimlink.Client.Game.Live;
+using Rimlink.Client.Game.GuildCapture;
+using Rimlink.Client.GuildCapture;
 using Verse;
 using Verse.AI;
 
@@ -24,6 +26,7 @@ public static class Patch_TickManager_CurTimeSpeed_Mirror
 {
     public static bool Prefix(TimeSpeed value)
     {
+        if (BattleGameContext.Role==BattleMapRole.Viewer) return false;
         if (!MirrorMode.Active || MirrorMode.Applying) return true;
         if (!MirrorMode.SettlingIn) LiveGuest.SendSpeed(value);
         return false;
@@ -48,6 +51,7 @@ public static class Patch_Pawn_JobTracker_TryTakeOrderedJob_Mirror
 {
     public static bool Prefix(Pawn_JobTracker __instance, Job job, ref bool __result)
     {
+        if(BattleGameContext.Active){if(!BattleGameContext.ApplyingOrders){__result=false;return false;}return true;}
         if (!MirrorMode.Active || MirrorMode.Applying) return true;
         var pawn = Traverse.Create(__instance).Field("pawn").GetValue<Pawn>();
         if (pawn is null) { __result = false; return false; }
@@ -62,6 +66,7 @@ public static class Patch_Pawn_DraftController_Drafted_Mirror
 {
     public static bool Prefix(Pawn_DraftController __instance, bool value)
     {
+        if(BattleGameContext.Active)return BattleGameContext.ApplyingOrders;
         if (!MirrorMode.Active || MirrorMode.Applying) return true;
         if (MirrorMode.IsOwned(__instance.pawn)) LiveGuest.SendDraft(__instance.pawn, value);
         return false;
@@ -73,6 +78,7 @@ public static class Patch_Pawn_WorkSettings_SetPriority_Mirror
 {
     public static bool Prefix(Pawn_WorkSettings __instance, WorkTypeDef w, int priority)
     {
+        if(BattleGameContext.Active)return BattleGameContext.ApplyingOrders;
         if (!MirrorMode.Active || MirrorMode.Applying) return true;
         var pawn = Traverse.Create(__instance).Field("pawn").GetValue<Pawn>();
         if (pawn is null || !MirrorMode.IsOwned(pawn)) return false;
@@ -86,6 +92,7 @@ public static class Patch_Pawn_TimetableTracker_SetAssignment_Mirror
 {
     public static bool Prefix(Pawn_TimetableTracker __instance, int hour, TimeAssignmentDef ta)
     {
+        if(BattleGameContext.Active)return BattleGameContext.ApplyingOrders;
         if (!MirrorMode.Active || MirrorMode.Applying) return true;
         var pawn = Traverse.Create(__instance).Field("pawn").GetValue<Pawn>();
         if (pawn is null || !MirrorMode.IsOwned(pawn)) return false;

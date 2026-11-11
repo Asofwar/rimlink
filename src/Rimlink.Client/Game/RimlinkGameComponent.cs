@@ -28,6 +28,7 @@ public sealed class RimlinkGameComponent : GameComponent
     public long SaveWriteEpoch;
     public uint RecoveryVersion;
     public string SnapshotId = "";
+    public readonly string GuildDeliveryBranchId = Guid.NewGuid().ToString("D"); // A cold load never proves continuity of an unrecorded resource spawn.
     public OutpostRecoveryData OutpostRecovery = new();
     public string OutpostWorldGenerationParams = "";
     public string? OutpostLoadFailure; // non-Scribed: malformed evidence must never become an empty bootstrap
@@ -51,6 +52,7 @@ public sealed class RimlinkGameComponent : GameComponent
     public override void ExposeData()
     {
         base.ExposeData();
+        if (Scribe.mode == LoadSaveMode.Saving && GuildCapture.BattleGameContext.Active) return;
         if (Scribe.mode == LoadSaveMode.LoadingVars)
         {
             try
@@ -109,6 +111,12 @@ public sealed class RimlinkGameComponent : GameComponent
     }
 
     public override void FinalizeInit()
+    {
+        if (GuildCapture.BattleGameContext.Active) return;
+        FinalizeOwnSessionAfterBattle();
+    }
+
+    internal void FinalizeOwnSessionAfterBattle()
     {
         if (!RimlinkSession.Active) return;
         if (!Visits.VisitSession.InVisit && RimlinkSession.PendingDownload is { } downloaded)
@@ -198,14 +206,16 @@ public sealed class RimlinkGameComponent : GameComponent
         liveSubscribed = true;
         Pings.PingSender.Subscribe();
         var live = RimlinkSession.State.Live;
-        live.Invited += invite => { if (Current.ProgramState == ProgramState.Playing && !Visits.VisitSession.InVisit) Find.WindowStack.Add(new UI.Live.Dialog_LiveInvite(invite)); };
+        live.Invited += invite => { if (!GuildCapture.BattleGameContext.Active && Current.ProgramState == ProgramState.Playing && !Visits.VisitSession.InVisit) Find.WindowStack.Add(new UI.Live.Dialog_LiveInvite(invite)); };
         live.Started += session =>
         {
+            if (GuildCapture.BattleGameContext.Active) return;
             if (session.Host?.PlayerId == RimlinkSession.MyPlayerId) Live.LiveHost.Begin(session);
             else if (session.Guest?.PlayerId == RimlinkSession.MyPlayerId) Live.LiveGuest.OnStarted(session);
         };
         live.Ended += session =>
         {
+            if (GuildCapture.BattleGameContext.Active) return;
             if (session.Host?.PlayerId == RimlinkSession.MyPlayerId && session.State == LiveState.LiveEnding)
             {
                 if (Live.LiveHost.Session?.Id == session.Id) Live.LiveHost.End(session.EndReason);
@@ -220,7 +230,7 @@ public sealed class RimlinkGameComponent : GameComponent
     /// <summary>Presence for live sessions: the server only invites a host who is at their colony.</summary>
     private static void ReportPresence()
     {
-        bool home = Current.ProgramState == ProgramState.Playing && !Visits.VisitSession.InVisit && !Live.MirrorMode.Active && Find.AnyPlayerHomeMap is not null;
+        bool home = !GuildCapture.BattleGameContext.Active && Current.ProgramState == ProgramState.Playing && !Visits.VisitSession.InVisit && !Live.MirrorMode.Active && Find.AnyPlayerHomeMap is not null;
         if (atHomeSent == home || RimlinkSession.Connection is not { } connection) return;
         atHomeSent = home;
         _ = Task.Run(async () =>
@@ -261,6 +271,15 @@ public sealed class RimlinkGameComponent : GameComponent
 
     public override void GameComponentUpdate()
     {
+        if (GuildCapture.BattleGameContext.Active)
+        {
+            if (RimlinkSession.Active)
+            {
+                RimlinkSession.Inbox.DrainTo(RimlinkSession.State.Apply);
+                ReportPresence(); HandleConnectionState();
+            }
+            return;
+        }
         ShowNoticeAfterLoad();
         DevModeGuard.Tick();
         if (Prefs.DevMode) DevModeSinceUpload = true;
@@ -291,11 +310,11 @@ public sealed class RimlinkGameComponent : GameComponent
     private static DateTime nextRecovery;
     private static void RetryRecovery()
     {
-        if (!RimlinkSession.RecoveryNeeded || RimlinkSession.Connection is not { State: ConnectionState.Connected } connection
+        if (GuildCapture.BattleGameContext.Active || !RimlinkSession.RecoveryNeeded || RimlinkSession.Connection is not { State: ConnectionState.Connected } connection
             || Visits.VisitSession.InVisit || Live.MirrorMode.Active || Current.ProgramState != ProgramState.Playing
             || DateTime.UtcNow < nextRecovery || ReferenceEquals(recoveryOwner, connection) || SaveSync.WritesBlocked) return;
         // The live operation owns its exact saves and reply until it hands them back to recovery.
-        if (Outposts.OutpostIncoming.Busy || Outposts.OutpostOutgoing.Busy || Outposts.OutpostSync.Mutating) return;
+        if (GuildCapture.GuildIncoming.Busy || Outposts.OutpostIncoming.Busy || Outposts.OutpostOutgoing.Busy || Outposts.OutpostSync.Mutating) return;
         if (RimlinkSession.RecoveryNeedsSave || RimlinkSession.Outbox?.Entries.Any(e => e.Phase == Rimlink.Client.Economy.OutboxPhase.Prepared) == true)
         {
             if (!SaveSync.IsSaving && !SaveSync.UploadInFlight) SaveSync.TriggerSave("recovery barrier");
@@ -330,7 +349,7 @@ public sealed class RimlinkGameComponent : GameComponent
 
     private static void SettleRecoveredEnds()
     {
-        if (Current.ProgramState != ProgramState.Playing || Visits.VisitSession.InVisit || Live.MirrorMode.Active) return;
+        if (GuildCapture.BattleGameContext.Active || Current.ProgramState != ProgramState.Playing || Visits.VisitSession.InVisit || Live.MirrorMode.Active) return;
         var pending = RimlinkSession.State.Live.PendingEnds.ToList();
         if (pending.Count == 0) return;
         RimlinkSession.State.Live.PendingEnds.Clear();
@@ -375,7 +394,7 @@ public sealed class RimlinkGameComponent : GameComponent
     /// </summary>
     private static void OfferExitOnLongOutage()
     {
-        if (Live.MirrorMode.Active || RimlinkSession.Connection is not { } connection) return;
+        if (GuildCapture.BattleGameContext.Active || Live.MirrorMode.Active || RimlinkSession.Connection is not { } connection) return;
         if (!exitOffer.Due(connection.ReconnectingSince, connection.OutageIsLong)) return;
         outageOffer = new Dialog_MessageBox("Rimlink.Net.LongOutage".Translate(), "Rimlink.Net.KeepWaiting".Translate(), null, "Rimlink.Net.ToMenu".Translate(), LeaveToMenu);
         Find.WindowStack.Add(outageOffer);
@@ -390,6 +409,7 @@ public sealed class RimlinkGameComponent : GameComponent
     /// <summary>A reconnect starts a fresh server session with an empty event queue: fetch what was missed meanwhile.</summary>
     private static void Resync()
     {
+        if (GuildCapture.BattleGameContext.Active) return;
         var connection = RimlinkSession.Connection;
         var login = RimlinkSession.Login;
         if (connection is null || login is null) return;
@@ -402,7 +422,7 @@ public sealed class RimlinkGameComponent : GameComponent
                 var online = connection.Login?.Online.ToList() ?? [login.Player];
                 UI.MainThread.Post(() =>
                 {
-                    if (RimlinkSession.Connection != connection) return;
+                    if (GuildCapture.BattleGameContext.Active || RimlinkSession.Connection != connection) return;
                     var fresh = connection.Login;
                     if (!Visits.VisitSession.InVisit && !Live.MirrorMode.Active && Current.ProgramState == ProgramState.Playing
                         && Current.Game.GetComponent<RimlinkGameComponent>() is { } component

@@ -80,7 +80,7 @@ public static class ShopSync
     /// </summary>
     public static ShopList? Build(long saveTick)
     {
-        if (!RimlinkSession.Active || VisitSession.Active) return null;
+        if (GuildCapture.BattleGameContext.Active || !RimlinkSession.Active || VisitSession.Active) return null;
         var home = Find.AnyPlayerHomeMap;
         var component = home?.GetComponent<MapComponent_RimlinkShop>();
         if (home is null || component is null) return null;
@@ -121,7 +121,7 @@ public static class ShopSync
     /// <summary>At login and map load: sold things leave the map, the removal is acknowledged through the outbox.</summary>
     public static void ApplyRemovals()
     {
-        if (!RimlinkSession.Active || VisitSession.InVisit || RimlinkSession.Shop is not { } shop) return;
+        if (GuildCapture.BattleGameContext.Active || !RimlinkSession.Active || VisitSession.InVisit || RimlinkSession.Shop is not { } shop) return;
         var connection = RimlinkSession.Connection!;
         var authentication = connection.Login;
         var game = Current.Game;
@@ -144,7 +144,7 @@ public static class ShopSync
 
     private static void Remove(RemovalList removals, Rimlink.Client.Visits.ShopClient shop)
     {
-        if (!RimlinkSession.Active || VisitSession.InVisit || Current.ProgramState != ProgramState.Playing || Find.AnyPlayerHomeMap is null || SaveSync.WritesBlocked) return;
+        if (GuildCapture.BattleGameContext.Active || !RimlinkSession.Active || VisitSession.InVisit || Current.ProgramState != ProgramState.Playing || Find.AnyPlayerHomeMap is null || SaveSync.WritesBlocked) return;
         var component = Current.Game.GetComponent<RimlinkGameComponent>();
         var outbox = RimlinkSession.Outbox!;
         var accounted = outbox.Entries.Where(e => e.Kind == OutboxKind.AckRemoval && component.RemovedOperations.Contains(e.Id))

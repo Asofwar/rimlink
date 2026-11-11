@@ -625,4 +625,67 @@
   <Rimlink.Away.Parcel.gift_return>gift refused and sent back</Rimlink.Away.Parcel.gift_return>
   <Rimlink.Away.Parcel.trade>trade</Rimlink.Away.Parcel.trade>
   <Rimlink.Away.Parcel.trade_return>trade returned</Rimlink.Away.Parcel.trade_return>
+  <Rimlink.Away.Parcel.guild_resources>guild resources</Rimlink.Away.Parcel.guild_resources>
+  <Rimlink.Refusal.Guild.Client>A guild resource aware client is required.</Rimlink.Refusal.Guild.Client>
+  <Rimlink.Refusal.Guild.Unavailable>Guild outposts are unavailable: the server has not enabled or activated them.</Rimlink.Refusal.Guild.Unavailable>
+  <Rimlink.Refusal.Guild.Delivery>Guild delivery could not be verified. The resources remain held for recovery.</Rimlink.Refusal.Guild.Delivery>
+  <Rimlink.Refusal.Guild.Claim>Resource request refused. Refresh the outpost details and check the available stock and recipient.</Rimlink.Refusal.Guild.Claim>
+  <Rimlink.Refusal.Guild.DeliveryCapacity>The world has reached its limit for pending guild resource deliveries. Submit a new request after some deliveries have been received.</Rimlink.Refusal.Guild.DeliveryCapacity>
+  <Rimlink.Guild.Outposts.Title>Guild outposts</Rimlink.Guild.Outposts.Title>
+  <Rimlink.Guild.Outposts.AttackCampaign>Attack on tile {0} · {1}\nCommander · {2}</Rimlink.Guild.Outposts.AttackCampaign>
+  <Rimlink.Guild.Outposts.DefenceCampaign>Defend tile {0} · {1}\nCommander · {2}</Rimlink.Guild.Outposts.DefenceCampaign>
+  <Rimlink.Guild.Outposts.NoCommander>Unassigned</Rimlink.Guild.Outposts.NoCommander>
+  <Rimlink.Guild.Outposts.ScheduleUnavailable>Time unavailable</Rimlink.Guild.Outposts.ScheduleUnavailable>
+  <Rimlink.Guild.Outposts.AssignDefender>Assign defender</Rimlink.Guild.Outposts.AssignDefender>
+  <Rimlink.Guild.Outposts.DefenderConfirm>Assign {1} to command the defence of tile {0}?</Rimlink.Guild.Outposts.DefenderConfirm>
+  <Rimlink.Guild.Outposts.DefenderAssigned>{0} is assigned to command the defence.</Rimlink.Guild.Outposts.DefenderAssigned>
+  <Rimlink.Guild.Outposts.JoinBattle>Join battle</Rimlink.Guild.Outposts.JoinBattle>
+  <Rimlink.Guild.Outposts.NoPreparedBattle>You have no battle available to join.</Rimlink.Guild.Outposts.NoPreparedBattle>
+  <Rimlink.Guild.Outposts.ClaimCount>Units to request for your colony</Rimlink.Guild.Outposts.ClaimCount>
+  <Rimlink.Guild.Outposts.Outpost>{1} outpost on tile {0}</Rimlink.Guild.Outposts.Outpost>
+  <Rimlink.Guild.Outposts.OwnStock>Tile {0} · {2} {1} in stock</Rimlink.Guild.Outposts.OwnStock>
+  <Rimlink.Guild.Outposts.OldStock>{1} {0} retained from a previous outpost</Rimlink.Guild.Outposts.OldStock>
+  <Rimlink.Guild.Outposts.Acquire>Review terms</Rimlink.Guild.Outposts.Acquire>
+  <Rimlink.Guild.Outposts.Claim>Request resources</Rimlink.Guild.Outposts.Claim>
+  <Rimlink.Guild.Outposts.Attack>Declare attack</Rimlink.Guild.Outposts.Attack>
+  <Rimlink.Guild.Outposts.Empty>No guild outposts in this world.</Rimlink.Guild.Outposts.Empty>
+  <Rimlink.Guild.Outposts.Loading>Waiting for the server…</Rimlink.Guild.Outposts.Loading>
+  <Rimlink.Guild.Outposts.DefenceHour>Defence starts at {0}:00 UTC</Rimlink.Guild.Outposts.DefenceHour>
+  <Rimlink.Guild.Outposts.Terms>Acquire tile {0} for the guild? It produces {2} {1} per hour and holds {3} units. Initial protection lasts {4} hours. Each guild can own up to {5} outposts. The two-hour defence window starts at {6}:00 UTC. A defeat automatically transfers the outpost. Your guild keeps the existing stock.</Rimlink.Guild.Outposts.Terms>
+  <Rimlink.Guild.Outposts.Acquired>Outpost acquired.</Rimlink.Guild.Outposts.Acquired>
+  <Rimlink.Guild.Outposts.AttackConfirm>Declare an attack on tile {0} with {1} as commander? The server will choose an eligible slot.</Rimlink.Guild.Outposts.AttackConfirm>
+  <Rimlink.Guild.Outposts.Scheduled>Attack scheduled for {0} UTC.</Rimlink.Guild.Outposts.Scheduled>
+  <Rimlink.Guild.Outposts.ClaimConfirm>Request {0} {1} for your colony?</Rimlink.Guild.Outposts.ClaimConfirm>
+  <Rimlink.Guild.Outposts.ClaimQueued>Resources queued for delivery to your colony.</Rimlink.Guild.Outposts.ClaimQueued>
+  <Rimlink.Guild.Outposts.Unavailable>Guild actions require an available home colony and a current server connection.</Rimlink.Guild.Outposts.Unavailable>
+  <Rimlink.Guild.DeliveryComplete>Guild resources received.</Rimlink.Guild.DeliveryComplete>
+  <Rimlink.Guild.DeliveryHold>Guild resource delivery is held. No repeat creation is allowed.</Rimlink.Guild.DeliveryHold>
+  <Rimlink.Refusal.Guild.Executor>The dedicated executor identity, credential, approved profile or lease was refused.</Rimlink.Refusal.Guild.Executor>
+  <Rimlink.Guild.BattleIsolation>Personal colony actions are unavailable while a guild battle map is open.</Rimlink.Guild.BattleIsolation>
+  <Rimlink.GuildBattle.Executor.Loading>Battle arbiter: validating runtime</Rimlink.GuildBattle.Executor.Loading>
+  <Rimlink.GuildBattle.Executor.Idle>Battle arbiter: waiting for assignment</Rimlink.GuildBattle.Executor.Idle>
+  <Rimlink.GuildBattle.Executor.Preparing>Battle arbiter: preparing arena</Rimlink.GuildBattle.Executor.Preparing>
+  <Rimlink.GuildBattle.Executor.WaitingReady>Battle arbiter: waiting for attacker readiness</Rimlink.GuildBattle.Executor.WaitingReady>
+  <Rimlink.GuildBattle.Executor.Running>Battle arbiter: battle running</Rimlink.GuildBattle.Executor.Running>
+  <Rimlink.GuildBattle.Executor.Delivering>Battle arbiter: delivering result</Rimlink.GuildBattle.Executor.Delivering>
+  <Rimlink.GuildBattle.Executor.Cleaning>Battle arbiter: confirming cleanup</Rimlink.GuildBattle.Executor.Cleaning>
+  <Rimlink.GuildBattle.Executor.RecoveryRequired>Battle arbiter: recovery required</Rimlink.GuildBattle.Executor.RecoveryRequired>
+  <Rimlink.GuildBattle.Executor.RestoreCleanup>Battle arbiter: confirming restored arena cleanup</Rimlink.GuildBattle.Executor.RestoreCleanup>
+  <Rimlink.GuildBattle.Executor.RestoreCleaned>Battle arbiter: restored arena released</Rimlink.GuildBattle.Executor.RestoreCleaned>
+  <Rimlink.GuildBattle.RecoveryRequired>Finish battle recovery before opening a player session.</Rimlink.GuildBattle.RecoveryRequired>
+  <Rimlink.GuildBattle.OpenFromCampaign>Open the battle map from its campaign.</Rimlink.GuildBattle.OpenFromCampaign>
+  <Rimlink.GuildBattle.PreparedView>Prepared battle — no simulation</Rimlink.GuildBattle.PreparedView>
+  <Rimlink.GuildBattle.LiveView>Battle at the outpost</Rimlink.GuildBattle.LiveView>
+  <Rimlink.GuildBattle.Ready>Ready to attack</Rimlink.GuildBattle.Ready>
+  <Rimlink.GuildBattle.JoinControl>Take command</Rimlink.GuildBattle.JoinControl>
+  <Rimlink.GuildBattle.WaitingControl>Waiting for the battle channel</Rimlink.GuildBattle.WaitingControl>
+  <Rimlink.GuildBattle.ZoneProgress>Zone held: {0}/{1} ticks</Rimlink.GuildBattle.ZoneProgress>
+  <Rimlink.GuildBattle.Draft>Draft selected fighter</Rimlink.GuildBattle.Draft>
+  <Rimlink.GuildBattle.Undraft>Undraft selected fighter</Rimlink.GuildBattle.Undraft>
+  <Rimlink.GuildBattle.AttackerWin>The attackers captured the outpost.</Rimlink.GuildBattle.AttackerWin>
+  <Rimlink.GuildBattle.DefenderWin>The defenders held the outpost.</Rimlink.GuildBattle.DefenderWin>
+  <Rimlink.GuildBattle.Draw>The battle ended in a draw.</Rimlink.GuildBattle.Draw>
+  <Rimlink.GuildBattle.TechnicalAbort>The battle ended without a result.</Rimlink.GuildBattle.TechnicalAbort>
+  <Rimlink.GuildBattle.OperatorAbort>The operator stopped the battle without awarding a result.</Rimlink.GuildBattle.OperatorAbort>
+  <Rimlink.GuildBattle.ReturnHome>Return to home colony</Rimlink.GuildBattle.ReturnHome>
 </LanguageData>

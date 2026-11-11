@@ -13,8 +13,12 @@ public sealed class RimlinkMod : Mod
     public RimlinkMod(ModContentPack content) : base(content)
     {
         // First: the mods below Rimlink read their settings in their own constructors, which run after this one.
-        UI.ModpackDownloadFlow.RecoverAtStart();
-        if (UI.ModpackDownloadFlow.RecoveryError is null) UI.ServerSettings.Load();
+        bool executor=Game.GuildCapture.BattleExecutorStartup.Select(Environment.GetCommandLineArgs());
+        if(!executor)
+        {
+            UI.ModpackDownloadFlow.RecoverAtStart();
+            if (UI.ModpackDownloadFlow.RecoveryError is null) UI.ServerSettings.Load();
+        }
         Settings = GetSettings<RimlinkSettings>();
         UI.ModpackActions.StartScan();
     }

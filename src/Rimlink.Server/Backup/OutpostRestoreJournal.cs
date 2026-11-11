@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Rimlink.Server.Application.Outposts;
 
 namespace Rimlink.Server.Backup;
@@ -31,7 +32,8 @@ internal sealed record RestoreJournal(int Version, string RestoreId, byte[] Inte
 internal sealed record RestoreSelection(int Version, string RestoreId, RestoreMode Mode, string ArchivePath, byte[] ArchiveDigest,
     byte[] ManifestDigest, string DataDirectory, string AnchorDirectory, string TargetInstallationId, string TargetBoundary,
     bool DataDirectoryExists, bool DatabaseExists, RestoreAnchorState AnchorState, byte[]? ExternalRecord, byte[]? AnchorDigest,
-    string DestinationReason, string StorageContract, string QualifiedLinuxFileSystem, RestoreEmptyQualification? EmptyQualification = null, PreviousAnchorObservation? PreviousAnchor = null);
+    string DestinationReason, string StorageContract, string QualifiedLinuxFileSystem, RestoreEmptyQualification? EmptyQualification = null, PreviousAnchorObservation? PreviousAnchor = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] GuildAcceptanceRestorePermit? Isolated = null);
 
 public static class OutpostRestoreJournalCodec
 {
@@ -52,7 +54,7 @@ public static class OutpostRestoreJournalCodec
     }
 
     // Detach mutable digest buffers BEFORE any await; the confirmed selection is never reread from a caller object.
-    internal static RestoreSelection Freeze(RestoreRequest request)
+    internal static RestoreSelection Freeze(RestoreRequest request, GuildAcceptanceRestorePermit? isolated = null)
     {
         var inspected = request.Inspection; var destination = inspected.Destination;
         var selection = new RestoreSelection(1, request.RestoreId, request.Mode, inspected.ArchivePath, inspected.ArchiveDigest.ToArray(), inspected.ManifestDigest.ToArray(),
@@ -61,7 +63,7 @@ public static class OutpostRestoreJournalCodec
             destination.AnchorDigest?.ToArray(), destination.Reason, request.StorageContract, request.QualifiedLinuxFileSystem,
             destination.EmptyQualification is null ? null : new(destination.EmptyQualification.Version,
                 destination.EmptyQualification.KnownEmptyDirectories.ToArray(), destination.EmptyQualification.Digest.ToArray()),
-            inspected.PreviousAnchor is null ? null : PreviousAnchorEvidence.Freeze(inspected.PreviousAnchor));
+            inspected.PreviousAnchor is null ? null : PreviousAnchorEvidence.Freeze(inspected.PreviousAnchor), isolated);
         ValidateSelection(selection);
         return selection;
     }
@@ -78,6 +80,7 @@ public static class OutpostRestoreJournalCodec
             || selection.DestinationReason.Length > 1024 || selection.AnchorDigest is { Length: not 32 })
             throw new InvalidDataException("restore-selection-invalid");
         if (selection.PreviousAnchor is not null) PreviousAnchorEvidence.Validate(selection.PreviousAnchor);
+        selection.Isolated?.RequireSelection(selection);
     }
 
     internal static byte[] Encode<T>(T record)

@@ -92,6 +92,7 @@ public static class LiveGuest
 
     private static void OnProposed(LiveSession session)
     {
+        if (GuildCapture.BattleGameContext.Active) return;
         Session = session;
         if (session.State == LiveState.LiveProposed)
         {
@@ -104,6 +105,7 @@ public static class LiveGuest
     /// <summary>The host accepted (or auto-accepts): wait for their snapshot, then load it.</summary>
     public static void OnStarted(LiveSession session)
     {
+        if (GuildCapture.BattleGameContext.Active) return;
         if (Session is not null && Session.Id != session.Id) return;
         Session = session;
         LiveTempo.UseBudget(session); // the HUD shows the budget of this session

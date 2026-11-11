@@ -1,11 +1,11 @@
 ---
 pageId: admins/configuration
-contentRevision: 6
+contentRevision: 12
 ---
 
 # Configuration reference
 
-Applies to: Rimlink 0.9.2 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.10.0 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 
@@ -26,6 +26,9 @@ Verify behavior and the redacted /api/admin/config after applying changes. Redac
 ## Limits and safety {#limits}
 
 Admin:ApiToken, Admin:Tokens:*:Token, Auth:SteamWebApiKey and Server:ServerPassword are secrets. FeedBufferSize: 100–100000, FeedPingSeconds: 1–300; gift/trade lifetimes and MaxOpenTrades must be >=1. Integrity thresholds are nonnegative; Freeze must not be below Warn except 0. Hygiene requires a 1–168-hour sweep, nonnegative age/wealth values (0 disables the corresponding filter; ArchiveAfterDays=0 disables archiving) and 4 strictly increasing tiers. Incident catalogs require unique IDs, valid Kind and positive multipliers; a nonempty list replaces the entire built-in catalog.
+
+
+GuildCapture.BeginDelivery and GuildCapture.Manifest remain behind readiness: the enabled setting, an activated V3 and a Ready startup state. A separate executor handshake is configured through GuildCapture below; it does not enable financial operations. Without qualification, resource RPCs return GuildUnavailable.
 
 ## See also {#related}
 
@@ -156,7 +159,7 @@ Live sets invite/reconnect waits, guest pause budget, frame bytes, delta/order r
 
 Incidents enables paid events, per-target queue, BasePrice/MinPrice, warning from WarnFromLevel, cooldown by Kind and expiry. Catalog:* defines Id, IncidentDef, optional FactionDef, Kind (Hostile/Weather/Kind), PriceMultiplier and optional PodsMultiplier. Do not promise a def from an absent mod.
 
-### Outposts — Pending
+### Outposts
 
 Enabled defaults to false and cannot replace acceptance qualification. AnchorDirectory must be outside replaceable data trees; sqlite-local-v1 requires the qualified local backend. Linux requires actually qualified ext4/xfs/btrfs and Windows fixed NTFS. Secrets or runtime flags cannot select IsolatedAcceptance or Qualified. [Details](./passive-outposts.md).
 
@@ -166,3 +169,19 @@ Enabled defaults to false and cannot replace acceptance qualification. AnchorDir
 | `Outposts:AnchorDirectory` | `string` | `""` |
 | `Outposts:StorageContract` | `string` | `""` |
 | `Outposts:QualifiedLinuxFileSystem` | `string` | `""` |
+
+
+### GuildCapture
+
+Enabled defaults to false. Product operation requires explicit opt-in, separate common and guild qualification records for the exact source, and a verified V3 authority with an active world and no isolated test lineage. The build qualification seal was removed in 0.10.0: the feature is enabled by server configuration and domain-format activation, while the startup-state, format, schema and storage checks apply as before. The development build still ships a pending record. ExecutorId is the stable name of one operational slot. ExecutorTokenSha256 is the SHA-256 of a dedicated UTF-8 executor secret. ApprovedProfileDigest is the semantic domain-separated digest of the approved runtime profile. With Enabled=true, a nonempty ASCII identifier (letters, digits, dot, hyphen, underscore) and two 64-character hex digests are required. Invalid configuration stops startup.
+
+The offline `scripts/Seal-OutpostQualification.ps1 -GuildCapture` command remains a development tool: it checks evidence files against the compiled source identity, but the server no longer requires its result. It requires passing HISTORY, HOME, SLICE, RESTORE, runtime fault and performance, operator parity, packaging and review evidence. Candidate mode emits a pending record. Sealing a record does not modify the running server or activate V3.
+
+| Key | Type | Default |
+|---|---|---|
+| `GuildCapture:Enabled` | `bool` | `false` |
+| `GuildCapture:ExecutorId` | `string` | `""` |
+| `GuildCapture:ExecutorTokenSha256` | `string` | `""` |
+| `GuildCapture:ApprovedProfileDigest` | `string` | `""` |
+
+With `GuildCapture:Enabled=false`, the ordinary server refuses executor transport. Only the separate evidence-backed dev host with actual common V3 readiness and scoped guild admission can open it while OFF; the dedicated configuration is mandatory there too. This HOME/SLICE permission is not Product qualification.

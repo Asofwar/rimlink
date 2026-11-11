@@ -1,11 +1,11 @@
 ---
 pageId: players/economy
-contentRevision: 6
+contentRevision: 10
 ---
 
 # Wallet, mail and market
 
-Applies to: Rimlink 0.9.2 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.10.0 · RimWorld 1.7 · protocol 1.
 
 <img class="wiki-art" src="/illustrations/exchange.svg" alt="Exchanges use server escrow; deliveries arrive through the mailbox." width="960" height="440" />
 <p class="wiki-caption">Exchanges use server escrow; deliveries arrive through the mailbox.</p>
@@ -51,6 +51,12 @@ Do not delete the outbox or load a pre-transfer save. Preserve files, time and o
 ## Limits and safety {#limits}
 
 By default storage costs 0.5% per day after 3 free days. Debt, map threats, freezes or forbidden defNames can restrict operations. Fees and limits are server-configurable.
+
+Since 0.10.0, guild stock uses a separate typed Steel/WoodLog parcel. A leader claim fixes its recipient and generation: replay creates no second parcel, and a leader change does not redirect it. Shared stock and old-stock obligations are not personal wealth. After a claim, the manifest value is counted once for the recipient until canonical acceptance, after which the physical resource is counted. Generic mailbox ACK cannot settle this parcel.
+
+After server restore, a parcel already accepted in the selected save stays delivered. A pending parcel remains with its original recipient. Delivery can resume after the restored colony writes a fresh server-accepted save.
+
+Exact server receipt acceptance is implemented and the game handler builds: journal before RPC and creation, original catalog checks, home delivery, receipt save, raw snapshot acceptance, and repeated ACK. A lost response replays the same intent. A cold load without the exact applied receipt cannot authorize repeat creation; delivery is held for recovery. Delivery and restoration of issued resources were verified in the real game on isolated stands on 10–11 November 2026.
 
 ## See also {#related}
 

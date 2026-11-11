@@ -1,11 +1,11 @@
 ---
 pageId: admins/security-auth
-contentRevision: 6
+contentRevision: 14
 ---
 
 # TLS, вход и права
 
-Применимость: Rimlink 0.9.2 · RimWorld 1.7 · протокол 1.
+Применимость: Rimlink 0.10.0 · RimWorld 1.7 · протокол 1.
 
 ## Как пользоваться {#usage}
 
@@ -31,6 +31,12 @@ Steam-вход требует SteamWebApiKey и соответствующих S
 
 Если игрок получил неожиданный новый pin, сначала проверь адрес/NAT/proxy и факт ротации. Не советуй массово включить --insecure или доверять любому сертификату. SelfSignedPath по умолчанию зависит от DataDir; случайный пустой mount может выглядеть как «ротация» нового сервера.
 
+В разрабатываемом гильдейском бое выдача/обновление control grant — отдельная authenticated player мутация с server-derived стороной и текущей session/membership binding. ReconcileControl ограничен 2 RPC за 5 секунд на аккаунт (включая повторы); новая финансовая выдача дополнительно ограничена 5 секундами на сторону. Это не лимит боевых приказов: утверждённый hot transport 20 commands/s на сторону ещё подключается отдельно. Product capability пока закрыта.
+
+Боевой канал WIP дополнительно закреплён за конкретным HTTP/2 connection ID, текущей session/membership, capability digest и server connection epoch. Повторное использование bearer/capability с другого соединения требует процедуры замены канала и CutApplied. В hot-path нет финансового commit: короткий read-only SQLite reader закрывается до освобождения S/B, cache не держит DB/file handles. Настройки по умолчанию остаются выключенными, пока администратор их не включит.
+
+Новый executor Hello разделяет Execution и scoped RecoveryDelivery. Nonce одноразовый, TTL 30 секунд по monotonic clock; binding включает server boot и текущую credential generation. Cached reply не продлевает старую lease. HelloBegin ограничен 2/5s, HelloComplete — 4/5s. Runtime ID не является credential или аппаратной attestation: native facts проверяет доверенный shipping adapter. Старый профиль для cold Final не обходит отзыв текущего credential и не открывает выполнение нового боя.
+
 ## Ограничения и безопасность {#limits}
 
 Панель использует legacy Admin:ApiToken, не именованные токены. Cookie HttpOnly/Secure/SameSite=Strict, сессии в памяти сбрасываются рестартом; 5 неудач блокируют IP на 10 минут. Cookie-мутации требуют CSRF. Не используй --insecure вне изолированного теста. X-Rimlink-Actor — аудитная подпись 1–64 символа без control, не доказательство личности.
@@ -40,3 +46,12 @@ Steam-вход требует SteamWebApiKey и соответствующих S
 - [Справочник REST API](./api.md)
 - [Панель и модерация](./administration.md)
 - [Discord-бот](./discord.md)
+
+
+В транспорте арбитра BattleExecutor использует отдельную схему authorization: RimlinkExecutor и свой секрет. Bearer сессии игрока/администратора не проходит этот вход, а executor credential не даёт доступ к Wallet или другим player RPC. Сервер сравнивает SHA-256 секрета в constant time, проверяет identifier/profile/lease и при включённом TLS enforcement отказывает plaintext-запросам. Heartbeat публикует текущую доступность без изменений asset authority; новая lease не наследует старую, cleanup hold блокирует новый Start. Реальная native квалификация и применение результата ещё не завершены.
+
+Execution и RecoveryDelivery используют отдельный authenticated Hello challenge с runtime/profile/build/inventory/world/boundary и server boot binding. Initial Entry proof запрещает Game, player session, battle/tick context и pending callbacks. Новый runtime-курьер получает только delivery scope, а не право повторить симуляцию или подтвердить Entry исходного процесса. Tagged cleanup требует свежего challenge и durable отклонения запоздалой работы назначения.
+
+Узкий StartReplayOnly допуск предназначен для исходного живого runtime при потере Start authorization: прежний UUID и exact initial обязательны. Он не разрешает новые Prepare/proposal/commands. RuntimeStarted proof записывается в существующий transport journal и не создаёт второй финансовый Start. Native/restore qualification этого потока ещё не завершена.
+
+Вход в guild acceptance требует явных mode/stand ID с обеих сторон. Core и GABS `rimlink/connect` принимают отдельный выбор `acceptanceStandId` плюс `acceptanceCertificateSha256`, только для HTTPS loopback IP. Точный сертификат проверяется независимо от обычного pin store, без автоматического доверия новому pin. Default client такой stand автоматически не принимает. Арбитр использует `AcceptanceStandId` в собственной явной конфигурации; player session в его процессе запрещена. Внешний marker, чужой source или отсутствие защищённого provenance не дают допуска. После аутентификации Final возвращает повторяемый `Unavailable`, пока сервер ждёт подтверждения выданной команды или отзыва управления. Арбитр продолжает отправлять подтверждения по своему аутентифицированному каналу.

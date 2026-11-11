@@ -105,6 +105,8 @@ message OutpostManifestDocument {
   repeated OutpostManifestTile tiles = 8;
   string valuation_version = 9;
   repeated OutpostResourceValuation resources = 10;
+  // The v2 fingerprint excludes Rimlink's local connection and UI preferences. Older documents keep field 5.
+  bytes gameplay_defs_sha256 = 11;
 }
 message OutpostManifestTile {
   int32 tile = 1;

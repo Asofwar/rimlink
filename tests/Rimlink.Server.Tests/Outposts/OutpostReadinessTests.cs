@@ -108,4 +108,22 @@ public sealed class OutpostReadinessTests
         Assert.True(OutpostReadiness.Evaluate(isolated).CanBindSuccessorWorld);
         Assert.False(OutpostReadiness.Evaluate(isolated with { Build = isolated.Build with { IsolationVerified = false } }).CanBindSuccessorWorld);
     }
+    [Theory]
+    [InlineData(false)][InlineData(true)]
+    public void Verified_V3_common_safety_resolves_history_and_writers_without_advertising_personal_passive_outposts(bool enabled)
+    {
+        var input=Ready() with{DomainFormat=OutpostDomainFormat.V3,ConfiguredEnabled=enabled};
+        input=input with{Build=input.Build with{Mode=OutpostRuntimeMode.IsolatedAcceptance,State=OutpostQualificationState.Pending}};
+        var result=OutpostReadiness.Evaluate(input);Assert.True(result.CanResolveCustody);Assert.True(result.CanRunDomainWriters);
+        Assert.False(result.AdvertiseCapability);Assert.False(result.CanBindSuccessorWorld);
+    }
+    [Theory]
+    [InlineData("schema")][InlineData("history")][InlineData("integrations")][InlineData("product-pending")]
+    public void An_empty_or_unqualified_V3_observation_never_reuses_the_legacy_empty_database_writer_exception(string fault)
+    {
+        var input=Ready() with{DomainFormat=OutpostDomainFormat.V3};
+        switch(fault){case "schema":input=input with{CurrentSchemaVerified=false,HasHistory=false};break;case "history":input=input with{HasHistory=false};break;
+            case "integrations":input=input with{Integrations=[],HasHistory=false};break;case "product-pending":input=input with{Build=input.Build with{State=OutpostQualificationState.Pending},HasHistory=false};break;}
+        var result=OutpostReadiness.Evaluate(input);Assert.False(result.CanResolveCustody);Assert.False(result.CanRunDomainWriters);Assert.False(result.AdvertiseCapability);
+    }
 }

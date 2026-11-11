@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text.Json;
 using Google.Protobuf;
 using Grpc.Core;
 using Rimlink.Client.Economy;
@@ -11,6 +12,7 @@ namespace Rimlink.Client.Outposts;
 public sealed class OutpostManifestClient(RimlinkConnection connection)
 {
     public const int MaxDocumentBytes = 24 * 1024 * 1024, ChunkBytes = 256 * 1024;
+    public sealed record DefinitionPack(int Position, string Package, string Content, string[] Defs);
     private LoginReply Authentication => connection.Login ?? throw new InvalidOperationException("not authenticated");
     private Task<T> Call<T>(LoginReply login, Func<Task<T>> send) => connection.ForAuthentication(login, send);
     private static DateTime Until => DateTime.UtcNow + EconomyClient.Deadline;
@@ -59,28 +61,35 @@ public sealed class OutpostManifestClient(RimlinkConnection connection)
     {
         state = state.Clone(); var login = Authentication;
         if (state.ManifestDigest.Length != 32 || !new OutpostClient(connection).Matches(state.Scope, login)) throw new InvalidDataException("manifest preview scope");
-        string expected = Convert.ToHexStringLower(state.ManifestDigest.Span); using var bytes = new MemoryStream(); int total = 0;
+        return await ReadDocument(state.ManifestDigest, state.Scope.WorldInstanceId, async offset =>
+        {
+            var request = new OutpostManifestReadRequest { Scope = state.Scope.Clone(), ManifestId = state.ManifestId,
+                ExpectedDigest = Convert.ToHexStringLower(state.ManifestDigest.Span), Offset = offset, ParcelId = parcelId };
+            return await Call(login, () => connection.OutpostsApi.ManifestAsync(request, deadline: Until, cancellationToken: ct).ResponseAsync);
+        }, ct);
+    }
+    internal static async Task<OutpostManifestDocument> ReadDocument(ByteString digest, string worldId,
+        Func<int, Task<OutpostManifestPage>> read, CancellationToken ct)
+    {
+        if (digest.Length != 32) throw new InvalidDataException("manifest digest");
+        string expected = Convert.ToHexStringLower(digest.Span); using var bytes = new MemoryStream(); int total = 0;
         do
         {
-            var request = new OutpostManifestReadRequest { Scope = state.Scope.Clone(), ManifestId = state.ManifestId, ExpectedDigest = expected, Offset = (int)bytes.Length, ParcelId = parcelId };
-            Task<OutpostManifestPage> ReadPage() => Call(login,
-                () => connection.OutpostsApi.ManifestAsync(request, deadline: Until, cancellationToken: ct).ResponseAsync);
+            ct.ThrowIfCancellationRequested();
             OutpostManifestPage page;
-            try { page = await ReadPage(); }
+            try { page = await read((int)bytes.Length); }
             catch (RpcException error) when (error.StatusCode == StatusCode.DeadlineExceeded && !ct.IsCancellationRequested)
-            {
-                page = await ReadPage();
-            }
+            { page = await read((int)bytes.Length); }
             if (page.TotalBytes is < 1 or > MaxDocumentBytes || total != 0 && total != page.TotalBytes || page.Digest != expected
                 || page.Data.Length is < 1 or > ChunkBytes || bytes.Length + page.Data.Length > page.TotalBytes)
                 throw new InvalidDataException("manifest page mismatch");
             total = page.TotalBytes; page.Data.WriteTo(bytes);
         } while (bytes.Length < total);
         byte[] raw = bytes.ToArray();
-        if (!SHA256.HashData(raw).AsSpan().SequenceEqual(state.ManifestDigest.Span)) throw new InvalidDataException("manifest bytes digest mismatch");
+        if (!SHA256.HashData(raw).AsSpan().SequenceEqual(digest.Span)) throw new InvalidDataException("manifest bytes digest mismatch");
         using var input = CodedInputStream.CreateWithLimits(new MemoryStream(raw, false), MaxDocumentBytes, 32);
         var document = OutpostManifestDocument.Parser.ParseFrom(input);
-        if (document.SchemaVersion != 1 || document.Binding?.WorldInstanceId != state.Scope.WorldInstanceId || document.MainSurfaceId != "planet"
+        if (document.SchemaVersion != 1 || document.Binding?.WorldInstanceId != worldId || document.MainSurfaceId != "planet"
             || document.TileCount is < 1 or > 2_000_000 || document.TileCount != document.Tiles.Count) throw new InvalidDataException("manifest domain mismatch");
         return document;
     }
@@ -102,12 +111,27 @@ public sealed class OutpostManifestClient(RimlinkConnection connection)
         if (!planet.Equals(expected)) throw new InvalidDataException("loaded planet differs from its generation fingerprint");
     }
 
+    public static ByteString DefinitionFingerprint(IReadOnlyList<DefinitionPack> packs, IEnumerable<ModSettingsHash> modSettings, bool legacy)
+    {
+        // Preserve the v1 serialization and ordering for existing confirmed documents.
+        var settings = modSettings.Where(s => legacy || s.PackageId != ClientInfo.ModPackageId || s.Handle != "RimlinkMod")
+            .OrderBy(s => s.PackageId, StringComparer.Ordinal).ThenBy(s => s.Handle, StringComparer.Ordinal)
+            .Select(s => new { s.PackageId, s.Handle, s.Hash }).ToArray();
+        return ByteString.CopyFrom(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            Format = legacy ? "outpost-game-defs-v1" : "outpost-game-defs-v2",
+            Packs = packs,
+            Settings = settings,
+        })));
+    }
+
     public static void RequireLocalMatch(OutpostManifestDocument document, WorldParams local, string worldInstanceId,
         string gameVersion, IReadOnlyList<string> activeDlc, ByteString gameDefs)
     {
+        var expectedDefs = document.GameplayDefsSha256.IsEmpty ? document.GameDefsSha256 : document.GameplayDefsSha256;
         if (document.Binding is null || document.Binding.WorldInstanceId != worldInstanceId
             || !document.Binding.WorldParamsSha256.Span.SequenceEqual(SHA256.HashData(local.ToByteArray()))
-            || document.GameVersion != gameVersion || document.GameDefsSha256 != gameDefs
+            || document.GameVersion != gameVersion || expectedDefs.Length != 32 || expectedDefs != gameDefs
             || !document.ActiveDlc.SequenceEqual(activeDlc.Order(StringComparer.Ordinal))) throw new InvalidDataException("local world differs from confirmed outpost manifest");
     }
 }

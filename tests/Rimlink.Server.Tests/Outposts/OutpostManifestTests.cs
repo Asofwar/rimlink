@@ -65,6 +65,7 @@ public class OutpostManifestTests
     [Theory]
     [InlineData("duplicate")][InlineData("missing")][InlineData("surface")][InlineData("biome")]
     [InlineData("schema")][InlineData("world")][InlineData("defs")][InlineData("valuation")][InlineData("range")]
+    [InlineData("gameplay-defs")]
     public async Task Duplicate_missing_unknown_surface_tiles_rejected(string defect)
     {
         using var f = await ManifestFixture.Create();
@@ -78,6 +79,7 @@ public class OutpostManifestTests
             case "schema": doc.SchemaVersion = 2; break;
             case "world": doc.Binding.WorldInstanceId = "other-world"; break;
             case "defs": doc.GameDefsSha256 = ByteString.Empty; break;
+            case "gameplay-defs": doc.GameplayDefsSha256 = ByteString.CopyFromUtf8("invalid"); break;
             case "valuation": doc.Resources[0].UnitValueX100 = -1; break;
             case "range": doc.TileCount = 2_000_001; break;
         }
@@ -103,6 +105,7 @@ public class OutpostManifestTests
     {
         using var f = await ManifestFixture.Create();
         var doc = await f.Document();
+        doc.GameplayDefsSha256 = ByteString.CopyFrom(SHA256.HashData("gameplay-defs"u8));
         byte[] original = doc.ToByteArray();
         var p = await f.Service.StageAsync(Actor.Api, doc, default);
         doc.Tiles[0].NaturalTrees = false;

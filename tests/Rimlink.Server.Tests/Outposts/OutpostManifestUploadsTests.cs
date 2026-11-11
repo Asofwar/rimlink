@@ -96,6 +96,25 @@ public sealed class OutpostManifestUploadsTests
     }
 
     [Fact]
+    public async Task A_rejected_complete_manifest_does_not_block_the_same_admin_from_uploading_a_corrected_document()
+    {
+        using var f = await ManifestFixture.Create();
+        var uploads = new OutpostManifestUploads(new ManualTimeProvider());
+        var document = await f.Document();
+        byte[] corrected = document.ToByteArray();
+        document.Tiles[0].BiomeDef = "UnknownBiomeForFixture";
+        byte[] rejected = document.ToByteArray();
+
+        var error = await Assert.ThrowsAsync<RpcException>(() =>
+            uploads.StageAsync(Actor.Api, "admin:1", Chunk(rejected, 0, rejected.Length), f.Service, default));
+        Assert.Equal(StatusCode.FailedPrecondition, error.StatusCode);
+        Assert.Empty(await f.H.Db.OutpostManifests.ToArrayAsync());
+        var retry = await uploads.StageAsync(Actor.Api, "admin:1", Chunk(corrected, 0, corrected.Length), f.Service, default);
+        Assert.True(retry.Complete);
+        Assert.Equal(corrected, (await f.H.Db.OutpostManifests.AsNoTracking().SingleAsync()).Document);
+    }
+
+    [Fact]
     public async Task Incomplete_uploads_are_bounded_and_expire_on_monotonic_time_not_wall_time()
     {
         using var f = await ManifestFixture.Create();

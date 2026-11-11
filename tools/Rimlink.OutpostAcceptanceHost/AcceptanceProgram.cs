@@ -21,6 +21,8 @@ internal static class AcceptanceProgram
             { Console.WriteLine(Rimlink.Server.Application.Outposts.OutpostProductQualification.SourceIdentity); return 0; }
             if (args is ["build-candidate" or "build-seal", var evidence, var output])
             { BuildQualificationStep.Write(args[0], evidence, output); Console.WriteLine("Build artifact written; no product runtime was enabled."); return 0; }
+            if (args is ["build-candidate" or "build-seal", var guildEvidence, var guildOutput, "--guild-capture"])
+            { BuildQualificationStep.Write(args[0], guildEvidence, guildOutput, guildCapture: true); Console.WriteLine("Guild capture build artifact written."); return 0; }
             if (args is ["control", var bindingPath, var commandPath])
             {
                 var binding = AcceptanceStandFiles.Read<AcceptanceControlBinding>(Path.GetFullPath(bindingPath));

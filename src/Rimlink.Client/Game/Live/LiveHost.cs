@@ -57,6 +57,7 @@ public static class LiveHost
     /// <summary>LiveStarted arrived and this player is the host: fetch the pawns, then spawn and snapshot on the main thread.</summary>
     public static void Begin(LiveSession session)
     {
+        if (GuildCapture.BattleGameContext.Active) return;
         if (RimlinkSession.Live is { } client) { client.Ended -= OnStreamEnded; client.Ended += OnStreamEnded; }
         exits.Clear();
         if (Active || Starting || !RimlinkSession.Active || RimlinkSession.Live is not { } live || RimlinkSession.Raids is not { } raids) return;

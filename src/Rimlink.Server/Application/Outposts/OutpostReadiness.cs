@@ -54,17 +54,18 @@ public static class OutpostReadiness
         if (startup.State == OutpostStartupState.Ready && inputs.DomainFormat == OutpostDomainFormat.V1 && inputs.CurrentSchemaVerified)
             startup = new(OutpostStartupState.FormatActivationRequired, "outpost-domain-format-activation-required");
         if (startup.State != OutpostStartupState.Ready) blockers.Add("startup-not-ready");
-        if (inputs.DomainFormat != OutpostDomainFormat.V2) blockers.Add(inputs.DomainFormat == OutpostDomainFormat.V1
+        if (inputs.DomainFormat is not(OutpostDomainFormat.V2 or OutpostDomainFormat.V3)) blockers.Add(inputs.DomainFormat == OutpostDomainFormat.V1
             ? "domain-format-activation-required" : "domain-format-unverified");
         if (!inputs.CurrentSchemaVerified) blockers.Add("current-schema-unverified");
         if (inputs.HasHistory is null) blockers.Add("history-observation-unavailable");
+        if (inputs.DomainFormat==OutpostDomainFormat.V3 && inputs.HasHistory!=true) blockers.Add("guild-domain-history-unverified");
         bool resolve = blockers.Count == 0;
         bool bindSuccessor = safetyQualified && startup.State == OutpostStartupState.NoActiveWorld
             && inputs.DomainFormat == OutpostDomainFormat.V2 && inputs.CurrentSchemaVerified && inputs.HasHistory == true;
         if (!inputs.ConfiguredEnabled) blockers.Add("disabled-by-configuration");
-        bool writers = inputs.HasHistory == false && startup.State is not (OutpostStartupState.Maintenance or OutpostStartupState.NoActiveWorld)
+        bool writers = inputs.DomainFormat==OutpostDomainFormat.V3?resolve:inputs.HasHistory == false && startup.State is not (OutpostStartupState.Maintenance or OutpostStartupState.NoActiveWorld)
             || inputs.HasHistory == true && resolve;
         return new(build.Mode, inputs.ConfiguredEnabled, integrations.ToArray(), build, startup, inputs.DomainFormat, inputs.CurrentSchemaVerified,
-            resolve && inputs.ConfiguredEnabled, resolve, inputs.HasHistory != false, writers, blockers.ToArray(), bindSuccessor);
+            resolve && inputs.ConfiguredEnabled && inputs.DomainFormat==OutpostDomainFormat.V2, resolve, inputs.HasHistory != false, writers, blockers.ToArray(), bindSuccessor);
     }
 }

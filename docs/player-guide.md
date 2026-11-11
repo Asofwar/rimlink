@@ -1,6 +1,6 @@
 # Rimlink — player guide
 
-Version 0.9.2 includes passive outposts with Product **Pending/off**. Real two-client G1–G7 acceptance and the final branch review are complete, including verification of the seven required fixes; the release build has not been qualified for Product activation. The complete [English](../wiki/en/players/passive-outposts.md) and [Russian](../wiki/ru/players/passive-outposts.md) guides describe the isolated acceptance flow, custody limits and recovery rules. Update the server and client mod together. A disabled capability must not be bypassed by replacing workers or resetting a protected colony.
+Version 0.10.0 offers passive outposts and guild outposts with automatic capture on servers whose administrator has enabled and activated them; both are off by default. The complete [English](../wiki/en/players/passive-outposts.md) and [Russian](../wiki/ru/players/passive-outposts.md) guides describe custody limits and recovery rules; guild outposts are covered in the community guides ([English](../wiki/en/players/community.md), [Russian](../wiki/ru/players/community.md)). Update the server and client mod together. A disabled capability must not be bypassed by replacing workers or resetting a protected colony.
 
 Alliances, shared silver, friends and public profiles: [Social window guide](community.md).
 

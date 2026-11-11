@@ -51,7 +51,8 @@ public sealed class WalletGrpcService(WalletService wallet, EconomyGate gate, Tr
     }
 }
 
-public sealed class MailboxGrpcService(MailboxService mailbox, GiftService gifts, RimlinkDbContext db) : Protocol.V1.Mailbox.MailboxBase
+public sealed class MailboxGrpcService(MailboxService mailbox, GiftService gifts, RimlinkDbContext db,
+    Application.Outposts.OutpostAuthority authority) : Protocol.V1.Mailbox.MailboxBase
 {
     public override async Task<ParcelList> List(Empty request, ServerCallContext context)
     {
@@ -65,6 +66,14 @@ public sealed class MailboxGrpcService(MailboxService mailbox, GiftService gifts
     {
         var session = context.GetSession();
         var parcel = await mailbox.Get(session.PlayerId, request.ParcelId);
+        if (await db.Set<Storage.Entities.GuildParcelLink>().AnyAsync(p => p.ParcelId == parcel.Id, context.CancellationToken))
+        {
+            if (session.GuildVersion != GuildResourceContracts.CurrentVersion)
+                throw RpcErrors.Failed(ErrorCode.RecoveryClientRequired, RefusalKeys.GuildClient, "guild resource client version required");
+            try { authority.RequireRuntimeGuild(); }
+            catch (Application.Outposts.OutpostEvidenceUnavailableException)
+            { throw RpcErrors.Failed(ErrorCode.GuildUnavailable, RefusalKeys.GuildUnavailable, "guild product is unavailable"); }
+        }
         if (session.OutpostVersion != OutpostRecoveryData.CurrentVersion
             && await db.OutpostParcelLinks.AnyAsync(p => p.ParcelId == parcel.Id, context.CancellationToken))
             throw RpcErrors.Failed(ErrorCode.OutpostClientRequired, RefusalKeys.OutpostsClient, "custody-recipient-client-required");

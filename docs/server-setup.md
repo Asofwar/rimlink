@@ -6,7 +6,7 @@ Guild map publication, limits and administrative routes: [Guild influence](guild
 
 Prepared redistributable packages for GOG/Steam players: [modpack delivery, CLI publication, access and recovery](modpack-delivery.md). This adds no configuration keys and preserves the administrator's modpack-check bypass.
 
-The 0.9.2 server and `rimlink-tools` require **Microsoft.NETCore.App 10.0.14 and Microsoft.AspNetCore.App 10.0.14**. Their runtimeconfigs select that exact qualified patch with `RollForward=Disable`; a missing 10.0.14 stops the process before application startup. Other installed patches may coexist. Install and verify the required patch with `dotnet --list-runtimes`; do not override roll-forward to bypass restore qualification. A later security patch needs its own qualification and an updated release. Source builds use the SDK pinned in `global.json`, currently 10.0.403.
+The 0.10.0 server and `rimlink-tools` require **Microsoft.NETCore.App 10.0.14 and Microsoft.AspNetCore.App 10.0.14**. Their runtimeconfigs select that exact qualified patch with `RollForward=Disable`; a missing 10.0.14 stops the process before application startup. Other installed patches may coexist. Install and verify the required patch with `dotnet --list-runtimes`; do not override roll-forward to bypass restore qualification. A later security patch needs its own qualification and an updated release. Source builds use the SDK pinned in `global.json`, currently 10.0.403.
 
 The server needs one open TCP port (25560 by default), a data directory and,
 for Steam logins, a Steam Web API key. Everything shared (accounts, world, settlements, chat, modpack, saves)
@@ -415,7 +415,7 @@ version does not depend on it, and every backup holds a copy.
 
 ### Protected outpost backup and recovery
 
-Version 0.9.2 adds one authoritative readiness decision and audited canonical administrative commands. Product remains **Pending/off**; configured Enabled, schema activation and manifest confirmation never qualify it. A healthy migrated v1 head is FormatActivationRequired/admin-only. The separate dev acceptance executable is not shipped or selected by runtime configuration. Real two-client G1–G7 acceptance and the final branch review are complete, with all seven required fixes verified. Evidence retains its actual source/build boundaries; no Product qualification seal has been issued for the release build. Update the server and client mod together. Complete RU/EN procedures and transport limits: [English](../wiki/en/admins/passive-outposts.md), [Russian](../wiki/ru/admins/passive-outposts.md).
+The server has one authoritative readiness decision and audited canonical administrative commands. Since 0.10.0 no build qualification seal exists: `Outposts:Enabled=true`, an initialized authority, a confirmed world manifest and an activated domain format make outposts available (V2 for personal outposts, V3 for guild capture, which also needs `GuildCapture:Enabled=true` and an arbiter). A healthy migrated v1 head is FormatActivationRequired/admin-only. The separate dev acceptance executable is not shipped or selected by runtime configuration. Two-client G1–G7 acceptance of personal outposts and the isolated guild capture runs were done on earlier builds; their evidence keeps those source boundaries. Update the server and client mod together. Complete RU/EN procedures and transport limits: [English](../wiki/en/admins/passive-outposts.md), [Russian](../wiki/ru/admins/passive-outposts.md).
 
 Inspect/Preview do not settle production, prepare cold SQLite observation resources or write authority/audit/evidence. Preserve the exact frozen command before confirmation and after an uncertain reply. The remote `admin outposts` CLI calls REST; it does not invoke the offline writers described below. Online property-moving recovery requires complete qualified readiness even when new gameplay is disabled. `OriginalOrdinaryInput` is bounded ephemeral original input, never reconstructed from a hash or persisted as a server admin staging payload.
 
@@ -495,6 +495,28 @@ outer / live-own-registry scope mapping and upload a fresh accepted save before 
 outbox entries and immutable payloads are not rebased. Pending parcels keep their original ID and bytes with a typed new-
 boundary authorization; accepted receipts are acknowledgement-only, and ambiguous started deliveries require recovery.
 
+The unreleased guild V3 path preserves the selected owner, stock and old-stock obligations. A battle whose result or
+pre-Start cancellation was committed keeps its original assignment and holds the arena until verified recovery. The old
+boundary cannot authorize cleanup. Restore refuses an occupied destination or a source assignment without a committed
+terminal receipt. Accepted guild deliveries retain their receipts. A pending guild parcel retains its original recipient
+and payload, and a started attempt requires the exact canonical before-save before it can be retired. Colony rollback
+refuses the recipient's save generation after a guild claim has been issued. Isolated RimWorld 0.10.0 runs verified
+`ProvedReplacement` after the operator stopped a started battle and the delivery of 25 pending Steel after a port
+change. Both previously accepted receipts survived. A second three-process run restored an occupied arena with
+a committed result and two accepted deliveries. A replacement arbiter released the arena without replaying the
+result or issuing either delivery again. Guild capture status shows the occupied battle until cleanup. Its
+battle boundary records the source and the report scope records the current boundary. In-game recovery of
+interrupted materialization still needs verification.
+The server admits up to 512 pending guild resource deliveries per world. Restore preflight refuses an archive
+that exceeds this limit. Accepting a canonical receipt frees capacity.
+
+Local Windows arbiter replacement requires an assignment that already carries a server-verified process identity.
+Before assignment, configure `DataDir/guild-executor-local.json` with the absolute `Executable` path. Run the server and
+arbiter under the same Windows account with a pinned loopback TLS connection. After restore, set `ReplacementBattleId`
+and `ReplacementBoundary` in that file and use the selected assignment in the replacement's `restore-cleanup.json`.
+The server verifies that the original process exited before releasing the arena. The RU and EN backup and recovery
+articles describe the exact request fields and the steps following `RestoreCleaned`.
+
 ## 7a. Updating
 
 1. Back up the data directory (above).
@@ -526,7 +548,7 @@ it in the player's language (`Rimlink.Refusal.<key>`), a client that does not kn
 
 ## 10. Discord bot
 
-Unreleased source fixes: a Discord 403/404 disables outbound delivery to that channel until the bot restarts, discarding its queued lines with a warning. Other channels continue, and temporary failures retain their batches for retry. User-supplied heading/small-text markers are escaped. These changes are unit-tested; the published 0.9.2 bot and live Discord integration are separate verification boundaries.
+Since 0.10.0 a Discord 403/404 disables outbound delivery to that channel until the bot restarts, discarding its queued lines with a warning. Other channels continue, and temporary failures retain their batches for retry. User-supplied heading/small-text markers are escaped. These changes are unit-tested; the live Discord integration is a separate verification boundary.
 
 The bot (`src/Rimlink.Discord`, image `ghcr.io/asofwar/rimlink-discord`) posts server events into Discord channels, bridges
 the public game chat with one Discord channel both ways, answers public queries and runs moderator and admin commands for

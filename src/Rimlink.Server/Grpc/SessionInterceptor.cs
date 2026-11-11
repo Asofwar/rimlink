@@ -5,7 +5,7 @@ using Rimlink.Server.Application.Sessions;
 namespace Rimlink.Server.Grpc;
 
 /// <summary>Every call except Auth.Login/Register must carry "authorization: Bearer &lt;token&gt;" of a live session.</summary>
-public sealed class SessionInterceptor(SessionRegistry sessions) : Interceptor
+public sealed class SessionInterceptor(SessionRegistry sessions, BattleExecutorAuthentication executors) : Interceptor
 {
     public const string ItemKey = "rimlink.session";
 
@@ -37,6 +37,8 @@ public sealed class SessionInterceptor(SessionRegistry sessions) : Interceptor
 
     private void Authenticate(ServerCallContext context)
     {
+        if (context.Method.StartsWith(BattleExecutorAuthentication.ServicePrefix, StringComparison.Ordinal))
+        { executors.Authenticate(context); return; }
         if (Anonymous.Contains(context.Method)) return;
 
         string? header = context.RequestHeaders.GetValue("authorization");

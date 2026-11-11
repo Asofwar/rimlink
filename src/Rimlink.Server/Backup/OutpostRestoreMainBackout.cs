@@ -117,9 +117,9 @@ public sealed partial class OutpostRestoreProcedure
         // Use the verified frozen UTC coordinate, not the unspecified Kind returned for the SQLite timestamp.
         var domain = await OutpostAuthority.ReadStoredChainAsync(database, files, authority,
             new(authority.HeadId, ByteString.CopyFrom(authority.HeadDigest)), currentRuntime: false, ct);
-        var proof = new OutpostBackupManifest(2, identity, plan.Cut.CutUtc, domain.Digest.ToByteArray(),
+        var proof = new OutpostBackupManifest(domain.Format == OutpostDomainFormat.V3 ? 3 : 2, identity, plan.Cut.CutUtc, domain.Digest.ToByteArray(),
             [], (await OutpostBackupCapture.ReadProofsAsync(database, ct)).ToArray(),
-            new(1, domain.Format, new(domain.Schema.ProfileId, domain.Schema.Digest.ToByteArray())));
+            new(domain.Format == OutpostDomainFormat.V3 ? 2 : 1, domain.Format, new(domain.Schema.ProfileId, domain.Schema.Digest.ToByteArray())));
         // Verify C→R→completion and every real source proof on an owned copy. Do not invent an external E or publish anything.
         await ValidateCutAsync(copy, proof, ct);
     }

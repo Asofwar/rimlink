@@ -79,7 +79,13 @@ public sealed class OutpostManifestUploads(TimeProvider time)
             OutpostManifestDocument document;
             try { document = OutpostManifestDocument.Parser.ParseFrom(upload.Bytes); }
             catch (InvalidProtocolBufferException) { pending.Remove(key); throw Invalid("manifest-upload-protobuf"); }
-            var preview = await manifests.StageAsync(actor, document, ct);
+            ManifestPreview preview;
+            try { preview = await manifests.StageAsync(actor, document, ct); }
+            catch (RpcException error) when (error.StatusCode == StatusCode.FailedPrecondition)
+            {
+                pending.Remove(key);
+                throw;
+            }
             preview.ReceivedBytes = upload.Received;
             pending.Remove(key);
             if (completed.Count >= 32) completed.Remove(completed.MinBy(p => p.Value.Touched).Key);

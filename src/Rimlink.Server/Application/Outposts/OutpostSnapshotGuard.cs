@@ -30,7 +30,8 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
 
     public async Task<bool> RequiresProtectionAsync(long playerId, CancellationToken ct) =>
         await db.OutpostSnapshotLinks.AnyAsync(l => l.PlayerId == playerId, ct)
-        || await RequiresCustodyAsync(db, playerId, ct);
+        || await RequiresCustodyAsync(db, playerId, ct)
+        || await GuildCapture.GuildSnapshotGuard.RequiresClientAsync(db, playerId, ct);
 
     internal static async Task<bool> RequiresCustodyAsync(RimlinkDbContext db, long playerId, CancellationToken ct) =>
         await db.PawnCustody.AnyAsync(p => p.PlayerId == playerId, ct)
@@ -43,13 +44,20 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
         RequireOwner(lease, playerId);
         try { recovery.Validate(); }
         catch (InvalidDataException) { throw Unavailable("snapshot-metadata-invalid"); }
+        if ((recovery.Metadata.GuildMetadata is not null || header.OutpostMetadata?.GuildMetadata is not null)
+            && !recovery.Metadata.Equals(header.OutpostMetadata)) throw Unavailable("snapshot-guild-header-mismatch");
+        if (header.GuildVersion != (recovery.Metadata.GuildMetadata?.SchemaVersion ?? 0)) throw Unavailable("snapshot-guild-header-version-mismatch");
         bool history = await RequiresProtectionAsync(playerId, ct);
         if (!recovery.Present)
         {
             if (history) throw Unavailable("snapshot-protected-section-missing");
             return new(false);
         }
-        lease.RequireCustodyReadiness();
+        if (recovery.RequiresPersonalFamily || await RequiresCustodyAsync(db, playerId, ct)) lease.RequireCustodyReadiness();
+        if (recovery.Metadata.GuildMetadata is not null) lease.RequireGuildReadiness();
+        var restoreSource = recovery.Metadata.GuildMetadata is not null && recovery.Metadata.RestoreBridge is not null
+            ? await new OutpostRestoreEvidence(db, files).ValidateProvenanceAsync(recovery.Metadata, ct) : null;
+        await GuildCapture.GuildSnapshotGuard.ValidateProposedAsync(db, playerId, recovery.Metadata, ct, restoreSource);
         var authority = await db.OutpostAuthority.AsNoTracking().SingleOrDefaultAsync(ct);
         var player = await db.Players.AsNoTracking().SingleOrDefaultAsync(p => p.Id == playerId, ct);
         var scope = recovery.Metadata.Scope;
@@ -111,6 +119,7 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
         await StageAdmissionsAsync(recovery.Metadata, transition, ct);
         await StageDeliveriesAsync(lease, snapshot, recovery.Metadata, transition, ct);
         await StageOrdinaryReturnsAsync(lease, snapshot, recovery.Metadata, transition, ct);
+        acceptedDeliveries += await GuildCapture.GuildSnapshotGuard.StageAcceptedAsync(db, snapshot, recovery.Metadata, ct);
     }
 
     private async Task StageDeliveriesAsync(OutpostLease lease, SaveVersion snapshot, OutpostSaveMetadata metadata, string transitionId, CancellationToken ct)
@@ -199,6 +208,7 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
                         || (entry.PredecessorId ?? "") != frontier.PredecessorId) throw Unavailable("snapshot-frontier-mismatch");
                 var rollbackOriginal = await new OutpostLifecycleEvidence(db, files).ValidateRollbackProvenanceAsync(metadata, ct);
                 var restoreOriginal = await new OutpostRestoreEvidence(db, files).ValidateProvenanceAsync(metadata, ct);
+                await GuildCapture.GuildSnapshotGuard.ValidateStoredMetadataAsync(db, metadata, ct, restoreOriginal);
                 foreach (var receipt in metadata.Receipts)
                 {
                     bool historicalProvenance = rollbackOriginal?.Receipts.Any(r => r.Equals(receipt)) == true
@@ -224,7 +234,8 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
                 || !transitions.TryGetValue(custody.FrontierTransitionId, out var source) || source.WorldId != custody.WorldId
                 || !PawnCustodyBridge.CustodyFrontierMatches(source, custody))
                 throw Unavailable("required-snapshot-evidence-unavailable");
-        foreach (var transition in transitions.Values.Where(t => !SnapshotIndependentKinds.Contains(t.Kind)))
+        foreach (var transition in transitions.Values.Where(t => !SnapshotIndependentKinds.Contains(t.Kind)
+            && !GuildCapture.GuildAuthorityEvidence.IsKind(t.Kind)))
             if (!links.Any(l => l.WorldId == transition.WorldId && l.PlayerId == transition.PlayerId && l.SaveGeneration == transition.SaveGeneration))
                 throw Unavailable("required-snapshot-evidence-unavailable");
         foreach (var parcel in await db.OutpostParcelLinks.AsNoTracking().ToListAsync(ct))
@@ -266,6 +277,7 @@ public sealed partial class OutpostSnapshotGuard(RimlinkDbContext db, SaveFiles 
         await ValidateOrdinaryReturnsStoredAsync(transitions, links, adminSemantics, ct);
         await new OutpostLifecycleEvidence(db, files).ValidateStoredCoreAsync(ct, staged, lifecycleOperation);
         await new OutpostRestoreEvidence(db, files).ValidateStoredAsync(ct, staged);
+        await GuildCapture.GuildAuthorityEvidence.ValidateStoredAsync(db, transitions.Values, adminSchema, new GuildCapture.BattleProfileArchive(DataDirectory.Existing(files.DataRoot).Archive), new GuildCapture.BattleArtifactStore(DataDirectory.Existing(files.DataRoot).Archive), ct);
         // Restore authorizations are joined to exact retained cut maps by OutpostRestoreEvidence above; bare/orphan rows refuse.
     }
 

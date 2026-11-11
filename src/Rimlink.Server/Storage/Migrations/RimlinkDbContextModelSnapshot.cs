@@ -689,6 +689,686 @@ namespace Rimlink.Server.Storage.Migrations
                     b.ToTable("friendships", (string)null);
                 });
 
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.GuildAcquisitionReservation", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("AllianceId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("CampaignId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CampaignId")
+                        .IsUnique();
+
+                    b.HasIndex("AllianceId", "Active");
+
+                    b.ToTable("guild_acquisition_reservations", (string)null);
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.GuildBattle", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("Attempt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Boundary")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CampaignId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ExecutorId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("Fence")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<byte[]>("FinalDigest")
+                        .HasColumnType("BLOB");
+
+                    b.Property<byte[]>("FinalManifest")
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("Phase")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("Receipt")
+                        .HasColumnType("BLOB");
+
+                    b.Property<byte[]>("StartDigest")
+                        .HasColumnType("BLOB");
+
+                    b.Property<byte[]>("StartManifest")
+                        .HasColumnType("BLOB");
+
+                    b.Property<byte[]>("StartNonce")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<DateTime?>("StartedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("View")
+                        .HasColumnType("BLOB");
+
+                    b.Property<long>("ViewSequence")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("WorldId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CampaignId")
+                        .IsUnique()
+                        .HasFilter("Active = 1");
+
+                    b.HasIndex("ExecutorId")
+                        .IsUnique()
+                        .HasFilter("Active = 1");
+
+                    b.HasIndex("CampaignId", "Attempt")
+                        .IsUnique();
+
+                    b.ToTable("guild_battles", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_guild_battle_fence", "Attempt > 0 AND Fence > 0 AND ViewSequence >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.GuildBattleArtifact", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BattleId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("Digest")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RelativePath")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RelativePath")
+                        .IsUnique();
+
+                    b.HasIndex("BattleId", "Kind")
+                        .IsUnique();
+
+                    b.ToTable("guild_battle_artifacts", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_guild_artifact", "SizeBytes BETWEEN 1 AND 67108864 AND length(Digest) = 32");
+                        });
+                });
+
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.GuildBattleControlGrant", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("BattleId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("CapabilityDigest")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<long>("Epoch")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("PlayerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Side")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BattleId", "Side")
+                        .IsUnique()
+                        .HasFilter("Active = 1");
+
+                    b.HasIndex("BattleId", "Side", "Epoch")
+                        .IsUnique();
+
+                    b.ToTable("guild_battle_control_grants", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_guild_control_grant", "Side IN (1,2) AND Epoch > 0 AND length(CapabilityDigest) = 32");
+                        });
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.GuildBattleSlot", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("CampaignId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("EndsAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ExecutorId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("StartsAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CampaignId")
+                        .IsUnique();
+
+                    b.HasIndex("ExecutorId", "StartsAtUtc", "Active");
+
+                    b.ToTable("guild_battle_slots", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_guild_slot_interval", "EndsAtUtc > StartsAtUtc");
+                        });
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.GuildCampaign", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("AttackerAllianceId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("AttackerCommanderId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Boundary")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("DeclaredAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("DefenderAllianceId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("DefenderCommanderId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("OutpostId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("OwnerRevision")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Phase")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("ProductionCutUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("RulesDigest")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<DateTime>("ScheduledAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TerminalReason")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("WorldId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AttackerAllianceId")
+                        .IsUnique()
+                        .HasFilter("Active = 1");
+
+                    b.HasIndex("DefenderAllianceId");
+
+                    b.HasIndex("OutpostId")
+                        .IsUnique()
+                        .HasFilter("Active = 1");
+
+                    b.ToTable("guild_campaigns", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_guild_campaign_sides", "AttackerAllianceId > 0 AND DefenderAllianceId > 0 AND AttackerAllianceId <> DefenderAllianceId");
+                        });
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.GuildCaptureConsent", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("AcceptedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("AllianceId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("DefenceHourUtc")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<byte[]>("Digest")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<long>("LeaderId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("OutpostId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("OwnerRevision")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("RulesVersion")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OutpostId", "OwnerRevision")
+                        .IsUnique();
+
+                    b.ToTable("guild_capture_consents", (string)null);
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.GuildCaptureOperation", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("ActorId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<byte[]>("IntentDigest")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("Receipt")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("RequestId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TransitionId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorId", "RequestId")
+                        .IsUnique();
+
+                    b.ToTable("guild_capture_operations", (string)null);
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.GuildDeliveryAttempt", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AcceptedSnapshotId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<byte[]>("BeforeSnapshotDigest")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("BeforeSnapshotId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Boundary")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("IntentDigest")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<long>("ParcelId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<byte[]>("Receipt")
+                        .HasColumnType("BLOB");
+
+                    b.Property<long>("RecipientId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RequestId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("SaveGeneration")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("SaveWriteEpoch")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("WorldId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParcelId")
+                        .IsUnique()
+                        .HasFilter("Active = 1");
+
+                    b.HasIndex("RecipientId", "WorldId", "SaveGeneration", "Boundary", "RequestId")
+                        .IsUnique();
+
+                    b.ToTable("guild_delivery_attempts", (string)null);
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.GuildOutpostRow", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("AllianceId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CheckpointUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("ClockFrequency")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ClockProcessId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("ClockTimestamp")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ConsecutiveAborts")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("DefenceHourUtc")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("PendingDefenceHourUtc")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Phase")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ProtectedUntilUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("Remainder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Resource")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Stock")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Tile")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("WindowChangeAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("WorldId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AllianceId");
+
+                    b.HasIndex("WorldId", "AllianceId");
+
+                    b.HasIndex("WorldId", "Tile")
+                        .IsUnique();
+
+                    b.ToTable("guild_outposts", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_guild_outpost_bounds", "Tile >= 0 AND Revision >= 0 AND ConsecutiveAborts >= 0");
+
+                            t.HasCheckConstraint("CK_guild_resource", "Resource IN (1,2)");
+
+                            t.HasCheckConstraint("CK_guild_stock", "Stock BETWEEN 0 AND 1000 AND Remainder >= 0 AND Remainder < 36000000000 AND (Stock < 1000 OR Remainder = 0)");
+
+                            t.HasCheckConstraint("CK_guild_window", "DefenceHourUtc BETWEEN 0 AND 23 AND (PendingDefenceHourUtc IS NULL OR PendingDefenceHourUtc BETWEEN 0 AND 23)");
+                        });
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.GuildParcelLink", b =>
+                {
+                    b.Property<long>("ParcelId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("AcceptedSnapshotId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ClaimId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("Payload")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<byte[]>("PayloadDigest")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<long>("ValueX100")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("ParcelId");
+
+                    b.HasIndex("ClaimId")
+                        .IsUnique();
+
+                    b.ToTable("guild_parcel_links", (string)null);
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.GuildResourceClaim", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("ActorId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("AllianceId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Boundary")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Count")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("IntentDigest")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("ManifestId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OriginId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OriginKind")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("RecipientId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RequestId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Resource")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("SaveGeneration")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("SaveWriteEpoch")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TransitionId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("ValuationRevision")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("WorldId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AllianceId");
+
+                    b.HasIndex("RecipientId");
+
+                    b.HasIndex("ActorId", "RequestId")
+                        .IsUnique();
+
+                    b.HasIndex("OriginKind", "OriginId");
+
+                    b.ToTable("guild_resource_claims", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_guild_claim", "Resource IN (1,2) AND Count BETWEEN 1 AND 1000 AND RecipientId > 0 AND SaveGeneration >= 0 AND SaveWriteEpoch >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.GuildResourceObligation", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("AllianceId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("CampaignId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("OriginalCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("OutpostId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("OwnerRevision")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("RemainingCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ReservedCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Resource")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TransitionId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AllianceId", "RemainingCount");
+
+                    b.HasIndex("OutpostId", "OwnerRevision")
+                        .IsUnique();
+
+                    b.ToTable("guild_resource_obligations", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_guild_obligation", "Resource IN (1,2) AND OriginalCount BETWEEN 1 AND 1000 AND RemainingCount BETWEEN 0 AND OriginalCount AND ReservedCount BETWEEN 0 AND RemainingCount");
+                        });
+                });
+
             modelBuilder.Entity("Rimlink.Server.Storage.Entities.IncidentOrder", b =>
                 {
                     b.Property<long>("Id")
@@ -2827,6 +3507,144 @@ namespace Rimlink.Server.Storage.Migrations
                     b.HasOne("Rimlink.Server.Storage.Entities.Player", null)
                         .WithMany()
                         .HasForeignKey("SecondId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.GuildAcquisitionReservation", b =>
+                {
+                    b.HasOne("Rimlink.Server.Storage.Entities.GuildCampaign", null)
+                        .WithMany()
+                        .HasForeignKey("CampaignId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.GuildBattle", b =>
+                {
+                    b.HasOne("Rimlink.Server.Storage.Entities.GuildCampaign", null)
+                        .WithMany()
+                        .HasForeignKey("CampaignId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.GuildBattleArtifact", b =>
+                {
+                    b.HasOne("Rimlink.Server.Storage.Entities.GuildBattle", null)
+                        .WithMany()
+                        .HasForeignKey("BattleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.GuildBattleControlGrant", b =>
+                {
+                    b.HasOne("Rimlink.Server.Storage.Entities.GuildBattle", null)
+                        .WithMany()
+                        .HasForeignKey("BattleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.GuildBattleSlot", b =>
+                {
+                    b.HasOne("Rimlink.Server.Storage.Entities.GuildCampaign", null)
+                        .WithMany()
+                        .HasForeignKey("CampaignId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.GuildCampaign", b =>
+                {
+                    b.HasOne("Rimlink.Server.Storage.Entities.AllianceGroup", null)
+                        .WithMany()
+                        .HasForeignKey("AttackerAllianceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Rimlink.Server.Storage.Entities.AllianceGroup", null)
+                        .WithMany()
+                        .HasForeignKey("DefenderAllianceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Rimlink.Server.Storage.Entities.GuildOutpostRow", null)
+                        .WithMany()
+                        .HasForeignKey("OutpostId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.GuildCaptureConsent", b =>
+                {
+                    b.HasOne("Rimlink.Server.Storage.Entities.GuildOutpostRow", null)
+                        .WithMany()
+                        .HasForeignKey("OutpostId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.GuildDeliveryAttempt", b =>
+                {
+                    b.HasOne("Rimlink.Server.Storage.Entities.GuildParcelLink", null)
+                        .WithMany()
+                        .HasForeignKey("ParcelId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.GuildOutpostRow", b =>
+                {
+                    b.HasOne("Rimlink.Server.Storage.Entities.AllianceGroup", null)
+                        .WithMany()
+                        .HasForeignKey("AllianceId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.GuildParcelLink", b =>
+                {
+                    b.HasOne("Rimlink.Server.Storage.Entities.GuildResourceClaim", null)
+                        .WithMany()
+                        .HasForeignKey("ClaimId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Rimlink.Server.Storage.Entities.Parcel", null)
+                        .WithMany()
+                        .HasForeignKey("ParcelId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.GuildResourceClaim", b =>
+                {
+                    b.HasOne("Rimlink.Server.Storage.Entities.AllianceGroup", null)
+                        .WithMany()
+                        .HasForeignKey("AllianceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Rimlink.Server.Storage.Entities.Player", null)
+                        .WithMany()
+                        .HasForeignKey("RecipientId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Rimlink.Server.Storage.Entities.GuildResourceObligation", b =>
+                {
+                    b.HasOne("Rimlink.Server.Storage.Entities.AllianceGroup", null)
+                        .WithMany()
+                        .HasForeignKey("AllianceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Rimlink.Server.Storage.Entities.GuildOutpostRow", null)
+                        .WithMany()
+                        .HasForeignKey("OutpostId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

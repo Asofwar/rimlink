@@ -7,6 +7,7 @@ using Rimlink.Server.Application.Saves;
 using Rimlink.Server.Backup;
 using Rimlink.Server.Storage;
 using Rimlink.Server.Storage.Entities;
+using Rimlink.Server.Application.GuildCapture;
 
 namespace Rimlink.Server.Application.Outposts;
 
@@ -16,7 +17,8 @@ internal sealed record RestoreCustodyMap(PawnCustodyRecord Before, PawnCustodyRe
 internal sealed record RestoreMainPlan(int Version, RestoreIntent Journal, byte[] JournalDigest, OutpostBackupManifest Cut,
     string NextHeadId, string SourceDirectory, RestorePlayerMap[] Players, RestoreOutpostMap[] Outposts, RestoreCustodyMap[] Custody, RestoreParcelMap[] Parcels,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] RestoreDomainStep? DomainStep = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] byte[]? CutManifest = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] byte[]? CutManifest = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] GuildRestorePlan? Guild = null);
 internal sealed record RestoreDomainStep(int Version, OutpostDomainFormat From, OutpostDomainFormat To, string Action,
     OutpostSchemaBinding Source, OutpostSchemaBinding Target,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] RestoreQualifiedMigration? Migration = null,
@@ -24,7 +26,8 @@ internal sealed record RestoreDomainStep(int Version, OutpostDomainFormat From, 
 internal sealed record RestoreMainProgress(int Version, string RootId, string? CompletionId);
 internal sealed record RestoreCheckpointMap(OutpostRow Before, OutpostRow After);
 internal sealed record RestoreCompletionPlan(int Version, string RestoreId, byte[] RootDigest, ClockSample Cut, RestoreCheckpointMap[] Checkpoints,
-    string? PreviousCompletionId = null);
+    string? PreviousCompletionId = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] GuildRestoreMap<GuildOutpostRow>[]? GuildCheckpoints = null);
 
 /// <summary>Typed restore seams. Original source bytes and rows stay immutable; current maps never authorize a transfer.</summary>
 public sealed partial class OutpostRestoreEvidence(RimlinkDbContext db, SaveFiles files)
@@ -43,7 +46,7 @@ public sealed partial class OutpostRestoreEvidence(RimlinkDbContext db, SaveFile
         var plan = DecodePlan(transition.Intent);
         var selected = plan.Journal.Selection; var source = plan.Cut.Authority;
         OutpostRestoreJournalCodec.ValidateSelection(selected);
-        if (transition.Kind != "BulkRestore" || plan.Version is not (1 or 2) || transition.Id != selected.RestoreId
+        if (transition.Kind != "BulkRestore" || plan.Version is not (1 or 2 or 3) || transition.Id != selected.RestoreId
             || transition.WorldId != source.WorldId || transition.RestoreBoundary != selected.TargetBoundary
             || transition.PlayerId != 0 || transition.SaveGeneration != 0 || transition.Actor != "offline-restore"
             || transition.OldHeadId != source.HeadId || transition.PredecessorId != source.TransitionId || transition.NextHeadId != plan.NextHeadId
@@ -65,7 +68,7 @@ public sealed partial class OutpostRestoreEvidence(RimlinkDbContext db, SaveFile
         byte[] journalDigest, OutpostBackupManifest cut, CancellationToken ct, byte[]? cutManifest = null, int version = 1, RestoreDomainStep? recordedStep = null, bool allowPostSchema = false)
     {
         RestoreDomainStep? domainStep = null;
-        if (version == 2)
+        if (version is 2 or 3)
         {
             if (cutManifest is null || !Same(OutpostBackupManifest.Decode(cutManifest), cut)
                 || !SHA256.HashData(cutManifest).AsSpan().SequenceEqual(journal.ManifestDigest)) throw Invalid("restore-original-manifest-mismatch");
@@ -76,15 +79,15 @@ public sealed partial class OutpostRestoreEvidence(RimlinkDbContext db, SaveFile
                 new(row.HeadId, Google.Protobuf.ByteString.CopyFrom(row.HeadDigest)), currentRuntime: false, ct);
             if (recordedStep is not null)
             {
-                ValidateSourceDomain(recordedStep, cut, observed, allowPostSchema);
+                ValidateSourceDomain(recordedStep, cut, observed, allowPostSchema, journal.Selection.Isolated?.Source);
                 domainStep = Decode<RestoreDomainStep>(Encode(recordedStep));
             }
             else
             {
-                cut.ValidateDomain(observed);
+                cut.ValidateDomain(observed, journal.Selection.Isolated?.Source);
                 var schema = new OutpostSchemaBinding(observed.Schema.ProfileId, observed.Schema.Digest.ToByteArray());
                 domainStep = observed.Schema.IsCurrent
-                    ? new(1, observed.Format, OutpostDomainFormat.V2, "NoDdl", schema, schema with { Digest = schema.Digest.ToArray() })
+                    ? new(version == 3 ? 3 : 1, observed.Format, version == 3 ? OutpostDomainFormat.V3 : OutpostDomainFormat.V2, "NoDdl", schema, schema with { Digest = schema.Digest.ToArray() })
                     : await OutpostRestoreSchemaMigration.SelectAsync(source, observed, ct);
             }
         }
@@ -114,7 +117,8 @@ public sealed partial class OutpostRestoreEvidence(RimlinkDbContext db, SaveFile
         }).ToArray();
         var parcels = await CreateParcelMapsAsync(source, journal, cut, owners, ct);
         return new(version, journal, journalDigest, cut, Guid.NewGuid().ToString("D"),
-            $"archive/outpost-restores/{journal.Selection.RestoreId}/cut", owners.ToArray(), outposts, custody, parcels, domainStep, cutManifest?.ToArray());
+            $"archive/outpost-restores/{journal.Selection.RestoreId}/cut", owners.ToArray(), outposts, custody, parcels, domainStep, cutManifest?.ToArray(),
+            version == 3 ? await GuildRestore.CreateAsync(source, cut.Authority.WorldId, journal.Selection.RestoreId, cut.CutUtc, ct) : null);
     }
 
     public async Task ValidateStoredAsync(CancellationToken ct, OutpostTransition? staged = null)
@@ -154,7 +158,7 @@ public sealed partial class OutpostRestoreEvidence(RimlinkDbContext db, SaveFile
                     expected = expected with { NextHeadId = plan.NextHeadId };
                     if (!Same(expected, plan)) throw Invalid("restore-source-projection-map-mismatch");
                     await ValidateCurrentProjectionsAsync(root, plan, transitions, source, ct);
-                }, ct, ManifestBytes(plan));
+                }, ct, ManifestBytes(plan), plan.Journal.Selection.Isolated?.Source);
                 await ValidateParcelMapsStoredAsync(root, plan, authorizations, authorizedParcels, ct);
                 foreach (var map in plan.Custody)
                 {
@@ -183,7 +187,7 @@ public sealed partial class OutpostRestoreEvidence(RimlinkDbContext db, SaveFile
         {
             if (path.Count >= 10000 || !visited.Add(cursor) || !transitions.TryGetValue(cursor, out var step))
                 throw Invalid("restore-completion-path-incomplete-or-cyclic");
-            var value = Decode<RestoreCompletionPlan>(step.Intent);
+            var value = ReadCompletion(step.Intent);
             OutpostTransition? previous = null;
             if (value.PreviousCompletionId is not null && !transitions.TryGetValue(value.PreviousCompletionId, out previous))
                 throw Invalid("restore-completion-predecessor-missing");
@@ -195,8 +199,9 @@ public sealed partial class OutpostRestoreEvidence(RimlinkDbContext db, SaveFile
 
     internal static void ValidateCompletion(OutpostTransition root, RestoreMainPlan plan, OutpostTransition completion, OutpostTransition? previous = null)
     {
-        var value = Decode<RestoreCompletionPlan>(completion.Intent);
-        if (completion.Kind != "RestoreCompletion" || value.Version != 1 || value.RestoreId != root.Id
+        var value = ReadCompletion(completion.Intent);
+        if (completion.Kind != "RestoreCompletion" || value.Version != (plan.Version == 3 ? 2 : 1) || value.RestoreId != root.Id
+            || plan.Version == 3 && value.GuildCheckpoints is null || plan.Version != 3 && value.GuildCheckpoints is not null
             || !value.RootDigest.AsSpan().SequenceEqual(root.Digest) || completion.OldHeadId != (previous?.NextHeadId ?? root.NextHeadId)
             || completion.PredecessorId != (previous?.Id ?? root.Id) || value.PreviousCompletionId != previous?.Id
             || previous is not null && previous.Kind != "RestoreCompletion"
@@ -206,7 +211,7 @@ public sealed partial class OutpostRestoreEvidence(RimlinkDbContext db, SaveFile
             || value.Cut.Frequency <= 0 || string.IsNullOrWhiteSpace(value.Cut.ProcessId) || completion.CreatedAt != value.Cut.Utc)
             throw Invalid("restore-completion-mismatch");
         var sources = previous is null ? plan.Outposts.Select(m => m.After).ToArray()
-            : Decode<RestoreCompletionPlan>(previous.Intent).Checkpoints.Select(m => m.After).ToArray();
+            : ReadCompletion(previous.Intent).Checkpoints.Select(m => m.After).ToArray();
         if (sources.Length != value.Checkpoints.Length) throw Invalid("restore-completion-source-count-mismatch");
         for (int i = 0; i < value.Checkpoints.Length; i++)
         {
@@ -220,6 +225,12 @@ public sealed partial class OutpostRestoreEvidence(RimlinkDbContext db, SaveFile
             }
             expected.LastTransitionId = completion.Id;
             if (!Same(map.After, expected)) throw Invalid("restore-completion-checkpoint-mismatch");
+        }
+        if (plan.Guild is not null)
+        {
+            var guildSources = previous is null ? plan.Guild.Outposts.Select(m => m.After).ToArray()
+                : ReadCompletion(previous.Intent).GuildCheckpoints!.Select(m => m.After).ToArray();
+            GuildRestore.ValidateCompletion(guildSources, value.GuildCheckpoints!, value.Cut);
         }
     }
 

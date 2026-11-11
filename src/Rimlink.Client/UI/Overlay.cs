@@ -11,6 +11,7 @@ public static class Overlay
     public static void Draw()
     {
         if (!RimlinkSession.Active || Current.ProgramState != ProgramState.Playing) return;
+        if(Game.GuildCapture.BattleGameContext.Active){Game.GuildCapture.BattlePreparedViewer.Draw();return;}
         float x = Verse.UI.screenWidth - 230f;
         float y = 60f;
         if (Game.Live.MirrorMode.Active)
@@ -49,6 +50,12 @@ public static class Overlay
         if (Widgets.ButtonText(new Rect(x, y + 52f, 220f, 26f), "Rimlink.Colonies.Title".Translate())) Find.WindowStack.Add(new Colonies.Dialog_Colonies());
         if (RimlinkSession.Login?.OutpostVersion == 1 && Widgets.ButtonText(new Rect(x, y + 112f, 220f, 26f), "Rimlink.Outposts.Title".Translate()))
             Find.WindowStack.Add(new Outposts.Dialog_Outpost());
+        if (RimlinkSession.Login?.GuildVersion == 1 && Game.Outposts.PawnCustodyRegistry.IsOwnGame
+            && Widgets.ButtonText(new Rect(x, y + 142f, 220f, 26f), "Rimlink.Guild.Outposts.Title".Translate()))
+        {
+            if (Find.WindowStack.WindowOfType<Outposts.Dialog_GuildOutposts>() is { } guild) guild.Close();
+            else Find.WindowStack.Add(new Outposts.Dialog_GuildOutposts());
+        }
         if (Widgets.ButtonText(new Rect(x, y + 82f, 220f, 26f), "Rimlink.Diagnostics.Title".Translate()))
         {
             if (Find.WindowStack.WindowOfType<Dialog_Diagnostics>() is { } diagnostics) diagnostics.Close();

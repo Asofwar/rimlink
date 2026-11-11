@@ -1,11 +1,11 @@
 ---
 pageId: players/connect
-contentRevision: 7
+contentRevision: 9
 ---
 
 # Connecting and signing in
 
-Applies to: Rimlink 0.9.2 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.10.0 · RimWorld 1.7 · protocol 1.
 
 <img class="wiki-art" src="/illustrations/connect.svg" alt="Two colonies connect to the server over a secure connection." width="960" height="440" />
 <p class="wiki-caption">Two colonies connect to the server over a secure connection.</p>
@@ -43,6 +43,9 @@ A normal drop pauses the game and reconnects: first after a second, then less of
 ## Limits and safety {#limits}
 
 Do not disable TLS to work around certificate errors. Never send personal passwords in chat. For a temporary Steam refusal, let authentication retry rather than creating many accounts.
+
+
+For guild capture, clients negotiate GuildVersion separately. Retained guild delivery history requires that format even after resources arrive. Until capture is enabled on the server, a normal login with this history is refused; a compatible administrator can inspect the data. Login replies do not yet advertise guild readiness.
 
 ## See also {#related}
 

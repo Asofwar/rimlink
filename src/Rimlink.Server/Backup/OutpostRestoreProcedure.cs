@@ -19,13 +19,14 @@ public sealed partial class OutpostRestoreProcedure
     private const long MaximumArchiveBytes = 128L * 1024 * 1024 * 1024;
     private const long MaximumDatabaseBytes = 512L * 1024 * 1024;
     internal Action<string>? Checkpoint { get; set; }
+    private readonly GuildAcceptanceRestorePermit? isolated;
 
     public async Task<RestoreResult> ExecuteAsync(RestoreRequest request, CancellationToken ct)
     {
         RestoreResult Refused(string reason) => new(RestoreOutcome.Refused, request.RestoreId, null, null, null, null, reason);
         try
         {
-            var selected = OutpostRestoreJournalCodec.Freeze(request);
+            var selected = OutpostRestoreJournalCodec.Freeze(request, isolated);
             byte[] confirmation = request.ConfirmationDigest.ToArray();
             if (confirmation.Length != 32 || !CryptographicOperations.FixedTimeEquals(confirmation, OutpostRestoreJournalCodec.Digest(selected)))
                 return Refused("restore-exact-selection-confirmation-required");
@@ -58,7 +59,7 @@ public sealed partial class OutpostRestoreProcedure
             }
             return await ExecuteVerifiedAsync(selected, inspected, anchorStore, authority, ct);
         }
-        catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException or OutpostEvidenceUnavailableException)
+        catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException or OutpostEvidenceUnavailableException or SqliteException)
         { return Refused("restore-preflight-refused: " + error.Message); }
     }
 
@@ -99,6 +100,7 @@ public sealed partial class OutpostRestoreProcedure
         RejectLinks(root);
         if (Directory.Exists(root)) throw new InvalidDataException("restore-journal-exists-use-explicit-resume");
         var oldFiles = await ReadOldInventoryAsync(selected.DataDirectory, ct);
+        await RequireUnoccupiedGuildDestinationAsync(selected.DataDirectory, oldFiles, inspected.Manifest.Version == 3, ct);
         var intent = new RestoreIntent(1, selected, OutpostRestoreJournalCodec.Digest(selected), inspected.Manifest.Authority,
             inspected.ManifestDigest.ToArray(), inspected.Manifest.Files, oldFiles,
             selected.Mode == RestoreMode.ExistingInstallationRestore ? null : Guid.NewGuid().ToString("D"),
@@ -170,17 +172,37 @@ public sealed partial class OutpostRestoreProcedure
         => InspectAsync(archivePath, dataDir, anchorDir, ct, null);
 
     public async Task<RestoreInspection> InspectAsync(string archivePath, string dataDir, string anchorDir, CancellationToken ct, PreviousAnchorReference? previousAnchor)
+        => await InspectCoreAsync(archivePath, dataDir, anchorDir, ct, previousAnchor, null);
+
+    internal async Task<(RestoreInspection Inspection, Application.GuildCapture.GuildClockStepReceipt[] Clock)> InspectIsolatedAsync(CancellationToken ct)
+    {
+        var permit = isolated ?? throw GuildAcceptanceRestorePermit.Invalid();
+        Application.GuildCapture.GuildClockStepReceipt[] clock = [];
+        var inspected = await InspectCoreAsync(permit.ArchivePath, permit.DataDirectory, permit.AnchorDirectory, ct, null, async path =>
+        {
+            await using var db = OpenRestoreDatabase(path, readOnly: true);
+            clock = await Application.GuildCapture.GuildAuthorityEvidence.ClockJournalAsync(db, ct);
+        });
+        return (inspected, clock);
+    }
+
+    private async Task<RestoreInspection> InspectCoreAsync(string archivePath, string dataDir, string anchorDir, CancellationToken ct,
+        PreviousAnchorReference? previousAnchor, Func<string, Task>? readVerified)
     {
         string archive = Path.GetFullPath(archivePath);
         string destination = Path.TrimEndingDirectorySeparator(Path.GetFullPath(dataDir));
         string anchor = Path.TrimEndingDirectorySeparator(Path.GetFullPath(anchorDir));
+        isolated?.RequirePaths(archive, destination, anchor);
         RejectLinks(archive); RejectLinks(destination); RejectLinks(anchor);
         string temporary = Path.Combine(Path.GetTempPath(), "rimlink-restore-inspect-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(temporary);
         try
         {
             var extracted = await ReadArchiveAsync(archive, temporary, ct);
-            await ValidateCutAsync(temporary, extracted.Manifest, ct);
+            if (isolated is not null && Convert.ToHexStringLower(extracted.ArchiveDigest) != isolated.ArchiveSha256)
+                throw GuildAcceptanceRestorePermit.Invalid();
+            await ValidateCutAsync(temporary, extracted.Manifest, ct, selectedAcceptance: isolated?.Source);
+            if (readVerified is not null) await readVerified(temporary);
             return new(archive, destination, anchor, extracted.ArchiveDigest, extracted.ManifestDigest,
                 extracted.Manifest, ObserveDestination(destination, anchor), previousAnchor is null ? null : await InspectPreviousAnchorAsync(previousAnchor, ct));
         }
@@ -258,7 +280,8 @@ public sealed partial class OutpostRestoreProcedure
         return (decoded, archiveDigest, SHA256.HashData(manifestBytes));
     }
 
-    private static async Task ValidateCutAsync(string temporary, OutpostBackupManifest manifest, CancellationToken ct)
+    private static async Task ValidateCutAsync(string temporary, OutpostBackupManifest manifest, CancellationToken ct, bool checkSourceEligibility = true,
+        Application.GuildCapture.GuildAcceptanceProvenance? selectedAcceptance = null)
     {
         var options = new DbContextOptionsBuilder<RimlinkDbContext>().UseSqlite(new SqliteConnectionStringBuilder
         { DataSource = Path.Combine(temporary, BackupArchive.DatabaseFile), Mode = SqliteOpenMode.ReadOnly, Pooling = false }.ToString()).Options;
@@ -281,7 +304,9 @@ public sealed partial class OutpostRestoreProcedure
             throw new InvalidDataException("restore-cut-identity-or-domain-mismatch");
         var files = new SaveFiles(DataDirectory.Existing(temporary)); // Descriptor only: this validator also checks an installed cut.
         var domain = await OutpostAuthority.ReadStoredChainAsync(db, files, row, new(id.HeadId, ByteString.CopyFrom(id.HeadDigest)), currentRuntime: false, ct);
-        manifest.ValidateDomain(domain);
+        manifest.ValidateDomain(domain, selectedAcceptance);
+        if (checkSourceEligibility && domain.Format == OutpostDomainFormat.V3)
+            await Application.GuildCapture.GuildRestore.RequireSupportedSourceAsync(db, ct);
         await new OutpostSnapshotGuard(db, files).ValidateStoredEvidenceCoreAsync(ct);
         string state = await new OutpostLifecycleEvidence(db, files).IsNoActiveWorldAsync(ct) ? "NoActiveWorld" : "Ready";
         if (state != id.State) throw new InvalidDataException("restore-cut-state-mismatch");

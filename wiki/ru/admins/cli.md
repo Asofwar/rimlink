@@ -1,11 +1,11 @@
 ---
 pageId: admins/cli
-contentRevision: 6
+contentRevision: 12
 ---
 
 # Справочник CLI
 
-Применимость: Rimlink 0.9.2 · RimWorld 1.7 · протокол 1.
+Применимость: Rimlink 0.10.0 · RimWorld 1.7 · протокол 1.
 
 ## Как пользоваться {#usage}
 
@@ -118,7 +118,7 @@ rimlink-tools modpack package unpublish --server <URL> --token <TOKEN>
 
 Для import/defs/configs import без --dry-run требуются --server/--token; --insecure доступен для HTTP-клиентов. Backup безопасен при работающем сервере; restore требует остановленного. Pack работает офлайн с отдельной разрешённой коллекцией, никогда с корнем игры; новые выходные пути не должны существовать. configs import делится только выбранными модами ниже Rimlink; проверь файлы на секреты. requirements/status читают сервер; publish/unpublish меняют доступность пакета, подтверждения нельзя добавлять автоматически.
 
-### Аванпосты (Pending)
+### Аванпосты
 
 `outposts inspect [--player ID] [--operation ID] [--limit N] [--cursor VALUE]`
 
@@ -127,3 +127,25 @@ rimlink-tools modpack package unpublish --server <URL> --token <TOKEN>
 `outposts manifest inspect ID|upload FILE|confirm --request FILE`
 
 Это remote REST-команды. Сохраните исходную команду и явно задайте confirmed=true после проверки. CLI не выполняет silent re-preview/retry и не открывает работающую БД. Подробности и пределы — в [руководстве](./passive-outposts.md).
+
+### Гильдейский захват {#guild-capture}
+
+```text
+guild-capture inspect [limit]
+guild-capture place preview FILE
+guild-capture place FILE
+guild-capture cancel FILE
+guild-capture freeze FILE
+guild-capture abort FILE
+guild-capture profile stage KIND FILE
+guild-capture profile approve FILE
+guild-capture profile revoke FILE
+```
+
+Выполняйте эти команды через `rimlink-tools admin` с URL сервера и токеном администратора. `inspect` читает зафиксированное состояние и допуск Product. Размещение, отмена до старта, утверждение и отзыв принимают сохранённый JSON-объект запроса. Для точного повтора используйте тот же файл. Загрузка отправляет бинарный документ с номером вида из протокола (1–7). Поля и ограничения описаны в [справочнике REST](./api.md#guild-capture-setup).
+
+Для размещения передайте в `place preview` JSON с полями `tile`, `resource` и `reason`. Сохраните ответ, после проверки добавьте `"confirmed": true` и передайте этот файл в `place`.
+
+Для `freeze` передайте сохранённый JSON с текущими `scope` и `expectedHeadId`, UUID `requestId`, причиной `reason` и полем `frozen`. Значение true замораживает захват, false возобновляет.
+
+Для `abort` передайте сохранённый JSON с текущими `scope` и `expectedHeadId`, UUID `requestId`, ID начатого боя `battleId` и причиной `reason`.

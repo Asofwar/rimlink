@@ -1,0 +1,132 @@
+syntax = "proto3";
+package rimlink.v1;
+option csharp_namespace = "Rimlink.Protocol.V1";
+
+import "guild_resources.proto";
+import "world.proto";
+import "guild_battle.proto";
+import "battle_manifests.proto";
+
+service GuildCapture {
+  rpc ListOutposts(GuildWorldScope) returns (GuildOutpostList);
+  rpc PreviewConsent(GuildConsentRequest) returns (GuildConsentReply);
+  rpc AcceptConsent(GuildConsentRequest) returns (GuildOutpostMutationReply);
+  rpc DeclareCampaign(GuildCampaignDeclaration) returns (GuildCampaignReply);
+  rpc AssignDefenderCommander(GuildDefenderCommanderAssignment) returns (GuildDefenderCommanderReply);
+  rpc ClaimResources(GuildClaimRequest) returns (GuildClaimReply);
+  rpc BeginDelivery(GuildDeliveryRequest) returns (GuildDeliveryAuthorization);
+  rpc Manifest(GuildManifestReadRequest) returns (OutpostManifestPage);
+  rpc ReadPreparedView(BattlePreparedViewRequest) returns (BattlePreparedViewReply);
+  rpc ReadPreparedInitial(BattlePreparedInitialRequest) returns (BattlePreparedInitialReply);
+  rpc ReadReadyOffer(BattleReadyOfferRequest) returns (BattleReadyOfferReply);
+  rpc AcknowledgeReadyOffer(BattleReadyOfferAckRequest) returns (BattleReadyOfferAckReply);
+  rpc AttackerReady(BattleAttackerReadyRequest) returns (BattleAttackerReadyReply);
+  rpc AttachControl(BattleAttachControlRequest) returns (BattleControlChannelReply);
+  rpc SubmitCommand(BattleSubmitCommandRequest) returns (BattleSubmitCommandReply);
+  rpc ControlHeartbeat(BattleControlAccess) returns (BattleTransportPosition);
+  rpc ReadRunningView(BattleRunningViewRequest) returns (BattleRunningViewReply);
+  rpc ReadCompletedView(BattleCompletedViewRequest) returns (BattleCompletedViewReply);
+  rpc ReconcileControl(BattleReconcileControlRequest) returns (BattleControlGrantReply);
+  rpc ReadPreparedEntry(GuildWorldScope) returns (stream BattlePreparedEntryPart);
+}
+
+message GuildWorldScope { string world_instance_id = 1; string restore_boundary = 2; }
+message GuildOutpostSummary {
+  string outpost_id = 1; int32 tile = 2; string resource_def = 3; int64 alliance_id = 4;
+  int64 owner_revision = 5; string phase = 6; int32 defence_hour_utc = 7;
+  int64 protected_until_utc_ticks = 8; bool stock_visible = 9; int32 stock = 10;
+  string transition_id = 11;
+}
+message GuildOutpostMutationReply { string outpost_id = 1; int64 owner_revision = 2; int32 stock = 3; string transition_id = 4; }
+message GuildObligationSummary {
+  string obligation_id = 1; string outpost_id = 2; int64 owner_revision = 3;
+  int64 alliance_id = 4; string resource_def = 5; int32 available_count = 6;
+}
+message GuildCampaignSummary {
+  string campaign_id = 1; int32 tile = 2; int64 alliance_id = 3;
+  bool defending = 4; int64 scheduled_at_utc_ticks = 5; int64 commander_id = 6;
+  bool can_assign_defender = 7;
+}
+message GuildOutpostList {
+  repeated GuildOutpostSummary outposts = 1;
+  repeated GuildObligationSummary obligations = 2;
+  repeated GuildCampaignSummary campaigns = 3;
+}
+message GuildConsentRequest {
+  GuildWorldScope scope = 1; string client_request_id = 2; int64 alliance_id = 3;
+  string outpost_id = 4; int32 defence_hour_utc = 5; bytes expected_terms_digest = 6;
+}
+message GuildConsentReply {
+  uint32 rules_version = 1; GuildWorldScope scope = 2; string outpost_id = 3;
+  int64 owner_revision = 4; int64 alliance_id = 5; int64 leader_id = 6;
+  string resource_def = 7; int32 defence_hour_utc = 8; int32 hourly_yield = 9;
+  int32 capacity = 10; int32 protection_hours = 11; int32 maximum_outposts = 12;
+  bool automatic_capture = 13; bool old_stock_retained = 14; bytes terms_digest = 15;
+}
+message GuildCampaignDeclaration {
+  GuildWorldScope scope = 1; string client_request_id = 2; int64 alliance_id = 3;
+  string outpost_id = 4; int64 owner_revision = 5; int64 commander_id = 6;
+}
+message GuildCampaignReply {
+  string campaign_id = 1; int64 declared_at_utc_ticks = 2; int64 scheduled_at_utc_ticks = 3;
+  string executor_id = 4; bytes profile_digest = 5; bytes rules_digest = 6; string transition_id = 7;
+}
+message GuildDefenderCommanderAssignment {
+  GuildWorldScope scope = 1; string client_request_id = 2; string campaign_id = 3; int64 commander_id = 4;
+}
+message GuildDefenderCommanderReply {
+  string campaign_id = 1; int64 commander_id = 2; int64 assigned_at_utc_ticks = 3; string transition_id = 4;
+}
+message GuildClaimRequest {
+  GuildWorldScope scope = 1; string client_request_id = 2; int64 alliance_id = 3;
+  string origin_kind = 4; string origin_id = 5; int64 owner_revision = 6;
+  int64 recipient_id = 7; int64 recipient_generation = 8; int64 recipient_epoch = 9; int32 count = 10;
+}
+message GuildClaimReply { string claim_id = 1; int64 parcel_id = 2; bytes payload_digest = 3; string transition_id = 4; }
+
+message GuildManifestReadRequest {
+  GuildColonyScope scope = 1;
+  int64 parcel_id = 2;
+  string manifest_id = 3;
+  bytes manifest_digest = 4;
+  int32 offset = 5;
+}
+
+// Pre-Start mirror access. It grants neither Ready nor simulation authority.
+message BattlePreparedViewRequest {
+  BattleScopeMessage scope = 1;
+  GuildSnapshotProof home = 2;
+  int32 home_version = 3;
+  bytes profile_digest = 4;
+}
+// Approved viewer metadata only. The initial map still requires the exact accepted home save.
+message BattlePreparedEntry {
+  BattleScopeMessage scope = 1;
+  bytes profile_digest = 2;
+  bytes profile = 3;
+  bytes viewer_compatibility = 4;
+}
+message BattlePreparedEntryPart {
+  oneof part {
+    BattlePreparedEntry entry = 1;
+    bytes inventory = 2;
+  }
+}
+message BattlePreparedViewReply {
+  bytes manifest = 1;
+  bytes manifest_digest = 2;
+  BattleDocumentDescriptor initial_snapshot = 3;
+  BattleFighterSide side = 4;
+  bool start_committed = 5;
+}
+message BattlePreparedInitialRequest {
+  BattlePreparedViewRequest view = 1;
+  bytes manifest_digest = 2;
+  int64 offset = 3;
+}
+message BattlePreparedInitialReply {
+  bytes manifest_digest = 1;
+  int64 offset = 2;
+  bytes data = 3;
+  bool complete = 4;
+}

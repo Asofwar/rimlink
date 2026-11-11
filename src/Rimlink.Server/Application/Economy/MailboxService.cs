@@ -80,6 +80,9 @@ public sealed class MailboxService(RimlinkDbContext db, EventBus events, WalletS
             .OrderBy(p => p.Id).ToListAsync();
         var acceptedOutposts = (await db.OutpostParcelLinks.AsNoTracking().Where(p => p.PlayerId == playerId && p.AcceptedSnapshotId != null)
             .Select(p => p.ParcelId).ToListAsync()).ToHashSet();
+        acceptedOutposts.UnionWith(await (from link in db.Set<GuildParcelLink>().AsNoTracking()
+            join claim in db.Set<GuildResourceClaim>().AsNoTracking() on link.ClaimId equals claim.Id
+            where claim.RecipientId == playerId && link.AcceptedSnapshotId != null select link.ParcelId).ToListAsync());
         return parcels.Where(p => !acceptedOutposts.Contains(p.Id) && (p.DeliveredAt is null || p.DeliveryRecoveryVersion == 0 || !receipts.Contains(p.Id)))
             .Select(p => (p, p.DeliveredAt != null)).ToList();
     }
@@ -95,6 +98,17 @@ public sealed class MailboxService(RimlinkDbContext db, EventBus events, WalletS
             ?? throw RpcErrors.With(StatusCode.NotFound, ErrorCode.Unspecified, RefusalKeys.EconomyParcelUnknown, "no such parcel in your mailbox");
         if (parcel.Decision == ParcelDecisionDb.Awaiting) throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.Unspecified, RefusalKeys.GiftsAwaiting, "the gift awaits a decision");
         var player = await db.Players.AsNoTracking().SingleAsync(p => p.Id == playerId);
+        if (await db.Set<GuildParcelLink>().AsNoTracking().SingleOrDefaultAsync(p => p.ParcelId == parcelId) is { } guildParcel)
+        {
+            var canonical = await db.SaveVersions.AsNoTracking().SingleOrDefaultAsync(v => v.PlayerId == playerId && v.IsCurrent);
+            var metadata = SaveStore.RecoveryOf(canonical).Outposts.Metadata.GuildMetadata;
+            var attempt = await db.Set<GuildDeliveryAttempt>().AsNoTracking().SingleOrDefaultAsync(a => a.ParcelId == parcelId && a.AcceptedSnapshotId != null);
+            if (guildParcel.AcceptedSnapshotId is null || request.SaveGeneration != player.SaveGeneration || request.SaveWriteEpoch != player.SaveWriteEpoch
+                || metadata?.Scope.PlayerId != playerId || metadata.Scope.SaveGeneration != player.SaveGeneration || metadata.Scope.SaveWriteEpoch != player.SaveWriteEpoch
+                || attempt?.Receipt is null || !metadata.Receipts.Any(r => r.ParcelId == parcelId && r.ToByteArray().AsSpan().SequenceEqual(attempt.Receipt)))
+                throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.RecoveryRequired, RefusalKeys.RecoveryRequired, "guild delivery requires an accepted exact receipt");
+            return;
+        }
         if (await db.OutpostParcelLinks.AsNoTracking().SingleOrDefaultAsync(p => p.ParcelId == parcelId) is { } protectedParcel)
         {
             // This is an ACK only. The exact snapshot acceptance has already performed all delivery effects atomically.
@@ -194,6 +208,22 @@ public sealed class MailboxService(RimlinkDbContext db, EventBus events, WalletS
             proto.OutpostPayload = OutpostParcelPayload.Parser.ParseFrom(link.Payload);
             proto.OutpostPayload.PayloadDigest = ByteString.CopyFrom(link.PayloadDigest); // Transport envelope; immutable stored bytes keep the self-digest empty.
             proto.OutpostRestoreAuthorization = await Outposts.OutpostRestoreEvidence.ReadParcelAuthorizationAsync(db, files, link, null, default);
+        }
+        if (await db.Set<GuildParcelLink>().AsNoTracking().SingleOrDefaultAsync(l => l.ParcelId == p.Id) is { } guildLink)
+        {
+            if (guildLink.Payload.Length is < 1 or > 4096 || !System.Security.Cryptography.SHA256.HashData(guildLink.Payload).AsSpan().SequenceEqual(guildLink.PayloadDigest))
+                throw new Outposts.OutpostEvidenceUnavailableException("guild-resource-payload-corrupt");
+            proto.GuildResourcePayload = GuildResourceParcelPayload.Parser.ParseFrom(guildLink.Payload);
+            _ = Rimlink.Protocol.GuildResourceContracts.Validate(proto.GuildResourcePayload);
+            if (guildLink.AcceptedSnapshotId is null)
+            {
+                string boundary = await db.OutpostAuthority.AsNoTracking().Select(a => a.RestoreBoundary).SingleAsync();
+                if (boundary != proto.GuildResourcePayload.Recipient.RestoreBoundary)
+                {
+                    var claim = await db.Set<GuildResourceClaim>().AsNoTracking().SingleAsync(c => c.Id == guildLink.ClaimId);
+                    proto.GuildRestoreScope = await GuildCapture.GuildRestore.DeliveryScopeAsync(db, claim, guildLink, boundary, default);
+                }
+            }
         }
         if (p.FromPlayerId is { } fromId)
         {

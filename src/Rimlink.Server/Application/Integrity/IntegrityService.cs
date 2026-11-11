@@ -71,7 +71,8 @@ public sealed class IntegrityService(RimlinkDbContext db, PlayerFreeze freeze, A
     {
         var previous = SaveStore.RecoveryOf(before); var current = SaveStore.RecoveryOf(after);
         static IEnumerable<long> Protected(SaveRecoveryData recovery) => recovery.Outposts.Metadata.Receipts
-            .Where(r => r.DeliveryAttemptId.Length > 0).SelectMany(r => r.ParcelIds);
+            .Where(r => r.DeliveryAttemptId.Length > 0).SelectMany(r => r.ParcelIds)
+            .Concat(recovery.Outposts.Metadata.GuildMetadata?.Receipts.Select(r => r.ParcelId) ?? []);
         var old = previous.ParcelIds.Concat(Protected(previous)).ToHashSet();
         var accepted = Protected(current).ToHashSet();
         var added = current.ParcelIds.Concat(accepted).Where(id => !old.Contains(id)).Distinct().ToArray();
@@ -87,6 +88,12 @@ public sealed class IntegrityService(RimlinkDbContext db, PlayerFreeze freeze, A
             // Older ordinary handoff links stored only pawn value; their bound parcel retains all physical goods.
             else if (parcels.TryGetValue(link.ParcelId, out var parcel)) value += ServerWealth.PhysicalValueX100(parcel) / 100m;
         }
+        if (current.Outposts.Metadata.GuildMetadata is { } guild)
+            value += await (from link in db.Set<GuildParcelLink>().AsNoTracking()
+                join claim in db.Set<GuildResourceClaim>().AsNoTracking() on link.ClaimId equals claim.Id
+                where claim.RecipientId == playerId && claim.WorldId == guild.Scope.WorldInstanceId && claim.SaveGeneration == after.SaveGeneration
+                    && added.Contains(link.ParcelId) && link.AcceptedSnapshotId != null
+                select (decimal)link.ValueX100 / 100m).SumAsync();
         return value <= 0 ? 0 : value >= long.MaxValue ? long.MaxValue : (long)decimal.Floor(value);
     }
 

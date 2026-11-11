@@ -97,6 +97,9 @@ enum ErrorCode {
   OUTPOST_UNAVAILABLE = 76;
   OUTPOST_MANIFEST_MISMATCH = 77;
   OUTPOST_RESTORE_BOUNDARY_MISMATCH = 78;
+  GUILD_UNAVAILABLE = 79;
+  GUILD_DELIVERY_INVALID = 80;
+  BATTLE_EXECUTOR_REFUSED = 81;
 }
 
 // Complete authority scope. A login's newer epoch cannot authorize an older intent.

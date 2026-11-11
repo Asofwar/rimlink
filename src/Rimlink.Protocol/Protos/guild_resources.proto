@@ -1,0 +1,76 @@
+syntax = "proto3";
+
+package rimlink.v1;
+option csharp_namespace = "Rimlink.Protocol.V1";
+
+// Colony coordinates for resource delivery; never a personal outpost or a battle pawn registry.
+message GuildColonyScope {
+  string world_instance_id = 1;
+  int64 player_id = 2;
+  int64 save_generation = 3;
+  int64 save_write_epoch = 4;
+  string restore_boundary = 5;
+}
+
+message GuildSnapshotProof {
+  string snapshot_id = 1;
+  bytes raw_sha256 = 2;
+  GuildColonyScope scope = 3;
+}
+
+// Materialize only the named vanilla resource at home after a typed BeginDelivery grant.
+message GuildResourceParcelPayload {
+  uint32 schema_version = 1;
+  string claim_id = 2;
+  int64 alliance_id = 3;
+  string origin_kind = 4;
+  string origin_id = 5;
+  int64 owner_revision = 6;
+  GuildColonyScope recipient = 7;
+  string def_name = 8;
+  int32 count = 9;
+  int64 unit_value_x100 = 10;
+  string manifest_id = 11;
+  bytes manifest_digest = 12;
+  int64 valuation_revision = 13;
+  string transition_id = 14;
+}
+
+message GuildDeliveryReceipt {
+  uint32 schema_version = 1;
+  string attempt_id = 2;
+  string claim_id = 3;
+  int64 parcel_id = 4;
+  string client_request_id = 5;
+  bytes payload_digest = 6;
+  string authorization_transition_id = 7;
+  bytes authorization_transition_digest = 8;
+  bytes authorization_intent_digest = 9;
+  GuildSnapshotProof before_snapshot = 10;
+}
+
+// Separate family inside the common protected snapshot envelope.
+// A receipt never contains the raw hash of the snapshot containing that receipt.
+message GuildSaveMetadata {
+  uint32 schema_version = 1;
+  GuildColonyScope scope = 2;
+  repeated GuildDeliveryReceipt receipts = 3;
+}
+
+message GuildDeliveryRequest {
+  GuildColonyScope scope = 1;
+  string client_request_id = 2;
+  int64 parcel_id = 3;
+  bytes payload_digest = 4;
+  GuildSnapshotProof before_snapshot = 5;
+}
+
+message GuildDeliveryAuthorization {
+  string attempt_id = 1;
+  GuildDeliveryRequest request = 2;
+  string transition_id = 3;
+  bytes transition_digest = 4;
+  bytes intent_digest = 5;
+  bool ack_only = 6;
+  GuildSnapshotProof accepted_snapshot = 7;
+}

@@ -41,8 +41,17 @@ public static class OutpostDomainDigest
 
     public static async Task<ByteString> ComputeAsync(RimlinkDbContext db, OutpostDomainFormat format, CancellationToken ct)
     {
+        if (format == OutpostDomainFormat.V3)
+            return await GuildCapture.GuildDomainDigest.ComputeAuthorityAsync(db, ct);
         if (format is not (OutpostDomainFormat.V1 or OutpostDomainFormat.V2))
             throw new ArgumentOutOfRangeException(nameof(format));
+        var tables = format == OutpostDomainFormat.V1 ? Tables : [.. Tables, ("outpost_admin_commands", "Id")];
+        return await ComputeTablesAsync(db, format == OutpostDomainFormat.V1 ? "Rimlink.Outposts.DomainDigest/v1" : "Rimlink.Outposts.DomainDigest/v2", tables, ct);
+    }
+
+    internal static async Task<ByteString> ComputeTablesAsync(RimlinkDbContext db, string discriminator,
+        (string Name, string OrderBy)[] tables, CancellationToken ct)
+    {
         ArgumentNullException.ThrowIfNull(db);
         ct.ThrowIfCancellationRequested();
         if (db.Database.GetDbConnection() is not SqliteConnection connection)
@@ -57,8 +66,7 @@ public static class OutpostDomainDigest
             var transaction = db.Database.CurrentTransaction?.GetDbTransaction();
             using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
             var writer = new DigestWriter(hash);
-            writer.Text(format == OutpostDomainFormat.V1 ? "Rimlink.Outposts.DomainDigest/v1" : "Rimlink.Outposts.DomainDigest/v2");
-            var tables = format == OutpostDomainFormat.V1 ? Tables : [.. Tables, ("outpost_admin_commands", "Id")];
+            writer.Text(discriminator);
             writer.Integer(tables.Length);
             foreach (var table in tables)
             {

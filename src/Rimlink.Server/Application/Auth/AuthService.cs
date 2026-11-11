@@ -9,6 +9,8 @@ using Rimlink.Server.Hosting;
 using Rimlink.Server.Storage.Entities;
 using Rimlink.Server.Storage;
 using Rimlink.Server.Application.Outposts;
+using Rimlink.Server.Application.GuildCapture;
+using Rimlink.Server.Application.Saves;
 
 namespace Rimlink.Server.Application.Auth;
 
@@ -18,7 +20,7 @@ public sealed class AuthService(
     ISteamTicketVerifier steam,
     LoginGate gate,
     IOptions<AuthOptions> authOptions,
-    ILogger<AuthService> log, OutpostFeature outposts)
+    ILogger<AuthService> log, OutpostFeature outposts, SaveFiles files)
 {
     public async Task<LoginResult> Register(string login, string password, string playerName, LoginContext ctx)
     {
@@ -123,6 +125,26 @@ public sealed class AuthService(
             return LoginResult.Failed(StatusCode.FailedPrecondition, ErrorCode.RecoveryClientRequired, RefusalKeys.RecoveryClientRequired,
                 "this colony requires a client with snapshot recovery support");
         bool custody = await OutpostSnapshotGuard.RequiresCustodyAsync(db, player.Id, CancellationToken.None);
+        bool guild = await GuildCapture.GuildSnapshotGuard.RequiresClientAsync(db, player.Id, CancellationToken.None);
+        if (guild && (ctx.GuildVersion != GuildResourceContracts.CurrentVersion || ctx.RecoveryVersion != SaveRecoveryData.CurrentVersion))
+            return LoginResult.Failed(StatusCode.FailedPrecondition, ErrorCode.RecoveryClientRequired, RefusalKeys.RecoveryClientRequired,
+                "this colony requires a client with guild snapshot support");
+        string? guildBoundary = null;
+        if (ctx.GuildVersion == GuildResourceContracts.CurrentVersion && ctx.RecoveryVersion == SaveRecoveryData.CurrentVersion
+            && (outposts.GuildAcceptanceStand is not null || outposts.GuildProductConfigured))
+        {
+            // Protected writers withdraw the published cut until their storage transaction is complete.
+            using var storage = await files.PerStoreLock.HoldAsync(ctx.Cancellation);
+            try
+            {
+                outposts.RequireGuildReadiness(GuildRuntimeUse.Transport);
+                guildBoundary = outposts.GuildCut?.Boundary;
+            }
+            catch (OutpostEvidenceUnavailableException) { }
+        }
+        if (guild && guildBoundary is null && account.Role != Storage.Entities.Role.Admin)
+            return LoginResult.Failed(StatusCode.FailedPrecondition, ErrorCode.RecoveryRequired, RefusalKeys.RecoveryRequired,
+                "guild recovery qualification is pending for this server composition");
         if ((ctx.OutpostVersion != OutpostRecoveryData.CurrentVersion || ctx.RecoveryVersion != SaveRecoveryData.CurrentVersion)
             && custody)
             return LoginResult.Failed(StatusCode.FailedPrecondition, ErrorCode.OutpostClientRequired, RefusalKeys.OutpostsClient,
@@ -133,6 +155,7 @@ public sealed class AuthService(
                 "outpost recovery is not qualified for this server composition");
         var session = sessions.Start(account, player, ctx.Ip, out var replaced);
         session.OutpostVersion = ctx.RecoveryVersion == SaveRecoveryData.CurrentVersion ? ctx.OutpostVersion : 0;
+        session.GuildVersion = ctx.RecoveryVersion == SaveRecoveryData.CurrentVersion ? ctx.GuildVersion : 0;
         if (replaced is not null) log.LogInformation("Session of {Player} replaced by a new login from {Ip}", player.Name, ctx.Ip);
 
         session.AwaySince = Activity.Of(account);
@@ -142,6 +165,6 @@ public sealed class AuthService(
         await db.SaveChangesAsync();
 
         log.LogInformation("Login {Player} ({AccountId}) from {Ip}", player.Name, account.Id, ctx.Ip);
-        return new LoginResult.Success(session, account, player);
+        return new LoginResult.Success(session, account, player) { GuildRestoreBoundary = guildBoundary };
     }
 }

@@ -8,7 +8,8 @@ public sealed record OutpostBackupIdentity(uint FormatVersion, string Installati
     string HeadId, byte[] HeadDigest, string TransitionId, string State);
 public sealed record OutpostBackupFile(string Path, long Length, byte[] Sha256);
 public sealed record OutpostBackupProof(string Kind, string Id, byte[] Sha256);
-public sealed record OutpostBackupDomain(int Version, OutpostDomainFormat Format, OutpostSchemaBinding Schema);
+public sealed record OutpostBackupDomain(int Version, OutpostDomainFormat Format, OutpostSchemaBinding Schema,
+    [property:JsonIgnore(Condition=JsonIgnoreCondition.WhenWritingNull)] Application.GuildCapture.GuildAcceptanceProvenance? Acceptance=null);
 public sealed record OutpostBackupManifest(int Version, OutpostBackupIdentity Authority, DateTime CutUtc, byte[] DomainDigest,
     OutpostBackupFile[] Files, OutpostBackupProof[] Proofs,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] OutpostBackupDomain? Domain = null)
@@ -42,7 +43,7 @@ public sealed record OutpostBackupManifest(int Version, OutpostBackupIdentity Au
                 var original = JsonSerializer.Deserialize<Legacy>(owned, Json) ?? throw Invalid();
                 result = new(original.Version, original.Authority, original.CutUtc, original.DomainDigest, original.Files, original.Proofs);
             }
-            else if (version == 2) result = JsonSerializer.Deserialize<OutpostBackupManifest>(owned, Json) ?? throw Invalid();
+            else if (version is 2 or 3) result = JsonSerializer.Deserialize<OutpostBackupManifest>(owned, Json) ?? throw Invalid();
             else throw Invalid();
             result.ValidateShape(); return result;
         }
@@ -50,12 +51,14 @@ public sealed record OutpostBackupManifest(int Version, OutpostBackupIdentity Au
         { throw new InvalidDataException("backup-manifest-invalid", error); }
     }
 
-    internal void ValidateDomain(OutpostAuthority.StoredDomainObservation observed)
+    internal void ValidateDomain(OutpostAuthority.StoredDomainObservation observed, Application.GuildCapture.GuildAcceptanceProvenance? selectedAcceptance = null)
     {
         ValidateShape();
+        if (Domain?.Acceptance != selectedAcceptance || observed.Acceptance != selectedAcceptance)
+            throw GuildAcceptanceRestorePermit.Invalid();
         if (!DomainDigest.AsSpan().SequenceEqual(observed.Digest.Span)
             || Version == 1 && observed.Format != OutpostDomainFormat.V1
-            || Version == 2 && (Domain!.Format != observed.Format || Domain.Schema.ProfileId != observed.Schema.ProfileId
+            || Version is 2 or 3 && (Domain!.Format != observed.Format || Domain.Schema.ProfileId != observed.Schema.ProfileId
                 || !Domain.Schema.Digest.AsSpan().SequenceEqual(observed.Schema.Digest.Span)))
             throw new InvalidDataException("restore-cut-domain-binding-mismatch");
     }
@@ -64,9 +67,16 @@ public sealed record OutpostBackupManifest(int Version, OutpostBackupIdentity Au
     {
         if (Authority is null || CutUtc.Kind != DateTimeKind.Utc || DomainDigest is not { Length: 32 }
             || Files is null || Proofs is null || Files.Length > MaximumFiles || Proofs.Length > MaximumFiles
-            || Version == 1 && Domain is not null || Version is not (1 or 2)) throw Invalid();
-        if (Version == 2 && (Domain is null || Domain.Version != 1 || !Enum.IsDefined(Domain.Format)
+            || Version == 1 && Domain is not null || Version is not (1 or 2 or 3)) throw Invalid();
+        if(Domain?.Acceptance is{} acceptance)
+        {
+            try{Application.GuildCapture.GuildAuthorityEvidence.ValidateAcceptanceIdentity(acceptance);}catch(OutpostEvidenceUnavailableException){throw Invalid();}
+            if(Version!=3 || acceptance.WorldId!=Authority.WorldId || acceptance.Boundary!=Authority.RestoreBoundary)throw Invalid();
+        }
+        if (Version == 2 && (Domain is null || Domain.Version != 1 || Domain.Format is not (OutpostDomainFormat.V1 or OutpostDomainFormat.V2)
             || !OutpostDomainSchema.IsKnownBinding(Domain.Schema, current: Domain.Format == OutpostDomainFormat.V2))) throw Invalid();
+        if (Version == 3 && (Domain is null || Domain.Version != 2 || Domain.Format != OutpostDomainFormat.V3
+            || !OutpostDomainSchema.HasGuildTables(new(Domain.Schema.ProfileId, Google.Protobuf.ByteString.CopyFrom(Domain.Schema.Digest), true)))) throw Invalid();
     }
 
     internal byte[] Encode()

@@ -26,7 +26,7 @@ public sealed class SaveRejected(string key, string reason, params object[] args
 public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles files, SaveCompactor compactor, EventBus events, Integrity.IntegrityService integrity, World.WorldService worlds, ILogger<SaveStore> log, InfluenceService influence, Outposts.OutpostAuthority outpostAuthority, OutpostSnapshotGuard outpostGuard, OutpostLifecycle outpostLifecycle)
 {
     public async Task<SaveVersion> Store(long playerId, SaveHeader header, IAsyncEnumerable<ReadOnlyMemory<byte>> chunks, CancellationToken cancellationToken,
-        long? sessionEpoch = null, Func<bool>? sessionIsCurrent = null)
+        long? sessionEpoch = null, Func<bool>? sessionIsCurrent = null, uint guildClientVersion = 0)
     {
         if (header.TotalSize <= 0 || header.TotalSize > Limits.MaxSaveBytes)
             throw new SaveRejected(RefusalKeys.SavesSize, $"save size {header.TotalSize} is outside 1..{Limits.MaxSaveBytes} bytes", header.TotalSize, Limits.MaxSaveBytes);
@@ -76,6 +76,17 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
             {
                 // Reset may have completed while the chunks arrived: compare a fresh row under the archive/write lock.
                 var player = await db.Players.AsNoTracking().FirstAsync(p => p.Id == playerId);
+                if ((recovery.Outposts.Metadata.GuildMetadata is not null
+                    || await GuildCapture.GuildSnapshotGuard.RequiresClientAsync(db, playerId, CancellationToken.None))
+                    && guildClientVersion != GuildResourceContracts.CurrentVersion)
+                    throw RpcErrors.Failed(ErrorCode.RecoveryClientRequired, RefusalKeys.RecoveryClientRequired, "guild-aware snapshot client required");
+                if (recovery.ParcelIds.Length != 0)
+                {
+                    var guildParcels = await db.Set<GuildParcelLink>().AsNoTracking().Where(p => recovery.ParcelIds.Contains(p.ParcelId)).Select(p => p.ParcelId).ToArrayAsync();
+                    if (guildParcels.Any(id => recovery.Outposts.Metadata.GuildMetadata is null
+                        || !recovery.Outposts.Metadata.GuildMetadata.Receipts.Any(r => r.ParcelId == id)))
+                        throw new OutpostEvidenceUnavailableException("guild-parcel-requires-typed-receipt");
+                }
                 if (sessionIsCurrent is not null && !sessionIsCurrent()) throw RpcErrors.Unauthenticated("the upload session ended");
                 if (header.SaveGeneration != player.SaveGeneration)
                     throw RpcErrors.With(StatusCode.FailedPrecondition, ErrorCode.SaveGenerationMismatch,
@@ -409,15 +420,22 @@ public sealed class SaveStore(RimlinkDbContext db, DataDirectory data, SaveFiles
         files.Delete(version.PlayerId, version.Number);
     }
 
-    public static SaveInfo ToInfo(SaveVersion v) => new()
+    public static SaveInfo ToInfo(SaveVersion v)
     {
-        Version = v.Number,
-        Size = v.Size,
-        CreatedAt = Timestamp.FromDateTime(DateTime.SpecifyKind(v.CreatedAt, DateTimeKind.Utc)),
-        IsCurrent = v.IsCurrent,
-        GameTick = v.GameTick,
-        SnapshotId = v.SnapshotId ?? "", SaveWriteEpoch = v.SaveWriteEpoch, RecoveryVersion = v.RecoveryVersion,
-    };
+        var metadata = RecoveryOf(v).Outposts;
+        return new()
+        {
+            Version = v.Number,
+            Size = v.Size,
+            CreatedAt = Timestamp.FromDateTime(DateTime.SpecifyKind(v.CreatedAt, DateTimeKind.Utc)),
+            IsCurrent = v.IsCurrent,
+            GameTick = v.GameTick,
+            SnapshotId = v.SnapshotId ?? "", SaveWriteEpoch = v.SaveWriteEpoch, RecoveryVersion = v.RecoveryVersion,
+            OutpostVersion = metadata.Present ? OutpostRecoveryData.CurrentVersion : 0,
+            OutpostRestoreBoundary = metadata.Metadata.Scope?.RestoreBoundary ?? "",
+            RawSha256 = Google.Protobuf.ByteString.CopyFrom(v.RawSha256 ?? []),
+        };
+    }
 
     public static SaveRecoveryData RecoveryOf(SaveVersion? version)
     {

@@ -6,6 +6,12 @@ namespace Rimlink.Server.Grpc;
 /// </summary>
 public static class RefusalKeys
 {
+    public const string GuildClient = "Guild.Client";
+    public const string GuildUnavailable = "Guild.Unavailable";
+    public const string GuildDelivery = "Guild.Delivery";
+    public const string GuildClaim = "Guild.Claim";
+    public const string GuildDeliveryCapacity = "Guild.DeliveryCapacity";
+    public const string GuildExecutor = "Guild.Executor";
     public const string CommunityAction = "Community.Action";
     public const string CommunityActiveHarm = "Community.ActiveHarm";
     public const string CommunityAlliedTarget = "Community.AlliedTarget";

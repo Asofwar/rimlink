@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "qualificationId": "rimlink-guild-schema-20261108-transport-journal",
+  "status": "CatalogsVerified",
+  "scope": "Exact 13-table financial catalog admission and additive preservation of legacy DDL/digests only. Transport command records are not financial rows. Not restore, readiness, Product or gameplay qualification.",
+  "input": "Copied worktree source bytes, SDK 10.0.403 / .NET 10.0.14; not a fresh CI checkout. Earlier 14-table development catalog was superseded before shipment.",
+  "migration": "20261108103250_GuildCaptureDomain",
+  "migrationSourceSha256": "547ef9ad8c9b64b06797db12cbc3c124ee86d69f007d11c5c89cf051e12f3fa0",
+  "profiles": [
+    {
+      "id": "rimlink-outposts-schema/v3-crlf-crlf-crlf",
+      "source": "rimlink-outposts-schema/v2-crlf-crlf",
+      "descriptor": "v3-crlf-crlf-crlf.json",
+      "descriptorSha256": "3b745026dbc1519acc4708ca36ea6929cfb2eba17d63a59ffcc5c73996fc5829",
+      "migrationExecutor": "windows",
+      "validators": [
+        "windows",
+        "linux"
+      ]
+    },
+    {
+      "id": "rimlink-outposts-schema/v3-lf-lf-crlf",
+      "source": "rimlink-outposts-schema/v2-lf-lf",
+      "descriptor": "v3-lf-lf-crlf.json",
+      "descriptorSha256": "e5ad9fefa9cfa47e6ef1772b81fb1ed2ce4299b41fa329a914e98b0c5047727f",
+      "migrationExecutor": "windows",
+      "validators": [
+        "windows",
+        "linux"
+      ]
+    },
+    {
+      "id": "rimlink-outposts-schema/v3-crlf-lf-crlf",
+      "source": "rimlink-outposts-schema/v2-crlf-lf",
+      "descriptor": "v3-crlf-lf-crlf.json",
+      "descriptorSha256": "711372f2fd0a08328211a8392590e7573af03625f6913f89ad176d24ce36346f",
+      "migrationExecutor": "windows",
+      "validators": [
+        "windows",
+        "linux"
+      ]
+    },
+    {
+      "id": "rimlink-outposts-schema/v3-lf-crlf-crlf",
+      "source": "rimlink-outposts-schema/v2-lf-crlf",
+      "descriptor": "v3-lf-crlf-crlf.json",
+      "descriptorSha256": "355b9555747a4f5bf74c7a39999c0adb29721964679fcfea113e4e889ef0fd14",
+      "migrationExecutor": "windows",
+      "validators": [
+        "windows",
+        "linux"
+      ]
+    },
+    {
+      "id": "rimlink-outposts-schema/v3-crlf-crlf-lf",
+      "source": "rimlink-outposts-schema/v2-crlf-crlf",
+      "descriptor": "v3-crlf-crlf-lf.json",
+      "descriptorSha256": "2703d348570c2ddbbadef7be02f89b0d81a0cf35f8e5548de6d2bbda33b00d4b",
+      "migrationExecutor": "linux",
+      "validators": [
+        "windows",
+        "linux"
+      ]
+    },
+    {
+      "id": "rimlink-outposts-schema/v3-lf-lf-lf",
+      "source": "rimlink-outposts-schema/v2-lf-lf",
+      "descriptor": "v3-lf-lf-lf.json",
+      "descriptorSha256": "b6328ea84dac462422dd713d27d9e1ca36bc82aeae3b2049b8a358a53efcf7ed",
+      "migrationExecutor": "linux",
+      "validators": [
+        "windows",
+        "linux"
+      ]
+    },
+    {
+      "id": "rimlink-outposts-schema/v3-crlf-lf-lf",
+      "source": "rimlink-outposts-schema/v2-crlf-lf",
+      "descriptor": "v3-crlf-lf-lf.json",
+      "descriptorSha256": "bc94d120ff9a3937bdd63cc0106ee7b190ef1a8c74a3a52b90e566797292285d",
+      "migrationExecutor": "linux",
+      "validators": [
+        "windows",
+        "linux"
+      ]
+    },
+    {
+      "id": "rimlink-outposts-schema/v3-lf-crlf-lf",
+      "source": "rimlink-outposts-schema/v2-lf-crlf",
+      "descriptor": "v3-lf-crlf-lf.json",
+      "descriptorSha256": "0129573dc6d5dcb1e8ef039e7e4d9f158777ed5095ebe57329cf1e6e17ac3073",
+      "migrationExecutor": "linux",
+      "validators": [
+        "windows",
+        "linux"
+      ]
+    }
+  ],
+  "evidence": {
+    "windows113Sha256": "764e6b182074608e03030b773efb7a4397556c5607dd7951436ef9ae8c2362a2",
+    "linuxTwoCpu113Runs": [
+      {
+        "run": 1,
+        "sha256": "814a09be817f7b6a3e0293ba3fe5d32c629fc57c3d990257b69fad65d0e2be13"
+      },
+      {
+        "run": 2,
+        "sha256": "cb3d5dd49e0e0142edaedb427fa3d9ef11f4e8023faf560046744d6a081dc1ad"
+      },
+      {
+        "run": 3,
+        "sha256": "ebe43a9a4f8458badfb18f16e3d6d17dac60a06d6cdd246be4a2835ed3b0a2b7"
+      }
+    ]
+  }
+}

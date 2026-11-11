@@ -252,7 +252,7 @@ public sealed class OutpostDomainFormatTests(ITestOutputHelper output)
             var connection = new SqliteConnection("Data Source=:memory:");
             await connection.OpenAsync();
             var db = new RimlinkDbContext(new DbContextOptionsBuilder<RimlinkDbContext>().UseSqlite(connection).Options);
-            await db.GetService<IMigrator>().MigrateAsync(preAdmin ? V1Migration : null);
+            await db.GetService<IMigrator>().MigrateAsync(preAdmin ? V1Migration : OutpostDomainSchema.AdminMigrationId);
             return new(connection, db);
         }
         public async Task ExecuteFixtureSql(string sql)

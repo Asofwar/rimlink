@@ -1,11 +1,11 @@
 ---
 pageId: developers/localization
-contentRevision: 6
+contentRevision: 8
 ---
 
 # Localization
 
-Applies to: Rimlink 0.9.2 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.10.0 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 
@@ -27,8 +27,13 @@ Translate the full wiki scenario, not just its title. Compare numbers, prerequis
 
 Do not hard-code C# UI text instead of localization keys. Do not add external search/analytics for localization. Examples must not contain real tokens, personal saves or private logs.
 
+
+Unreleased guild delivery adds paired Refusal.Guild.Client, Refusal.Guild.Unavailable, Refusal.Guild.Delivery, and Guild.DeliveryComplete/Guild.DeliveryHold keys. ParcelGuildResources has English and Russian letter labels; an unknown guild receipt is not presented as successful ordinary delivery.
+
 ## See also {#related}
 
 - [Contributing and wiki maintenance](./contributing.md)
 - [Testing and acceptance](./testing.md)
 - [Glossary](../glossary.md)
+
+RU/EN labels were added for the pre-Start view’s lack of simulation and return to the home colony. RecoveryRequired remains a separate state; loading the UI does not establish native HOME acceptance.

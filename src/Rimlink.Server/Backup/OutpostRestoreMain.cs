@@ -8,6 +8,7 @@ using Rimlink.Server.Application.Saves;
 using Rimlink.Server.Storage;
 using Rimlink.Server.Storage.Entities;
 using OutpostAuthority = Rimlink.Server.Application.Outposts.OutpostAuthority;
+using Rimlink.Server.Application.GuildCapture;
 
 namespace Rimlink.Server.Backup;
 
@@ -16,6 +17,7 @@ public sealed partial class OutpostRestoreProcedure
     private readonly OutpostClock clock;
 
     public OutpostRestoreProcedure(TimeProvider? time = null) => clock = new(time ?? TimeProvider.System);
+    internal OutpostRestoreProcedure(GuildAcceptanceRestorePermit permit, TimeProvider? time = null) : this(time) => isolated = permit;
 
     private async Task<RestoreResult> CommitMainAsync(RestoreIntent intent, RestoreJournal journal, string journalRoot,
         OutpostAnchorStore anchor, OutpostAnchorStore.OutpostAnchorLease held, CancellationToken ct)
@@ -38,9 +40,9 @@ public sealed partial class OutpostRestoreProcedure
             else
             {
                 await using var source = OpenRestoreDatabase(staged, readOnly: true);
-                plan = await OutpostRestoreEvidence.CreatePlanAsync(source, intent, journal.IntentDigest, manifest, ct, manifestBytes, version: 2);
+                plan = await OutpostRestoreEvidence.CreatePlanAsync(source, intent, journal.IntentDigest, manifest, ct, manifestBytes, version: manifest.Version == 3 ? 3 : 2);
                 OutpostRestoreJournalCodec.WriteDurable(planPath, OutpostRestoreEvidence.Encode(plan));
-                if (IsAdditive(plan)) Checkpoint?.Invoke("AfterMainPlanWritten");
+                if (IsBound(plan)) Checkpoint?.Invoke("AfterMainPlanWritten");
             }
             await BindMainPlanAsync(plan, journal, journalRoot, anchor, held, ct);
             journal = journal with { Phase = RestorePhase.MainPrepared, Revision = checked(journal.Revision + 1) };
@@ -63,7 +65,7 @@ public sealed partial class OutpostRestoreProcedure
             string manifestPath = Path.Combine(sourceCut, OutpostBackupManifest.FileName);
             if (!File.Exists(manifestPath)) OutpostRestoreJournalCodec.WriteDurable(manifestPath, bytes);
             if (!File.ReadAllBytes(manifestPath).AsSpan().SequenceEqual(bytes)) throw new InvalidDataException("restore-source-manifest-changed");
-            await ValidateRetainedCutAsync(sourceCut, plan.Cut, null, ct, OutpostRestoreEvidence.ManifestBytes(plan));
+            await ValidateRetainedCutAsync(sourceCut, plan.Cut, null, ct, OutpostRestoreEvidence.ManifestBytes(plan), selected.Isolated?.Source);
             await using var database = OpenRestoreDatabase(selected.DataDirectory);
             await database.Database.OpenConnectionAsync(ct);
             // VACUUM INTO produces a standalone DELETE-mode cut; install the required domain mode only under this durable restore intent.
@@ -82,7 +84,7 @@ public sealed partial class OutpostRestoreProcedure
                     throw new InvalidDataException("restore-main-cut-changed");
                 var original = await OutpostAuthority.ReadStoredChainAsync(database, new SaveFiles(DataDirectory.Existing(selected.DataDirectory)),
                     authority, new(authority.HeadId, ByteString.CopyFrom(authority.HeadDigest)), currentRuntime: false, ct);
-                if (plan.Version == 2) OutpostRestoreEvidence.ValidateSourceDomain(plan.DomainStep!, plan.Cut, original, allowPostSchema: true);
+                if (plan.Version is 2 or 3) OutpostRestoreEvidence.ValidateSourceDomain(plan.DomainStep!, plan.Cut, original, allowPostSchema: true, selectedAcceptance: selected.Isolated?.Source);
                 else plan.Cut.ValidateDomain(original);
                 var expected = await OutpostRestoreEvidence.CreatePlanAsync(database, intent, journal.IntentDigest, plan.Cut, ct, plan.CutManifest, plan.Version, plan.DomainStep, allowPostSchema: true);
                 if (!OutpostRestoreEvidence.Same(expected with { NextHeadId = plan.NextHeadId }, plan)) throw new InvalidDataException("restore-main-source-map-changed");
@@ -96,6 +98,7 @@ public sealed partial class OutpostRestoreProcedure
                     var row = await database.PawnCustody.SingleAsync(o => o.Id == map.Before.Id, ct);
                     database.Entry(row).CurrentValues.SetValues(map.After);
                 }
+                if (plan.Guild is not null) await GuildRestore.ApplyAsync(database, plan.Guild, ct);
                 database.OutpostRestoreAuthorizations.AddRange(plan.Parcels.Select(p =>
                     OutpostRestoreEvidence.Decode<OutpostRestoreAuthorization>(OutpostRestoreEvidence.Encode(p.Authorization))));
                 byte[] rootBytes = OutpostRestoreEvidence.Encode(plan);
@@ -164,7 +167,7 @@ public sealed partial class OutpostRestoreProcedure
             var sample = clock.Sample(); string completionId = Guid.NewGuid().ToString("D");
             var maps = new List<RestoreCheckpointMap>();
             var sources = previousCompletion is null ? plan.Outposts.Select(m => m.After).ToArray()
-                : OutpostRestoreEvidence.Decode<RestoreCompletionPlan>(previousCompletion.Intent).Checkpoints.Select(m => m.After).ToArray();
+                : OutpostRestoreEvidence.ReadCompletion(previousCompletion.Intent).Checkpoints.Select(m => m.After).ToArray();
             foreach (var source in sources)
             {
                 var row = await database.Outposts.SingleAsync(o => o.Id == source.Id, ct);
@@ -179,11 +182,18 @@ public sealed partial class OutpostRestoreProcedure
                 row.LastTransitionId = completionId;
                 maps.Add(new(before, OutpostRestoreEvidence.Decode<OutpostRow>(OutpostRestoreEvidence.Encode(row))));
             }
+            GuildRestoreMap<GuildOutpostRow>[]? guildMaps = null;
+            if (plan.Guild is not null)
+            {
+                var guildSources = previousCompletion is null ? plan.Guild.Outposts.Select(m => m.After).ToArray()
+                    : OutpostRestoreEvidence.ReadCompletion(previousCompletion.Intent).GuildCheckpoints!.Select(m => m.After).ToArray();
+                guildMaps = await GuildRestore.ResumeAsync(database, guildSources, sample, ct);
+            }
             var completion = new OutpostTransition
             {
                 Id = completionId, WorldId = root.WorldId, RestoreBoundary = root.RestoreBoundary, Kind = "RestoreCompletion", Actor = root.Actor,
                 OldHeadId = authority.HeadId, PredecessorId = authority.TransitionId, NextHeadId = Guid.NewGuid().ToString("D"), CreatedAt = sample.Utc,
-                Intent = OutpostRestoreEvidence.Encode(new RestoreCompletionPlan(1, root.Id, root.Digest, sample, maps.ToArray(), previousCompletion?.Id))
+                Intent = OutpostRestoreEvidence.Encode(new RestoreCompletionPlan(plan.Version == 3 ? 2 : 1, root.Id, root.Digest, sample, maps.ToArray(), previousCompletion?.Id, guildMaps))
             };
             OutpostRestoreEvidence.ValidateCompletion(root, plan, completion, previousCompletion);
             operation.Phase = "Completed"; operation.Progress = OutpostRestoreEvidence.Encode(new RestoreMainProgress(1, root.Id, completion.Id)); operation.Result = completion.Intent;
@@ -219,7 +229,8 @@ public sealed partial class OutpostRestoreProcedure
     internal static RimlinkDbContext OpenRestoreDatabase(string root, bool readOnly = false) => new(new DbContextOptionsBuilder<RimlinkDbContext>().UseSqlite(new SqliteConnectionStringBuilder
     { DataSource = Path.Combine(root, BackupArchive.DatabaseFile), Mode = readOnly ? SqliteOpenMode.ReadOnly : SqliteOpenMode.ReadWrite, Pooling = false }.ToString()).Options);
 
-    internal static async Task ValidateRetainedCutAsync(string sourceRoot, OutpostBackupManifest cut, Func<RimlinkDbContext, Task>? inspect, CancellationToken ct, byte[]? originalManifest = null)
+    internal static async Task ValidateRetainedCutAsync(string sourceRoot, OutpostBackupManifest cut, Func<RimlinkDbContext, Task>? inspect, CancellationToken ct, byte[]? originalManifest = null,
+        Application.GuildCapture.GuildAcceptanceProvenance? selectedAcceptance = null)
     {
         RejectLinks(sourceRoot);
         byte[] manifest = ReadJournalBytes(Path.Combine(sourceRoot, OutpostBackupManifest.FileName));
@@ -231,7 +242,7 @@ public sealed partial class OutpostRestoreProcedure
         {
             // This validation copy is discarded and never read by crash recovery.
             await CopyInventoryAsync(sourceRoot, copy, cut.Files, ct, verificationOnly: true);
-            await ValidateCutAsync(copy, cut, ct);
+            await ValidateCutAsync(copy, cut, ct, selectedAcceptance: selectedAcceptance);
             if (inspect is not null) { await using var db = OpenRestoreDatabase(copy, readOnly: true); await inspect(db); }
         }
         finally { Directory.Delete(copy, recursive: true); }

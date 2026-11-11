@@ -1,0 +1,550 @@
+syntax = "proto3";
+package rimlink.v1;
+option csharp_namespace = "Rimlink.Protocol.V1";
+import "guild_runtime.proto";
+
+import "battle_manifests.proto";
+
+service BattleExecutor {
+  rpc HelloBegin(BattleExecutorHelloBindingV1) returns (BattleExecutorHelloChallenge);
+  rpc HelloComplete(BattleExecutorHelloComplete) returns (BattleExecutorLeaseMessage);
+  rpc Register(BattleExecutorHello) returns (BattleExecutorLeaseMessage);
+  rpc Heartbeat(BattleExecutorHeartbeat) returns (BattleExecutorLeaseMessage);
+  rpc Poll(BattleExecutorPoll) returns (BattleExecutorWorkReply);
+  rpc ReadPreparation(BattlePreparationBasisRequest) returns (BattlePreparationBasisReply);
+  rpc RuntimeStarted(BattleRuntimeStartedRequest) returns (BattleRuntimeStartedReply);
+  rpc PollRunning(BattleExecutorRunningRequest) returns (BattleRunningWork);
+  rpc AcknowledgeCommands(BattleExecutorCommandsAck) returns (BattleTransportPosition);
+  rpc UploadInitial(BattleArtifactChunk) returns (BattleArtifactProgressMessage);
+  rpc ProposePrepared(BattlePreparedProposalRequest) returns (BattlePreparedProposalReply);
+  rpc Start(BattleStartRequest) returns (BattleStartAuthorization);
+  rpc UploadResultArtifact(BattleResultArtifactChunk) returns (BattleArtifactProgressMessage);
+  rpc Final(BattleFinalRequest) returns (BattleFinalReply);
+  rpc CleanupChallenge(BattleCleanupChallengeRequest) returns (BattleCleanupChallengeMessage);
+  rpc Cleanup(BattleCleanupRequest) returns (BattleCleanupReceipt);
+}
+
+message BattleExecutorHello {
+  string executor_id = 1;
+  bytes profile_digest = 2;
+}
+
+message BattleExecutorLeaseMessage {
+  string executor_id = 1;
+  string lease_id = 2;
+  int64 fence = 3;
+  bytes profile_digest = 4;
+  BattleExecutorHelloBindingV1 binding = 5;
+  string server_boot_id = 6;
+  int32 valid_for_ms = 7;
+  bool start_replay_only = 8;
+}
+
+message BattleExecutorHeartbeat {
+  BattleExecutorLeaseMessage lease = 1;
+  bool has_unfinished_process = 2;
+}
+
+message BattleScopeMessage {
+  string world_instance_id = 1;
+  string restore_boundary = 2;
+  string battle_id = 3;
+  int64 attempt = 4;
+  int64 fence = 5;
+}
+
+message BattleExecutorPoll { BattleExecutorLeaseMessage lease = 1; }
+
+message BattleExecutorWorkReply {
+  BattleExecutorLeaseMessage lease = 1;
+  oneof work {
+    BattlePreparationWork preparing = 2;
+    BattleCancellationWork cancelled = 3;
+  }
+}
+
+message BattlePreparationWork {
+  BattleScopeMessage scope = 1;
+  string campaign_id = 2;
+  bytes start_nonce = 3;
+  bytes rules_digest = 4;
+  int64 readiness_deadline_unix_ms = 5;
+  int64 owner_revision = 6;
+  BattleRuntimeAssignmentV1 assignment = 7;
+}
+
+message BattleArtifactChunk {
+  BattleExecutorLeaseMessage executor = 1;
+  BattleScopeMessage scope = 2;
+  int64 total_bytes = 3;
+  bytes sha256 = 4;
+  int64 offset = 5;
+  bytes data = 6;
+}
+
+message BattleArtifactReference {
+  BattleScopeMessage scope = 1;
+  bytes sha256 = 2;
+  int64 size_bytes = 3;
+  string kind = 4;
+}
+
+message BattleArtifactProgressMessage {
+  int64 received_bytes = 1;
+  bool complete = 2;
+  BattleArtifactReference artifact = 3;
+}
+
+message BattlePreparedProposalRequest {
+  BattleExecutorLeaseMessage executor = 1;
+  bytes manifest = 2;
+}
+message BattlePreparedProposalReply {
+  int32 proposal_sequence = 1;
+  bytes manifest_digest = 2;
+  BattleArtifactReference artifact = 3;
+}
+
+message BattleAttackerReadyRequest {
+  string client_request_id = 1;
+  BattleScopeMessage scope = 2;
+  int32 proposal_sequence = 3;
+  bytes manifest_digest = 4;
+  bytes capability_digest = 5;
+}
+message BattleAttackerReadyReply {
+  string grant_id = 1;
+  int64 control_epoch = 2;
+  bytes manifest_digest = 3;
+  int64 ready_at_unix_ms = 4;
+  int64 deadline_unix_ms = 5;
+  string transition_id = 6;
+}
+
+message BattleStartRequest {
+  string client_request_id = 1;
+  BattleExecutorLeaseMessage executor = 2;
+  BattleScopeMessage scope = 3;
+  bytes manifest_digest = 4;
+}
+message BattleStartAuthorization {
+  BattleScopeMessage scope = 1;
+  bytes manifest = 2;
+  bytes manifest_digest = 3;
+  int64 started_at_unix_ms = 4;
+  string transition_id = 5;
+  string ready_transition_id = 6;
+  string authority_head_id = 7;
+  bytes authority_head_digest = 8;
+}
+
+message BattleResultArtifactChunk {
+  BattleArtifactChunk chunk = 1;
+  string kind = 2;
+}
+message BattleFinalEnvelope {
+  string client_request_id = 1;
+  bytes manifest = 2;
+}
+message BattleFinalRequest {
+  BattleExecutorLeaseMessage executor = 1;
+  BattleFinalEnvelope envelope = 2;
+}
+message BattleFinalReply {
+  BattleAppliedReceipt receipt = 1;
+  string authority_head_id = 2;
+  bytes authority_head_digest = 3;
+}
+
+enum BattleCommandDisposition {
+  BATTLE_COMMAND_DISPOSITION_UNSPECIFIED = 0;
+  BATTLE_COMMAND_DISPOSITION_EXECUTED = 1;
+  BATTLE_COMMAND_DISPOSITION_REFUSED = 2;
+  BATTLE_COMMAND_DISPOSITION_NOT_EXECUTED = 3;
+}
+enum BattleCommandReason {
+  BATTLE_COMMAND_REASON_NONE = 0;
+  BATTLE_COMMAND_REASON_TERMINAL = 1;
+  BATTLE_COMMAND_REASON_TARGET_UNAVAILABLE = 2;
+  BATTLE_COMMAND_REASON_INVALID_STATE = 3;
+  BATTLE_COMMAND_REASON_CONTROL_REVOKED = 4;
+}
+message BattleCommandReceipt {
+  BattleFighterSide side = 1;
+  int64 sequence = 2;
+  bytes command_digest = 3;
+  optional int32 accepted_tick = 4;
+  BattleCommandDisposition disposition = 5;
+  BattleCommandReason reason = 6;
+}
+
+message BattleCleanupChallengeRequest {
+  BattleExecutorLeaseMessage executor = 1;
+  BattleScopeMessage scope = 2;
+}
+message BattleCleanupChallengeMessage {
+  string challenge_id = 1;
+  bytes nonce = 2;
+  BattleScopeMessage scope = 3;
+  bytes committed_final_digest = 4;
+  string runtime_instance_id = 5;
+  bytes inventory_sha256 = 6;
+  int64 expires_at_unix_ms = 7;
+  BattleCleanupTerminalBindingV1 terminal = 8;
+  BattleCleanupReceipt committed_receipt = 9;
+}
+message BattleCleanupProofV1 {
+  uint32 version = 1;
+  string challenge_id = 2;
+  bytes nonce = 3;
+  BattleScopeMessage scope = 4;
+  bytes committed_final_digest = 5;
+  string runtime_instance_id = 6;
+  bytes inventory_sha256 = 7;
+  bool at_entry = 8;
+  bool game_loaded = 9;
+  bool battle_map_loaded = 10;
+  bool tick_runtime_bound = 11;
+  bool home_marker_loaded = 12;
+  BattleCleanupTerminalBindingV1 terminal = 13;
+  int32 pending_work_callbacks = 14;
+  bool assignment_rejected = 15;
+  BattleCleanupProofKind proof_kind = 16;
+}
+message BattleCleanupRequest {
+  BattleExecutorLeaseMessage executor = 1;
+  string client_request_id = 2;
+  BattleCleanupProofV1 proof = 3;
+}
+message BattleCleanupReceipt {
+  uint32 version = 1;
+  BattleScopeMessage scope = 2;
+  string transition_id = 3;
+  bytes committed_final_digest = 4;
+  string runtime_instance_id = 5;
+  int64 cleaned_at_utc_ticks = 6;
+  BattleCleanupTerminalBindingV1 terminal = 7;
+  BattleCleanupProofKind proof_kind = 8;
+}
+
+message BattleMoveOrder { int32 x = 1; int32 z = 2; }
+message BattleCommandV1 {
+  uint32 version = 1;
+  string fighter_id = 2;
+  oneof order {
+    BattleMoveOrder move = 3;
+    string attack_fighter_id = 4;
+    bool draft = 5;
+  }
+}
+message BattleQueuedCommand {
+  BattleFighterSide side = 1;
+  int64 sequence = 2;
+  bytes command_digest = 3;
+  bytes command = 4;
+  string grant_id = 5;
+  int64 control_epoch = 6;
+  int64 connection_epoch = 7;
+  string delivery_id = 8;
+}
+
+message BattleReconcileControlRequest {
+  string client_request_id = 1;
+  BattleScopeMessage scope = 2;
+  bytes start_digest = 3;
+  optional int64 expected_epoch = 4;
+  bytes capability_digest = 5;
+}
+message BattleControlGrantReply {
+  string grant_id = 1;
+  BattleFighterSide side = 2;
+  int64 epoch = 3;
+  int64 expires_at_unix_ms = 4;
+  string transition_id = 5;
+  bytes start_digest = 6;
+}
+
+message BattleControlAccess {
+  BattleScopeMessage scope = 1;
+  bytes start_digest = 2;
+  string grant_id = 3;
+  bytes capability = 4;
+  string client_channel_id = 5;
+  int64 connection_epoch = 6;
+}
+message BattleAttachControlRequest {
+  string client_request_id = 1;
+  BattleControlAccess access = 2;
+  optional int64 expected_prior_epoch = 3;
+}
+message BattleControlChannelReply {
+  BattleFighterSide side = 1;
+  int64 control_epoch = 2;
+  int64 connection_epoch = 3;
+  int64 position = 4;
+}
+message BattleSubmitCommandRequest {
+  string client_request_id = 1;
+  BattleControlAccess access = 2;
+  bytes command = 3;
+}
+message BattleSubmitCommandReply {
+  BattleFighterSide side = 1;
+  int64 sequence = 2;
+  bytes command_digest = 3;
+  BattleCommandReceipt receipt = 4;
+}
+message BattleRuntimeControlState {
+  BattleFighterSide side = 1;
+  string grant_id = 2;
+  int64 control_epoch = 3;
+  int64 connection_epoch = 4;
+  bool present = 5;
+}
+message BattleControlCut {
+  string cut_id = 1;
+  BattleFighterSide side = 2;
+  int64 through_connection_epoch = 3;
+  int64 sequence_watermark = 4;
+}
+message BattleExecutorRunningRequest {
+  BattleExecutorLeaseMessage executor = 1;
+  BattleScopeMessage scope = 2;
+  bytes view = 3;
+}
+message BattleRunningPawn {
+  BattleTerminalPawn pawn = 1;
+  bool spawned = 2;
+  bool drafted = 3;
+  int32 rotation = 4;
+}
+message BattleRunningViewV1 {
+  uint32 version = 1;
+  BattleScopeMessage scope = 2;
+  bytes start_digest = 3;
+  int64 sequence = 4;
+  int64 base_sequence = 5; // 0 is a full frame; otherwise only changed fighters.
+  int32 tick = 6;
+  int32 held_ticks = 7;
+  repeated BattleRunningPawn pawns = 8;
+}
+message BattleRunningViewRequest {
+  BattleControlAccess access = 1;
+  int64 after_sequence = 2;
+}
+message BattleRunningViewReply { bytes view = 1; }
+message BattleCompletedViewRequest {
+  BattleScopeMessage scope = 1;
+  bytes start_digest = 2;
+}
+message BattleCompletedViewReply {
+  BattleAppliedReceipt receipt = 1;
+  bytes committed_final = 2;
+  bytes view = 3;
+  BattleCleanupTerminalBindingV1 abort = 4;
+}
+message BattleRunningWork {
+  BattleScopeMessage scope = 1;
+  bytes start_digest = 2;
+  int64 position = 3;
+  string delivery_id = 4;
+  repeated BattleQueuedCommand commands = 5;
+  repeated BattleControlCut cuts = 6;
+  repeated BattleRuntimeControlState controls = 7;
+  BattleCancellationWork aborted = 8;
+}
+message BattleExecutorCommandsAck {
+  BattleExecutorLeaseMessage executor = 1;
+  BattleScopeMessage scope = 2;
+  string delivery_id = 3;
+  repeated BattleCommandReceipt receipts = 4;
+  repeated string applied_cut_ids = 5;
+}
+message BattleTransportPosition { int64 position = 1; }
+
+enum BattleExecutorLane {
+  BATTLE_EXECUTOR_LANE_UNSPECIFIED = 0;
+  BATTLE_EXECUTOR_LANE_EXECUTION = 1;
+  BATTLE_EXECUTOR_LANE_RECOVERY_DELIVERY = 2;
+}
+message BattleExecutorHelloBindingV1 {
+  uint32 version = 1;
+  string executor_id = 2;
+  string runtime_instance_id = 3;
+  bytes profile_digest = 4;
+  bytes inventory_sha256 = 5;
+  bytes executor_build_sha256 = 6;
+  BattleExecutorLane lane = 7;
+  string world_instance_id = 8;
+  string restore_boundary = 9;
+  string battle_id = 10;
+  int64 attempt = 11;
+  int64 fence = 12;
+  bytes start_digest = 13;
+  string assignment_transition_id = 14;
+  BattleExecutorRetainedContextV1 retained_context = 15;
+  BattleExecutorEntryProofV1 entry = 16;
+  GuildRuntimeTarget guild_runtime = 17;
+  bool replace_restored_executor = 18;
+}
+message BattleExecutorHelloChallenge {
+  string challenge_id = 1;
+  bytes nonce = 2;
+  string server_boot_id = 3;
+  bytes binding_digest = 4;
+  int32 valid_for_ms = 5;
+  bool local_process_required = 6;
+}
+message BattleExecutorHelloComplete {
+  BattleExecutorHelloBindingV1 binding = 1;
+  string challenge_id = 2;
+  bytes nonce = 3;
+  string server_boot_id = 4;
+}
+
+message BattleRuntimeAssignmentV1 {
+  uint32 version = 1;
+  BattleScopeMessage scope = 2;
+  string campaign_id = 3;
+  string executor_id = 4;
+  string runtime_instance_id = 5;
+  string original_lease_id = 6;
+  int64 original_lease_fence = 7;
+  bytes start_nonce = 8;
+  string approval_transition_id = 9;
+  bytes profile_digest = 10;
+  bytes inventory_sha256 = 11;
+  bytes executor_build_sha256 = 12;
+  int64 assigned_at_utc_ticks = 13;
+  string transition_id = 14;
+}
+
+enum BattleExecutorRetainedPhase {
+  BATTLE_EXECUTOR_RETAINED_PHASE_UNSPECIFIED = 0;
+  BATTLE_EXECUTOR_RETAINED_PHASE_PREPARE_PENDING = 1;
+  BATTLE_EXECUTOR_RETAINED_PHASE_INITIAL_LOADED = 2;
+  BATTLE_EXECUTOR_RETAINED_PHASE_RUNNING = 3;
+  BATTLE_EXECUTOR_RETAINED_PHASE_TERMINAL = 4;
+  BATTLE_EXECUTOR_RETAINED_PHASE_ENTRY = 5;
+  BATTLE_EXECUTOR_RETAINED_PHASE_START_ACKNOWLEDGEMENT_PENDING = 6;
+}
+message BattleExecutorRetainedContextV1 {
+  uint32 version = 1;
+  BattleExecutorRetainedPhase phase = 2;
+  bytes start_nonce = 3;
+  bool game_loaded = 4;
+  bool tick_runtime_bound = 5;
+  int32 current_tick = 6;
+  int64 transport_position = 7;
+  repeated string pending_cut_ids = 8;
+  int32 pending_callbacks = 9;
+  bool assignment_rejected = 10;
+  bytes receipt_journal_sha256 = 11;
+  int64 receipt_journal_bytes = 12;
+  string start_request_id = 13;
+  BattleDocumentDescriptor initial_snapshot = 14;
+}
+
+message BattleExecutorEntryProofV1 {
+  uint32 version = 1;
+  bool at_entry = 2;
+  bool game_loaded = 3;
+  bool player_session_loaded = 4;
+  bool battle_context_bound = 5;
+  bool tick_runtime_bound = 6;
+  int32 pending_work_callbacks = 7;
+}
+
+message BattleReadyOfferRequest { string client_request_id = 1; BattleScopeMessage scope = 2; }
+message BattleReadyOfferReply {
+  BattleScopeMessage scope = 1;
+  bytes manifest = 2;
+  bytes manifest_digest = 3;
+  int32 proposal_sequence = 4;
+  string delivery_id = 5;
+  bytes nonce = 6;
+  int64 readiness_deadline_utc_ticks = 7;
+}
+message BattleReadyOfferAckRequest { BattleScopeMessage scope = 1; string delivery_id = 2; bytes nonce = 3; }
+message BattleReadyOfferAckReply { string delivery_id = 1; int64 received_at_utc_ticks = 2; }
+message BattleReadyOfferEvidenceV1 {
+  uint32 version = 1;
+  BattleScopeMessage scope = 2;
+  int32 proposal_sequence = 3;
+  bytes manifest_digest = 4;
+  string delivery_id = 5;
+  bytes nonce = 6;
+  string client_request_id = 7;
+  int64 player_id = 8;
+  bytes session_digest = 9;
+  int64 membership_joined_utc_ticks = 10;
+  int64 offered_at_utc_ticks = 11;
+  int64 deadline_utc_ticks = 12;
+  string clock_process_id = 13;
+  int64 clock_timestamp = 14;
+  int64 clock_frequency = 15;
+}
+message BattleReadyOfferAckEvidenceV1 {
+  uint32 version = 1;
+  BattleReadyOfferEvidenceV1 offer = 2;
+  bytes offer_sha256 = 3;
+  int64 received_at_utc_ticks = 4;
+  string clock_process_id = 5;
+  int64 clock_timestamp = 6;
+  int64 clock_frequency = 7;
+}
+
+enum BattleCleanupTerminalKind {
+  BATTLE_CLEANUP_TERMINAL_KIND_UNSPECIFIED = 0;
+  BATTLE_CLEANUP_TERMINAL_KIND_APPLIED_RESULT = 1;
+  BATTLE_CLEANUP_TERMINAL_KIND_PRE_START_CANCELLATION = 2;
+  BATTLE_CLEANUP_TERMINAL_KIND_STARTED_ABORT = 3;
+}
+enum BattleCleanupProofKind {
+  BATTLE_CLEANUP_PROOF_KIND_UNSPECIFIED = 0;
+  BATTLE_CLEANUP_PROOF_KIND_SAME_PROCESS_ENTRY = 1;
+  BATTLE_CLEANUP_PROOF_KIND_PROVED_REPLACEMENT = 2;
+}
+message BattleCleanupTerminalBindingV1 {
+  uint32 version = 1;
+  BattleCleanupTerminalKind kind = 2;
+  string terminal_transition_id = 3;
+  string assignment_transition_id = 4;
+  bytes committed_final_digest = 5;
+  bytes aborted_start_digest = 6;
+}
+
+message BattlePreparationBasisRequest {
+  BattleExecutorLeaseMessage executor = 1;
+  BattleScopeMessage scope = 2;
+  int32 proposal_sequence = 3;
+}
+// Basis has no native initial snapshot, tick or entity IDs and is never a Start authorization.
+message BattlePreparationBasisReply {
+  BattleRuntimeAssignmentV1 assignment = 1;
+  BattlePreparedManifestV1 basis = 2;
+}
+
+message BattleCancellationWork { BattleRuntimeAssignmentV1 assignment = 1; BattleCleanupTerminalBindingV1 terminal = 2; }
+
+message BattleRuntimeStartedProofV1 {
+  uint32 version = 1;
+  BattleScopeMessage scope = 2;
+  string runtime_instance_id = 3;
+  string assignment_transition_id = 4;
+  bytes start_digest = 5;
+  string start_request_id = 6;
+  BattleDocumentDescriptor initial_snapshot = 7;
+  int32 initial_tick = 8;
+  bool game_loaded = 9;
+  bool tick_runtime_bound = 10;
+  bytes receipt_journal_sha256 = 11;
+  int64 receipt_journal_bytes = 12;
+}
+message BattleRuntimeStartedRequest { BattleExecutorLeaseMessage executor = 1; BattleRuntimeStartedProofV1 proof = 2; }
+message BattleRuntimeStartedReply {
+  BattleExecutorLeaseMessage executor = 1;
+  bytes proof_digest = 2;
+  int64 position = 3;
+  int64 elapsed_since_start_ms = 4;
+}

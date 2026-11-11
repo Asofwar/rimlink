@@ -4,11 +4,11 @@
     "sources": [
       "docs/server-setup.md"
     ],
-    "reason": "Only the Discord section gains an explicitly unreleased note about outbound channel failures and user-text escaping. The configuration, hosting, authentication, API, CLI, backups, moderation and installation contracts covered by this article are unchanged; both Discord translations carry the complete behavior change.",
+    "reason": "The added V3 recovery paragraph affects backup selection and recovery only. First-start instructions, ports and installation settings are unaffected.",
     "reviewer": "change-author",
-    "base": "6b26142d002be85f3de5ec2511427d58fd1c31e7",
+    "base": "8c3202266faf3c672e4b998f10affcf959c0deb7",
     "after": {
-      "docs/server-setup.md": "3c877ca82c1540af5a91562040f3a726251a8f811bc57e2292993082b680b3ee"
+      "docs/server-setup.md": "8751367cabe479f52d20b3e43748bab6c88e6465c5ca1751b4d08586dab49c19"
     }
   },
   {
@@ -52,11 +52,11 @@
     "sources": [
       "docs/server-setup.md"
     ],
-    "reason": "Only the Discord section gains an explicitly unreleased note about outbound channel failures and user-text escaping. The configuration, hosting, authentication, API, CLI, backups, moderation and installation contracts covered by this article are unchanged; both Discord translations carry the complete behavior change.",
+    "reason": "The added V3 recovery paragraph concerns guild battle assignments and delivery receipts. It does not alter modpack identity, files, installation or consent.",
     "reviewer": "change-author",
-    "base": "6b26142d002be85f3de5ec2511427d58fd1c31e7",
+    "base": "8c3202266faf3c672e4b998f10affcf959c0deb7",
     "after": {
-      "docs/server-setup.md": "3c877ca82c1540af5a91562040f3a726251a8f811bc57e2292993082b680b3ee"
+      "docs/server-setup.md": "8751367cabe479f52d20b3e43748bab6c88e6465c5ca1751b4d08586dab49c19"
     }
   },
   {
@@ -76,11 +76,11 @@
     "sources": [
       "docs/server-setup.md"
     ],
-    "reason": "Only the Discord section gains an explicitly unreleased note about outbound channel failures and user-text escaping. The configuration, hosting, authentication, API, CLI, backups, moderation and installation contracts covered by this article are unchanged; both Discord translations carry the complete behavior change.",
+    "reason": "The added V3 recovery paragraph describes restore eligibility and colony rollback custody. It does not change the account, moderation and access administration documented here.",
     "reviewer": "change-author",
-    "base": "6b26142d002be85f3de5ec2511427d58fd1c31e7",
+    "base": "8c3202266faf3c672e4b998f10affcf959c0deb7",
     "after": {
-      "docs/server-setup.md": "3c877ca82c1540af5a91562040f3a726251a8f811bc57e2292993082b680b3ee"
+      "docs/server-setup.md": "8751367cabe479f52d20b3e43748bab6c88e6465c5ca1751b4d08586dab49c19"
     }
   },
   {
@@ -88,11 +88,11 @@
     "sources": [
       "docs/server-setup.md"
     ],
-    "reason": "Only the Discord section gains an explicitly unreleased note about outbound channel failures and user-text escaping. The configuration, hosting, authentication, API, CLI, backups, moderation and installation contracts covered by this article are unchanged; both Discord translations carry the complete behavior change.",
+    "reason": "The added V3 recovery paragraph changes eligibility for selected archives and colony rollback. The command syntax and exit-code contract stay as documented. The linked backup guide covers the new eligibility rules in both languages.",
     "reviewer": "change-author",
-    "base": "6b26142d002be85f3de5ec2511427d58fd1c31e7",
+    "base": "8c3202266faf3c672e4b998f10affcf959c0deb7",
     "after": {
-      "docs/server-setup.md": "3c877ca82c1540af5a91562040f3a726251a8f811bc57e2292993082b680b3ee"
+      "docs/server-setup.md": "8751367cabe479f52d20b3e43748bab6c88e6465c5ca1751b4d08586dab49c19"
     }
   },
   {
@@ -124,11 +124,11 @@
     "sources": [
       "docs/server-setup.md"
     ],
-    "reason": "Only the Discord section gains an explicitly unreleased note about outbound channel failures and user-text escaping. The configuration, hosting, authentication, API, CLI, backups, moderation and installation contracts covered by this article are unchanged; both Discord translations carry the complete behavior change.",
+    "reason": "The added V3 recovery paragraph covers an unreleased guild schema. It does not change the released update steps or the runtime required by a recorded pre-DDL restore.",
     "reviewer": "change-author",
-    "base": "6b26142d002be85f3de5ec2511427d58fd1c31e7",
+    "base": "8c3202266faf3c672e4b998f10affcf959c0deb7",
     "after": {
-      "docs/server-setup.md": "3c877ca82c1540af5a91562040f3a726251a8f811bc57e2292993082b680b3ee"
+      "docs/server-setup.md": "8751367cabe479f52d20b3e43748bab6c88e6465c5ca1751b4d08586dab49c19"
     }
   },
   {
@@ -136,11 +136,11 @@
     "sources": [
       "docs/server-setup.md"
     ],
-    "reason": "Only the Discord section gains an explicitly unreleased note about outbound channel failures and user-text escaping. The configuration, hosting, authentication, API, CLI, backups, moderation and installation contracts covered by this article are unchanged; both Discord translations carry the complete behavior change.",
+    "reason": "The added V3 recovery paragraph covers offline archive eligibility and protected state. It does not introduce metrics, alerts or new health checks.",
     "reviewer": "change-author",
-    "base": "6b26142d002be85f3de5ec2511427d58fd1c31e7",
+    "base": "8c3202266faf3c672e4b998f10affcf959c0deb7",
     "after": {
-      "docs/server-setup.md": "3c877ca82c1540af5a91562040f3a726251a8f811bc57e2292993082b680b3ee"
+      "docs/server-setup.md": "8751367cabe479f52d20b3e43748bab6c88e6465c5ca1751b4d08586dab49c19"
     }
   },
   {
@@ -148,11 +148,23 @@
     "sources": [
       "docs/server-setup.md"
     ],
-    "reason": "Only the Discord section gains an explicitly unreleased note about outbound channel failures and user-text escaping. The configuration, hosting, authentication, API, CLI, backups, moderation and installation contracts covered by this article are unchanged; both Discord translations carry the complete behavior change.",
+    "reason": "The added V3 recovery paragraph describes an unreleased restore path. Both translations of the linked backup guide document the new refusal conditions, and the generic troubleshooting steps still apply.",
     "reviewer": "change-author",
-    "base": "6b26142d002be85f3de5ec2511427d58fd1c31e7",
+    "base": "8c3202266faf3c672e4b998f10affcf959c0deb7",
     "after": {
-      "docs/server-setup.md": "3c877ca82c1540af5a91562040f3a726251a8f811bc57e2292993082b680b3ee"
+      "docs/server-setup.md": "8751367cabe479f52d20b3e43748bab6c88e6465c5ca1751b4d08586dab49c19"
+    }
+  },
+  {
+    "pageId": "admins/discord",
+    "sources": [
+      "docs/server-setup.md"
+    ],
+    "reason": "The added V3 recovery paragraph concerns offline database restore. It does not affect Discord registration, channel configuration or server event routing.",
+    "reviewer": "change-author",
+    "base": "8c3202266faf3c672e4b998f10affcf959c0deb7",
+    "after": {
+      "docs/server-setup.md": "8751367cabe479f52d20b3e43748bab6c88e6465c5ca1751b4d08586dab49c19"
     }
   }
 ]

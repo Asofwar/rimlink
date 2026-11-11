@@ -32,6 +32,7 @@ public static partial class Outgoing
     /// <summary>During a visit the map is the host's copy: nothing on it is ours to send, post or deposit (wallet silver still goes).</summary>
     private static bool RefusedInVisit(int fromTheMap)
     {
+        if (GuildCapture.BattleGameContext.Active) return true;
         if (fromTheMap == 0 || !Visits.VisitSession.InVisit) return false;
         Messages.Message("Rimlink.Visit.WalletOnly".Translate(), MessageTypeDefOf.RejectInput, historical: false);
         return true;
@@ -62,6 +63,7 @@ public static partial class Outgoing
 
     private static bool RefusedInDebt()
     {
+        if (GuildCapture.BattleGameContext.Active) return true;
         var state = RimlinkSession.State.Economy;
         if (!state.InDebt) return false;
         Messages.Message("Rimlink.Economy.InDebt".Translate(-state.Balance), MessageTypeDefOf.RejectInput, historical: false);
@@ -269,6 +271,7 @@ public static partial class Outgoing
     /// <summary>Raids: pawns (and what they wear and carry) leave a caravan standing on the target's tile.</summary>
     public static void RunWithCaravanPawns(Caravan caravan, IReadOnlyList<Pawn> pawns, string successMessage, Func<PawnList, long, IMessage> build, Func<IMessage, Task> call)
     {
+        if (GuildCapture.BattleGameContext.Active) return;
         var taken = new List<Taken>();
         try
         {
@@ -300,6 +303,7 @@ public static partial class Outgoing
     /// <summary>Raids by pod: the pawns are already out of their pods (unspawned); a refusal sends them home by pod.</summary>
     public static void RunWithPodPawns(IReadOnlyList<Pawn> pawns, string successMessage, Func<PawnList, long, IMessage> build, Func<IMessage, Task> call)
     {
+        if (GuildCapture.BattleGameContext.Active) return;
         var taken = new List<Taken>();
         try
         {
@@ -335,6 +339,7 @@ public static partial class Outgoing
     /// </summary>
     public static void ReturnRefused(Map map)
     {
+        if (GuildCapture.BattleGameContext.Active) return;
         if (DateTime.UtcNow - lastReturn < TimeSpan.FromSeconds(5)) return;
         lastReturn = DateTime.UtcNow;
         var outbox = RimlinkSession.Outbox;
@@ -423,6 +428,7 @@ public static partial class Outgoing
 
     private static List<Taken>? TakeFromMap(Map map, IReadOnlyList<Pick> picks, IReadOnlyList<Pawn> pawns)
     {
+        if (GuildCapture.BattleGameContext.Active) return null;
         var taken = new List<Taken>();
         try
         {
@@ -571,7 +577,7 @@ public static partial class Outgoing
                 }
             });
         }
-        bool StillCurrent() => RimlinkSession.Connection == connection && ReferenceEquals(connection.Login, authentication)
+        bool StillCurrent() => !GuildCapture.BattleGameContext.Active && RimlinkSession.Connection == connection && ReferenceEquals(connection.Login, authentication)
             && authentication is not null && Current.Game == game && !SaveSync.WritesBlocked
             && (!mapBound || component.SaveGeneration == authentication.SaveGeneration && component.SaveWriteEpoch == authentication.SaveWriteEpoch);
     }

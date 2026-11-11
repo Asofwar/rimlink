@@ -1,11 +1,11 @@
 ---
 pageId: admins/api
-contentRevision: 6
+contentRevision: 13
 ---
 
 # REST API reference
 
-Applies to: Rimlink 0.9.2 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.10.0 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 
@@ -346,7 +346,7 @@ if (!response.ok) {
 const data = text ? JSON.parse(text) : null;
 ~~~
 
-### Outpost administration (Pending)
+### Outpost administration
 
 Exact commands, sidecars, bounds and no-replay rules are described in the [guide](./passive-outposts.md). GET does not mutate authority; preview is advisory.
 
@@ -366,3 +366,31 @@ Exact commands, sidecars, bounds and no-replay rules are described in the [guide
 | POST | `/api/admin/outposts/resolve` | admin |
 | GET | `/api/admin/outposts/manifests/{id}` | read |
 | POST | `/api/admin/outposts/manifests/chunks` | admin |
+
+## Guild capture setup {#guild-capture-setup}
+
+These operator routes require a Bearer token/panel session and the `admin` scope; an ordinary OFF server does not admit guild operations. Uploading a document stores content-addressed bytes without approving a profile. Approval checks the complete profile, inventory, template, compatibility and qualification closure through the common authority.
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/admin/guild-capture` | read-only authority and admission status, outposts, active campaigns and battles, available executor ID |
+| POST | `/api/admin/guild-capture/cancel` | pre-Start cancellation: scope, requestId, campaignId, expectedHeadId, reason |
+| POST | `/api/admin/guild-capture/freeze` | change guild capture admission: scope, requestId, expectedHeadId, frozen, reason |
+| POST | `/api/admin/guild-capture/abort` | stop a started battle: scope, requestId, expectedHeadId, battleId, reason |
+| POST | `/api/admin/guild-capture/place/preview` | read-only placement check: tile, resource, reason |
+| POST | `/api/admin/guild-capture/place` | commit the saved preview: command, intentDigest, confirmed=true |
+| POST | `/api/admin/guild-capture/profile/stage/{kind}` | one binary document body, at most 64 MiB; individual kinds have smaller bounds |
+| POST | `/api/admin/guild-capture/profile/approve` | explicit approval of exact profile/qualification references for an executor |
+| POST | `/api/admin/guild-capture/profile/revoke` | durable profile revocation with scope, requestId, approvalTransitionId and reason |
+
+Inspection reads the current committed V3 cut. `limit` bounds each list to 1–100 rows (default 32). `hasMore` signals truncation. Stock reflects the last committed value. The response omits credentials and lease tokens. Profile revocation closes affected control grants and preserves battle occupancy until cleanup.
+
+Placement uses resource 1 for steel and 2 for wood. Preview validates the world manifest, tile occupancy and the 32-outpost limit. It returns a command for the current world, boundary and head. Save the returned command and digest and explicitly set `confirmed:true` after review. A different actor, edited command or advanced state requires a fresh preview. An exact retry returns the original result.
+
+For cancellation, take `scope` and `expectedHeadId` (the returned `headId`) from the same inspection as the campaign. Save the request with a UUID and a reason up to 500 characters. The server refuses a stale head or a committed Start. Repeating the identical request returns the existing receipt. A prepared arena remains occupied until cleanup proof. Cancellation leaves ownership and stock intact and applies no player cooldown.
+
+The same inspection reports `frozen` and `freezeTransitionId`. Submit the saved freeze command with the observed scope and head. While frozen, the server refuses new campaigns, Starts and unapplied Finals. The scheduler cancels campaigns that have yet to start. Existing committed outcomes are retained. Reopening requires all active campaigns to reach a terminal state.
+
+To stop a started battle, submit the saved abort command with the observed scope, head and battle ID. The server records the abort against the committed Start, closes grants and reservations and leaves ownership and stock intact. The assigned executor receives the abort and must prove Entry and cleanup before the arena becomes available. An exact retry returns the same receipt. An already committed Final is preserved.
+
+For V3, `activate-guild-domain-format` in the existing `/api/admin/outposts/preview` returns a command bound to the current cut; confirm through the existing `/api/admin/outposts/activate-domain-format`. Product still requires a qualified build and runtime admission. Panel parity and game acceptance are pending.

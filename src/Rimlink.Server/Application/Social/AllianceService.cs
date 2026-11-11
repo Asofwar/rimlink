@@ -8,6 +8,7 @@ using Rimlink.Server.Application.Chat;
 using Rimlink.Server.Application.Economy;
 using Rimlink.Server.Application.Events;
 using Rimlink.Server.Application.Influence;
+using Rimlink.Server.Application.GuildCapture;
 using Rimlink.Server.Grpc;
 using Rimlink.Server.Storage;
 using Rimlink.Server.Storage.Entities;
@@ -113,7 +114,7 @@ public sealed class AllianceService(RimlinkDbContext db, WalletService wallet, E
             throw RpcErrors.Failed(ErrorCode.CommunityIntent, RefusalKeys.CommunityRequestId, "a request id of 1-64 letters, digits or hyphens is required");
         if (r.CalculateSize() > 8192 || r.Text.Length > 500)
             throw RpcErrors.Failed(ErrorCode.CommunityLimit, RefusalKeys.CommunitySize, "text must be at most 500 characters");
-        await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+        await using var tx = await services.GetRequiredService<GuildLifecycle>().BeginSocialAsync(playerId, r, ct);
         byte[] intent = r.ToByteArray();
         var prior = await db.Set<CommunityOperation>().AsNoTracking().SingleOrDefaultAsync(o => o.PlayerId == playerId && o.RequestId == r.ClientRequestId, ct);
         if (prior is not null)
@@ -312,6 +313,7 @@ public sealed class AllianceService(RimlinkDbContext db, WalletService wallet, E
                     case CommunityAction.AllianceDisband:
                     {
                         RequireOwner(group, playerId);
+                        await tx.RequireDisbandSafeAsync(group.Id, ct);
                         // Return to the same wealth owner, even during a freeze; no cross-player outflow.
                         long refund = group.Silver;
                         if (await wallet.Balance(group.OwnerId) > long.MaxValue - refund) throw RpcErrors.Failed(ErrorCode.TreasuryLimit, RefusalKeys.CommunityWalletLimit, "the receiving wallet cannot hold that much silver");
@@ -337,7 +339,7 @@ public sealed class AllianceService(RimlinkDbContext db, WalletService wallet, E
             long? cutoff = await db.Set<AllianceMessage>().Where(m => m.AllianceId == allianceId).OrderByDescending(m => m.Id).Skip(200).Select(m => (long?)m.Id).FirstOrDefaultAsync(ct);
             if (cutoff is { } id) await db.Set<AllianceMessage>().Where(m => m.AllianceId == allianceId && m.Id <= id).ExecuteDeleteAsync(ct);
         }
-        await tx.CommitAsync(ct);
+        await tx.CommitAsync(receipt, ct);
         wallet.FlushEvents();
         if (influenceWorld is not null) influence.Notify(influenceWorld);
         Changed(notify);

@@ -25,6 +25,10 @@ public sealed partial class OutpostLifecycle
             || target.SnapshotId is null || target.SaveWriteEpoch > player.SaveWriteEpoch
             || await db.ArchivedColonies.AnyAsync(a => a.PlayerId == playerId && a.SaveGeneration == player.SaveGeneration && a.State == ArchiveState.Archived, ct))
             return new(false, "lifecycle-rollback-target-scope", []);
+        if (authority.VerifiedDomainFormat == OutpostDomainFormat.V3
+            && await db.Set<GuildResourceClaim>().AnyAsync(c => c.WorldId == current.WorldInstanceId
+                && c.RecipientId == playerId && c.SaveGeneration == current.SaveGeneration, ct))
+            return new(false, "guild-delivery-rollback-unqualified", []);
         if (await db.OutpostOperations.AnyAsync(o => o.WorldId == head.WorldId && o.PlayerId == playerId && o.SaveGeneration == player.SaveGeneration
                 && (o.State == "Prepared" || o.State == "CancelFenced"), ct)
             || await db.OutpostDeliveryAttempts.AnyAsync(a => a.PlayerId == playerId && a.WorldId == head.WorldId && a.SaveGeneration == player.SaveGeneration && a.Active, ct)

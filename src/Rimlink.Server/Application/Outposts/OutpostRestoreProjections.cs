@@ -65,7 +65,7 @@ public sealed partial class OutpostRestoreEvidence
                     if (!await OutpostRestoreProcedure.FileMatchesAsync(Path.Combine(live, Path.GetFileName(file.Path)), file, ct))
                         throw Invalid("lifecycle-restore-archive-bytes-mismatch");
             }
-        }, ct, ManifestBytes(plan));
+        }, ct, ManifestBytes(plan), plan.Journal.Selection.Isolated?.Source);
     }
 
     // These legacy rows are outside DomainDigest. Check the retained cut and the applicable successor evidence.

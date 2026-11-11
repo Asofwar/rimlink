@@ -1,13 +1,13 @@
 ---
 pageId: players/passive-outposts
-contentRevision: 7
+contentRevision: 12
 ---
 
 # Passive outposts: workers, stock and recovery
 
 ## Availability and preparation {#usage}
 
-This branch contains the passive-outpost implementation; **Product is Pending and does not advertise the capability**. A server option, an administrator or an accepted manifest cannot open that gate. The real two-client G1–G7 acceptance and the single final Astra review have completed. The seven review fixes have been verified with targeted checks and four affected in-game scenarios. The steps below describe the isolated acceptance stand.
+Outposts are available on servers where the administrator has enabled and activated them; the setting is off by default. A server option, an administrator or an accepted manifest cannot open that gate. The real two-client G1–G7 acceptance and the single final Astra review have completed. The seven review fixes have been verified with targeted checks and four affected in-game scenarios. The steps below describe the isolated acceptance stand.
 
 An outpost is a server-held workplace without a simulated map. Bring an actual arrived caravan with eligible free adult baseline human colonists to an available tile on the administrator's confirmed complete world manifest. The game/core preserve the workers' exact serialized identity, including supported genes and DLC references. No terrain is generated on the server. Players can use different colony scenarios, storytellers and difficulties on the same planet. Manifest compatibility uses the shared world parameters, the actual game build, and the active DLC and gameplay definitions.
 
@@ -42,6 +42,17 @@ Cancellation after removal can select only the existing verified one-batch retur
 Disabling new outposts never disables protection of existing history. An incompatible client cannot overwrite protected metadata or receive an unsupported payload; unrelated legacy colonies retain their existing behavior. Missing or corrupt authority/evidence keeps protected work unavailable.
 
 Archive pauses production. Reset requires the outpost closed, all physical receipts accepted and custody resolved. A rollback preserves the original proof bytes and advances only the current authorized view; it does not roll back earned stock or permit another grant. Bulk restore requires explicit stopped-server procedures and a fresh accepted capture after the authorized canonical download. An administrator may inspect or select proved recovery outcomes, but cannot mark a payload accepted, clear a fence or invent an absent source.
+
+
+Since 0.10.0 the common save envelope is extended with separate guild field12 and independent GuildVersion. Personal registries/receipts are retained in full, and a mixed save requires both families. Manifest reads share bounded page/hash checks, while access to a guild catalog is tied to its fixed parcel.
+
+If the server refuses a guild resource request because the owner changed, the stock is insufficient, or the recipient changed, refresh the outpost details and submit a new request. A confirmed refusal removes the old request from automatic retry. Temporary server unavailability leaves it queued for reconciliation.
+
+To toggle combat readiness in a guild arena, select one of your fighters and choose **Draft selected fighter** or **Undraft selected fighter**. After the arbiter executes the order, the game displays the updated fighter status.
+
+If the battle has started, open your home colony and choose **Join battle** again. The game loads the mirror, displays the latest frame and restores control for the assigned commander. If the assigned defender joins late, AI controls the defence until control is transferred.
+
+The server holds up to 512 pending guild parcels across the world. At capacity, it refuses a new claim before deducting stock. Submit a new request after some parcels have been received.
 
 ## See also {#related}
 

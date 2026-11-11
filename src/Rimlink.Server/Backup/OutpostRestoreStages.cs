@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Rimlink.Server.Application.Outposts;
 using Rimlink.Server.Application.Saves;
 using Rimlink.Server.Storage;
+using GuildBattle = Rimlink.Server.Storage.Entities.GuildBattle;
 
 namespace Rimlink.Server.Backup;
 
@@ -26,7 +27,7 @@ public sealed partial class OutpostRestoreProcedure
             var extracted = await ReadArchiveAsync(selected.ArchivePath, staged, ct, durable: true, fileCopied: path => Checkpoint?.Invoke("AfterStageFile:" + path), resumeCopy: true);
             if (!extracted.ArchiveDigest.AsSpan().SequenceEqual(selected.ArchiveDigest)
                 || !extracted.ManifestDigest.AsSpan().SequenceEqual(intent.ManifestDigest)) throw new InvalidDataException("restore-staged-selection-changed");
-            await ValidateCutAsync(staged, extracted.Manifest, ct);
+            await ValidateCutAsync(staged, extracted.Manifest, ct, selectedAcceptance: selected.Isolated?.Source);
             await VerifyInventoryAsync(staged, intent.NewFiles, ct);
             journal = journal with { Phase = RestorePhase.StagedVerified, Revision = checked(journal.Revision + 1) };
             StoreJournal(journalRoot, journal);
@@ -122,6 +123,39 @@ public sealed partial class OutpostRestoreProcedure
         finally { Directory.Delete(copy, recursive: true); }
     }
 
+    private static async Task RequireUnoccupiedGuildDestinationAsync(string root, OutpostBackupFile[] inventory, bool guildSource, CancellationToken ct)
+    {
+        bool hasGuildArtifacts = inventory.Any(f => f.Path.StartsWith("archive/guild-battles/", StringComparison.Ordinal)
+            || f.Path.StartsWith("archive/guild-profiles/", StringComparison.Ordinal));
+        if (!inventory.Any(f => f.Path == BackupArchive.DatabaseFile))
+        {
+            if (hasGuildArtifacts) throw new InvalidDataException("guild-restore-destination-arena-unverified");
+            return;
+        }
+
+        var files = inventory.Where(f => f.Path == BackupArchive.DatabaseFile
+            || f.Path.StartsWith(BackupArchive.DatabaseFile + "-", StringComparison.Ordinal)).ToArray();
+        // SQLite may create WAL sidecars even on a read-only connection.
+        string copy = Path.Combine(Path.GetTempPath(), "rimlink-restore-arena-check-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(copy);
+        try
+        {
+            await CopyInventoryAsync(root, copy, files, ct, verificationOnly: true);
+            await VerifyInventoryAsync(copy, files, ct);
+            await using var db = OpenRestoreDatabase(copy, readOnly: true);
+            int table = await db.Database.SqlQueryRaw<int>(
+                "SELECT EXISTS(SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = 'guild_battles') AS Value").SingleAsync(ct);
+            if (table == 0 && hasGuildArtifacts) throw new InvalidDataException("guild-restore-destination-arena-unverified");
+            if (table != 0 && await db.Set<GuildBattle>().AnyAsync(b => b.Active, ct))
+                throw new InvalidDataException("guild-restore-destination-arena-occupied");
+        }
+        catch (SqliteException error) when (!guildSource && !hasGuildArtifacts && error.SqliteErrorCode is 11 or 26)
+        {
+            // Keep legacy disaster recovery available when no local guild battle evidence survives.
+        }
+        finally { Directory.Delete(copy, recursive: true); }
+    }
+
     private static async Task<(bool Usable, string Reason)> ValidateOldSetAsync(string retained, byte[]? previousExternal, CancellationToken ct)
     {
         if (previousExternal is null) return (false, "previous-external-witness-unavailable");
@@ -140,10 +174,10 @@ public sealed partial class OutpostRestoreProcedure
             var identity = new OutpostBackupIdentity(row.FormatVersion, row.InstallationId, row.WorldId, row.RestoreBoundary, row.HeadId, row.HeadDigest, row.TransitionId ?? throw new OutpostEvidenceUnavailableException("previous-set-transition-missing"), state);
             var domain = await OutpostAuthority.ReadStoredChainAsync(db, files, row, external.Committed, currentRuntime: false, ct);
             // Ephemeral validation descriptor only. Never serialize or replace the retained E/source manifest.
-            var proof = new OutpostBackupManifest(2, identity, DateTime.UtcNow, domain.Digest.ToByteArray(),
+            var proof = new OutpostBackupManifest(domain.Format == OutpostDomainFormat.V3 ? 3 : 2, identity, DateTime.UtcNow, domain.Digest.ToByteArray(),
                 [], (await OutpostBackupCapture.ReadProofsAsync(db, ct)).ToArray(),
-                new(1, domain.Format, new(domain.Schema.ProfileId, domain.Schema.Digest.ToByteArray())));
-            await ValidateCutAsync(retained, proof, ct);
+                new(domain.Format == OutpostDomainFormat.V3 ? 2 : 1, domain.Format, new(domain.Schema.ProfileId, domain.Schema.Digest.ToByteArray())));
+            await ValidateCutAsync(retained, proof, ct, checkSourceEligibility: false);
             return (true, "");
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or SqliteException or OutpostEvidenceUnavailableException or JsonException)

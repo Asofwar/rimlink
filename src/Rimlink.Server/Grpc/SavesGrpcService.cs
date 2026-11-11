@@ -3,11 +3,12 @@ using Grpc.Core;
 using Rimlink.Protocol;
 using Rimlink.Protocol.V1;
 using Rimlink.Server.Application.Saves;
+using Rimlink.Server.Storage;
 
 namespace Rimlink.Server.Grpc;
 
 public sealed class SavesGrpcService(SaveStore store, Rimlink.Server.Application.Visits.VisitService visits,
-    Rimlink.Server.Application.Sessions.SessionRegistry sessions) : Protocol.V1.Saves.SavesBase
+    Rimlink.Server.Application.Sessions.SessionRegistry sessions, RimlinkDbContext db) : Protocol.V1.Saves.SavesBase
 {
     public override async Task<SaveInfo> Upload(IAsyncStreamReader<SaveChunk> requestStream, ServerCallContext context)
     {
@@ -15,11 +16,14 @@ public sealed class SavesGrpcService(SaveStore store, Rimlink.Server.Application
         if (!await requestStream.MoveNext(context.CancellationToken) || requestStream.Current.PartCase != SaveChunk.PartOneofCase.Header)
             throw RpcErrors.With(StatusCode.InvalidArgument, ErrorCode.Unspecified, RefusalKeys.SavesHeaderRequired, "first message must be the save header");
         var header = requestStream.Current.Header;
+        if ((header.GuildVersion != 0 || await Application.GuildCapture.GuildSnapshotGuard.RequiresClientAsync(db, session.PlayerId, context.CancellationToken))
+            && session.GuildVersion != GuildResourceContracts.CurrentVersion)
+            throw RpcErrors.Failed(ErrorCode.RecoveryClientRequired, RefusalKeys.RecoveryClientRequired, "guild-aware snapshot client required");
 
         try
         {
             var version = await store.Store(session.PlayerId, header, DataChunks(requestStream, context.CancellationToken), context.CancellationToken,
-                session.SaveWriteEpoch, () => sessions.TryGet(session.Token, out var active) && ReferenceEquals(active, session));
+                session.SaveWriteEpoch, () => sessions.TryGet(session.Token, out var active) && ReferenceEquals(active, session), session.GuildVersion);
             return SaveStore.ToInfo(version);
         }
         catch (SaveRejected ex)
@@ -41,9 +45,17 @@ public sealed class SavesGrpcService(SaveStore store, Rimlink.Server.Application
 
     private async Task Stream(long playerId, IServerStreamWriter<SaveChunk> responseStream, ServerCallContext context)
     {
+        if (context.GetSession().GuildVersion != GuildResourceContracts.CurrentVersion
+            && await Application.GuildCapture.GuildSnapshotGuard.RequiresClientAsync(db, playerId, context.CancellationToken))
+            throw RpcErrors.Failed(ErrorCode.RecoveryClientRequired, RefusalKeys.RecoveryClientRequired, "guild-aware snapshot client required");
         var current = await store.OpenCurrent(playerId) ?? throw RpcErrors.With(StatusCode.NotFound, ErrorCode.Unspecified, RefusalKeys.SavesNone, "no save stored for this player");
         var (version, content, generation, writeEpoch, rollbackBridge, restoreBridge, fromViewBridge) = current;
         var metadata = SaveStore.RecoveryOf(version).Outposts;
+        if (metadata.Metadata.GuildMetadata is not null && context.GetSession().GuildVersion != GuildResourceContracts.CurrentVersion)
+        {
+            await content.DisposeAsync();
+            throw RpcErrors.Failed(ErrorCode.RecoveryClientRequired, RefusalKeys.RecoveryClientRequired, "guild-aware snapshot client required");
+        }
         string boundary = fromViewBridge is not null ? OutpostSourceGraph.ValidateRoot(fromViewBridge).EffectiveScope.RestoreBoundary
             : restoreBridge is not null ? OutpostSourceGraph.ValidateRoot(restoreBridge).EffectiveScope.RestoreBoundary
             : rollbackBridge?.CurrentScope.RestoreBoundary ?? metadata.Metadata.Scope?.RestoreBoundary ?? "";
@@ -55,7 +67,9 @@ public sealed class SavesGrpcService(SaveStore store, Rimlink.Server.Application
                 Header = new SaveHeader { GameTick = version.GameTick, TotalSize = version.Size, Sha256 = ByteString.CopyFrom(version.Sha256),
                     SnapshotId = version.SnapshotId ?? "", SaveWriteEpoch = writeEpoch, RecoveryVersion = version.RecoveryVersion, SaveGeneration = generation,
                     OutpostRollbackBridge = rollbackBridge, OutpostRestoreBridge = restoreBridge, OutpostRollbackFromViewBridge = fromViewBridge,
-                    OutpostVersion = metadata.Present ? 1u : 0u, OutpostRestoreBoundary = boundary },
+                    OutpostVersion = metadata.Present ? 1u : 0u, OutpostRestoreBoundary = boundary,
+                    GuildVersion = metadata.Metadata.GuildMetadata?.SchemaVersion ?? 0,
+                    OutpostMetadata = metadata.Metadata.GuildMetadata is null ? null : metadata.Metadata.Clone() },
             }, context.CancellationToken);
 
             byte[] buffer = new byte[Limits.SaveChunkBytes];

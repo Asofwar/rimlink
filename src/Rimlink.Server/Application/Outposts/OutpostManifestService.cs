@@ -142,7 +142,8 @@ public sealed partial class OutpostManifestService(RimlinkDbContext db, OutpostA
     {
         if (doc.SchemaVersion != 1 || doc.Binding is null || !doc.Binding.Equals(await BindingHeldAsync(ct)) ||
             doc.MainSurfaceId != MainSurface || doc.TileCount is < 1 or > 2_000_000 || doc.Tiles.Count != doc.TileCount ||
-            doc.GameDefsSha256.Length != 32 || doc.GameVersion.Length > 64 || !(doc.GameVersion == "1.7" || doc.GameVersion.StartsWith("1.7.", StringComparison.Ordinal)) ||
+            doc.GameDefsSha256.Length != 32 || doc.GameplayDefsSha256.Length is not (0 or 32) ||
+            doc.GameVersion.Length > 64 || !(doc.GameVersion == "1.7" || doc.GameVersion.StartsWith("1.7.", StringComparison.Ordinal)) ||
             string.IsNullOrWhiteSpace(doc.ValuationVersion) || doc.ValuationVersion.Length > 128 || doc.ActiveDlc.Count > 32 ||
             doc.ActiveDlc.Any(d => string.IsNullOrWhiteSpace(d) || d.Length > 128) ||
             !doc.ActiveDlc.SequenceEqual(doc.ActiveDlc.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)))

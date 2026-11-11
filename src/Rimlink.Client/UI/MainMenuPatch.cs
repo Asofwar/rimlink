@@ -18,6 +18,12 @@ public static class MainMenuPatch
     public static void Prefix(Rect rect, List<ListableOption> optList)
     {
         if (Current.ProgramState != ProgramState.Entry) return;
+        if(Game.GuildCapture.BattleExecutorStartup.Selected)
+        {
+            string quit="QuitToOS".Translate();if(!optList.Any(o=>o.label==quit))return;
+            optList.RemoveAll(o=>o.label!=quit);
+            optList.Insert(0,new ListableOption(("Rimlink.GuildBattle.Executor."+Game.GuildCapture.BattleExecutorStartup.Status).Translate(),()=>{}));return;
+        }
         string newColony = "NewColony".Translate();
         string label = "Rimlink.MainMenu.Multiplayer".Translate();
         int index = optList.FindIndex(o => o.label == newColony);

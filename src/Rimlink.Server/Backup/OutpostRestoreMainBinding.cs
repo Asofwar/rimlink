@@ -11,14 +11,15 @@ namespace Rimlink.Server.Backup;
 public sealed partial class OutpostRestoreProcedure
 {
     private static bool IsAdditive(RestoreMainPlan plan) => plan.Version == 2 && plan.DomainStep?.Version == 2 && plan.DomainStep.Action == "Additive";
+    private static bool IsBound(RestoreMainPlan plan) => IsAdditive(plan) || plan.Version == 3;
 
     private static AnchorEnvelope MainMarker(RestoreMainPlan plan)
     {
         byte[] commitment = plan.JournalDigest;
-        if (IsAdditive(plan))
+        if (IsBound(plan))
         {
             // Fixed-width raw operands; the one zero byte terminates the domain/version. No self-hash field in P.
-            byte[] prefix = Encoding.UTF8.GetBytes("RLORESTORE-MAIN-BOUND/v1\0");
+            byte[] prefix = Encoding.UTF8.GetBytes(plan.Version == 3 ? "RLORESTORE-MAIN-BOUND/v3\0" : "RLORESTORE-MAIN-BOUND/v1\0");
             commitment = SHA256.HashData([.. prefix, .. plan.JournalDigest, .. SHA256.HashData(OutpostRestoreEvidence.Encode(plan))]);
         }
         return OutpostRestoreFence.Marker(plan.Journal, commitment);
@@ -29,7 +30,7 @@ public sealed partial class OutpostRestoreProcedure
         byte[] bytes = ReadJournalBytes(Path.Combine(journalRoot, "main.json"));
         var plan = OutpostRestoreEvidence.DecodePlan(bytes);
         _ = OutpostRestoreEvidence.Plan(RootTransition(plan));
-        if (IsAdditive(plan) && !bytes.AsSpan().SequenceEqual(OutpostRestoreEvidence.Encode(plan)))
+        if (IsBound(plan) && !bytes.AsSpan().SequenceEqual(OutpostRestoreEvidence.Encode(plan)))
             throw new InvalidDataException("restore-main-plan-not-canonical");
         return plan;
     }
@@ -46,7 +47,7 @@ public sealed partial class OutpostRestoreProcedure
         RequireExactMainBytes(plan, journalRoot);
         var observed = anchor.ReadEnvelope(held); var unbound = OutpostRestoreFence.Marker(plan.Journal, plan.JournalDigest);
         var bound = MainMarker(plan);
-        if (!IsAdditive(plan))
+        if (!IsBound(plan))
         {
             if (observed != unbound) throw new InvalidDataException("restore-main-marker-mismatch");
             return;
@@ -54,7 +55,7 @@ public sealed partial class OutpostRestoreProcedure
         if (journal.Phase != RestorePhase.InstalledVerified) throw new InvalidDataException("restore-main-binding-phase-invalid");
         if (observed != unbound && observed != bound) throw new InvalidDataException("restore-main-bound-marker-mismatch");
         // Both permitted InstalledVerified gaps have the original exact pre-schema, never a post-DDL result.
-        await ValidatePreSchemaCandidateAsync(plan, requireExecutor: observed == unbound, ct);
+        await ValidatePreSchemaCandidateAsync(plan, requireExecutor: IsAdditive(plan) && observed == unbound, ct);
         if (observed == unbound)
         {
             anchor.WriteEnvelopeDurable(held, bound, CancellationToken.None);
@@ -71,7 +72,7 @@ public sealed partial class OutpostRestoreProcedure
             throw new InvalidDataException("restore-main-unbound-source-changed");
         var observed = await OutpostAuthority.ReadStoredChainAsync(db, new SaveFiles(DataDirectory.Existing(plan.Journal.Selection.DataDirectory)),
             authority, new(authority.HeadId, ByteString.CopyFrom(authority.HeadDigest)), false, ct);
-        OutpostRestoreEvidence.ValidateSourceDomain(plan.DomainStep!, plan.Cut, observed);
+        OutpostRestoreEvidence.ValidateSourceDomain(plan.DomainStep!, plan.Cut, observed, selectedAcceptance: plan.Journal.Selection.Isolated?.Source);
         var expected = await OutpostRestoreEvidence.CreatePlanAsync(db, plan.Journal, plan.JournalDigest, plan.Cut, ct,
             plan.CutManifest, plan.Version, plan.DomainStep);
         if (!OutpostRestoreEvidence.Same(expected with { NextHeadId = plan.NextHeadId }, plan))
@@ -93,7 +94,7 @@ public sealed partial class OutpostRestoreProcedure
         var plan = ReadExactMainPlan(journalRoot);
         if (!OutpostRestoreEvidence.Same(plan.Journal, intent) || !plan.JournalDigest.AsSpan().SequenceEqual(journal.IntentDigest))
             throw new InvalidDataException("restore-backout-bound-intent-mismatch");
-        if (!IsAdditive(plan))
+        if (!IsBound(plan))
         {
             if (!Matches(unbound)) throw new InvalidDataException("restore-backout-bound-marker-mismatch");
             return unbound;

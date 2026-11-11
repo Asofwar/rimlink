@@ -24,7 +24,9 @@ public sealed class EconomyGuard(RimlinkDbContext db, IOptions<EconomyOptions> o
     /// A raid waiting for, or landed in, this player's game; or an accepted live raid they host. A live raid's own row is
     /// Queued from the proposal on, so live rows count only through their session.
     /// </summary>
-    public async Task<bool> UnderThreat(long playerId)
+    public Task<bool> UnderThreat(long playerId) => UnderThreatHeldAsync(db,playerId);
+
+    internal static async Task<bool> UnderThreatHeldAsync(RimlinkDbContext db,long playerId)
     {
         int live = (int)RaidController.ControllerLive, liveRaid = (int)LiveKind.LiveRaid, hostile = (int)IncidentKind.IncidentHostile;
         return await db.Raids.AnyAsync(r => r.TargetPlayerId == playerId && r.Controller != live && Incoming.Contains(r.State))

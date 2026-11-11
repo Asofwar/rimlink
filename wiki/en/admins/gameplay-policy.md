@@ -1,11 +1,11 @@
 ---
 pageId: admins/gameplay-policy
-contentRevision: 5
+contentRevision: 9
 ---
 
 # Server gameplay policy
 
-Applies to: Rimlink 0.9.2 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.10.0 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 
@@ -31,8 +31,17 @@ Choose a supported cancellation/return or remove the cause. Verify recipients/ma
 
 Auction, procurement, social and influence constants are not necessarily configurable. Storage charges may create debt. A freeze defers auction settlement; it is not an automatic refund. Influence does not grant territorial rights.
 
+
+In the guild economy, shared stock and old-stock obligations are excluded from personal ServerWealth. After a claim, confirmed manifest value is counted once for its fixed recipient until typed receipt acceptance. IntegrityService recognizes the proven import in physical wealth growth; unexplained excess still triggers checks. Real-game qualification remains incomplete.
+
 ## See also {#related}
 
 - [Configuration reference](./configuration.md)
 - [Panel and moderation](./administration.md)
 - [Raids and paid incidents](../players/raids-incidents.md)
+
+The guild campaign scheduler is implemented as WIP: it prepares a booked slot, technically closes a missed slot, and never cancels a committed Start. Calls revalidate the common authority; an ordinary server is admitted with `GuildCapture:Enabled=true` and an activated V3. A battle occupies its physical executor until confirmed cleanup, including cancellation before Start.
+
+NoAttackerReady imposes twenty-four hours for the directed attacking-guild → defending-guild pair across all of that defender's outposts, measured from the immutable terminal timestamp. It requires a healthy original arbiter and acknowledged delivery of the current Ready offer. Missing offers/acknowledgements, initial/runtime/profile problems, or uncertain backend state cause technical cancellation without this penalty. Receipt retry does not extend cooldown; this receipt does not prohibit the reverse direction.
+
+HOME in isolated acceptance permits setup, initial map preparation, viewing without ticks and real pre-Start cancellation with cleanup. Start, commands, Final Apply and claims are blocked. SLICE requires a separate append-only record after native HOME and money-negative checks. The presence of a dev host or a successful build does not prove HOME acceptance or enable Product.

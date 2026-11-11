@@ -58,6 +58,7 @@ public sealed class RateLimitInterceptor : Interceptor, IDisposable
         // Anonymous calls (Login, Register) are keyed by IP, everything after login by account.
         string caller = context.GetHttpContext().Items[SessionInterceptor.ItemKey] is Session session
             ? "acct:" + session.AccountId
+            : context.GetHttpContext().Items[BattleExecutorAuthentication.ItemKey] is string executor ? "exec:" + executor
             : "ip:" + context.ClientIp();
 
         await Acquire(caller, context.Method, context.CancellationToken);

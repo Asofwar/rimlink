@@ -1,11 +1,11 @@
 ---
 pageId: developers/localization
-contentRevision: 6
+contentRevision: 8
 ---
 
 # Локализация
 
-Применимость: Rimlink 0.9.2 · RimWorld 1.7 · протокол 1.
+Применимость: Rimlink 0.10.0 · RimWorld 1.7 · протокол 1.
 
 ## Как пользоваться {#usage}
 
@@ -27,8 +27,13 @@ Wiki использует одинаковые pageId и общие явные a
 
 Не добавляй строки непосредственно в C# UI вместо ключей. Не используй внешний поисковый сервис/аналитику ради перевода. Примеры не должны включать реальные токены, личные сейвы или приватные логи.
 
+
+Невыпущенная гильдейская выдача добавляет парные ключи Refusal.Guild.Client, Refusal.Guild.Unavailable, Refusal.Guild.Delivery и Guild.DeliveryComplete/Guild.DeliveryHold. Отдельный ParcelGuildResources имеет название для английских и русских писем; unknown guild receipt не отображается как успешная обычная доставка.
+
 ## См. также {#related}
 
 - [Вклад и сопровождение wiki](./contributing.md)
 - [Тестирование и приёмка](./testing.md)
 - [Словарь](../glossary.md)
+
+Для pre-Start просмотра добавлены RU/EN подпись отсутствия симуляции и действие возврата в свою колонию. RecoveryRequired остаётся отдельным состоянием; успешная загрузка интерфейса не объявляет прохождение native HOME.

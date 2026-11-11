@@ -1,549 +1,9 @@
 {
   "options": [
     {
-      "key": "Backup:IntervalHours",
-      "type": "int",
-      "default": "24",
-      "source": "src/Rimlink.Server/Backup/BackupScheduler.cs"
-    },
-    {
-      "key": "Backup:Keep",
-      "type": "int",
-      "default": "7",
-      "source": "src/Rimlink.Server/Backup/BackupScheduler.cs"
-    },
-    {
-      "key": "Hygiene:ArchiveAfterDays",
-      "type": "int",
-      "default": "14",
-      "source": "src/Rimlink.Server/Hosting/HygieneOptions.cs"
-    },
-    {
-      "key": "Hygiene:ArchiveMaxWealth",
-      "type": "long",
-      "default": "100000",
-      "source": "src/Rimlink.Server/Hosting/HygieneOptions.cs"
-    },
-    {
-      "key": "Hygiene:ArchiveMaxColonyDays",
-      "type": "int",
-      "default": "60",
-      "source": "src/Rimlink.Server/Hosting/HygieneOptions.cs"
-    },
-    {
-      "key": "Hygiene:SweepHours",
-      "type": "int",
-      "default": "6",
-      "source": "src/Rimlink.Server/Hosting/HygieneOptions.cs"
-    },
-    {
-      "key": "Hygiene:WealthTiers",
-      "type": "long[]?",
-      "default": "null",
-      "source": "src/Rimlink.Server/Hosting/HygieneOptions.cs"
-    },
-    {
-      "key": "Incidents:Enabled",
-      "type": "bool",
-      "default": "true",
-      "source": "src/Rimlink.Server/Hosting/IncidentOptions.cs"
-    },
-    {
-      "key": "Incidents:MaxQueuedPerTarget",
-      "type": "int",
-      "default": "2",
-      "source": "src/Rimlink.Server/Hosting/IncidentOptions.cs"
-    },
-    {
-      "key": "Incidents:BasePrice",
-      "type": "double",
-      "default": "100",
-      "source": "src/Rimlink.Server/Hosting/IncidentOptions.cs"
-    },
-    {
-      "key": "Incidents:MinPrice",
-      "type": "long",
-      "default": "50",
-      "source": "src/Rimlink.Server/Hosting/IncidentOptions.cs"
-    },
-    {
-      "key": "Incidents:WarnTicks",
-      "type": "long",
-      "default": "30000",
-      "source": "src/Rimlink.Server/Hosting/IncidentOptions.cs"
-    },
-    {
-      "key": "Incidents:WarnFromLevel",
-      "type": "int",
-      "default": "3",
-      "source": "src/Rimlink.Server/Hosting/IncidentOptions.cs"
-    },
-    {
-      "key": "Incidents:KindCooldownHours",
-      "type": "double",
-      "default": "1",
-      "source": "src/Rimlink.Server/Hosting/IncidentOptions.cs"
-    },
-    {
-      "key": "Incidents:ExpireRealDays",
-      "type": "double",
-      "default": "7",
-      "source": "src/Rimlink.Server/Hosting/IncidentOptions.cs"
-    },
-    {
-      "key": "Incidents:Catalog",
-      "type": "List<IncidentCatalogEntry>",
-      "default": "[]",
-      "source": "src/Rimlink.Server/Hosting/IncidentOptions.cs"
-    },
-    {
-      "key": "Incidents:Catalog:*:Id",
-      "type": "string",
-      "default": "\"\"",
-      "source": "src/Rimlink.Server/Hosting/IncidentOptions.cs"
-    },
-    {
-      "key": "Incidents:Catalog:*:IncidentDef",
-      "type": "string",
-      "default": "\"\"",
-      "source": "src/Rimlink.Server/Hosting/IncidentOptions.cs"
-    },
-    {
-      "key": "Incidents:Catalog:*:FactionDef",
-      "type": "string?",
-      "default": "null",
-      "source": "src/Rimlink.Server/Hosting/IncidentOptions.cs"
-    },
-    {
-      "key": "Incidents:Catalog:*:Kind",
-      "type": "string",
-      "default": "\"Hostile\"",
-      "source": "src/Rimlink.Server/Hosting/IncidentOptions.cs"
-    },
-    {
-      "key": "Incidents:Catalog:*:PriceMultiplier",
-      "type": "double",
-      "default": "1",
-      "source": "src/Rimlink.Server/Hosting/IncidentOptions.cs"
-    },
-    {
-      "key": "Incidents:Catalog:*:PodsMultiplier",
-      "type": "double?",
-      "default": "null",
-      "source": "src/Rimlink.Server/Hosting/IncidentOptions.cs"
-    },
-    {
-      "key": "Outposts:Enabled",
-      "type": "bool",
-      "default": "false",
-      "source": "src/Rimlink.Server/Hosting/OutpostOptions.cs"
-    },
-    {
-      "key": "Outposts:AnchorDirectory",
-      "type": "string",
-      "default": "\"\"",
-      "source": "src/Rimlink.Server/Hosting/OutpostOptions.cs"
-    },
-    {
-      "key": "Outposts:StorageContract",
-      "type": "string",
-      "default": "\"\"",
-      "source": "src/Rimlink.Server/Hosting/OutpostOptions.cs"
-    },
-    {
-      "key": "Outposts:QualifiedLinuxFileSystem",
-      "type": "string",
-      "default": "\"\"",
-      "source": "src/Rimlink.Server/Hosting/OutpostOptions.cs"
-    },
-    {
-      "key": "Panel:Enabled",
-      "type": "bool",
-      "default": "true",
-      "source": "src/Rimlink.Server/Hosting/PanelOptions.cs"
-    },
-    {
-      "key": "Panel:Public",
-      "type": "bool",
-      "default": "true",
-      "source": "src/Rimlink.Server/Hosting/PanelOptions.cs"
-    },
-    {
-      "key": "Panel:PublicPlayerNames",
-      "type": "bool",
-      "default": "true",
-      "source": "src/Rimlink.Server/Hosting/PanelOptions.cs"
-    },
-    {
-      "key": "Panel:SessionHours",
-      "type": "int",
-      "default": "12",
-      "source": "src/Rimlink.Server/Hosting/PanelOptions.cs"
-    },
-    {
-      "key": "Panel:ServerName",
-      "type": "string",
-      "default": "\"\"",
-      "source": "src/Rimlink.Server/Hosting/PanelOptions.cs"
-    },
-    {
-      "key": "Panel:Description",
-      "type": "string",
-      "default": "\"\"",
-      "source": "src/Rimlink.Server/Hosting/PanelOptions.cs"
-    },
-    {
-      "key": "Panel:PublicAddress",
-      "type": "string",
-      "default": "\"\"",
-      "source": "src/Rimlink.Server/Hosting/PanelOptions.cs"
-    },
-    {
-      "key": "Saves:CompactOldVersions",
-      "type": "bool",
-      "default": "true",
-      "source": "src/Rimlink.Server/Hosting/SaveStorageOptions.cs"
-    },
-    {
-      "key": "Server:Port",
-      "type": "int",
-      "default": "25560",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Server:DataDir",
-      "type": "string",
-      "default": "\"./data\"",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Server:MaxPlayers",
-      "type": "int",
-      "default": "50",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Server:ServerPassword",
-      "type": "string?",
-      "default": "null",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Server:MaxSettlementsPerPlayer",
-      "type": "int",
-      "default": "1",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Tls:Required",
-      "type": "bool",
-      "default": "true",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Tls:CertificatePath",
-      "type": "string?",
-      "default": "null",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Tls:KeyPath",
-      "type": "string?",
-      "default": "null",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Tls:SelfSignedPath",
-      "type": "string?",
-      "default": "null",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Auth:AllowPassword",
-      "type": "bool",
-      "default": "false",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Auth:SteamWebApiKey",
-      "type": "string?",
-      "default": "null",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Auth:AdminSteamIds",
-      "type": "long[]",
-      "default": "[]",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Auth:AdminLogins",
-      "type": "string[]",
-      "default": "[]",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Economy:Enabled",
-      "type": "bool",
-      "default": "true",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Economy:MaxParcelBytes",
-      "type": "int",
-      "default": "Protocol.Limits.EconomyMaxParcelBytes",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Economy:MaxItemsPerParcel",
-      "type": "int",
-      "default": "Protocol.Limits.EconomyMaxItemsPerParcel",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Economy:MaxPawnsPerParcel",
-      "type": "int",
-      "default": "Protocol.Limits.EconomyMaxPawnsPerParcel",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Economy:MaxLotsPerPlayer",
-      "type": "int",
-      "default": "20",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Economy:MaxPendingParcels",
-      "type": "int",
-      "default": "50",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Economy:LotLifetimeDays",
-      "type": "int",
-      "default": "30",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Economy:MarketFeePercent",
-      "type": "int",
-      "default": "0",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Economy:SendCooldownSeconds",
-      "type": "int",
-      "default": "5",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Economy:GiftDecisionDays",
-      "type": "int",
-      "default": "7",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Economy:TradeLifetimeDays",
-      "type": "int",
-      "default": "7",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Economy:MaxOpenTrades",
-      "type": "int",
-      "default": "5",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Economy:ServerWealthPercent",
-      "type": "int",
-      "default": "100",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Economy:BlockOutflowUnderThreat",
-      "type": "bool",
-      "default": "true",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Economy:StorageFeePercentPerDay",
-      "type": "double",
-      "default": "0.5",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Economy:StorageFreeDays",
-      "type": "double",
-      "default": "3",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Social:MaxBlocks",
-      "type": "int",
-      "default": "200",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Raids:Enabled",
-      "type": "bool",
-      "default": "true",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Raids:MaxRaiders",
-      "type": "int",
-      "default": "10",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Raids:MaxActiveRaidsPerAttacker",
-      "type": "int",
-      "default": "1",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Raids:TargetCooldownHours",
-      "type": "int",
-      "default": "8",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Raids:PairCooldownHours",
-      "type": "int",
-      "default": "24",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Raids:NewbieProtectionDays",
-      "type": "int",
-      "default": "3",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Raids:MinColonyWealth",
-      "type": "long",
-      "default": "20000",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Raids:LootCapPercent",
-      "type": "int",
-      "default": "10",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Raids:LootCapSilver",
-      "type": "long",
-      "default": "5000",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Raids:AllowKidnap",
-      "type": "bool",
-      "default": "false",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Raids:WarnTicks",
-      "type": "int",
-      "default": "60000",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Raids:TimeoutDays",
-      "type": "int",
-      "default": "3",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Raids:ExpireRealDays",
-      "type": "int",
-      "default": "7",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Raids:PeacefulOffDelayHours",
-      "type": "int",
-      "default": "24",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Raids:VisitHours",
-      "type": "int",
-      "default": "12",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Live:Enabled",
-      "type": "bool",
-      "default": "true",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Live:InviteSeconds",
-      "type": "int",
-      "default": "60",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Live:ReconnectWaitMinutes",
-      "type": "int",
-      "default": "5",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Live:GuestPauses",
-      "type": "int",
-      "default": "10",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Live:GuestPauseSeconds",
-      "type": "int",
-      "default": "60",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Live:MaxFrameBytes",
-      "type": "int",
-      "default": "262144",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Live:DeltasPerSecond",
-      "type": "int",
-      "default": "20",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Live:OrdersPerSecond",
-      "type": "int",
-      "default": "30",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Live:HeartbeatTimeoutSeconds",
-      "type": "int",
-      "default": "10",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Live:SweepSeconds",
-      "type": "int",
-      "default": "5",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
       "key": "Admin:ApiToken",
       "type": "string?",
       "default": "null",
-      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
-    },
-    {
-      "key": "Admin:Tokens",
-      "type": "List<ApiTokenOptions>",
-      "default": "[]",
       "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
     },
     {
@@ -559,13 +19,13 @@
       "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
     },
     {
-      "key": "Admin:Tokens:*:Name",
-      "type": "string",
-      "default": "\"\"",
+      "key": "Admin:Tokens",
+      "type": "List<ApiTokenOptions>",
+      "default": "[]",
       "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
     },
     {
-      "key": "Admin:Tokens:*:Token",
+      "key": "Admin:Tokens:*:Name",
       "type": "string",
       "default": "\"\"",
       "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
@@ -577,15 +37,297 @@
       "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
     },
     {
+      "key": "Admin:Tokens:*:Token",
+      "type": "string",
+      "default": "\"\"",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Auth:AdminLogins",
+      "type": "string[]",
+      "default": "[]",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Auth:AdminSteamIds",
+      "type": "long[]",
+      "default": "[]",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Auth:AllowPassword",
+      "type": "bool",
+      "default": "false",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Auth:SteamWebApiKey",
+      "type": "string?",
+      "default": "null",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Backup:IntervalHours",
+      "type": "int",
+      "default": "24",
+      "source": "src/Rimlink.Server/Backup/BackupScheduler.cs"
+    },
+    {
+      "key": "Backup:Keep",
+      "type": "int",
+      "default": "7",
+      "source": "src/Rimlink.Server/Backup/BackupScheduler.cs"
+    },
+    {
+      "key": "Economy:BlockOutflowUnderThreat",
+      "type": "bool",
+      "default": "true",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Economy:Enabled",
+      "type": "bool",
+      "default": "true",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Economy:GiftDecisionDays",
+      "type": "int",
+      "default": "7",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Economy:LotLifetimeDays",
+      "type": "int",
+      "default": "30",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Economy:MarketFeePercent",
+      "type": "int",
+      "default": "0",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Economy:MaxItemsPerParcel",
+      "type": "int",
+      "default": "Protocol.Limits.EconomyMaxItemsPerParcel",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Economy:MaxLotsPerPlayer",
+      "type": "int",
+      "default": "20",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Economy:MaxOpenTrades",
+      "type": "int",
+      "default": "5",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Economy:MaxParcelBytes",
+      "type": "int",
+      "default": "Protocol.Limits.EconomyMaxParcelBytes",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Economy:MaxPawnsPerParcel",
+      "type": "int",
+      "default": "Protocol.Limits.EconomyMaxPawnsPerParcel",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Economy:MaxPendingParcels",
+      "type": "int",
+      "default": "50",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Economy:SendCooldownSeconds",
+      "type": "int",
+      "default": "5",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Economy:ServerWealthPercent",
+      "type": "int",
+      "default": "100",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Economy:StorageFeePercentPerDay",
+      "type": "double",
+      "default": "0.5",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Economy:StorageFreeDays",
+      "type": "double",
+      "default": "3",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Economy:TradeLifetimeDays",
+      "type": "int",
+      "default": "7",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "GuildCapture:ApprovedProfileDigest",
+      "type": "string",
+      "default": "\"\"",
+      "source": "src/Rimlink.Server/Hosting/GuildCaptureOptions.cs"
+    },
+    {
+      "key": "GuildCapture:Enabled",
+      "type": "bool",
+      "default": "false",
+      "source": "src/Rimlink.Server/Hosting/GuildCaptureOptions.cs"
+    },
+    {
+      "key": "GuildCapture:ExecutorId",
+      "type": "string",
+      "default": "\"\"",
+      "source": "src/Rimlink.Server/Hosting/GuildCaptureOptions.cs"
+    },
+    {
+      "key": "GuildCapture:ExecutorTokenSha256",
+      "type": "string",
+      "default": "\"\"",
+      "source": "src/Rimlink.Server/Hosting/GuildCaptureOptions.cs"
+    },
+    {
+      "key": "Hygiene:ArchiveAfterDays",
+      "type": "int",
+      "default": "14",
+      "source": "src/Rimlink.Server/Hosting/HygieneOptions.cs"
+    },
+    {
+      "key": "Hygiene:ArchiveMaxColonyDays",
+      "type": "int",
+      "default": "60",
+      "source": "src/Rimlink.Server/Hosting/HygieneOptions.cs"
+    },
+    {
+      "key": "Hygiene:ArchiveMaxWealth",
+      "type": "long",
+      "default": "100000",
+      "source": "src/Rimlink.Server/Hosting/HygieneOptions.cs"
+    },
+    {
+      "key": "Hygiene:SweepHours",
+      "type": "int",
+      "default": "6",
+      "source": "src/Rimlink.Server/Hosting/HygieneOptions.cs"
+    },
+    {
+      "key": "Hygiene:WealthTiers",
+      "type": "long[]?",
+      "default": "null",
+      "source": "src/Rimlink.Server/Hosting/HygieneOptions.cs"
+    },
+    {
+      "key": "Incidents:BasePrice",
+      "type": "double",
+      "default": "100",
+      "source": "src/Rimlink.Server/Hosting/IncidentOptions.cs"
+    },
+    {
+      "key": "Incidents:Catalog",
+      "type": "List<IncidentCatalogEntry>",
+      "default": "[]",
+      "source": "src/Rimlink.Server/Hosting/IncidentOptions.cs"
+    },
+    {
+      "key": "Incidents:Catalog:*:FactionDef",
+      "type": "string?",
+      "default": "null",
+      "source": "src/Rimlink.Server/Hosting/IncidentOptions.cs"
+    },
+    {
+      "key": "Incidents:Catalog:*:Id",
+      "type": "string",
+      "default": "\"\"",
+      "source": "src/Rimlink.Server/Hosting/IncidentOptions.cs"
+    },
+    {
+      "key": "Incidents:Catalog:*:IncidentDef",
+      "type": "string",
+      "default": "\"\"",
+      "source": "src/Rimlink.Server/Hosting/IncidentOptions.cs"
+    },
+    {
+      "key": "Incidents:Catalog:*:Kind",
+      "type": "string",
+      "default": "\"Hostile\"",
+      "source": "src/Rimlink.Server/Hosting/IncidentOptions.cs"
+    },
+    {
+      "key": "Incidents:Catalog:*:PodsMultiplier",
+      "type": "double?",
+      "default": "null",
+      "source": "src/Rimlink.Server/Hosting/IncidentOptions.cs"
+    },
+    {
+      "key": "Incidents:Catalog:*:PriceMultiplier",
+      "type": "double",
+      "default": "1",
+      "source": "src/Rimlink.Server/Hosting/IncidentOptions.cs"
+    },
+    {
+      "key": "Incidents:Enabled",
+      "type": "bool",
+      "default": "true",
+      "source": "src/Rimlink.Server/Hosting/IncidentOptions.cs"
+    },
+    {
+      "key": "Incidents:ExpireRealDays",
+      "type": "double",
+      "default": "7",
+      "source": "src/Rimlink.Server/Hosting/IncidentOptions.cs"
+    },
+    {
+      "key": "Incidents:KindCooldownHours",
+      "type": "double",
+      "default": "1",
+      "source": "src/Rimlink.Server/Hosting/IncidentOptions.cs"
+    },
+    {
+      "key": "Incidents:MaxQueuedPerTarget",
+      "type": "int",
+      "default": "2",
+      "source": "src/Rimlink.Server/Hosting/IncidentOptions.cs"
+    },
+    {
+      "key": "Incidents:MinPrice",
+      "type": "long",
+      "default": "50",
+      "source": "src/Rimlink.Server/Hosting/IncidentOptions.cs"
+    },
+    {
+      "key": "Incidents:WarnFromLevel",
+      "type": "int",
+      "default": "3",
+      "source": "src/Rimlink.Server/Hosting/IncidentOptions.cs"
+    },
+    {
+      "key": "Incidents:WarnTicks",
+      "type": "long",
+      "default": "30000",
+      "source": "src/Rimlink.Server/Hosting/IncidentOptions.cs"
+    },
+    {
       "key": "Integrity:DevMode",
       "type": "DevModePolicy",
       "default": "DevModePolicy.AdminsOnly",
       "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
     },
     {
-      "key": "Integrity:WealthWarnPerDay",
-      "type": "long",
-      "default": "20000",
+      "key": "Integrity:StorytellerPolicy",
+      "type": "StorytellerPolicy",
+      "default": "StorytellerPolicy.Locked",
       "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
     },
     {
@@ -595,9 +337,291 @@
       "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
     },
     {
-      "key": "Integrity:StorytellerPolicy",
-      "type": "StorytellerPolicy",
-      "default": "StorytellerPolicy.Locked",
+      "key": "Integrity:WealthWarnPerDay",
+      "type": "long",
+      "default": "20000",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Live:DeltasPerSecond",
+      "type": "int",
+      "default": "20",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Live:Enabled",
+      "type": "bool",
+      "default": "true",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Live:GuestPauses",
+      "type": "int",
+      "default": "10",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Live:GuestPauseSeconds",
+      "type": "int",
+      "default": "60",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Live:HeartbeatTimeoutSeconds",
+      "type": "int",
+      "default": "10",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Live:InviteSeconds",
+      "type": "int",
+      "default": "60",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Live:MaxFrameBytes",
+      "type": "int",
+      "default": "262144",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Live:OrdersPerSecond",
+      "type": "int",
+      "default": "30",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Live:ReconnectWaitMinutes",
+      "type": "int",
+      "default": "5",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Live:SweepSeconds",
+      "type": "int",
+      "default": "5",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Outposts:AnchorDirectory",
+      "type": "string",
+      "default": "\"\"",
+      "source": "src/Rimlink.Server/Hosting/OutpostOptions.cs"
+    },
+    {
+      "key": "Outposts:Enabled",
+      "type": "bool",
+      "default": "false",
+      "source": "src/Rimlink.Server/Hosting/OutpostOptions.cs"
+    },
+    {
+      "key": "Outposts:QualifiedLinuxFileSystem",
+      "type": "string",
+      "default": "\"\"",
+      "source": "src/Rimlink.Server/Hosting/OutpostOptions.cs"
+    },
+    {
+      "key": "Outposts:StorageContract",
+      "type": "string",
+      "default": "\"\"",
+      "source": "src/Rimlink.Server/Hosting/OutpostOptions.cs"
+    },
+    {
+      "key": "Panel:Description",
+      "type": "string",
+      "default": "\"\"",
+      "source": "src/Rimlink.Server/Hosting/PanelOptions.cs"
+    },
+    {
+      "key": "Panel:Enabled",
+      "type": "bool",
+      "default": "true",
+      "source": "src/Rimlink.Server/Hosting/PanelOptions.cs"
+    },
+    {
+      "key": "Panel:Public",
+      "type": "bool",
+      "default": "true",
+      "source": "src/Rimlink.Server/Hosting/PanelOptions.cs"
+    },
+    {
+      "key": "Panel:PublicAddress",
+      "type": "string",
+      "default": "\"\"",
+      "source": "src/Rimlink.Server/Hosting/PanelOptions.cs"
+    },
+    {
+      "key": "Panel:PublicPlayerNames",
+      "type": "bool",
+      "default": "true",
+      "source": "src/Rimlink.Server/Hosting/PanelOptions.cs"
+    },
+    {
+      "key": "Panel:ServerName",
+      "type": "string",
+      "default": "\"\"",
+      "source": "src/Rimlink.Server/Hosting/PanelOptions.cs"
+    },
+    {
+      "key": "Panel:SessionHours",
+      "type": "int",
+      "default": "12",
+      "source": "src/Rimlink.Server/Hosting/PanelOptions.cs"
+    },
+    {
+      "key": "Raids:AllowKidnap",
+      "type": "bool",
+      "default": "false",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Raids:Enabled",
+      "type": "bool",
+      "default": "true",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Raids:ExpireRealDays",
+      "type": "int",
+      "default": "7",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Raids:LootCapPercent",
+      "type": "int",
+      "default": "10",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Raids:LootCapSilver",
+      "type": "long",
+      "default": "5000",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Raids:MaxActiveRaidsPerAttacker",
+      "type": "int",
+      "default": "1",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Raids:MaxRaiders",
+      "type": "int",
+      "default": "10",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Raids:MinColonyWealth",
+      "type": "long",
+      "default": "20000",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Raids:NewbieProtectionDays",
+      "type": "int",
+      "default": "3",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Raids:PairCooldownHours",
+      "type": "int",
+      "default": "24",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Raids:PeacefulOffDelayHours",
+      "type": "int",
+      "default": "24",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Raids:TargetCooldownHours",
+      "type": "int",
+      "default": "8",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Raids:TimeoutDays",
+      "type": "int",
+      "default": "3",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Raids:VisitHours",
+      "type": "int",
+      "default": "12",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Raids:WarnTicks",
+      "type": "int",
+      "default": "60000",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Saves:CompactOldVersions",
+      "type": "bool",
+      "default": "true",
+      "source": "src/Rimlink.Server/Hosting/SaveStorageOptions.cs"
+    },
+    {
+      "key": "Server:DataDir",
+      "type": "string",
+      "default": "\"./data\"",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Server:MaxPlayers",
+      "type": "int",
+      "default": "50",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Server:MaxSettlementsPerPlayer",
+      "type": "int",
+      "default": "1",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Server:Port",
+      "type": "int",
+      "default": "25560",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Server:ServerPassword",
+      "type": "string?",
+      "default": "null",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Social:MaxBlocks",
+      "type": "int",
+      "default": "200",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Tls:CertificatePath",
+      "type": "string?",
+      "default": "null",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Tls:KeyPath",
+      "type": "string?",
+      "default": "null",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Tls:Required",
+      "type": "bool",
+      "default": "true",
+      "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
+    },
+    {
+      "key": "Tls:SelfSignedPath",
+      "type": "string?",
+      "default": "null",
       "source": "src/Rimlink.Server/Hosting/ServerOptions.cs"
     }
   ],
@@ -1225,6 +1249,51 @@
       "path": "/api/public/status",
       "scope": "special",
       "source": "src/Rimlink.Server/Rest/PublicEndpoints.cs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/guild-capture",
+      "scope": "admin"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/guild-capture/cancel",
+      "scope": "admin"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/guild-capture/freeze",
+      "scope": "admin"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/guild-capture/abort",
+      "scope": "admin"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/guild-capture/place/preview",
+      "scope": "admin"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/guild-capture/place",
+      "scope": "admin"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/guild-capture/profile/approve",
+      "scope": "admin"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/guild-capture/profile/revoke",
+      "scope": "admin"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/guild-capture/profile/stage/{kind}",
+      "scope": "admin"
     }
   ],
   "adminCommands": [
@@ -1245,6 +1314,7 @@
     "config",
     "economy",
     "forbid",
+    "guild-capture",
     "incidents",
     "influence",
     "influence-archive-disable",
@@ -1296,7 +1366,7 @@
     "src/Rimlink.Server/Hosting/IncidentOptions.cs": "de32bdce190a02d6219be7c13fdd5b7dbe3bc420ced4298d4f867b75bda88733",
     "src/Rimlink.Server/Hosting/OutpostOptions.cs": "049e1f6f426bb62af6fe556b5001348086dcd11c1ebd5e4049ad9bf19bdc6a91",
     "src/Rimlink.Server/Hosting/PanelOptions.cs": "173c850c5c9b12b0400afae011ce1cfcf002da3869837de513b2bfd359d6343f",
-    "src/Rimlink.Server/Hosting/RimlinkApplication.cs": "bd1d928e9809888e15ebc1ac1f877e0bc9f09caa0f53319bc21b1367502539cb",
+    "src/Rimlink.Server/Hosting/RimlinkApplication.cs": "ef9a12893ba483d814b468bc4b60e4b02ba67c998ffd95fb4fab5e56cbc6d134",
     "src/Rimlink.Server/Hosting/SaveStorageOptions.cs": "63688671dbb5e88d1e6aee52f3ff1e68de1cc9ff7ad1877a5f1f9d6526383d6c",
     "src/Rimlink.Server/Hosting/ServerOptions.cs": "dc751b72dc5e8485231aa550882ac5672c90db01f2813b1dec3e795bed290ac9",
     "src/Rimlink.Server/Rest/AdminDirectoryEndpoints.cs": "df9b31b3953cd333b6148c2ad921fa519746bc1699463c678014fc043dd144a5",
@@ -1305,12 +1375,15 @@
     "src/Rimlink.Server/Rest/ColonyEndpoints.cs": "1725334ca870c67b2a93e012e0a619a0e9ec6812152828740b2355fd780e5ba8",
     "src/Rimlink.Server/Rest/InfluenceEndpoints.cs": "788e90081b05d76c903298dfd9029fb5eff59abee8ccd17155aac58907046ebf",
     "src/Rimlink.Server/Rest/ModpackDeliveryEndpoints.cs": "52f6e5cbd263b1bb89c6cd6db7728afd8c9c24351e92d33dab9011ac3918ebf5",
-    "src/Rimlink.Server/Rest/OutpostAdminEndpoints.cs": "050d5f9e0cd5f585e0cfc8091697167bd0fbffc5c7b63ee5db7beb197985ce70",
-    "src/Rimlink.Server/Rest/OutpostAuthorityEndpoints.cs": "9955a017ee486f92f5a435478d1c8ee5622df61717273a8e966c7a696f6284a2",
+    "src/Rimlink.Server/Rest/OutpostAdminEndpoints.cs": "eb77ac8008b576473cfbb4f6ba1f4e4e2b5ae0fb939a3dd9f3b89742afe86a5c",
+    "src/Rimlink.Server/Rest/OutpostAuthorityEndpoints.cs": "843111f7fa6f61afe46c66954c2d81daba87a85de9e45a15e2588817a16d0aba",
     "src/Rimlink.Server/Rest/PanelEndpoints.cs": "2432302681ef7c30a42d70ac000ae7ad161e6dd6b831defffa2d86e07529ef08",
     "src/Rimlink.Server/Rest/PublicEndpoints.cs": "e404451fb4c7fd82943ecc926a272acce595a467d0b680b75d716401602c99c2",
-    "src/Rimlink.Tools/Commands/AdminCommand.cs": "8a98c2c69fb0c5bed62bdbf093e8fedeebfc58bc83b998a8680ecd4e6f8e1bb6",
-    "src/Rimlink.Tools/Commands/OutpostAdminCommand.cs": "17a85e126da9315201f7f65ef9e50bd2465acdf1e37cfa39a6b0153aacba0920"
+    "src/Rimlink.Tools/Commands/AdminCommand.cs": "9a1e7b687006473a8e16ecee5c73a1745501b33fad489c19a401d1ffe52ca259",
+    "src/Rimlink.Tools/Commands/GuildCaptureCommands.cs": "add5cc8c351185172c24e0eb8141aa490fd24767d5a5a698d172e8d678fedea9",
+    "src/Rimlink.Tools/Commands/OutpostAdminCommand.cs": "17a85e126da9315201f7f65ef9e50bd2465acdf1e37cfa39a6b0153aacba0920",
+    "src/Rimlink.Server/Hosting/GuildCaptureOptions.cs": "856565ac6aabe779b7670fb2249211318e751c97c75a8befaafee75be9735cff",
+    "src/Rimlink.Server/Rest/GuildCaptureAdminEndpoints.cs": "375b7a1b82c807a56cca476e27dd0de5f5eda538dae6a32462b0f17964c6f682"
   },
   "excluded": {
     "gRPC": "Protocol .proto files are documented in developers/protocol; this table is HTTP REST only.",

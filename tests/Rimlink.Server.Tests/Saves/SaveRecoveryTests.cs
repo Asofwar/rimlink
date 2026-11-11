@@ -1,4 +1,6 @@
 using Grpc.Core;
+using Google.Protobuf;
+using System.Security.Cryptography;
 using Rimlink.Protocol.V1;
 using Rimlink.Server.Tests.Support;
 using Xunit;
@@ -24,8 +26,11 @@ public sealed class SaveRecoveryTests
         var repeat = await SaveFixtures.Upload(saves, login.SessionToken, recompressed, Header(recompressed, 100));
 
         Assert.Equal(original.Version, repeat.Version); Assert.False(repeat.IsCurrent);
+        Assert.Equal(ByteString.CopyFrom(SHA256.HashData(SaveFixtures.Decompress(first))),original.RawSha256);
+        Assert.Equal(original.RawSha256,repeat.RawSha256);Assert.Equal(0u,repeat.OutpostVersion);Assert.Empty(repeat.OutpostRestoreBoundary);
         var versions = await saves.ListAsync(new Empty(), Bearer(login.SessionToken));
         Assert.Equal(2, versions.Versions.Count);
+        Assert.Equal(original.RawSha256,versions.Versions.Single(v=>v.Version==original.Version).RawSha256);
         Assert.Equal(current.Version, versions.Versions.Single(v => v.IsCurrent).Version);
     }
 

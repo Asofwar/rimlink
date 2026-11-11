@@ -55,6 +55,30 @@ public class SaveUploadTests
             .Where(v => v.PlayerId == nova.Player.PlayerId && v.IsCurrent).Select(v => v.Number).SingleAsync());
     }
 
+    [Theory]
+    [InlineData("<maps><li><components><li Class='Rimlink.Client.Game.GuildCapture.MapComponent_BattleScope'><rimlinkBattleScope>scope</rimlinkBattleScope></li></components></li></maps>")]
+    [InlineData("<components><li Class='Rimlink.Client.Game.RimlinkGameComponent'><rimlinkBattleScope>scope</rimlinkBattleScope></li></components>")]
+    public async Task BattleSnapshotCannotReplaceTheCanonicalPersonalSave(string battleMap)
+    {
+        using var fixture = Server();
+        var nova = await fixture.RegisterAndLogin("nova", playerName: "Nova");
+        var saves = new Protocol.V1.Saves.SavesClient(fixture.CreateChannel());
+        byte[] home = MakeSave(ServerFixture.WorldSeed, "Nova", tick: 100);
+        await Upload(saves, nova.SessionToken, home, HeaderFor(home, ServerFixture.WorldSeed, "Nova", tick: 100));
+        string xml = System.Text.Encoding.UTF8.GetString(Decompress(MakeSave(ServerFixture.WorldSeed, "Nova", tick: 200)));
+        byte[] battle = Compress(System.Text.Encoding.UTF8.GetBytes(xml.Replace("</game>", battleMap + "</game>")));
+
+        var error = await Assert.ThrowsAsync<RpcException>(() => Upload(saves, nova.SessionToken, battle,
+            HeaderFor(battle, ServerFixture.WorldSeed, "Nova", tick: 200)));
+
+        Assert.Equal(ErrorCode.SaveInvalid, error.ErrorDetail()?.Code);
+        Assert.Equal("Saves.Unreadable", error.ErrorDetail()?.Key);
+        var versions = (await saves.ListAsync(new Empty(), Bearer(nova.SessionToken))).Versions;
+        Assert.Equal(100, Assert.Single(versions).GameTick);
+        Assert.Equal(home, (await Download(saves, nova.SessionToken)).data);
+        Assert.Empty(Directory.GetFiles(Path.Combine(fixture.DataDir, "saves"), "*.tmp", SearchOption.AllDirectories));
+    }
+
     [Fact]
     public async Task UploadThenDownloadRoundTrips()
     {

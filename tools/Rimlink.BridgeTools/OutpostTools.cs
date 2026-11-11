@@ -71,6 +71,7 @@ public sealed class OutpostTools
             land = document.Tiles.Count(t => t.Land), passable = document.Tiles.Count(t => t.CaravanPassable), wooded = document.Tiles.Count(t => t.NaturalTrees),
             document.GameVersion, dlc = document.ActiveDlc.ToArray(), document.MainSurfaceId,
             paramsSha256 = Convert.ToHexString(document.Binding.WorldParamsSha256.Span), defsSha256 = Convert.ToHexString(document.GameDefsSha256.Span),
+            gameplayDefsSha256 = Convert.ToHexString(document.GameplayDefsSha256.Span),
             resources = document.Resources.Select(v => new { v.DefName, v.UnitValueX100 }).ToArray() };
     });
 

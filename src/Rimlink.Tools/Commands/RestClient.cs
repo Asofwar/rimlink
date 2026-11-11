@@ -35,12 +35,18 @@ public sealed class RestClient : IDisposable
 
     public async Task<string> Delete(string path) => await Read(await http.DeleteAsync(path));
 
-    public async Task<string> Upload(string path, string file)
+    public Task<string> Upload(string path, string file) => UploadFile(path, file, HttpMethod.Put, "application/zip");
+
+    internal Task<string> PostDocument(string path, string file) =>
+        UploadFile(path, file, HttpMethod.Post, "application/octet-stream");
+
+    private async Task<string> UploadFile(string path, string file, HttpMethod method, string mediaType)
     {
         await using var stream = File.OpenRead(file);
-        using var content = new StreamContent(stream);
-        content.Headers.ContentType = new MediaTypeHeaderValue("application/zip");
-        return await Read(await http.PutAsync(path, content));
+        using var request = new HttpRequestMessage(method, path) { Content = new StreamContent(stream) };
+        request.Content.Headers.ContentType = new MediaTypeHeaderValue(mediaType);
+        using var response = await http.SendAsync(request);
+        return await Read(response);
     }
 
     /// <summary>Streams a binary response (a backup archive) into <paramref name="file"/>.</summary>

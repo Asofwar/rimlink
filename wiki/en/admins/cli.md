@@ -1,11 +1,11 @@
 ---
 pageId: admins/cli
-contentRevision: 6
+contentRevision: 12
 ---
 
 # CLI reference
 
-Applies to: Rimlink 0.9.2 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.10.0 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 
@@ -118,7 +118,7 @@ rimlink-tools modpack package unpublish --server <URL> --token <TOKEN>
 
 Without --dry-run, import/defs/configs import require --server/--token; HTTP commands support --insecure. Backup is safe while running; restore requires a stopped server. Pack is offline and uses a separately prepared redistributable collection, never the game root; output paths must be new. configs import shares selected mods below Rimlink: inspect files for secrets. requirements/status read the server; publish/unpublish change package availability and consent flags must not be supplied automatically.
 
-### Outposts (Pending)
+### Outposts
 
 `outposts inspect [--player ID] [--operation ID] [--limit N] [--cursor VALUE]`
 
@@ -127,3 +127,25 @@ Without --dry-run, import/defs/configs import require --server/--token; HTTP com
 `outposts manifest inspect ID|upload FILE|confirm --request FILE`
 
 These are remote REST commands. Retain the original command and explicitly set confirmed=true after review. The CLI does not silently re-preview/retry or open a running database. See the [guide](./passive-outposts.md) for bounds and recovery.
+
+### Guild capture {#guild-capture}
+
+```text
+guild-capture inspect [limit]
+guild-capture place preview FILE
+guild-capture place FILE
+guild-capture cancel FILE
+guild-capture freeze FILE
+guild-capture abort FILE
+guild-capture profile stage KIND FILE
+guild-capture profile approve FILE
+guild-capture profile revoke FILE
+```
+
+Run these through `rimlink-tools admin` with the server URL and admin token. `inspect` reads the committed state and Product admission. Placement, pre-Start cancellation, approval and revocation take a retained JSON request object. Keep the same file for an exact retry. Staging sends a binary document with its protocol kind number (1–7). See the [REST reference](./api.md#guild-capture-setup) for request fields and limits.
+
+For placement, pass a JSON draft with `tile`, `resource` and `reason` to `place preview`. Save the response, add `"confirmed": true` after review and pass that file to `place`.
+
+For `freeze`, pass a retained JSON object with the current `scope`, `expectedHeadId`, a UUID `requestId`, a reason and `frozen` set to true to freeze or false to reopen.
+
+For `abort`, pass the current `scope`, `expectedHeadId`, a UUID `requestId`, the started `battleId` and a reason in the retained JSON object.

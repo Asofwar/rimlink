@@ -7,6 +7,7 @@ import "common.proto";
 import "economy.proto";
 import "world.proto";
 import "custody.proto";
+import "guild_resources.proto";
 
 // Definitions alone do not register a handler or advertise feature readiness.
 service Outposts {
@@ -220,6 +221,7 @@ message OutpostSaveMetadata {
   OutpostRollbackBridge rollback_bridge = 9;
   OutpostRestoreBridge restore_bridge = 10;
   OutpostRollbackFromViewBridge rollback_from_view_bridge = 11;
+  GuildSaveMetadata guild_metadata = 12;
 }
 // Server-authored canonical-download provenance; an echoed bridge alone grants no authority.
 message OutpostRollbackBridge {

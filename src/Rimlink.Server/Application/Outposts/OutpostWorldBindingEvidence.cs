@@ -110,7 +110,7 @@ public sealed partial class OutpostLifecycleEvidence
             }
             else if (step.Kind == "RestoreCompletion")
             {
-                var value = OutpostRestoreEvidence.Decode<RestoreCompletionPlan>(step.Intent);
+                var value = OutpostRestoreEvidence.ReadCompletion(step.Intent);
                 if (!transitions.TryGetValue(value.RestoreId, out var root)) throw Invalid("lifecycle-world-retirement-restore-missing");
                 OutpostTransition? previous = null;
                 if (value.PreviousCompletionId is not null && !transitions.TryGetValue(value.PreviousCompletionId, out previous))

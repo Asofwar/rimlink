@@ -1,4 +1,5 @@
 using Grpc.Core;
+using Rimlink.Client.GuildCapture;
 using Grpc.Net.Client;
 using Rimlink.Protocol.V1;
 
@@ -28,6 +29,7 @@ public interface IPinPrompt
 public sealed class RimlinkConnection : IAsyncDisposable
 {
     private readonly ServerEndpoint endpoint;
+    private readonly GuildAcceptanceSelection? acceptance;
     private readonly ICredentialProvider credentials;
     private readonly IPinPrompt pinPrompt;
     private readonly ILog log;
@@ -44,14 +46,15 @@ public sealed class RimlinkConnection : IAsyncDisposable
     private volatile bool pinRefused;
     private volatile bool steamLogin;
 
-    public RimlinkConnection(ServerEndpoint endpoint, ICredentialProvider credentials, IPinPrompt pinPrompt, ILog log, ConnectionTransport? transport = null, ReconnectPolicy? reconnect = null)
+    public RimlinkConnection(ServerEndpoint endpoint, ICredentialProvider credentials, IPinPrompt pinPrompt, ILog log, ConnectionTransport? transport = null, ReconnectPolicy? reconnect = null, GuildAcceptanceSelection? acceptance = null)
     {
         this.reconnect = reconnect ?? ReconnectPolicy.Default;
         this.endpoint = endpoint;
+        this.acceptance=acceptance;acceptance?.RequireEndpoint(endpoint.Address);
         this.credentials = credentials;
         this.pinPrompt = pinPrompt;
         this.log = log;
-        this.transport = transport ?? ConnectionTransport.Pinned(endpoint, Pins, check => pendingPin = check);
+        this.transport = transport ?? ConnectionTransport.Pinned(endpoint, Pins, check => pendingPin = check, acceptance?.CertificateSha256);
 
         var callCredentials = CallCredentials.FromInterceptor((_, metadata) =>
         {
@@ -96,6 +99,7 @@ public sealed class RimlinkConnection : IAsyncDisposable
         IncidentsApi = new Protocol.V1.Incidents.IncidentsClient(channel);
         ColoniesApi = new Protocol.V1.Colonies.ColoniesClient(channel);
         OutpostsApi = new Protocol.V1.Outposts.OutpostsClient(channel);
+        GuildCaptureApi = new Protocol.V1.GuildCapture.GuildCaptureClient(channel);
     }
 
     /// <summary>Pins live next to the game's config; the game layer sets the path before the first connection.</summary>
@@ -150,6 +154,7 @@ public sealed class RimlinkConnection : IAsyncDisposable
     public Protocol.V1.Incidents.IncidentsClient IncidentsApi { get; }
     public Protocol.V1.Colonies.ColoniesClient ColoniesApi { get; }
     public Protocol.V1.Outposts.OutpostsClient OutpostsApi { get; }
+    public Protocol.V1.GuildCapture.GuildCaptureClient GuildCaptureApi { get; }
 
     /// <summary>A queued map operation must keep the authorization of its snapshot, even if this connection reconnects.</summary>
     public async Task<T> ForAuthentication<T>(LoginReply authentication, Func<Task<T>> call)
@@ -205,12 +210,16 @@ public sealed class RimlinkConnection : IAsyncDisposable
         request.ProtocolVersion = ClientInfo.ProtocolVersion;
         request.RecoveryVersion = Rimlink.Protocol.SaveRecoveryData.CurrentVersion;
         request.OutpostVersion = Rimlink.Protocol.OutpostRecoveryData.CurrentVersion;
+        request.GuildVersion = Rimlink.Protocol.GuildResourceContracts.CurrentVersion;
+        request.GuildRuntime=acceptance?.Target;
         steamLogin = request.CredentialCase == LoginRequest.CredentialOneofCase.SteamTicket;
         var registration = credentials.TakeRegistration();
         if (registration is not null)
         {
             registration.RecoveryVersion = Rimlink.Protocol.SaveRecoveryData.CurrentVersion;
             registration.OutpostVersion = Rimlink.Protocol.OutpostRecoveryData.CurrentVersion;
+            registration.GuildVersion = Rimlink.Protocol.GuildResourceContracts.CurrentVersion;
+            registration.GuildRuntime=acceptance?.Target;
             registration.ServerPassword = request.ServerPassword;
         }
         if (registration is not null && registration.Mods.Count == 0) registration.Mods.AddRange(request.Mods);
@@ -223,6 +232,7 @@ public sealed class RimlinkConnection : IAsyncDisposable
                 var reply = registration is not null
                     ? await Auth.RegisterAsync(registration, cancellationToken: cancellationToken)
                     : await Auth.LoginAsync(request, cancellationToken: cancellationToken);
+                GuildAcceptanceSelection.RequireReply(acceptance,reply.GuildRuntime);
                 if (reply.SessionToken.Length > 0) token = reply.SessionToken;
                 Login = reply;
                 return reply;

@@ -50,7 +50,9 @@ public sealed class SaveTransfer(RimlinkConnection connection)
         if (meta.Recovery?.Outposts.Present == true)
         {
             meta.Recovery.Validate(); var scope = meta.Recovery.Outposts.Metadata.Scope;
-            if (authentication is null || authentication.OutpostVersion != 1 || scope.OwnerPlayerId != authentication.Player.PlayerId
+            if (authentication is null || meta.Recovery.Outposts.RequiresPersonalFamily && authentication.OutpostVersion != 1
+                || meta.Recovery.Outposts.Metadata.GuildMetadata is not null && authentication.GuildVersion != GuildResourceContracts.CurrentVersion
+                || scope.OwnerPlayerId != authentication.Player.PlayerId
                 || scope.SaveGeneration != authentication.SaveGeneration || scope.SaveWriteEpoch != authentication.SaveWriteEpoch
                 || scope.RestoreBoundary != authentication.OutpostRestoreBoundary || meta.RawSha256 is not { Length: 32 }
                 || !SHA256.HashData(raw).AsSpan().SequenceEqual(meta.RawSha256))
@@ -81,6 +83,8 @@ public sealed class SaveTransfer(RimlinkConnection connection)
                 SaveGeneration = meta.SaveGeneration,
                 SnapshotId = meta.Recovery?.SnapshotId ?? "", SaveWriteEpoch = meta.Recovery?.WriteEpoch ?? 0,
                 RecoveryVersion = meta.Recovery?.Version ?? 0,
+                GuildVersion = meta.Recovery?.Outposts.Metadata.GuildMetadata?.SchemaVersion ?? 0,
+                OutpostMetadata = meta.Recovery?.Outposts.Metadata.GuildMetadata is null ? null : meta.Recovery.Outposts.Metadata.Clone(),
                 TotalSize = compressed.Length,
                 Sha256 = ByteString.CopyFrom(SHA256.HashData(compressed)),
             },

@@ -1,11 +1,11 @@
 ---
 pageId: players/coop
-contentRevision: 5
+contentRevision: 6
 ---
 
 # Persistent shared colony
 
-Applies to: Rimlink 0.9.2 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.10.0 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 

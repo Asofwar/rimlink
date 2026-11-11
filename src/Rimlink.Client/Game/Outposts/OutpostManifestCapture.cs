@@ -1,5 +1,4 @@
 using System.Security.Cryptography;
-using System.Text.Json;
 using Google.Protobuf;
 using RimWorld;
 using RimWorld.Planet;
@@ -20,20 +19,22 @@ public static class OutpostManifestCapture
         .Select(m => ModpackActions.Normalize(m.PackageId)).Order(StringComparer.Ordinal).ToArray();
     public static ByteString DefsFingerprint()
     {
+        var (packs, settings) = ReadDefinitionInputs();
+        return OutpostManifestClient.DefinitionFingerprint(packs, settings, legacy: true);
+    }
+
+    private static (OutpostManifestClient.DefinitionPack[] Packs, List<ModSettingsHash> Settings) ReadDefinitionInputs()
+    {
         if (!ModpackActions.Content.Ready.IsCompletedSuccessfully) throw new InvalidDataException("gameplay content fingerprints are not ready");
         var content = ModpackActions.Content.Ready.GetAwaiter().GetResult();
-        var packs = LoadedModManager.RunningMods.Select((m, position) => new
+        var packs = LoadedModManager.RunningMods.Select((mod, position) =>
         {
-            Position = position, Package = ModpackActions.Normalize(m.PackageId),
-            Content = content.TryGetValue(ModpackActions.Normalize(m.PackageId), out var info) ? info.FilesHash
-                : throw new InvalidDataException("a gameplay content fingerprint is missing"),
-            Defs = m.AllDefs.Select(d => d.GetType().FullName + ":" + d.defName).Order(StringComparer.Ordinal).ToArray(),
+            string package = ModpackActions.Normalize(mod.PackageId);
+            if (!content.TryGetValue(package, out var info)) throw new InvalidDataException("a gameplay content fingerprint is missing");
+            var defs = mod.AllDefs.Select(d => d.GetType().FullName + ":" + d.defName).Order(StringComparer.Ordinal).ToArray();
+            return new OutpostManifestClient.DefinitionPack(position, package, info.FilesHash, defs);
         }).ToArray();
-        // Full Defs/Patches/Assemblies source bytes + load order + actual loaded def identities + active settings.
-        // This is compatibility provenance, not an anti-cheat assertion about arbitrary runtime code.
-        var settings = ModpackActions.RunningModSettings().OrderBy(s => s.PackageId, StringComparer.Ordinal).ThenBy(s => s.Handle, StringComparer.Ordinal)
-            .Select(s => new { s.PackageId, s.Handle, s.Hash }).ToArray();
-        return ByteString.CopyFrom(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(new { Format = "outpost-game-defs-v1", Packs = packs, Settings = settings })));
+        return (packs, ModpackActions.RunningModSettings());
     }
     public static WorldParams LocalParams(World world)
     {
@@ -47,9 +48,12 @@ public static class OutpostManifestCapture
         if (!PawnCustodyRegistry.IsOwnGame || world != Find.World || world.grid.TilesCount is < 1 or > MaxTiles)
             throw new InvalidDataException("only the complete own main planet can be exported");
         var parameters = LocalParams(world);
+        var (packs, settings) = ReadDefinitionInputs();
         var document = new OutpostManifestDocument { SchemaVersion = 1, Binding = new()
             { WorldInstanceId = RimlinkSession.World?.WorldInstanceId ?? "", WorldParamsSha256 = ByteString.CopyFrom(SHA256.HashData(parameters.ToByteArray())) },
-            GameVersion = VersionControl.CurrentVersionString, GameDefsSha256 = DefsFingerprint(), MainSurfaceId = "planet",
+            GameVersion = VersionControl.CurrentVersionString, MainSurfaceId = "planet",
+            GameDefsSha256 = OutpostManifestClient.DefinitionFingerprint(packs, settings, legacy: true),
+            GameplayDefsSha256 = OutpostManifestClient.DefinitionFingerprint(packs, settings, legacy: false),
             TileCount = world.grid.TilesCount, ValuationVersion = "game-base-market-v1" };
         document.ActiveDlc.Add(ActiveDlc());
         for (int i = 0; i < document.TileCount; i++)
@@ -64,6 +68,11 @@ public static class OutpostManifestCapture
         if (document.CalculateSize() > OutpostManifestClient.MaxDocumentBytes) throw new InvalidDataException("complete outpost geography exceeds the bounded export size");
         return document;
     }
-    public static void RequireLocalMatch(OutpostManifestDocument manifest) => OutpostManifestClient.RequireLocalMatch(manifest,
-        LocalParams(Find.World), RimlinkSession.World?.WorldInstanceId ?? "", VersionControl.CurrentVersionString, ActiveDlc(), DefsFingerprint());
+    public static void RequireLocalMatch(OutpostManifestDocument manifest)
+    {
+        var (packs, settings) = ReadDefinitionInputs();
+        OutpostManifestClient.RequireLocalMatch(manifest, LocalParams(Find.World), RimlinkSession.World?.WorldInstanceId ?? "",
+            VersionControl.CurrentVersionString, ActiveDlc(),
+            OutpostManifestClient.DefinitionFingerprint(packs, settings, legacy: manifest.GameplayDefsSha256.IsEmpty));
+    }
 }

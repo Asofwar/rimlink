@@ -15,6 +15,7 @@ public static partial class AdminCommand
         var args = new Argument<string[]>("args") { Arity = ArgumentArity.ZeroOrMore };
         name.Description += " | colonies [playerId] | colony revoke <ownerPlayerId> <memberPlayerId>";
         name.Description += " | outposts inspect [--player ID] [--operation ID] [--limit N] [--cursor VALUE] | outposts preview|initialize|activate-domain-format|resolve --request FILE | outposts manifest inspect ID|upload FILE|confirm --request FILE";
+        name.Description += " | " + GuildCaptureUsage;
         name.Description += " | influence | influence-setting <settlementId> | influence-archive-setting <archiveId> | influence-disable <settlementId> <requestId> <worldId> <generation> <allianceId> <version> | influence-archive-disable <archiveId> <settlementId> <requestId> <worldId> <generation> <allianceId> <version> | influence-color <allianceId> <worldId> <paletteIndex> <requestId>";
 
         var command = new Command("admin", "Run an admin operation on a running server") { server, token, insecure, name, args };
@@ -33,6 +34,7 @@ public static partial class AdminCommand
         return command switch
             {
                 "outposts" => await RunOutposts(rest, a),
+                "guild-capture" => await RunGuildCapture(rest, a),
                 var influence when influence.StartsWith("influence", StringComparison.Ordinal) => await RunInfluence(rest, influence, a),
                 "online" => await rest.Get("players/online"),
                 "colonies" => await rest.Get(a.Length > 0 ? $"colonies?playerId={a[0]}" : "colonies"),

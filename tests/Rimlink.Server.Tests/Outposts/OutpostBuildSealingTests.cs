@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 using Rimlink.OutpostAcceptanceHost;
+using Rimlink.Server.Application.GuildCapture;
 using Rimlink.Server.Application.Outposts;
 using Xunit;
 
@@ -25,7 +26,7 @@ public sealed class OutpostBuildSealingTests
     }
 
     [Fact]
-    public void Synthetic_complete_candidate_stays_pending_until_explicit_build_seal_and_never_changes_running_product()
+    public void Synthetic_complete_candidate_stays_pending_until_explicit_build_seal()
     {
         using var f = new EvidenceFixture();
         File.WriteAllText(f.Record, JsonSerializer.Serialize(new BuildEvidence(1, OutpostProductQualification.SourceIdentity, f.Checks), AcceptanceStandFiles.Json));
@@ -33,7 +34,21 @@ public sealed class OutpostBuildSealingTests
         Assert.Equal("Pending", AcceptanceStandFiles.Read<OutpostQualificationArtifact>(f.Output).State);
         BuildQualificationStep.Write("build-seal", f.Record, f.Output);
         Assert.Equal("Qualified", AcceptanceStandFiles.Read<OutpostQualificationArtifact>(f.Output).State);
-        Assert.Equal(OutpostQualificationState.Pending, new OutpostProductQualification().Observe().State);
+    }
+
+    [Fact]
+    public void Guild_seal_requires_its_own_successful_restore_evidence()
+    {
+        using var f = new EvidenceFixture(guildCapture: true);
+        var checks = f.Checks.Select(check => check.Case == "RESTORE" ? check with { Outcome = "NOT RUN" } : check).ToArray();
+        File.WriteAllText(f.Record, JsonSerializer.Serialize(new BuildEvidence(1, OutpostProductQualification.SourceIdentity, checks), AcceptanceStandFiles.Json));
+        Assert.Throws<InvalidDataException>(() => BuildQualificationStep.Write("build-seal", f.Record, f.Output, guildCapture: true));
+        Assert.False(File.Exists(f.Output));
+
+        File.WriteAllText(f.Record, JsonSerializer.Serialize(new BuildEvidence(1, OutpostProductQualification.SourceIdentity, f.Checks), AcceptanceStandFiles.Json));
+        Assert.Throws<InvalidDataException>(() => BuildQualificationStep.Write("build-seal", f.Record, f.Output));
+        BuildQualificationStep.Write("build-seal", f.Record, f.Output, guildCapture: true);
+        Assert.Equal("Qualified", AcceptanceStandFiles.Read<OutpostQualificationArtifact>(f.Output).State);
     }
     private sealed class EvidenceFixture : IDisposable
     {
@@ -41,10 +56,11 @@ public sealed class OutpostBuildSealingTests
         internal string Record => Path.Combine(root, "evidence.json");
         internal string Output => Path.Combine(root, "artifact.json");
         internal AcceptanceCheck[] Checks { get; }
-        internal EvidenceFixture()
+        internal EvidenceFixture(bool guildCapture = false)
         {
             Directory.CreateDirectory(root);
-            Checks = OutpostProductQualification.AcceptanceCases.Select((name, i) =>
+            var cases = guildCapture ? GuildCaptureReadiness.AcceptanceCases : OutpostProductQualification.AcceptanceCases;
+            Checks = cases.Select((name, i) =>
             {
                 string path = Path.Combine(root, i + ".log"); File.WriteAllText(path, "Synthetic unit-test input, not acceptance evidence: " + name);
                 return new AcceptanceCheck(name, "PASS", OutpostProductQualification.SourceIdentity, path, Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(path))));

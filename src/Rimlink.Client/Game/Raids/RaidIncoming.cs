@@ -32,6 +32,7 @@ public static class RaidIncoming
     /// <summary>Called every frame by the game component; throttled, and only on the colony map.</summary>
     public static void Tick()
     {
+        if (GuildCapture.BattleGameContext.Active) return;
         if (DateTime.UtcNow - lastAttempt < TimeSpan.FromSeconds(5)) return;
         lastAttempt = DateTime.UtcNow;
         if (!RimlinkSession.Active || Visits.VisitSession.InVisit || RimlinkSession.Raids is not { } raids || Current.ProgramState != ProgramState.Playing || SaveSync.WritesBlocked || SaveSync.IsSaving) return;
@@ -62,7 +63,7 @@ public static class RaidIncoming
                         var full = await raids.Get(id, CancellationToken.None);
                         MainThread.Post(() =>
                         {
-                            if (RimlinkSession.Connection == connection && ReferenceEquals(connection.Login, authentication) && Current.Game == game)
+                            if (!GuildCapture.BattleGameContext.Active && RimlinkSession.Connection == connection && ReferenceEquals(connection.Login, authentication) && Current.Game == game)
                                 Land(full, map, raids);
                         });
                     }
@@ -96,7 +97,7 @@ public static class RaidIncoming
                 var updated = await connection.ForAuthentication(authentication, () => raids.Announce(id, tick, CancellationToken.None));
                 MainThread.Post(() =>
                 {
-                    if (RimlinkSession.Connection != connection || !ReferenceEquals(connection.Login, authentication) || Current.Game != game) return;
+                    if (GuildCapture.BattleGameContext.Active || RimlinkSession.Connection != connection || !ReferenceEquals(connection.Login, authentication) || Current.Game != game) return;
                     RimlinkSession.State.Raids.Update(updated);
                     if (updated.Timing == RaidTiming.TimingWarned)
                     {
@@ -124,7 +125,7 @@ public static class RaidIncoming
     {
         long id = raid.Id;
         busy.Remove(id);
-        if (!RimlinkSession.Active || Visits.VisitSession.InVisit || Current.ProgramState != ProgramState.Playing || !Find.Maps.Contains(map) || landedThisSession.Contains(id) || SaveSync.WritesBlocked) return;
+        if (GuildCapture.BattleGameContext.Active || !RimlinkSession.Active || Visits.VisitSession.InVisit || Current.ProgramState != ProgramState.Playing || !Find.Maps.Contains(map) || landedThisSession.Contains(id) || SaveSync.WritesBlocked) return;
         var component = Current.Game.GetComponent<RimlinkGameComponent>();
         if (component.ActiveRaids.Any(a => a.RaidId == id)) return;
         if (raid.State is not (RaidState.RaidAnnounced or RaidState.RaidQueued))

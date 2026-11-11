@@ -11,7 +11,7 @@ using Rimlink.Server.Storage;
 
 namespace Rimlink.Server.Application.Outposts;
 
-public enum OutpostSchemaContext { CurrentRuntime, HistoricalCutV1, HistoricalCutV2 }
+public enum OutpostSchemaContext { CurrentRuntime, HistoricalCutV1, HistoricalCutV2, HistoricalCutV3 }
 public sealed record OutpostSchemaObservation(string ProfileId, ByteString Digest, bool IsCurrent);
 
 /// <summary>Matches one complete actual catalog to a finite code-owned profile, without schema writes or text normalization.</summary>
@@ -28,8 +28,19 @@ public static class OutpostDomainSchema
         Load("v2-crlf-crlf", "73ef95ae47f0bd493ce2ea2d8ab1e1e4b1c8d4fa25ca2b3fa0d746f4732c374a", true),
         Load("v2-lf-lf", "b6bea3816a1adc5963ca0f1e63c833474d5b92081d79a160d1e4b78db6f8cbd2", true),
         Load("v2-crlf-lf", "312b2b46df2ecf0ff8b89e5a831619e6278fe4e51b4ed83cb5a6be44da9aebee", true),
-        Load("v2-lf-crlf", "96adc83a1e5c6eb12aeb1aa2e7bef60b912f7066be12235b5b46c96111d414da", true)
+        Load("v2-lf-crlf", "96adc83a1e5c6eb12aeb1aa2e7bef60b912f7066be12235b5b46c96111d414da", true),
+        Load("v3-crlf-crlf-crlf", "3b745026dbc1519acc4708ca36ea6929cfb2eba17d63a59ffcc5c73996fc5829", true),
+        Load("v3-lf-lf-crlf", "e5ad9fefa9cfa47e6ef1772b81fb1ed2ce4299b41fa329a914e98b0c5047727f", true),
+        Load("v3-crlf-lf-crlf", "711372f2fd0a08328211a8392590e7573af03625f6913f89ad176d24ce36346f", true),
+        Load("v3-lf-crlf-crlf", "355b9555747a4f5bf74c7a39999c0adb29721964679fcfea113e4e889ef0fd14", true),
+        Load("v3-crlf-crlf-lf", "2703d348570c2ddbbadef7be02f89b0d81a0cf35f8e5548de6d2bbda33b00d4b", true),
+        Load("v3-lf-lf-lf", "b6328ea84dac462422dd713d27d9e1ca36bc82aeae3b2049b8a358a53efcf7ed", true),
+        Load("v3-crlf-lf-lf", "bc94d120ff9a3937bdd63cc0106ee7b190ef1a8c74a3a52b90e566797292285d", true),
+        Load("v3-lf-crlf-lf", "0129573dc6d5dcb1e8ef039e7e4d9f158777ed5095ebe57329cf1e6e17ac3073", true)
     ];
+
+    internal static bool HasGuildTables(OutpostSchemaObservation schema) =>
+        Profiles.Any(p => p.Observation == schema && p.Observation.ProfileId.StartsWith("rimlink-outposts-schema/v3-", StringComparison.Ordinal));
 
     // A binding identifies one already qualified descriptor; it never observes/adopts a schema.
     internal static bool IsKnownBinding(OutpostSchemaBinding? binding, bool current) =>
@@ -68,9 +79,12 @@ public static class OutpostDomainSchema
             transaction ??= ownedTransaction = connection.BeginTransaction(deferred: true);
             var actual = await ReadAsync(connection, transaction, ct);
             var matches = Profiles.Where(p => (context is null or OutpostSchemaContext.HistoricalCutV1 || p.Observation.IsCurrent)
+                && (context != OutpostSchemaContext.HistoricalCutV3 || HasGuildTables(p.Observation))
                 && Matches(actual, p.Catalog)).ToArray();
             if (matches.Length != 1) throw new InvalidDataException("outpost-schema-profile-mismatch");
             var profile = matches[0];
+            if (context is OutpostSchemaContext.HistoricalCutV1 or OutpostSchemaContext.HistoricalCutV2 && HasGuildTables(profile.Observation))
+                await GuildCapture.GuildDomainDigest.RequireEmptyAsync(db, ct, transaction);
             if (context == OutpostSchemaContext.HistoricalCutV1 && profile.Observation.IsCurrent)
             {
                 using var command = connection.CreateCommand();
