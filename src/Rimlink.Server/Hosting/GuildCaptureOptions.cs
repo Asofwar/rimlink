@@ -12,6 +12,6 @@ public sealed class GuildCaptureOptions
     internal static bool Configured(GuildCaptureOptions options) =>
         !string.IsNullOrWhiteSpace(options.ExecutorId) && options.ExecutorId.Length <= 128
         && options.ExecutorId.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.')
-        && Hex(options.ExecutorTokenSha256) && Hex(options.ApprovedProfileDigest);
+        && Hex(options.ExecutorTokenSha256) && (options.ApprovedProfileDigest == "" || Hex(options.ApprovedProfileDigest));
     private static bool Hex(string value) => value is { Length: 64 } && value.All(char.IsAsciiHexDigit);
 }

@@ -1,11 +1,11 @@
 ---
 pageId: admins/configuration
-contentRevision: 14
+contentRevision: 15
 ---
 
 # Configuration reference
 
-Applies to: Rimlink 0.10.2 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.10.3 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 
@@ -173,7 +173,7 @@ Enabled defaults to false and cannot replace acceptance qualification. AnchorDir
 
 ### GuildCapture
 
-Enabled defaults to false. Product operation requires explicit opt-in, separate common and guild qualification records for the exact source, and a verified V3 authority with an active world and no isolated test lineage. The build qualification seal was removed in 0.10.0: the feature is enabled by server configuration and domain-format activation, while the startup-state, format, schema and storage checks apply as before. The development build still ships a pending record. ExecutorId is the stable name of one operational slot. ExecutorTokenSha256 is the SHA-256 of a dedicated UTF-8 executor secret. ApprovedProfileDigest is the semantic domain-separated digest of the approved runtime profile. With Enabled=true, a nonempty ASCII identifier (letters, digits, dot, hyphen, underscore) and two 64-character hex digests are required. Invalid configuration stops startup.
+Enabled defaults to false. Product operation requires explicit opt-in, separate common and guild qualification records for the exact source, and a verified V3 authority with an active world and no isolated test lineage. The build qualification seal was removed in 0.10.0: the feature is enabled by server configuration and domain-format activation, while the startup-state, format, schema and storage checks apply as before. The development build still ships a pending record. ExecutorId is the stable name of one operational slot. ExecutorTokenSha256 is the SHA-256 of a dedicated UTF-8 executor secret. ApprovedProfileDigest is optional: empty admits the arbiter on any approved, unrevoked profile, a value pins one profile (its semantic domain-separated digest). With Enabled=true, a nonempty ASCII identifier (letters, digits, dot, hyphen, underscore) and a 64-character hex secret digest are required; the profile digest, when set, is 64 hex characters too. Invalid configuration stops startup.
 
 The offline `scripts/Seal-OutpostQualification.ps1 -GuildCapture` command remains a development tool: it checks evidence files against the compiled source identity, but the server no longer requires its result. It requires passing HISTORY, HOME, SLICE, RESTORE, runtime fault and performance, operator parity, packaging and review evidence. Candidate mode emits a pending record. Sealing a record does not modify the running server or activate V3.
 

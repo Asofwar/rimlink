@@ -3,6 +3,7 @@ using System.Text.Json;
 using Rimlink.Client.GuildCapture;
 using Rimlink.Protocol.V1;
 using Rimlink.Client.UI;
+using RimWorld;
 using Verse;
 
 namespace Rimlink.Client.Game.GuildCapture;
@@ -10,7 +11,10 @@ namespace Rimlink.Client.Game.GuildCapture;
 internal static class BattleExecutorStartup
 {
     private const string CaptureArgument="-rimlinkExecutorCapture=";
+    private const string TemplateSave="RimlinkArbiterTemplate";
     private static string? configuration,capture,captureStatus;
+    private static bool templating;
+    internal static bool WritingTemplate {get;private set;}
     private static bool started;
     private static BattleExecutorOperator? runtime;
     public static bool Selected {get;private set;}
@@ -34,8 +38,16 @@ internal static class BattleExecutorStartup
     }
     internal static void Frame()
     {
+        if(templating){TemplateFrame();return;}
         if(!Selected || started || Current.ProgramState!=ProgramState.Entry || Current.Game is not null || LongEventHandler.AnyEventNowOrWaiting)return;
         if(!ModpackActions.Content.Ready.IsCompletedSuccessfully)return;
+        if(capture is not null && !File.Exists(Path.Combine(capture,"template.rws")))
+        {
+            // No template yet: make one the way the main menu's quick test does. Only the 250x250 map survives into a battle.
+            templating=true;Log.Message("[Rimlink] arbiter template: generating a 250x250 map");
+            LongEventHandler.QueueLongEvent(()=>{Root_Play.SetupForQuickTestPlay();PageUtility.InitGameStart();},"GeneratingMap",true,GameAndMapInitExceptionHandlers.ErrorWhileGeneratingMap);
+            return;
+        }
         started=true;
         if(capture is not null){Capture(capture);return;}
         _=Task.Run(async()=>
@@ -48,6 +60,24 @@ internal static class BattleExecutorStartup
             }
         });
     }
+    private static void TemplateFrame()
+    {
+        if(LongEventHandler.AnyEventNowOrWaiting)return;
+        // A failed generation returns to the menu on its own: do not loop.
+        if(Current.ProgramState==ProgramState.Entry){templating=false;started=true;captureStatus="ProfileCaptureFailed";Log.Error("[Rimlink] arbiter template: map generation failed");return;}
+        if(Current.ProgramState!=ProgramState.Playing || Find.CurrentMap is null)return;
+        try
+        {
+            if(Find.Maps.Count!=1 || Find.CurrentMap.Size.x!=250 || Find.CurrentMap.Size.z!=250)throw new InvalidDataException("the generated map is not 250x250");
+            Find.TickManager.CurTimeSpeed=TimeSpeed.Paused;
+            WritingTemplate=true;
+            try{GameDataSaveLoader.SaveGame(TemplateSave);}finally{WritingTemplate=false;}
+            string saved=GenFilePaths.FilePathForSavedGame(TemplateSave);
+            Directory.CreateDirectory(capture!);File.Copy(saved,Path.Combine(capture!,"template.rws"));File.Delete(saved);
+            Log.Message("[Rimlink] arbiter template written");templating=false;GenScene.GoToMainMenu();
+        }
+        catch(Exception error){templating=false;started=true;captureStatus="ProfileCaptureFailed";Log.Error("[Rimlink] arbiter template failed: "+error.Message);}
+    }
     // Writes profile.pb, profile-archive, profile-capture.json and the executor-settings.json skeleton next to the operator's
     // template.rws. The roots are wherever this installation keeps the game and each loaded mod: Steam folders included.
     private static void Capture(string directory)
@@ -56,7 +86,6 @@ internal static class BattleExecutorStartup
         {
             directory=Path.GetFullPath(directory);
             string template=Path.Combine(directory,"template.rws"),profileFile=Path.Combine(directory,"profile.pb"),archive=Path.Combine(directory,"profile-archive");
-            if(!File.Exists(template))throw new InvalidDataException("template.rws is missing: save a new colony with a 250x250 map outside any Rimlink server and copy the save here");
             if(File.Exists(profileFile) || Directory.Exists(archive))throw new InvalidDataException("the folder already holds a profile: capture into an empty folder with only template.rws");
             var roots=new List<BattleRuntimeRootPath>{new(BattleInventoryRoot.Game,"game",Path.GetDirectoryName(typeof(Pawn).Assembly.Location)!),
                 new(BattleInventoryRoot.Runtime,"runtime",Path.GetDirectoryName(typeof(object).Assembly.Location)!)};

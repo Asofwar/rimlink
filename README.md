@@ -2,7 +2,7 @@
   <img src="docs/images/banner.jpg" alt="Rimlink: persistent multiplayer for RimWorld 1.7">
 </p>
 
-Version **0.10.2** makes guild battles work for ordinary Steam installations and ships the arbiter setup. Version 0.10.1 lets personal outposts and guild capture share one world. Version 0.10.0 added guild resource outposts that change hands automatically after a battle run by the operator's arbiter, and removes the build qualification seal: passive outposts and guild capture are now enabled by server configuration and domain-format activation. Both settings are off by default. Setup is described in the [EN](wiki/en/admins/passive-outposts.md) and [RU](wiki/ru/admins/passive-outposts.md) Wiki sources. Update the server and client mod together.
+Version **0.10.3** runs the guild battle arbiter unattended in the background. Version 0.10.2 makes guild battles work for ordinary Steam installations and ships the arbiter setup. Version 0.10.1 lets personal outposts and guild capture share one world. Version 0.10.0 added guild resource outposts that change hands automatically after a battle run by the operator's arbiter, and removes the build qualification seal: passive outposts and guild capture are now enabled by server configuration and domain-format activation. Both settings are off by default. Setup is described in the [EN](wiki/en/admins/passive-outposts.md) and [RU](wiki/ru/admins/passive-outposts.md) Wiki sources. Update the server and client mod together.
 
 The server and CLI require the qualified .NET and ASP.NET runtime **10.0.14**; source builds use SDK **10.0.403**. The packaged runtime policy requires this patch explicitly. Keep original executors and runtime installations for unfinished frozen restore plans; see the [server setup](docs/server-setup.md).
 
@@ -21,6 +21,14 @@ raid or manage a colony together live.
 
 Rimlink is a clean-room project with its own protocol, server and client. It shares no code with other RimWorld multiplayer
 mods and does not work with them.
+
+## What's new in 0.10.3
+
+[Release 0.10.3](https://github.com/Asofwar/rimlink/releases/tag/v0.10.3): `rimlink-tools arbiter setup` and `arbiter run` keep the guild
+battle arbiter as a background process without a window and without Steam. The command mirrors the game and the modpack's mods,
+lets the game generate the battle map template and capture the profile, publishes it, and restarts or refreshes the arbiter when it
+exits or when the game or the modpack changes. `GuildCapture:ApprovedProfileDigest` is optional now, so a new profile needs no
+server restart. Update the server and mod together.
 
 ## What's new in 0.10.2
 

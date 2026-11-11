@@ -1,11 +1,11 @@
 ---
 pageId: admins/cli
-contentRevision: 14
+contentRevision: 15
 ---
 
 # CLI reference
 
-Applies to: Rimlink 0.10.2 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.10.3 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 
@@ -105,6 +105,8 @@ wallet <playerId> <+n|-n> [reason]
 rimlink-tools backup --data <dir> [--out <archive.tar.zst>]
 rimlink-tools restore --data <dir> --from <archive.tar.zst>
 rimlink-tools anchor provision --data <dir> --anchor <dir> --storage-contract sqlite-local-v1 [--qualified-linux-filesystem ext4|xfs|btrfs]
+rimlink-tools arbiter setup --home <dir> --game <dir> [--workshop <dir>] --server <URL> --token-file <file> --executor <id> [--insecure]
+rimlink-tools arbiter run --home <dir>
 rimlink-tools modpack import --from <ModsConfig.xml> [--mods-dir <folders...>] [--dry-run]
 rimlink-tools modpack defs --mods-dir <folders...> [--dry-run]
 rimlink-tools modpack configs import --config-dir <dir> --mods-dir <folders...> --mod <packageIds...> [--dry-run]
@@ -117,7 +119,7 @@ rimlink-tools modpack package status --server <URL> --token <TOKEN>
 rimlink-tools modpack package unpublish --server <URL> --token <TOKEN>
 ```
 
-Without --dry-run, import/defs/configs import require --server/--token; HTTP commands support --insecure. Backup is safe while running; restore requires a stopped server. `anchor provision` creates, once, the empty outpost authority store (`authority.db`) in an existing directory outside the data directory: the server must be stopped, an existing store is never replaced and no logical authority is created. On Linux name the actual filesystem of the volume; on Windows it must be local NTFS. Then set `Outposts:AnchorDirectory` and `Outposts:StorageContract` and start the server. Pack is offline and uses a separately prepared redistributable collection, never the game root; output paths must be new. configs import shares selected mods below Rimlink: inspect files for secrets. requirements/status read the server; publish/unpublish change package availability and consent flags must not be supplied automatically.
+Without --dry-run, import/defs/configs import require --server/--token; HTTP commands support --insecure. Backup is safe while running; restore requires a stopped server. `arbiter setup` and `arbiter run` prepare the guild battle arbiter and keep it running in the background: see [the arbiter](./passive-outposts.md#guild-arbiter). `anchor provision` creates, once, the empty outpost authority store (`authority.db`) in an existing directory outside the data directory: the server must be stopped, an existing store is never replaced and no logical authority is created. On Linux name the actual filesystem of the volume; on Windows it must be local NTFS. Then set `Outposts:AnchorDirectory` and `Outposts:StorageContract` and start the server. Pack is offline and uses a separately prepared redistributable collection, never the game root; output paths must be new. configs import shares selected mods below Rimlink: inspect files for secrets. requirements/status read the server; publish/unpublish change package availability and consent flags must not be supplied automatically.
 
 ### Outposts
 

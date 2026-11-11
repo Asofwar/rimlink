@@ -1382,7 +1382,7 @@
     "src/Rimlink.Tools/Commands/AdminCommand.cs": "9a1e7b687006473a8e16ecee5c73a1745501b33fad489c19a401d1ffe52ca259",
     "src/Rimlink.Tools/Commands/GuildCaptureCommands.cs": "063bb71d239f6724b282c3e806b04ecba466c6a23e73529bca1e5c568ce7d76a",
     "src/Rimlink.Tools/Commands/OutpostAdminCommand.cs": "17a85e126da9315201f7f65ef9e50bd2465acdf1e37cfa39a6b0153aacba0920",
-    "src/Rimlink.Server/Hosting/GuildCaptureOptions.cs": "856565ac6aabe779b7670fb2249211318e751c97c75a8befaafee75be9735cff",
+    "src/Rimlink.Server/Hosting/GuildCaptureOptions.cs": "b50e465f623d101ac1efb64ef393399be9993053a8afdb57826e4340e77a4f68",
     "src/Rimlink.Server/Rest/GuildCaptureAdminEndpoints.cs": "375b7a1b82c807a56cca476e27dd0de5f5eda538dae6a32462b0f17964c6f682"
   },
   "excluded": {

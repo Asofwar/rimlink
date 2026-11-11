@@ -127,7 +127,7 @@ public sealed class OutpostFeature
         {
             var config = sp.GetRequiredService<IOptions<GuildCaptureOptions>>().Value;
             var time = sp.GetRequiredService<TimeProvider>();
-            return config.Enabled ? new GuildCapture.BattleExecutorRegistry(time, config.ExecutorId, Convert.FromHexString(config.ApprovedProfileDigest))
+            return config.Enabled ? new GuildCapture.BattleExecutorRegistry(time, config.ExecutorId, Convert.FromHexString(config.ApprovedProfileDigest ?? ""))
                 : new GuildCapture.BattleExecutorRegistry(time);
         });
         services.AddScoped<GuildCapture.GuildOutpostService>();

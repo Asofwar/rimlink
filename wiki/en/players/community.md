@@ -1,11 +1,11 @@
 ---
 pageId: players/community
-contentRevision: 13
+contentRevision: 14
 ---
 
 # Profiles, friends and alliances
 
-Applies to: Rimlink 0.10.2 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.10.3 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 

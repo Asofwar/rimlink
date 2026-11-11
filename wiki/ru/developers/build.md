@@ -1,11 +1,11 @@
 ---
 pageId: developers/build
-contentRevision: 8
+contentRevision: 9
 ---
 
 # Сборка проекта
 
-Применимость: Rimlink 0.10.2 · RimWorld 1.7 · протокол 1.
+Применимость: Rimlink 0.10.3 · RimWorld 1.7 · протокол 1.
 
 ## Как пользоваться {#usage}
 

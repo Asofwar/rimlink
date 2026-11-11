@@ -1,11 +1,11 @@
 ---
 pageId: admins/backup-recovery
-contentRevision: 19
+contentRevision: 20
 ---
 
 # Резервные копии и восстановление
 
-Применимость: Rimlink 0.10.2 · RimWorld 1.7 · протокол 1.
+Применимость: Rimlink 0.10.3 · RimWorld 1.7 · протокол 1.
 
 ## Как пользоваться {#usage}
 

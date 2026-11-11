@@ -1,11 +1,11 @@
 ---
 pageId: players/gifts-trades
-contentRevision: 9
+contentRevision: 10
 ---
 
 # Подарки и двусторонние сделки
 
-Применимость: Rimlink 0.10.2 · RimWorld 1.7 · протокол 1.
+Применимость: Rimlink 0.10.3 · RimWorld 1.7 · протокол 1.
 
 ## Как пользоваться {#usage}
 

@@ -18,7 +18,7 @@ internal sealed partial class BattleExecutorRegistry
         binding=BattleExecutorHelloContracts.Read(binding.ToByteArray());RequireBoot(boot);
         lock(gate)
         {
-            if(binding.Lane!=BattleExecutorLane.Execution || binding.ExecutorId!=executorId || !binding.ProfileDigest.Equals(profile))throw Refused();
+            if(binding.Lane!=BattleExecutorLane.Execution || binding.ExecutorId!=executorId || !profile.IsEmpty && !binding.ProfileDigest.Equals(profile))throw Refused();
             bool same=executionBinding?.RuntimeInstanceId==binding.RuntimeInstanceId && executionBoot==boot;
             if((Fresh() && executionBinding is not null || busy || cleanupHeld) && !same)throw Refused();
             if(same && (!executionBinding!.ProfileDigest.Equals(binding.ProfileDigest) || !executionBinding.InventorySha256.Equals(binding.InventorySha256)

@@ -81,7 +81,7 @@ public static class SaveSync
     public static bool BeforeSave(string fileName)
     {
         if (GuildCapture.BattleGameContext.Active) return GuildCapture.BattleGameContext.MaySave(fileName);
-        if (GuildCapture.BattleExecutorStartup.Selected) return false;
+        if (GuildCapture.BattleExecutorStartup.Selected) return GuildCapture.BattleExecutorStartup.WritingTemplate;
         try
         {
             if (Outposts.PawnCustodyRegistry.IsOwnSave && Current.Game is { } own)

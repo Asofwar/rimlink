@@ -18,11 +18,13 @@ internal sealed partial class BattleExecutorRegistry
     internal BattleExecutorRegistry(TimeProvider time)
     { this.time = time; executorId = ""; profile = ByteString.Empty; }
 
+    // An empty digest pins nothing here: the arbiter's profile is then admitted by its recorded, unrevoked approval alone,
+    // so a newly approved profile needs no configuration change and no server restart.
     internal BattleExecutorRegistry(TimeProvider time, string executorId, byte[] approvedProfileDigest)
     {
         ArgumentNullException.ThrowIfNull(time);
         if (string.IsNullOrWhiteSpace(executorId) || executorId.Length > 128 || executorId.Any(c => !char.IsAsciiLetterOrDigit(c) && c is not ('-' or '_' or '.'))
-            || approvedProfileDigest is not { Length: 32 }) throw Refused();
+            || approvedProfileDigest is not ({ Length: 32 } or { Length: 0 })) throw Refused();
         this.time = time; this.executorId = executorId; profile = ByteString.CopyFrom(approvedProfileDigest);
     }
 
@@ -31,11 +33,11 @@ internal sealed partial class BattleExecutorRegistry
     {
         lock (gate)
         {
-            if (id != executorId || actualProfileDigest is not { Length: 32 } || !profile.Span.SequenceEqual(actualProfileDigest)
+            if (id != executorId || actualProfileDigest is not { Length: 32 } || !profile.IsEmpty && !profile.Span.SequenceEqual(actualProfileDigest)
                 || Fresh() || executionBinding is not null || couriers.Count>0) throw Refused();
             if (busy) cleanupHeld = true;
             executionBinding = null; executionBoot = "";
-            current = new(executorId, Guid.NewGuid().ToString("D"), checked(++fence), profile);
+            current = new(executorId, Guid.NewGuid().ToString("D"), checked(++fence), ByteString.CopyFrom(actualProfileDigest));
             observed = time.GetTimestamp(); busy = false;
             return current;
         }

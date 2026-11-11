@@ -6,5 +6,6 @@ root.Subcommands.Add(BackupCommands.Backup());
 root.Subcommands.Add(BackupCommands.Restore());
 root.Subcommands.Add(BackupCommands.Anchor());
 root.Subcommands.Add(ModpackCommand.Build());
+root.Subcommands.Add(ArbiterCommand.Build());
 root.Subcommands.Add(AdminCommand.Build());
 return await root.Parse(args).InvokeAsync();

@@ -1,11 +1,11 @@
 ---
 pageId: players/visits
-contentRevision: 9
+contentRevision: 10
 ---
 
 # Визиты и магазин
 
-Применимость: Rimlink 0.10.2 · RimWorld 1.7 · протокол 1.
+Применимость: Rimlink 0.10.3 · RimWorld 1.7 · протокол 1.
 
 ## Как пользоваться {#usage}
 

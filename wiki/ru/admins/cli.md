@@ -1,11 +1,11 @@
 ---
 pageId: admins/cli
-contentRevision: 14
+contentRevision: 15
 ---
 
 # Справочник CLI
 
-Применимость: Rimlink 0.10.2 · RimWorld 1.7 · протокол 1.
+Применимость: Rimlink 0.10.3 · RimWorld 1.7 · протокол 1.
 
 ## Как пользоваться {#usage}
 
@@ -105,6 +105,8 @@ wallet <playerId> <+n|-n> [reason]
 rimlink-tools backup --data <dir> [--out <archive.tar.zst>]
 rimlink-tools restore --data <dir> --from <archive.tar.zst>
 rimlink-tools anchor provision --data <dir> --anchor <dir> --storage-contract sqlite-local-v1 [--qualified-linux-filesystem ext4|xfs|btrfs]
+rimlink-tools arbiter setup --home <dir> --game <dir> [--workshop <dir>] --server <URL> --token-file <file> --executor <id> [--insecure]
+rimlink-tools arbiter run --home <dir>
 rimlink-tools modpack import --from <ModsConfig.xml> [--mods-dir <folders...>] [--dry-run]
 rimlink-tools modpack defs --mods-dir <folders...> [--dry-run]
 rimlink-tools modpack configs import --config-dir <dir> --mods-dir <folders...> --mod <packageIds...> [--dry-run]
@@ -117,7 +119,7 @@ rimlink-tools modpack package status --server <URL> --token <TOKEN>
 rimlink-tools modpack package unpublish --server <URL> --token <TOKEN>
 ```
 
-Для import/defs/configs import без --dry-run требуются --server/--token; --insecure доступен для HTTP-клиентов. Backup безопасен при работающем сервере; restore требует остановленного. `anchor provision` один раз создаёт пустое хранилище authority аванпостов (`authority.db`) в существующем каталоге вне каталога данных: сервер должен быть остановлен, существующее хранилище не заменяется, логическая authority не создаётся. На Linux укажите фактическую файловую систему тома; на Windows нужен локальный NTFS. После этого задайте `Outposts:AnchorDirectory`, `Outposts:StorageContract` и запустите сервер. Pack работает офлайн с отдельной разрешённой коллекцией, никогда с корнем игры; новые выходные пути не должны существовать. configs import делится только выбранными модами ниже Rimlink; проверь файлы на секреты. requirements/status читают сервер; publish/unpublish меняют доступность пакета, подтверждения нельзя добавлять автоматически.
+Для import/defs/configs import без --dry-run требуются --server/--token; --insecure доступен для HTTP-клиентов. Backup безопасен при работающем сервере; restore требует остановленного. `arbiter setup` и `arbiter run` готовят и держат в фоне арбитра гильдейских боёв: см. [арбитр](./passive-outposts.md#guild-arbiter). `anchor provision` один раз создаёт пустое хранилище authority аванпостов (`authority.db`) в существующем каталоге вне каталога данных: сервер должен быть остановлен, существующее хранилище не заменяется, логическая authority не создаётся. На Linux укажите фактическую файловую систему тома; на Windows нужен локальный NTFS. После этого задайте `Outposts:AnchorDirectory`, `Outposts:StorageContract` и запустите сервер. Pack работает офлайн с отдельной разрешённой коллекцией, никогда с корнем игры; новые выходные пути не должны существовать. configs import делится только выбранными модами ниже Rimlink; проверь файлы на секреты. requirements/status читают сервер; publish/unpublish меняют доступность пакета, подтверждения нельзя добавлять автоматически.
 
 ### Аванпосты
 

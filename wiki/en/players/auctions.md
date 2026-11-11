@@ -1,11 +1,11 @@
 ---
 pageId: players/auctions
-contentRevision: 8
+contentRevision: 9
 ---
 
 # Auctions
 
-Applies to: Rimlink 0.10.2 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.10.3 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 

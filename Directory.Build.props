@@ -9,6 +9,6 @@
     <Authors>Asofwar</Authors>
     <Product>Rimlink</Product>
     <!-- Equal to mod/About/About.xml modVersion and ClientInfo.Version. -->
-    <Version>0.10.2</Version>
+    <Version>0.10.3</Version>
   </PropertyGroup>
 </Project>

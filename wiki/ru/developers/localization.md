@@ -1,11 +1,11 @@
 ---
 pageId: developers/localization
-contentRevision: 10
+contentRevision: 11
 ---
 
 # Локализация
 
-Применимость: Rimlink 0.10.2 · RimWorld 1.7 · протокол 1.
+Применимость: Rimlink 0.10.3 · RimWorld 1.7 · протокол 1.
 
 ## Как пользоваться {#usage}
 
