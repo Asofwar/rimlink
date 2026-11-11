@@ -142,63 +142,94 @@ public static class OutpostSqliteBackend
         if (count == 0) throw new InvalidDataException("outpost-sqlite-compile-options-unavailable");
     }
 
+    private sealed record NativeModule(IntPtr SourceAddress, string Hash, FileControl FileControl, SqliteFree Free);
+
+    // One successful inspection per process and native source-id address. A refusal is never cached.
+    private static volatile NativeModule? inspectedModule;
+    private static readonly object InspectionGate = new();
+    private static long nativeModuleInspections;
+
+    // Test observation only: how many times this process resolved and hashed the native module.
+    internal static long NativeModuleInspections => Interlocked.Read(ref nativeModuleInspections);
+
     private static unsafe (string Vfs, string Hash) InspectNativeBackend(sqlite3 db)
     {
         // The inspected e_sqlite3 provider returns the native static source-id address, not a copy.
         // Do not load a logical DLL name and assume that it is the provider's actual module.
         utf8z sourceId = raw.sqlite3_sourceid();
-        fixed (byte* pointer = sourceId)
+        IntPtr sourceAddress;
+        fixed (byte* pointer = sourceId) sourceAddress = (IntPtr)pointer;
+        NativeModule? module = inspectedModule;
+        if (module is null || module.SourceAddress != sourceAddress)
         {
-            IntPtr sourceAddress = (IntPtr)pointer;
-            ulong address = (ulong)(nuint)sourceAddress;
-            using var process = Process.GetCurrentProcess();
-            ProcessModule[] matches = process.Modules.Cast<ProcessModule>().Where(module =>
-                module.ModuleMemorySize > 0 && address >= (ulong)(nuint)module.BaseAddress &&
-                address - (ulong)(nuint)module.BaseAddress < (ulong)module.ModuleMemorySize).ToArray();
-            if (sourceAddress == IntPtr.Zero || matches.Length != 1)
-                throw new InvalidDataException("outpost-sqlite-native-module-unresolved");
-            string path = matches[0].FileName;
-            if (!Path.IsPathFullyQualified(path))
-                throw new InvalidDataException("outpost-sqlite-native-module-path-unresolved");
-
-            // This hashes the current installation FILE, not mapped memory. Safety relies on the
-            // trusted immutable installation assumption above; replacing native files requires
-            // requalification/restart, not a claim that this detects arbitrary mapped-memory tampering.
-            using var file = File.OpenRead(path);
-            string hash = Convert.ToHexString(SHA256.HashData(file)).ToLowerInvariant();
-            string expectedHash = OperatingSystem.IsWindows() ? WindowsHash : LinuxHash;
-            if (hash != expectedHash) throw new InvalidDataException("outpost-sqlite-native-hash-mismatch");
-
-            IntPtr library = NativeLibrary.Load(path);
-            try
+            lock (InspectionGate)
             {
-                var getSourceId = Marshal.GetDelegateForFunctionPointer<SourceId>(NativeLibrary.GetExport(library, "sqlite3_sourceid"));
-                if (getSourceId() != sourceAddress)
-                    throw new InvalidDataException("outpost-sqlite-native-module-pointer-mismatch");
-                var fileControl = Marshal.GetDelegateForFunctionPointer<FileControl>(NativeLibrary.GetExport(library, "sqlite3_file_control"));
-                var free = Marshal.GetDelegateForFunctionPointer<SqliteFree>(NativeLibrary.GetExport(library, "sqlite3_free"));
-                IntPtr text = IntPtr.Zero;
-                try
-                {
-                    int result = fileControl(db, "main", SqliteFcntlVfsName, ref text);
-                    if (result != raw.SQLITE_OK || text == IntPtr.Zero)
-                        throw new InvalidDataException("outpost-sqlite-vfs-unavailable");
-                    string? vfs = Marshal.PtrToStringUTF8(text);
-                    // VFSNAME is diagnostic evidence, not independent proof of flush semantics.
-                    // Exact equality excludes wrappers, shims and undocumented VFS variants.
-                    if (vfs != (OperatingSystem.IsWindows() ? "win32" : "unix"))
-                        throw new InvalidDataException("outpost-sqlite-vfs-mismatch");
-                    return (vfs, hash);
-                }
-                finally
-                {
-                    free(text); // Only the allocated VFSNAME string, never the static source-id.
-                }
+                module = inspectedModule;
+                if (module is null || module.SourceAddress != sourceAddress)
+                    inspectedModule = module = InspectNativeModule(sourceAddress);
             }
-            finally
-            {
-                NativeLibrary.Free(library); // Release only the extra reference acquired above.
-            }
+        }
+
+        IntPtr text = IntPtr.Zero;
+        try
+        {
+            int result = module.FileControl(db, "main", SqliteFcntlVfsName, ref text);
+            if (result != raw.SQLITE_OK || text == IntPtr.Zero)
+                throw new InvalidDataException("outpost-sqlite-vfs-unavailable");
+            string? vfs = Marshal.PtrToStringUTF8(text);
+            // VFSNAME is diagnostic evidence, not independent proof of flush semantics.
+            // Exact equality excludes wrappers, shims and undocumented VFS variants.
+            if (vfs != (OperatingSystem.IsWindows() ? "win32" : "unix"))
+                throw new InvalidDataException("outpost-sqlite-vfs-mismatch");
+            return (vfs, module.Hash);
+        }
+        finally
+        {
+            module.Free(text); // Only the allocated VFSNAME string, never the static source-id.
+        }
+    }
+
+    // Enumerating the process modules, hashing the DLL and loading it again take the loader lock and
+    // cost milliseconds on every transaction, so the answer is kept for the life of the process. That
+    // adds no trust: the module mapped at this address cannot change while it stays loaded, and the
+    // reference taken here keeps it loaded. Replacing the installation file needs a restart either way.
+    private static NativeModule InspectNativeModule(IntPtr sourceAddress)
+    {
+        Interlocked.Increment(ref nativeModuleInspections);
+        ulong address = (ulong)(nuint)sourceAddress;
+        using var process = Process.GetCurrentProcess();
+        ProcessModule[] matches = process.Modules.Cast<ProcessModule>().Where(module =>
+            module.ModuleMemorySize > 0 && address >= (ulong)(nuint)module.BaseAddress &&
+            address - (ulong)(nuint)module.BaseAddress < (ulong)module.ModuleMemorySize).ToArray();
+        if (sourceAddress == IntPtr.Zero || matches.Length != 1)
+            throw new InvalidDataException("outpost-sqlite-native-module-unresolved");
+        string path = matches[0].FileName;
+        if (!Path.IsPathFullyQualified(path))
+            throw new InvalidDataException("outpost-sqlite-native-module-path-unresolved");
+
+        // This hashes the current installation FILE, not mapped memory. Safety relies on the
+        // trusted immutable installation assumption above; replacing native files requires
+        // requalification/restart, not a claim that this detects arbitrary mapped-memory tampering.
+        string hash;
+        using (var file = File.OpenRead(path))
+            hash = Convert.ToHexString(SHA256.HashData(file)).ToLowerInvariant();
+        string expectedHash = OperatingSystem.IsWindows() ? WindowsHash : LinuxHash;
+        if (hash != expectedHash) throw new InvalidDataException("outpost-sqlite-native-hash-mismatch");
+
+        IntPtr library = NativeLibrary.Load(path);
+        try
+        {
+            var getSourceId = Marshal.GetDelegateForFunctionPointer<SourceId>(NativeLibrary.GetExport(library, "sqlite3_sourceid"));
+            if (getSourceId() != sourceAddress)
+                throw new InvalidDataException("outpost-sqlite-native-module-pointer-mismatch");
+            var fileControl = Marshal.GetDelegateForFunctionPointer<FileControl>(NativeLibrary.GetExport(library, "sqlite3_file_control"));
+            var free = Marshal.GetDelegateForFunctionPointer<SqliteFree>(NativeLibrary.GetExport(library, "sqlite3_free"));
+            return new(sourceAddress, hash, fileControl, free); // The extra reference stays for the process.
+        }
+        catch
+        {
+            NativeLibrary.Free(library); // Release only the extra reference acquired above.
+            throw;
         }
     }
 

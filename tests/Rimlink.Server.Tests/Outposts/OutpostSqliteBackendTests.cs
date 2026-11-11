@@ -26,6 +26,25 @@ public sealed class OutpostSqliteBackendTests
         db.AssertUnchanged("persist", 3);
     }
 
+    [Fact]
+    public void Repeated_validation_inspects_the_native_module_once_per_process()
+    {
+        using var first = new BackendDatabase("persist", 3);
+        var expected = OutpostSqliteBackend.Validate(first.Connection, OutpostDatabaseRole.Anchor);
+        long inspections = OutpostSqliteBackend.NativeModuleInspections;
+        Assert.True(inspections >= 1);
+
+        Parallel.For(0, 24, _ =>
+        {
+            using var db = new BackendDatabase("wal", 2);
+            var report = OutpostSqliteBackend.Validate(db.Connection, OutpostDatabaseRole.Domain);
+            Assert.Equal(expected.NativeSha256, report.NativeSha256);
+            Assert.Equal(expected.Vfs, report.Vfs);
+        });
+
+        Assert.Equal(inspections, OutpostSqliteBackend.NativeModuleInspections);
+    }
+
     [Theory]
     [InlineData("persist", 0)]
     [InlineData("persist", 1)]
