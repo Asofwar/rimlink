@@ -1,11 +1,11 @@
 ---
 pageId: players/world
-contentRevision: 6
+contentRevision: 7
 ---
 
 # Shared world and settlements
 
-Applies to: Rimlink 0.10.0 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.10.1 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 

@@ -1,11 +1,11 @@
 ---
 pageId: developers/storage
-contentRevision: 18
+contentRevision: 19
 ---
 
 # Хранилище и эскроу
 
-Применимость: Rimlink 0.10.0 · RimWorld 1.7 · протокол 1.
+Применимость: Rimlink 0.10.1 · RimWorld 1.7 · протокол 1.
 
 ## Как пользоваться {#usage}
 

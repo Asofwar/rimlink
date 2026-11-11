@@ -29,6 +29,23 @@ public static class BackupCommands
         return command;
     }
 
+    public static Command Anchor(TextWriter? outputWriter = null)
+    {
+        var data = Required("--data", "Existing server data directory (server must be stopped)");
+        var anchor = Required("--anchor", "Existing empty directory outside the data directory for the authority store");
+        var storage = new Option<string>("--storage-contract") { Description = "Explicit qualified storage contract: sqlite-local-v1" };
+        var linux = new Option<string>("--qualified-linux-filesystem") { Description = "Explicitly qualified Linux filesystem (ext4, xfs or btrfs)" };
+        var provision = new Command("provision", "Create the empty authority store required before outposts are initialized; never replaces one") { data, anchor, storage, linux };
+        provision.SetAction(parse => Run(outputWriter, async writer =>
+        {
+            string file = OutpostAnchorProvisioning.Provision(parse.GetValue(data)!, new OutpostOptions { AnchorDirectory = parse.GetValue(anchor)!,
+                StorageContract = parse.GetValue(storage) ?? "", QualifiedLinuxFileSystem = parse.GetValue(linux) ?? "" });
+            await writer.WriteLineAsync($"authority store provisioned: {file}");
+            return 0;
+        }));
+        return new Command("anchor", "External authority store of the outposts (stopped server)") { provision };
+    }
+
     public static Command Restore(TextWriter? outputWriter = null)
     {
         // Legacy syntax remains guarded; parent options are not required on the explicit protected subcommands.

@@ -70,7 +70,7 @@ public sealed partial class OutpostAuthority
         }
         if (command.Action == OutpostAdminActionKind.Resolve && command.Version == 2)
         {
-            if (domain.Format != OutpostDomainFormat.V2) throw AdminMismatch();
+            if (domain.Format is not (OutpostDomainFormat.V2 or OutpostDomainFormat.V3)) throw AdminMismatch();
             if (command.Recovery?.Canonical is { } canonical)
             {
                 await ReadAdminCanonicalCurrentAsync(lease, canonical, ct);
@@ -87,7 +87,7 @@ public sealed partial class OutpostAuthority
         {
             if (command.Resolution?.Kind is OutpostAdminResolutionKind.AbortNoRemoval or OutpostAdminResolutionKind.AbortWithReturn)
                 RequireRuntimeCustody();
-            if (domain.Format != OutpostDomainFormat.V2 || command.Resolution is not { } selected || command.Evidence.Length != 2
+            if (domain.Format is not (OutpostDomainFormat.V2 or OutpostDomainFormat.V3) || command.Resolution is not { } selected || command.Evidence.Length != 2
                 || selected.Scope.WorldInstanceId != row.WorldId || selected.Scope.RestoreBoundary != row.RestoreBoundary
                 || !await db.Players.AsNoTracking().AnyAsync(p => p.Id == selected.Scope.OwnerPlayerId
                     && p.SaveGeneration == selected.Scope.SaveGeneration && p.SaveWriteEpoch == selected.Scope.SaveWriteEpoch, ct)) throw AdminMismatch();
@@ -97,7 +97,7 @@ public sealed partial class OutpostAuthority
                 || !System.Security.Cryptography.SHA256.HashData(source.Intent).AsSpan().SequenceEqual(evidence.Digest)) throw AdminMismatch();
             return domain.Format;
         }
-        if (command.Action != OutpostAdminActionKind.ConfirmManifest || domain.Format != OutpostDomainFormat.V2
+        if (command.Action != OutpostAdminActionKind.ConfirmManifest || domain.Format is not (OutpostDomainFormat.V2 or OutpostDomainFormat.V3)
             || command.Evidence.Length != 2) throw AdminMismatch();
         if (await db.PawnCustody.AnyAsync(ct)) RequireRuntimeCustody();
         var manifest = command.Evidence.SingleOrDefault(e => e.Kind == OutpostAdminEvidenceKind.Manifest);

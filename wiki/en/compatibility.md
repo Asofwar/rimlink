@@ -1,21 +1,21 @@
 ---
 pageId: compatibility
-contentRevision: 6
+contentRevision: 7
 ---
 
 # Versions and compatibility
 
-Applies to: Rimlink 0.10.0 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.10.1 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 
-Use RimWorld 1.7, Rimlink 0.10.0 and Harmony 3.x. Server and mod versions must be compatible; the current network protocol is 1. Use a release package and the administrator's modpack.
+Use RimWorld 1.7, Rimlink 0.10.1 and Harmony 3.x. Server and mod versions must be compatible; the current network protocol is 1. Use a release package and the administrator's modpack.
 
 Load order, package IDs, versions, file contents and mod settings may be checked at connection time. The difference dialog explains what to change. Back up local data and close the game before updating.
 
 ## How do I check a setup before joining? {#checklist}
 
-Check four independent layers: RimWorld 1.7; Rimlink 0.10.0 on client and server; Harmony 3.x; and the chosen server's collection. Matching mod names is insufficient: package IDs, versions, order, file contents and shared settings can differ.
+Check four independent layers: RimWorld 1.7; Rimlink 0.10.1 on client and server; Harmony 3.x; and the chosen server's collection. Matching mod names is insufficient: package IDs, versions, order, file contents and shared settings can differ.
 
 1. Obtain the Rimlink version and required DLC from the administrator.
 2. Avoid two active copies of one packageId: a Workshop copy and local folder must not compete.

@@ -26,7 +26,7 @@ public sealed partial class OutpostAdminService
         if (input is null) return Task.FromResult(new OutpostAdminPreview(null, ["admin-original-ordinary-input-required"]));
         return authority.ReadAdminProjectionAsync(observation, live, async (observed, token) =>
         {
-            if (observed.Committed is not { DomainFormat: OutpostDomainFormat.V2 } expected || target.Ordinary!.Input is not null)
+            if (observed.Committed is not { DomainFormat: OutpostDomainFormat.V2 or OutpostDomainFormat.V3 } expected || target.Ordinary!.Input is not null)
                 return new OutpostAdminPreview(null, ["admin-resolution-not-eligible"]);
             if (authority.IsRuntimeComposition && !authority.ReadinessObservation.CanResolveCustody)
                 return new(null, ["outpost-readiness-unavailable"]);

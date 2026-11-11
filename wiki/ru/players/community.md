@@ -1,11 +1,11 @@
 ---
 pageId: players/community
-contentRevision: 11
+contentRevision: 12
 ---
 
 # Профили, друзья и союзы
 
-Применимость: Rimlink 0.10.0 · RimWorld 1.7 · протокол 1.
+Применимость: Rimlink 0.10.1 · RimWorld 1.7 · протокол 1.
 
 ## Как пользоваться {#usage}
 

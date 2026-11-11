@@ -1,6 +1,6 @@
 ---
 pageId: admins/passive-outposts
-contentRevision: 35
+contentRevision: 36
 ---
 
 # Outposts: readiness, administration and isolated acceptance
@@ -11,7 +11,7 @@ The 10.0.14 executor uses the separate qualification rimlink-outposts-schema-202
 
 The project version is 0.10.0. The build qualification seal was removed in 0.10.0: the feature is enabled by server configuration and domain-format activation, while the startup-state, format, schema and storage checks apply as before.
 
-Build 0.10.0 needs no embedded qualification artifact. Personal outposts are advertised to players once `Outposts:Enabled=true` is set, the authority is initialized, the world manifest is confirmed, format V2 is activated and the startup state is Ready. The release keeps the capability disabled. Update the server and client mod together.
+Build 0.10.0 needs no embedded qualification artifact. Personal outposts are advertised to players once `Outposts:Enabled=true` is set, the authority is initialized, the world manifest is confirmed, format V2 or V3 is activated and the startup state is Ready. The release keeps the capability disabled. Update the server and client mod together.
 
 The one readiness evaluator reports configuration, the fixed ten safety integrations and contract revisions, build qualification, actual startup state, chain-proved domain format, current schema, advertised capability, custody recovery and retained-history protection. Unknown fails closed. `Enabled=false` closes new gameplay, but never removes custody fences. Migrated domain v1 is `FormatActivationRequired`, not corrupt history: inspection and explicit v2 activation remain available while ordinary domain writers are closed. `NoActiveWorld` remains admin-only. Only the existing proved Completed Recreate path may bind a successor world through its separate evaluator gate; it does not enable ordinary recovery before real Ready.
 
@@ -25,13 +25,15 @@ Preview drafts contain action, a fresh D-format requestId, a reason of 1..1024 U
 
 Save the whole returned command before submitting it with `confirmed:true`. The CLI accepts a retained preview envelope and removes diagnostic `intent`/`blockers` fields when posting its exact command/digest. The panel requires saving the command and a separate confirmation. Changing an input invalidates its preview. A changed head/state/evidence refuses the original selection: request a new preview and confirm it explicitly. No adapter silently refreshes or resubmits a replacement request. On an uncertain response preserve the saved command; a failure is not proof of a durable rejection or permission for another grant.
 
+First enablement, in order: stop the server, create the authority store with `rimlink-tools anchor provision` (see [CLI](./cli.md)), set `Outposts:Enabled=true`, `Outposts:AnchorDirectory` and `Outposts:StorageContract=sqlite-local-v1`, start the server, fill the def catalog, run preview and `initialize`, then export the world manifest from the administrator's game and confirm it. A new authority starts at format V2; for guild capture also activate V3. Players see outposts after their next login.
+
 Initialization requires positively empty protected history, an already physically provisioned qualified NULL anchor, the actual world binding and exact schema/backend/location observation. It never initializes over missing/corrupt authority with history. An interrupted initialization needs the same original complete command/allocation; its digest alone is insufficient. Physical provisioning and restore/resume/backout remain separate stopped-server procedures, not online repair buttons.
 
 ## Manifest and recovery choices {#recovery}
 
 After a restore to a different address or port, the client checks a parcel against the v2 gameplay fingerprint of its confirmed manifest. Rimlink's local server list does not affect that fingerprint. Manifests without v2 still require an exact match against the original v1 fingerprint. On an isolated test stand, `rimlink/outpost_manifest_preview` shows both fingerprints without uploading or confirming a manifest.
 
-Before the first export, populate the server's def catalog from the active modpack. The full catalog must include the main world's biome names plus `Steel` and `WoodLog`. `rimlink-tools modpack defs` scans ThingDef and PawnKindDef only. Use the authenticated `PUT /api/admin/modpack/defs` with `{"defNames":[...]}` to submit the complete list, including biome names. This replaces the whole catalog, so retain the allowed item and pawn names when adding biomes. An empty catalog rejects a world manifest.
+Before the first export, populate the server's def catalog from the active modpack. The full catalog must include the main world's biome names plus `Steel` and `WoodLog`. Since 0.10.1 `rimlink-tools modpack defs` scans ThingDef, PawnKindDef and BiomeDef, so one run over the game and mod folders is enough. The same list can be sent by hand with the authenticated `PUT /api/admin/modpack/defs` and `{"defNames":[...]}`: the request replaces the whole catalog. An empty catalog rejects a world manifest.
 
 Export the administrator's actual game world on the main thread. The manifest uses the server's canonical world parameters after checking the actual planet. The local colony scenario, storyteller and difficulty may differ. The planet, game build, DLC and gameplay definitions must still match. Upload its exact binary document in chunks of at most 256 KiB, up to 24 MiB in total. Staging is a protected mutation and does not confirm the document. Inspect world/parameter/defs/DLC/catalog fingerprints, tile coverage, revision/digest and affected owner/preparation/outpost counts. Request a separate confirmation preview with an audit reason. Changing geography affecting custody requires the complete qualified recovery graph. Confirmation follows the existing settle/hold rules, preserves provenance and never enables Product or guesses elapsed production under SafetyHold.
 
@@ -103,7 +105,7 @@ Use the guild freeze action from the same panel to close admission across the cu
 
 The server returns `OutpostConflict` with the `Guild.Claim` key for a confirmed claim conflict. It checks permissions, revision, stock and recipient before creating the parcel. The client removes that request from automatic retry. A `GuildUnavailable` reply keeps it queued for reconciliation. If the server already fulfilled the same request, it returns the original receipt.
 
-Checks cover four activation interruption points and basic R3 stock/campaign restoration. Isolated 0.10.0 runs preserved two accepted deliveries, delivered a pending parcel after a port change and replaced the executor on an occupied arena after the operator stopped a started battle. Interrupted materialization and restoration of an applied result with an occupied arena still need in-game acceptance. Server 0.10.0 requires no HISTORY/RESTORE seal. Do not activate V3 operationally. In a world with format V3 personal outposts are not advertised to players: V3 serves guild outposts. See the [Product matrix](../developers/testing.md#guild-capture-product).
+Checks cover four activation interruption points and basic R3 stock/campaign restoration. Isolated 0.10.0 runs preserved two accepted deliveries, delivered a pending parcel after a port change and replaced the executor on an occupied arena after the operator stopped a started battle. Interrupted materialization and restoration of an applied result with an occupied arena still need in-game acceptance. Server 0.10.0 requires no HISTORY/RESTORE seal. Take a backup before activating V3 on a live server: the activation is not reversible by a setting. Since 0.10.1 a world with format V3 serves both guild outposts and personal outposts: personal ones are advertised to players with `Outposts:Enabled=true`, and manifest confirmation, the commands that resolve stuck operations and successor-world binding are accepted at V2 and at V3. Checked in RimWorld 1.7.5005 on a local server with one client: enabling with `anchor provision`, V3 activation, manifest confirmation, a personal outpost with a worker, a wood delivery into the colony and a neutral guild outpost in the same world. A guild battle with an arbiter and two players in such a world were not repeated on the 0.10.1 build. See the [Product matrix](../developers/testing.md#guild-capture-product).
 
 ## See also {#related}
 

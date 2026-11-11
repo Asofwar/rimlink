@@ -26,12 +26,25 @@ internal static class OutpostUnitComposition
                 sp.GetRequiredService<OutpostTestQualification>(), OutpostTestQualification.Integrations));
         });
 
+    // RIMLINK_TEST_GUILD_FORMAT=1 runs every fixture that activates its domain in a V3 world, so the personal
+    // outpost suites prove themselves next to the guild tables as well as on V2.
+    internal static bool GuildFormat => Environment.GetEnvironmentVariable("RIMLINK_TEST_GUILD_FORMAT") == "1";
+
     internal static async Task Activate(AuthorityHarness root)
     {
         await root.Authority.OpenAsync(default);
+        var service = OutpostAdminActivationTests.Service(root);
         if (root.Feature.VerifiedDomainFormat == OutpostDomainFormat.V1)
-            await OutpostAdminActivationTests.Service(root).ActivateDomainFormatAsync(Rimlink.Server.Application.Admin.Actor.Api,
+            await service.ActivateDomainFormatAsync(Rimlink.Server.Application.Admin.Actor.Api,
                 await OutpostAdminActivationTests.CommandForCurrent(root), default);
+        if (GuildFormat && root.Feature.VerifiedDomainFormat == OutpostDomainFormat.V2)
+        {
+            await OutpostMainObservationTests.Prepare(root, root.MainObservation);
+            var next = await service.PreviewActivateGuildDomainFormatAsync(Rimlink.Server.Application.Admin.Actor.Api,
+                Guid.NewGuid().ToString("D"), "Explicit unit-fixture v3 activation", default);
+            await service.ActivateDomainFormatAsync(Rimlink.Server.Application.Admin.Actor.Api, (next.Command ?? throw new InvalidOperationException("v3 activation refused: " + string.Join(",", next.Blockers))) with { Confirmed = true }, default);
+            await root.MainObservation.DrainAsync(default); // The V2 fixtures never hold this reader; keep the files as free as theirs.
+        }
     }
 
     internal static async Task Activate(IServiceProvider provider)
@@ -44,5 +57,10 @@ internal static class OutpostUnitComposition
         var preview = await admin.PreviewActivateDomainFormatAsync(Rimlink.Server.Application.Admin.Actor.Api,
             Guid.NewGuid().ToString("D"), "Explicit unit-fixture v2 activation", default);
         await admin.ActivateDomainFormatAsync(Rimlink.Server.Application.Admin.Actor.Api, preview.Command! with { Confirmed = true }, default);
+        if (!GuildFormat) return;
+        await authority.PrepareStartupObservationAsync(provider.GetRequiredService<OutpostMainObservation>(), default);
+        var next = await admin.PreviewActivateGuildDomainFormatAsync(Rimlink.Server.Application.Admin.Actor.Api,
+            Guid.NewGuid().ToString("D"), "Explicit unit-fixture v3 activation", default);
+        await admin.ActivateDomainFormatAsync(Rimlink.Server.Application.Admin.Actor.Api, (next.Command ?? throw new InvalidOperationException("v3 activation refused: " + string.Join(",", next.Blockers))) with { Confirmed = true }, default);
     }
 }

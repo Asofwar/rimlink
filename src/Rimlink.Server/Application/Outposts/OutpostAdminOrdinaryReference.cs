@@ -13,7 +13,7 @@ public sealed partial class OutpostAdminService
         OriginalOrdinaryInput? input, string requestId, string reason, CancellationToken ct) =>
         authority.ReadAdminProjectionAsync(observation, live, async (observed, token) =>
         {
-            if (observed.Committed is not { DomainFormat: OutpostDomainFormat.V2 } expected || target.Ordinary is not { Input: null } selected)
+            if (observed.Committed is not { DomainFormat: OutpostDomainFormat.V2 or OutpostDomainFormat.V3 } expected || target.Ordinary is not { Input: null } selected)
                 return new OutpostAdminPreview(null, ["admin-resolution-not-eligible"]);
             try
             {

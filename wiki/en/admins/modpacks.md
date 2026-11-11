@@ -1,17 +1,17 @@
 ---
 pageId: admins/modpacks
-contentRevision: 6
+contentRevision: 7
 ---
 
 # Managing modpacks
 
-Applies to: Rimlink 0.10.0 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.10.1 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 
 1. Prepare a tested set in a separate game installation. Record ModsConfig.xml, load order, versions and hashes.
 2. Run modpack import --from &lt;ModsConfig.xml&gt; --mods-dir &lt;folders&gt; --dry-run. After review, add --server/--token to upload requirements.
-3. modpack defs collects permitted ThingDef/PawnKindDef names; an empty list disables that check. Import shared settings only for selected --mod entries loading below Rimlink.
+3. modpack defs collects permitted ThingDef/PawnKindDef names and the BiomeDef names the outposts' world manifest needs; an empty list disables that check. Import shared settings only for selected --mod entries loading below Rimlink.
 4. For server delivery, run modpack package requirements --output &lt;new-file&gt;, then package pack --source &lt;redistributable-folders&gt; --requirements &lt;file&gt; --output &lt;new-directory&gt;.
 5. Review archive.zip, manifest.json, licenses and settings. package publish --from &lt;directory&gt; requires --confirm-redistribution; --confirm-public and --confirm-shared-settings acknowledge those disclosures. Inspect package status; unpublish removes publication.
 

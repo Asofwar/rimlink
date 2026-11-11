@@ -61,7 +61,7 @@ public sealed partial class OutpostAdminService
                 readiness.AdvertiseCapability && observed.Kind == OutpostAuthorityObservationKind.Committed, blockers, rows.ToArray(), next, more,
                 observed.Kind == OutpostAuthorityObservationKind.Uninitialized ? ["PreviewInitialize"]
                     : observed.Committed?.DomainFormat == OutpostDomainFormat.V1 ? ["PreviewDomainFormatActivation"]
-                    : observed.Committed?.DomainFormat == OutpostDomainFormat.V2 ? ["PreviewManifestConfirmation", "PreviewResolve"] : [], readiness,
+                    : observed.Committed?.DomainFormat is OutpostDomainFormat.V2 or OutpostDomainFormat.V3 ? ["PreviewManifestConfirmation", "PreviewResolve"] : [], readiness,
                 actor.Role >= Role.Admin,
                 new[] { "archive", "reset", "backup" }.Select(action => new OutpostAdminPreflight(action, readiness.CanResolveCustody ? null : false,
                     readiness.CanResolveCustody ? ["explicit-locked-" + action + "-validation-required"] : readiness.Blockers)).ToArray());

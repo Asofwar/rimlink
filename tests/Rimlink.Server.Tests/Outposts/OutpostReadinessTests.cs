@@ -110,12 +110,12 @@ public sealed class OutpostReadinessTests
     }
     [Theory]
     [InlineData(false)][InlineData(true)]
-    public void Verified_V3_common_safety_resolves_history_and_writers_without_advertising_personal_passive_outposts(bool enabled)
+    public void Verified_V3_common_safety_resolves_history_and_writers_and_advertises_enabled_personal_outposts(bool enabled)
     {
         var input=Ready() with{DomainFormat=OutpostDomainFormat.V3,ConfiguredEnabled=enabled};
         input=input with{Build=input.Build with{Mode=OutpostRuntimeMode.IsolatedAcceptance,State=OutpostQualificationState.Pending}};
         var result=OutpostReadiness.Evaluate(input);Assert.True(result.CanResolveCustody);Assert.True(result.CanRunDomainWriters);
-        Assert.False(result.AdvertiseCapability);Assert.False(result.CanBindSuccessorWorld);
+        Assert.Equal(enabled,result.AdvertiseCapability);Assert.False(result.CanBindSuccessorWorld);
     }
     [Theory]
     [InlineData("schema")][InlineData("history")][InlineData("integrations")][InlineData("product-pending")]

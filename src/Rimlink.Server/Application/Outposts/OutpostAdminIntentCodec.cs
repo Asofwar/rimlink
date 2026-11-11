@@ -137,8 +137,7 @@ public static partial class OutpostAdminIntentCodec
     {
         if (i is null || i.Version is not (1 or 2 or 3) || !Enum.IsDefined(i.Action)) throw Invalid();
         if (i.Version == 1 && i.Recovery is not null || i.Version == 2 && (i.Action != OutpostAdminActionKind.Resolve || i.Recovery is null || i.Resolution is not null)) throw Invalid();
-        if (i.Version == 3 && (i.Action != OutpostAdminActionKind.ActivateDomainFormat || i.Recovery is not null)
-            || i.Version < 3 && i.Expected.Committed?.DomainFormat == OutpostDomainFormat.V3) throw Invalid();
+        if (i.Version == 3 && (i.Action != OutpostAdminActionKind.ActivateDomainFormat || i.Recovery is not null)) throw Invalid();
         ValidateActor(i.Actor); Uuid(i.RequestId); Text(i.Reason, 1024);
         ValidateObservation(i.Expected);
         if (i.Allocation is not { AuditId: > 0 } a || a.At.Kind != DateTimeKind.Utc) throw Invalid();
@@ -163,7 +162,7 @@ public static partial class OutpostAdminIntentCodec
         if (i.Expected is not { Kind: OutpostAuthorityObservationKind.Committed, Committed: { } committed }) throw Invalid();
         if (i.Version == 2)
         {
-            if (committed.DomainFormat != OutpostDomainFormat.V2) throw Invalid();
+            if (committed.DomainFormat is not (OutpostDomainFormat.V2 or OutpostDomainFormat.V3)) throw Invalid();
             ValidateRecovery(i.Recovery!); return;
         }
         switch (i.Action)

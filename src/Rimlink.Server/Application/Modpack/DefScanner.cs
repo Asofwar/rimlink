@@ -3,12 +3,12 @@ using System.Xml;
 namespace Rimlink.Server.Application.Modpack;
 
 /// <summary>
-/// Collects ThingDef and PawnKindDef names from the Defs XML of mod folders without running the game.
+/// Collects ThingDef, PawnKindDef and BiomeDef (the outposts' world manifest names biomes) names from the Defs XML of mod folders without running the game.
 /// Abstract defs (<c>Abstract="True"</c>) are bases, never things, and are skipped; unreadable files are ignored.
 /// </summary>
 public static class DefScanner
 {
-    private static readonly HashSet<string> DefTypes = ["ThingDef", "PawnKindDef"];
+    private static readonly HashSet<string> DefTypes = ["ThingDef", "PawnKindDef", "BiomeDef"];
 
     public static SortedSet<string> Scan(IEnumerable<string> modDirs)
     {

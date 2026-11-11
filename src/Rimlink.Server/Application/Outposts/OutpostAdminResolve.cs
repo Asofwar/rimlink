@@ -15,7 +15,7 @@ public sealed partial class OutpostAdminService
         var selected = FreezeResolution(selection);
         return authority.ReadAdminProjectionAsync(observation, live, async (observed, token) =>
         {
-            if (observed.Committed is not { DomainFormat: OutpostDomainFormat.V2 } expected)
+            if (observed.Committed is not { DomainFormat: OutpostDomainFormat.V2 or OutpostDomainFormat.V3 } expected)
                 return new OutpostAdminPreview(null, ["admin-resolution-not-eligible"]);
             if (authority.IsRuntimeComposition && !authority.ReadinessObservation.CanResolveCustody
                 && selected.Kind is OutpostAdminResolutionKind.AbortNoRemoval or OutpostAdminResolutionKind.AbortWithReturn)

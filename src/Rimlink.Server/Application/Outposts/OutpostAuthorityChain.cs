@@ -87,7 +87,7 @@ public sealed partial class OutpostAuthority
                             throw new OutpostEvidenceUnavailableException("authority-chain-domain-format-mismatch");
                         format = activation.To;
                     }
-                    else if (format != OutpostDomainFormat.V2)
+                    else if (format is not (OutpostDomainFormat.V2 or OutpostDomainFormat.V3))
                         throw new OutpostEvidenceUnavailableException("authority-chain-domain-format-mismatch");
                 }
             }

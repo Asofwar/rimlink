@@ -17,7 +17,7 @@ public sealed partial class OutpostAdminService
             ViewRootDigest = c.ViewRootDigest?.ToArray(), ViewPathDigest = c.ViewPathDigest?.ToArray() };
         return authority.ReadAdminProjectionAsync(observation, live, async (observed, lease, token) =>
         {
-            if (observed.Committed is not { DomainFormat: OutpostDomainFormat.V2 } expected || lease is null)
+            if (observed.Committed is not { DomainFormat: OutpostDomainFormat.V2 or OutpostDomainFormat.V3 } expected || lease is null)
                 return new OutpostAdminPreview(null, ["admin-resolution-not-eligible"]);
             try
             {

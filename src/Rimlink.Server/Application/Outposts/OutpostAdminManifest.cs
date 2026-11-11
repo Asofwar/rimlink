@@ -17,7 +17,7 @@ public sealed partial class OutpostAdminService
         byte[] digest = (byte[])expectedDigest.Clone();
         return authority.ReadAdminProjectionAsync(observation, live, async (observed, token) =>
         {
-            if (observed.Committed is not { DomainFormat: OutpostDomainFormat.V2 } expected)
+            if (observed.Committed is not { DomainFormat: OutpostDomainFormat.V2 or OutpostDomainFormat.V3 } expected)
                 return new OutpostAdminPreview(null, ["admin-manifest-not-eligible"]);
             if (authority.IsRuntimeComposition && !authority.ReadinessObservation.CanResolveCustody && await db.PawnCustody.AnyAsync(token))
                 return new(null, ["outpost-readiness-unavailable"]);

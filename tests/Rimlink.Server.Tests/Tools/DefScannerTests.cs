@@ -12,7 +12,7 @@ public class DefScannerTests : IDisposable
     public void Dispose() => Directory.Delete(dir, recursive: true);
 
     [Fact]
-    public void ScansThingAndPawnKindDefsSkippingAbstractOnes()
+    public void ScansThingPawnKindAndBiomeDefsSkippingAbstractOnes()
     {
         string a = Path.Combine(dir, "Mods", "A", "Defs");
         string b = Path.Combine(dir, "Mods", "B", "1.7", "Defs", "Pawns");
@@ -24,6 +24,7 @@ public class DefScannerTests : IDisposable
               <ThingDef Name="ResourceBase" Abstract="True"><defName>ResourceBase</defName></ThingDef>
               <ThingDef ParentName="ResourceBase"><defName>Steel</defName><label>steel</label></ThingDef>
               <RecipeDef><defName>Make_Steel</defName></RecipeDef>
+              <BiomeDef><defName>TemperateForest</defName></BiomeDef>
             </Defs>
             """);
         File.WriteAllText(Path.Combine(b, "Pawns.xml"), """
@@ -35,7 +36,7 @@ public class DefScannerTests : IDisposable
 
         var defs = DefScanner.Scan([Path.Combine(dir, "Mods")]);
 
-        Assert.Equal(["Colonist", "Steel"], defs);
+        Assert.Equal(["Colonist", "Steel", "TemperateForest"], defs);
     }
 
     [Fact]
