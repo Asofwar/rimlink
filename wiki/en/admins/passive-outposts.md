@@ -1,6 +1,6 @@
 ---
 pageId: admins/passive-outposts
-contentRevision: 37
+contentRevision: 38
 ---
 
 # Outposts: readiness, administration and isolated acceptance
@@ -118,6 +118,16 @@ The arbiter is the operator's own RimWorld process that computes a battle. It ne
 5. Run `rimlink-tools admin guild-capture profile publish <folder> <ExecutorId> "<reason>"`.
 6. In `executor-settings.json` fill `ExecutorId`, `WorldInstanceId` and `RestoreBoundary` (`scope.worldId` and `scope.boundary` from `guild-capture inspect`), `Endpoint` (`https://host:port/`), `CertificateSha256` (the server certificate fingerprint) and `CredentialPath` (the secret file).
 7. Run the arbiter with `-savedatafolder=...` and `-rimlinkExecutorConfig=<executor-settings.json>`. Its menu shows "Battle arbiter: waiting for assignment" and `guild-capture inspect` names it in `availableExecutorId`.
+
+### A background arbiter: no window, no Steam {#guild-arbiter-background}
+
+Add the game switch `-Headless` to the arbiter's command line: the process runs without a window, generates a map, ticks and saves. `-NoFileLog` switches off the game's shared log file so the arbiter does not overwrite the `Player.log` of a player on the same machine; redirect the process output to a file of your own.
+
+To keep the arbiter away from Steam, so it does not get in the way of starting the ordinary game, give it a copy of the game folder of its own without `steam_appid.txt` and copy every modpack mod into that copy's `Mods` folder (Workshop mods are invisible without Steam). The copy must be the players' build. A profile captured in another installation with the same builds and mods stays valid: replacing the paths in `Roots` of `executor-settings.json` is enough.
+
+Such a process has no window, so it is stopped by ending the process: an idle arbiter loses nothing and one in a battle resumes from its checkpoint.
+
+Checked in RimWorld 1.7.5005: a windowless, Steam-free arbiter from a separate copy of the game with 31 mods registered with the server on a profile captured in the Steam installation; a windowless game generated a 250×250 map, ticked and saved without errors. No battle was run in this mode.
 
 A profile pins the game, runtime and Rimlink client builds, the mod list, the content of the mods' gameplay files and the loaded definitions. After an update of the game, of Rimlink or of any modpack mod, capture the profile again, approve it and update `ApprovedProfileDigest`: until then the arbiter takes no assignment and campaigns end in a technical cancellation without a penalty.
 

@@ -2045,7 +2045,7 @@
     },
     {
       "id": "admins/passive-outposts",
-      "contentRevision": 37,
+      "contentRevision": 38,
       "sections": [
         "usage",
         "commands",
