@@ -1,11 +1,11 @@
 ---
 pageId: players/chat-pings
-contentRevision: 9
+contentRevision: 10
 ---
 
 # Chat, messages and pings
 
-Applies to: Rimlink 0.10.3 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.10.4 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 

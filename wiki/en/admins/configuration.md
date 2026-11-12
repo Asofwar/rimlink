@@ -1,11 +1,11 @@
 ---
 pageId: admins/configuration
-contentRevision: 15
+contentRevision: 16
 ---
 
 # Configuration reference
 
-Applies to: Rimlink 0.10.3 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.10.4 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 

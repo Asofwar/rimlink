@@ -16,8 +16,9 @@ namespace Rimlink.Tools.Commands;
 /// </summary>
 public static class ArbiterCommand
 {
-    private sealed record Settings(string Game, string Workshop, string Server, string TokenFile, bool Insecure, string Executor);
-    private sealed record State(string Fingerprint, string ProfileDigest, string ProfileDirectory);
+    /// <summary>Certificate is the server certificate seen at setup: with --insecure it is the only one the admin token is sent to.</summary>
+    private sealed record Settings(string Game, string Workshop, string Server, string TokenFile, bool Insecure, string Executor, string? Certificate = null);
+    private sealed record State(string Fingerprint, string ProfileDigest, string ProfileDirectory, string? Mods = null);
     private sealed record ModSource(string PackageId, string? Directory);
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = true };
     private static readonly Dictionary<Process, StreamWriter> Logs = [];
@@ -37,8 +38,11 @@ public static class ArbiterCommand
         {
             string root = Path.GetFullPath(parse.GetValue(home)!);
             Directory.CreateDirectory(root);
-            var settings = Merge(root, parse.GetValue(game), parse.GetValue(workshop), parse.GetValue(server), parse.GetValue(tokenFile),
+            using var held = Hold(root);
+            var settings = await Merge(root, parse.GetValue(game), parse.GetValue(workshop), parse.GetValue(server), parse.GetValue(tokenFile),
                 parse.GetValue(insecure), parse.GetValue(executor));
+            // Nobody else owns this home now: a game still running from it is an orphan of an interrupted run and holds its files.
+            foreach (var stale in Running(root)) { stale.Kill(entireProcessTree: true); stale.WaitForExit(); }
             await Refresh(root, settings, force: false);
             return 0;
         });
@@ -46,18 +50,44 @@ public static class ArbiterCommand
         run.SetAction(async (parse, ct) =>
         {
             string root = Path.GetFullPath(parse.GetValue(home)!);
-            await Supervise(root, ReadSettings(root) ?? throw new InvalidOperationException("run `arbiter setup` first"), ct);
+            var settings = ReadSettings(root) ?? throw new InvalidOperationException("run `arbiter setup` first");
+            using var held = Hold(root);
+            if (settings.Certificate is null) // a home prepared before the pin was recorded
+                File.WriteAllText(Path.Combine(root, "arbiter.json"), JsonSerializer.Serialize(settings = settings with { Certificate = await CertificateSha256(settings.Server, settings.Insecure) }, Json));
+            await Supervise(root, settings, ct);
             return 0;
         });
         return new Command("arbiter", "Guild battle arbiter as a background process (no window, no Steam)") { setup, run };
     }
 
-    private static Settings Merge(string root, string? game, string? workshop, string? server, string? tokenFile, bool insecure, string? executor)
+    /// <summary>One setup or run per home: two would mirror into, capture from and supervise the same game copy.</summary>
+    private static FileStream Hold(string root)
+    {
+        try { return new FileStream(Path.Combine(root, "arbiter.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None, 1, FileOptions.DeleteOnClose); }
+        catch (IOException) { throw new InvalidOperationException("another `arbiter setup` or `arbiter run` owns " + root + "; stop it first"); }
+    }
+
+    /// <summary>True when one folder is the other or lies inside it: a mirror of such a pair would copy into itself.</summary>
+    public static bool Nested(string first, string second)
+    {
+        string a = Path.TrimEndingDirectorySeparator(Path.GetFullPath(first)) + Path.DirectorySeparatorChar, b = Path.TrimEndingDirectorySeparator(Path.GetFullPath(second)) + Path.DirectorySeparatorChar;
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        return a.StartsWith(b, comparison) || b.StartsWith(a, comparison);
+    }
+
+    /// <summary>A package id becomes a folder name under the arbiter's Mods; the modpack comes from the server.</summary>
+    public static bool SafePackageId(string id) =>
+        id.Length is > 0 and <= 128 && !id.Contains("..", StringComparison.Ordinal) && id[0] != '.' && id.All(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '_' or '-');
+
+    private static async Task<Settings> Merge(string root, string? game, string? workshop, string? server, string? tokenFile, bool insecure, string? executor)
     {
         var saved = ReadSettings(root);
         var settings = new Settings(Full(game) ?? saved?.Game ?? throw Missing("--game"), Full(workshop) ?? saved?.Workshop ?? "",
             server ?? saved?.Server ?? throw Missing("--server"), Full(tokenFile) ?? saved?.TokenFile ?? throw Missing("--token-file"),
             insecure || saved?.Insecure == true, executor ?? saved?.Executor ?? throw Missing("--executor"));
+        if (Nested(root, settings.Game)) throw new InvalidOperationException("--home must be outside the game folder, and the game outside --home");
+        // Setup is the operator's own act, so it is where the server's certificate is taken on trust; `run` never replaces it.
+        settings = settings with { Certificate = await CertificateSha256(settings.Server, settings.Insecure) };
         File.WriteAllText(Path.Combine(root, "arbiter.json"), JsonSerializer.Serialize(settings, Json));
         return settings;
         static string? Full(string? path) => string.IsNullOrWhiteSpace(path) ? null : Path.GetFullPath(path);
@@ -77,7 +107,8 @@ public static class ArbiterCommand
         return File.ReadAllText(settings.TokenFile).Trim();
     }
 
-    private static RestClient Rest(Settings settings) => new(settings.Server, Token(settings), settings.Insecure, TimeSpan.FromMinutes(5));
+    private static RestClient Rest(Settings settings) =>
+        new(settings.Server, Token(settings), settings.Insecure, TimeSpan.FromMinutes(5), settings.Insecure ? settings.Certificate : null);
 
     /// <summary>What the arbiter must run, read from the server's modpack and this machine's files.</summary>
     private static async Task<(string Fingerprint, List<ModSource> Mods)> Plan(Settings settings)
@@ -97,6 +128,7 @@ public static class ArbiterCommand
         foreach (var entry in modpack.RootElement.GetProperty("entries").EnumerateArray().OrderBy(e => e.GetProperty("position").GetInt32()))
         {
             string id = entry.GetProperty("packageId").GetString()!.ToLowerInvariant();
+            if (!SafePackageId(id)) throw new InvalidOperationException("the server's modpack names a package id that cannot be a folder name");
             if (id.StartsWith("ludeon.rimworld", StringComparison.Ordinal)) { mods.Add(new(id, null)); print.Append(id).Append('\n'); continue; }
             string expected = entry.GetProperty("filesHash").GetString() ?? "";
             long workshopId = entry.GetProperty("workshopId").GetInt64();
@@ -120,9 +152,12 @@ public static class ArbiterCommand
         var (fingerprint, mods) = await Plan(settings);
         string stateFile = Path.Combine(root, "state.json");
         var state = File.Exists(stateFile) ? JsonSerializer.Deserialize<State>(File.ReadAllText(stateFile)) : null;
-        if (!force && state is not null && state.Fingerprint == fingerprint && File.Exists(Path.Combine(root, "executor-settings.json")))
+        if (!force && state is not null && state.Fingerprint == fingerprint && Consistent(root))
         { Console.WriteLine("arbiter is current: profile " + state.ProfileDigest[..12]); return state; }
 
+        // From here the game copy stops matching the profile in executor-settings.json until the new one is published.
+        string pending = Path.Combine(root, PendingMarker);
+        File.WriteAllText(pending, fingerprint);
         string game = Path.Combine(root, "game"), saves = Path.Combine(root, "save");
         Console.WriteLine("mirroring the game into " + game);
         Mirror(settings.Game, game, top => top is "Mods" or "steam_appid.txt");
@@ -137,13 +172,21 @@ public static class ArbiterCommand
             new XElement("knownExpansions", mods.Where(m => m.Directory is null && m.PackageId != "ludeon.rimworld").Select(m => new XElement("li", m.PackageId))))).ToString());
 
         string tokenFile = Path.Combine(root, "executor-token.private.txt");
-        if (!File.Exists(tokenFile)) File.WriteAllText(tokenFile, RandomNumberGenerator.GetHexString(64, lowercase: true), Encoding.ASCII);
+        if (!File.Exists(tokenFile))
+        {
+            File.WriteAllText(tokenFile, RandomNumberGenerator.GetHexString(64, lowercase: true), Encoding.ASCII);
+            if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(tokenFile, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        }
         Console.WriteLine("GuildCapture:ExecutorTokenSha256 = " + Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(tokenFile))));
 
         string profile = Path.Combine(root, "profiles", DateTime.UtcNow.ToString("yyyyMMdd-HHmmss"));
         Directory.CreateDirectory(profile);
+        try
+        {
+        string modList = string.Join(',', mods.Select(m => m.PackageId));
         string previous = state is null ? "" : Path.Combine(state.ProfileDirectory, "template.rws");
-        if (File.Exists(previous)) File.Copy(previous, Path.Combine(profile, "template.rws")); // the map is reusable; only builds and mods changed
+        // The map is reusable while the mod list is: a map saved with other mods carries their definitions.
+        if (state?.Mods == modList && File.Exists(previous)) File.Copy(previous, Path.Combine(profile, "template.rws"));
         Console.WriteLine("capturing the arbiter profile (the game starts without a window)");
         await Capture(root, profile);
         using var capture = JsonDocument.Parse(File.ReadAllText(Path.Combine(profile, "profile-capture.json")));
@@ -159,13 +202,25 @@ public static class ArbiterCommand
         void Set(string key, string value) => executor[key] = JsonSerializer.SerializeToElement(value);
         Set("ExecutorId", settings.Executor); Set("WorldInstanceId", scope.GetProperty("worldId").GetString()!);
         Set("RestoreBoundary", scope.GetProperty("boundary").GetString()!); Set("Endpoint", settings.Server.TrimEnd('/') + "/");
-        Set("CertificateSha256", await CertificateSha256(settings.Server)); Set("CredentialPath", tokenFile);
+        Set("CertificateSha256", settings.Certificate ?? await CertificateSha256(settings.Server, settings.Insecure)); Set("CredentialPath", tokenFile);
         File.WriteAllText(Path.Combine(root, "executor-settings.json"), JsonSerializer.Serialize(executor, Json));
-        state = new(fingerprint, digest, profile);
+        state = new(fingerprint, digest, profile, modList);
         File.WriteAllText(stateFile, JsonSerializer.Serialize(state, Json));
+        File.Delete(pending);
+        foreach (string old in Directory.GetDirectories(Path.Combine(root, "profiles")).Where(d => !string.Equals(d, profile, StringComparison.OrdinalIgnoreCase)))
+            try { Directory.Delete(old, true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
         Console.WriteLine("arbiter profile published: " + digest);
         return state;
+        }
+        catch
+        {
+            // A failed attempt leaves no half profile behind; the marker stays, so nothing runs the mismatched copy.
+            try { Directory.Delete(profile, true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+            throw;
+        }
     }
+
+    private const string PendingMarker = "refresh.pending";
 
     private static async Task Capture(string root, string profile)
     {
@@ -195,12 +250,24 @@ public static class ArbiterCommand
         {
             while (!ct.IsCancellationRequested)
             {
-                try { await Refresh(root, settings, force: false); }
-                catch (Exception error) when (error is not OperationCanceledException)
+                bool consistent = Consistent(root);
+                try
+                {
+                    // A battle or a scheduled campaign is bound to the profile it was planned on: the arbiter comes back on that one.
+                    if (consistent && await Busy(settings)) Console.WriteLine(DateTime.Now.ToString("HH:mm:ss") + " a campaign or a battle is in hand: keeping the current profile");
+                    else { await Refresh(root, settings, force: false); consistent = true; }
+                }
+                catch (Exception error) when (!ct.IsCancellationRequested) // a request timeout is a failure like any other, not a stop
                 {
                     // Keep serving on the profile we have: a modpack that is ahead of this machine must not take the arbiter down.
                     Console.WriteLine(DateTime.Now.ToString("HH:mm:ss") + " refresh failed: " + error.Message);
-                    if (!File.Exists(Path.Combine(root, "executor-settings.json"))) { await Task.Delay(TimeSpan.FromMinutes(1), ct); continue; }
+                    consistent = Consistent(root);
+                }
+                if (!consistent)
+                {
+                    // The game copy was already changed for a profile that never got published: the old settings no longer describe it.
+                    await Task.Delay(TimeSpan.FromMinutes(1), ct).ContinueWith(_ => { });
+                    continue;
                 }
                 string log = Path.Combine(Directory.CreateDirectory(Path.Combine(root, "logs")).FullName, "arbiter.log");
                 if (File.Exists(log)) File.Move(log, Path.Combine(root, "logs", "arbiter.previous.log"), true);
@@ -219,7 +286,7 @@ public static class ArbiterCommand
                         Console.WriteLine(DateTime.Now.ToString("HH:mm:ss") + " the game or the modpack changed: refreshing the arbiter");
                         break;
                     }
-                    catch (Exception error) when (error is not OperationCanceledException) { Console.WriteLine(DateTime.Now.ToString("HH:mm:ss") + " check failed: " + error.Message); }
+                    catch (Exception error) when (!ct.IsCancellationRequested) { Console.WriteLine(DateTime.Now.ToString("HH:mm:ss") + " check failed: " + error.Message); }
                 }
                 bool crashed = arbiter.HasExited;
                 Stop(arbiter); arbiter.Dispose(); arbiter = null;
@@ -233,12 +300,14 @@ public static class ArbiterCommand
         finally { if (arbiter is not null) Stop(arbiter); }
     }
 
-    /// <summary>An arbiter with a battle in hand is never restarted for an update.</summary>
+    private static bool Consistent(string root) => !File.Exists(Path.Combine(root, PendingMarker)) && File.Exists(Path.Combine(root, "executor-settings.json"));
+
+    /// <summary>An arbiter with a battle or a scheduled campaign in hand is never moved to another profile.</summary>
     private static async Task<bool> Busy(Settings settings)
     {
         using var rest = Rest(settings);
         using var status = JsonDocument.Parse(await rest.Get("guild-capture"));
-        return status.RootElement.GetProperty("battles").GetArrayLength() != 0;
+        return status.RootElement.GetProperty("battles").GetArrayLength() != 0 || status.RootElement.GetProperty("campaigns").GetArrayLength() != 0;
     }
 
     private static Process Start(string root, string log, string argument)
@@ -248,7 +317,9 @@ public static class ArbiterCommand
         { WorkingDirectory = game, UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
         foreach (string value in new[] { "-savedatafolder=" + Path.Combine(root, "save"), argument, "-Headless", "-NoFileLog", "-NoCrashDialog" }) info.ArgumentList.Add(value);
         var process = Process.Start(info) ?? throw new InvalidOperationException("the game did not start");
-        var writer = new StreamWriter(new FileStream(log, FileMode.Create, FileAccess.Write, FileShare.ReadWrite)) { AutoFlush = true };
+        StreamWriter writer;
+        try { writer = new StreamWriter(new FileStream(log, FileMode.Create, FileAccess.Write, FileShare.ReadWrite)) { AutoFlush = true }; }
+        catch { process.Kill(entireProcessTree: true); process.Dispose(); throw; }
         process.OutputDataReceived += (_, e) => Write(writer, e.Data);
         process.ErrorDataReceived += (_, e) => Write(writer, e.Data);
         process.BeginOutputReadLine(); process.BeginErrorReadLine();
@@ -335,13 +406,13 @@ public static class ArbiterCommand
         return reader.ReadToEnd();
     }
 
-    private static async Task<string> CertificateSha256(string server)
+    private static async Task<string> CertificateSha256(string server, bool insecure)
     {
         var uri = new Uri(server);
         using var tcp = new System.Net.Sockets.TcpClient();
         await tcp.ConnectAsync(uri.Host, uri.Port);
-        // Reading the certificate the server presents, to pin it for the arbiter; trust is the pin, not a chain.
-        using var tls = new SslStream(tcp.GetStream(), false, (_, _, _, _) => true);
+        // The arbiter pins this certificate. Without --insecure it must also be one the machine trusts.
+        using var tls = new SslStream(tcp.GetStream(), false, (_, _, _, errors) => insecure || errors == SslPolicyErrors.None);
         await tls.AuthenticateAsClientAsync(uri.Host);
         return Convert.ToHexStringLower(SHA256.HashData(tls.RemoteCertificate!.GetRawCertData()));
     }

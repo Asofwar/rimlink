@@ -7,7 +7,7 @@ using Verse;
 
 namespace Rimlink.Client.Game.Patches;
 
-/// <summary>Expose passive outpost staffing only on a real own caravan, and explicit geography export to administrators.</summary>
+/// <summary>Expose passive outpost staffing only on a real own caravan.</summary>
 [HarmonyPatch(typeof(Caravan), nameof(Caravan.GetGizmos))]
 public static class Patch_Caravan_GetGizmos_Outposts
 {
@@ -15,9 +15,6 @@ public static class Patch_Caravan_GetGizmos_Outposts
     {
         foreach (var gizmo in __result) yield return gizmo;
         if (!RimlinkSession.Active || !__instance.IsPlayerControlled || !PawnCustodyRegistry.IsOwnGame) yield break;
-        if (RimlinkSession.Connection?.Login?.Role == Role.Admin)
-            yield return new Command_Action { defaultLabel = "Rimlink.Outposts.ManifestTitle".Translate(), defaultDesc = "Rimlink.Outposts.ManifestHelp".Translate(),
-                action = () => Find.WindowStack.Add(new Dialog_OutpostManifest()) };
         if (RimlinkSession.Connection?.Login?.OutpostVersion != 1) yield break;
         var command = new Command_Action { defaultLabel = "Rimlink.Outposts.StaffingTitle".Translate(), defaultDesc = "Rimlink.Outposts.StaffingDescription".Translate(),
             action = () => Find.WindowStack.Add(new Dialog_OutpostStaffing(__instance)) };

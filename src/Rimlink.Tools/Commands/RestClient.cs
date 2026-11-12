@@ -9,18 +9,21 @@ public sealed class RestClient : IDisposable
 {
     private readonly HttpClient http;
 
-    public RestClient(string server, string token, bool insecure, TimeSpan? timeout = null)
-        : this(CreateHttp(server, token, insecure, timeout))
+    public RestClient(string server, string token, bool insecure, TimeSpan? timeout = null, string? pinnedCertificateSha256 = null)
+        : this(CreateHttp(server, token, insecure, timeout, pinnedCertificateSha256))
     {
     }
 
     /// <summary>Over a ready client whose BaseAddress ends in /api/admin/ and which already carries the auth header (tests).</summary>
     public RestClient(HttpClient http) => this.http = http;
 
-    private static HttpClient CreateHttp(string server, string token, bool insecure, TimeSpan? timeout)
+    private static HttpClient CreateHttp(string server, string token, bool insecure, TimeSpan? timeout, string? pin)
     {
         var handler = new HttpClientHandler { AllowAutoRedirect = false };
-        if (insecure) handler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+        // A pinned certificate is the only one the token is sent to; plain --insecure accepts whatever answers.
+        if (pin is not null) handler.ServerCertificateCustomValidationCallback = (_, certificate, _, _) => certificate is not null
+            && Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(certificate.GetRawCertData())) == pin;
+        else if (insecure) handler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
         var client = new HttpClient(handler) { BaseAddress = new Uri(server.TrimEnd('/') + "/api/admin/") };
         if (timeout is { } duration) client.Timeout = duration;
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);

@@ -1,11 +1,11 @@
 ---
 pageId: faq
-contentRevision: 9
+contentRevision: 10
 ---
 
 # Частые вопросы
 
-Применимость: Rimlink 0.10.3 · RimWorld 1.7 · протокол 1.
+Применимость: Rimlink 0.10.4 · RimWorld 1.7 · протокол 1.
 
 ## Как пользоваться {#usage}
 

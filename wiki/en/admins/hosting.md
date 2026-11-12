@@ -1,11 +1,11 @@
 ---
 pageId: admins/hosting
-contentRevision: 16
+contentRevision: 17
 ---
 
 # Hosting and startup
 
-Applies to: Rimlink 0.10.3 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.10.4 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 

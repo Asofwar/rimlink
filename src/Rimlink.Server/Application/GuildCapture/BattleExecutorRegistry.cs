@@ -33,7 +33,8 @@ internal sealed partial class BattleExecutorRegistry
     {
         lock (gate)
         {
-            if (id != executorId || actualProfileDigest is not { Length: 32 } || !profile.IsEmpty && !profile.Span.SequenceEqual(actualProfileDigest)
+            // This legacy preflight checks nothing but the configured pin, so without a pin it admits nobody: the hello path checks the recorded approval.
+            if (id != executorId || actualProfileDigest is not { Length: 32 } || profile.IsEmpty || !profile.Span.SequenceEqual(actualProfileDigest)
                 || Fresh() || executionBinding is not null || couriers.Count>0) throw Refused();
             if (busy) cleanupHeld = true;
             executionBinding = null; executionBoot = "";

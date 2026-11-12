@@ -1,11 +1,11 @@
 ---
 pageId: admins/monitoring
-contentRevision: 9
+contentRevision: 10
 ---
 
 # Мониторинг и журнал событий
 
-Применимость: Rimlink 0.10.3 · RimWorld 1.7 · протокол 1.
+Применимость: Rimlink 0.10.4 · RimWorld 1.7 · протокол 1.
 
 ## Как пользоваться {#usage}
 

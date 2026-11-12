@@ -1,11 +1,11 @@
 ---
 pageId: players/community
-contentRevision: 14
+contentRevision: 15
 ---
 
 # Profiles, friends and alliances
 
-Applies to: Rimlink 0.10.3 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.10.4 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 
@@ -15,7 +15,7 @@ The treasury accepts wallet contributions. The owner sets daily withdrawal allow
 
 Allies are protected against mutual harmful attacks and incidents. Joining with conflicting queued hostility may be refused.
 
-## Guild outposts in the development build {#guild-outposts}
+## Guild outposts {#guild-outposts}
 
 The **Guild outposts** window is available in your home colony when the server grants guild access. It lists outposts and stock retained from lost outposts. Leaders can review ownership terms for an unowned site, choose a UTC defence window and confirm those exact terms. They can also nominate an attacker from their guild and declare an attack. The server returns the scheduled time. Resource requests from active and retained stock go to the leader's current home colony through ordinary delivery.
 
@@ -23,7 +23,7 @@ The same window shows active campaigns for your guild, the scheduled time in UTC
 
 When a battle is prepared, the assigned commander can select **Open prepared battle**. The mod checks the approved game and mod files, saves the home colony and opens the battle map only after the server accepts that save. The attacker confirms readiness separately on the battle map.
 
-These controls are in the development build. The public build does not offer them yet.
+These controls have been in the public build since 0.10.0, but they work only on a server whose administrator enabled guild capture, placed the outposts and keeps the battle arbiter running. A battle is scheduled no sooner than 24 hours after the attack is declared. The game and mod requirements for entering a battle and the fighter controls are described under [outpost limits](./passive-outposts.md#limits). A whole battle on a public server has not been run yet: individual stages were checked on development stands.
 
 If an operator stops a started battle, its map shows an operator stop without a winner. Return to the same home colony using the normal return button.
 

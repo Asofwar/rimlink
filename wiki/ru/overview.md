@@ -1,11 +1,11 @@
 ---
 pageId: overview
-contentRevision: 9
+contentRevision: 10
 ---
 
 # Как устроен Rimlink
 
-Применимость: Rimlink 0.10.3 · RimWorld 1.7 · протокол 1.
+Применимость: Rimlink 0.10.4 · RimWorld 1.7 · протокол 1.
 
 ## Как пользоваться {#usage}
 

@@ -1,11 +1,11 @@
 ---
 pageId: players/connect
-contentRevision: 12
+contentRevision: 13
 ---
 
 # Connecting and signing in
 
-Applies to: Rimlink 0.10.3 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.10.4 · RimWorld 1.7 · protocol 1.
 
 <img class="wiki-art" src="/illustrations/connect.svg" alt="Two colonies connect to the server over a secure connection." width="960" height="440" />
 <p class="wiki-caption">Two colonies connect to the server over a secure connection.</p>

@@ -10,12 +10,12 @@ public class BattleExecutorProfilePinTests
     private static readonly byte[] Second = Enumerable.Repeat((byte)2, 32).ToArray();
 
     [Fact]
-    public void Without_a_configured_digest_the_recorded_approval_alone_decides_the_profile()
+    public void Without_a_configured_digest_the_legacy_preflight_admits_nobody()
     {
+        // Its only check is the pin; an unpinned server leaves admission to the hello path, which reads the recorded approval.
         var registry = new BattleExecutorRegistry(TimeProvider.System, "arbiter", []);
-        var lease = registry.RegisterAuthenticated("arbiter", Second);
-        Assert.Equal(Second, lease.ProfileDigest.ToByteArray());
-        Assert.Throws<InvalidDataException>(() => new BattleExecutorRegistry(TimeProvider.System, "arbiter", []).RegisterAuthenticated("other", Second));
+        Assert.Throws<InvalidDataException>(() => registry.RegisterAuthenticated("arbiter", Second));
+        Assert.Null(registry.Available());
     }
 
     [Fact]

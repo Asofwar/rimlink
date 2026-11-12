@@ -1,11 +1,11 @@
 ---
 pageId: admins/hosting
-contentRevision: 16
+contentRevision: 17
 ---
 
 # Размещение и запуск
 
-Применимость: Rimlink 0.10.3 · RimWorld 1.7 · протокол 1.
+Применимость: Rimlink 0.10.4 · RimWorld 1.7 · протокол 1.
 
 ## Как пользоваться {#usage}
 

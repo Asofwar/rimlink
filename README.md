@@ -2,7 +2,7 @@
   <img src="docs/images/banner.jpg" alt="Rimlink: persistent multiplayer for RimWorld 1.7">
 </p>
 
-Version **0.10.3** runs the guild battle arbiter unattended in the background. Version 0.10.2 makes guild battles work for ordinary Steam installations and ships the arbiter setup. Version 0.10.1 lets personal outposts and guild capture share one world. Version 0.10.0 added guild resource outposts that change hands automatically after a battle run by the operator's arbiter, and removes the build qualification seal: passive outposts and guild capture are now enabled by server configuration and domain-format activation. Both settings are off by default. Setup is described in the [EN](wiki/en/admins/passive-outposts.md) and [RU](wiki/ru/admins/passive-outposts.md) Wiki sources. Update the server and client mod together.
+Version **0.10.4** hardens the background arbiter after a review and moves the administrator's outpost geography export into the Rimlink panel. Version 0.10.3 runs the guild battle arbiter unattended in the background. Version 0.10.2 makes guild battles work for ordinary Steam installations and ships the arbiter setup. Version 0.10.1 lets personal outposts and guild capture share one world. Version 0.10.0 added guild resource outposts that change hands automatically after a battle run by the operator's arbiter, and removes the build qualification seal: passive outposts and guild capture are now enabled by server configuration and domain-format activation. Both settings are off by default. Setup is described in the [EN](wiki/en/admins/passive-outposts.md) and [RU](wiki/ru/admins/passive-outposts.md) Wiki sources. Update the server and client mod together.
 
 The server and CLI require the qualified .NET and ASP.NET runtime **10.0.14**; source builds use SDK **10.0.403**. The packaged runtime policy requires this patch explicitly. Keep original executors and runtime installations for unfinished frozen restore plans; see the [server setup](docs/server-setup.md).
 
@@ -21,6 +21,13 @@ raid or manage a colony together live.
 
 Rimlink is a clean-room project with its own protocol, server and client. It shares no code with other RimWorld multiplayer
 mods and does not work with them.
+
+## What's new in 0.10.4
+
+[Release 0.10.4](https://github.com/Asofwar/rimlink/releases/tag/v0.10.4): `arbiter run` no longer stops on a request timeout, keeps the
+profile while a campaign is scheduled or a battle is in hand, never starts the arbiter on a half-updated game copy, takes one owner
+per arbiter folder and sends the admin token only to the server certificate seen at `arbiter setup`. The administrator's
+**Outpost geography** export is a button in the Rimlink panel instead of a caravan command. Update the server and mod together.
 
 ## What's new in 0.10.3
 
@@ -170,13 +177,14 @@ updating, monitoring and the Discord bot.
 
 ## Status
 
-Current version: **0.7.0**, see the [release notes](https://github.com/Asofwar/rimlink/releases/tag/v0.7.0). Back up the
-server's data before updating, update the server and clients together, then re-import the server modpack from the released
-client. Every player on a server plays the server's mod list, and a host's colony can only be visited by players who have
-the host's mods. Older clients cannot upload saves after an administrative colony reset.
+Current version: **0.10.4**, see the [release notes](https://github.com/Asofwar/rimlink/releases/tag/v0.10.4). Back up the
+server's data before updating and update the server and clients together. Every player on a server plays the server's mod
+list, and a host's colony can only be visited by players who have the host's mods.
 
-The [manual checklist](docs/manual-checklist.md) and [release verification](docs/verification/2026-11-02-release-0.7.0.md)
-record which checks were completed. Live Discord and real Steam Web API checks were not part of this release's acceptance run.
+Personal outposts and guild outpost capture are off until an administrator enables them (`Outposts:*`, `GuildCapture:*`), and
+guild battles need a running arbiter (`rimlink-tools arbiter run`). The [manual checklist](docs/manual-checklist.md) and the
+records in [docs/verification](docs/verification) say which checks were completed for each release. A whole guild battle on
+a public server has not been run yet; live Discord and real Steam Web API checks were not part of the acceptance runs.
 
 ## Development
 

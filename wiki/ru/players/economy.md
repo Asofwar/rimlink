@@ -1,11 +1,11 @@
 ---
 pageId: players/economy
-contentRevision: 13
+contentRevision: 14
 ---
 
 # Кошелёк, почта и рынок
 
-Применимость: Rimlink 0.10.3 · RimWorld 1.7 · протокол 1.
+Применимость: Rimlink 0.10.4 · RimWorld 1.7 · протокол 1.
 
 <img class="wiki-art" src="/illustrations/exchange.svg" alt="Обмен проходит через серверный escrow; доставка — через почту." width="960" height="440" />
 <p class="wiki-caption">Обмен проходит через серверный escrow; доставка — через почту.</p>

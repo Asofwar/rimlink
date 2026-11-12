@@ -1,11 +1,11 @@
 ---
 pageId: admins/discord
-contentRevision: 10
+contentRevision: 11
 ---
 
 # Discord bot
 
-Applies to: Rimlink 0.10.3 · RimWorld 1.7 · protocol 1.
+Applies to: Rimlink 0.10.4 · RimWorld 1.7 · protocol 1.
 
 ## Usage {#usage}
 

@@ -7,7 +7,7 @@ namespace Rimlink.Server.Tests.Tools;
 public class ArbiterMirrorTests : IDisposable
 {
     private readonly string root = Path.Combine(Path.GetTempPath(), "rimlink-arbiter-mirror", Guid.NewGuid().ToString("N"));
-    public void Dispose() => Directory.Delete(root, true);
+    public void Dispose() { if (Directory.Exists(root)) Directory.Delete(root, true); }
 
     private string Write(string relative, string text)
     {
@@ -41,4 +41,26 @@ public class ArbiterMirrorTests : IDisposable
         Assert.Equal("build 2, longer", File.ReadAllText(Path.Combine(copy, "Assembly-CSharp.dll")));
         Assert.False(File.Exists(Path.Combine(copy, "Data", "Core", "Defs", "a.xml")));
     }
+
+    [Fact]
+    public void A_home_inside_the_game_or_around_it_is_refused_before_any_copy()
+    {
+        string game = Path.Combine(Path.GetTempPath(), "rimlink-arbiter-nested", "RimWorld");
+        Assert.True(ArbiterCommand.Nested(game, game));
+        Assert.True(ArbiterCommand.Nested(Path.Combine(game, "arbiter"), game));
+        Assert.True(ArbiterCommand.Nested(Path.GetDirectoryName(game)!, game + Path.DirectorySeparatorChar));
+        Assert.False(ArbiterCommand.Nested(game + "-arbiter", game)); // a sibling that only shares the prefix
+    }
+
+    [Theory]
+    [InlineData("asofwar.rimlink", true)]
+    [InlineData("vanillaexpanded.vfe_core-2", true)]
+    [InlineData("..", false)]
+    [InlineData("a..b", false)]
+    [InlineData(".hidden", false)]
+    [InlineData("a/b", false)]
+    [InlineData("c:\\mods", false)]
+    [InlineData("", false)]
+    public void A_package_id_from_the_modpack_is_a_plain_folder_name_or_nothing(string id, bool safe) =>
+        Assert.Equal(safe, ArbiterCommand.SafePackageId(id));
 }

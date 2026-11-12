@@ -56,6 +56,11 @@ public static class Overlay
             if (Find.WindowStack.WindowOfType<Outposts.Dialog_GuildOutposts>() is { } guild) guild.Close();
             else Find.WindowStack.Add(new Outposts.Dialog_GuildOutposts());
         }
+        // The administrator's one-time world export lives here, not on a caravan: it concerns the planet, and a caravan need not exist.
+        if (RimlinkSession.IsAdmin && Game.Outposts.PawnCustodyRegistry.IsOwnGame
+            && Widgets.ButtonText(new Rect(x, y + 172f, 220f, 26f), "Rimlink.Outposts.ManifestTitle".Translate())
+            && Find.WindowStack.WindowOfType<Dialog_OutpostManifest>() is null)
+            Find.WindowStack.Add(new Dialog_OutpostManifest());
         if (Widgets.ButtonText(new Rect(x, y + 82f, 220f, 26f), "Rimlink.Diagnostics.Title".Translate()))
         {
             if (Find.WindowStack.WindowOfType<Dialog_Diagnostics>() is { } diagnostics) diagnostics.Close();
