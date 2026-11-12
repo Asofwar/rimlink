@@ -1,6 +1,6 @@
 ---
 pageId: developers/testing
-contentRevision: 31
+contentRevision: 32
 ---
 
 # Testing and acceptance
@@ -115,6 +115,8 @@ On the build with the regular **Open prepared battle** button, both commanders e
 During the following native run, a server restart interrupted an assignment between its commit and delivery to the executor. The battle expired before Start and the physical slot stayed held. Server regression tests cover the original process recovering its exact preparation or cancellation, and refusals for a different runtime or a partial initial upload. The fixed handshake still needs a native retest.
 
 The first real independent process completed profile preflight: 7433 files, Harmony/Core/Rimlink/RimBridgeServer, with DLC disabled. The earlier refusal caused by Core’s empty ModVersion is retained separately; a missing version is now explicitly unknown while game/runtime remain pinned by SHA-256. A large inventory uses a separate compact viewer descriptor. This measures runtime/reference closure; it is not HOME/SLICE PASS or a battle. The process was closed normally and the installed game was unchanged.
+
+On the production server 0.10.3 the arbiter was prepared by `rimlink-tools arbiter setup` with the real 31-entry modpack: the windowless game generated the map template and captured the profile, and a server without `GuildCapture:ApprovedProfileDigest` approved it and admitted the arbiter. `arbiter run`, started by a Windows Task Scheduler task, brought the arbiter up without a window and without Steam. A whole battle, a restart after a failure on the production server and an arbiter refresh on a game or modpack change were not checked there.
 
 ## Ports for multiple game bridges {#isolated-gabs-ports}
 
