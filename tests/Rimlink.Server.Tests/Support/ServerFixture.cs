@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Google.Protobuf;
 using Grpc.Net.Client;
 using Microsoft.AspNetCore.Hosting;
@@ -142,10 +143,28 @@ public class ServerFixture : WebApplicationFactory<Program>
             providerDisposal?.Finished.Task.GetAwaiter().GetResult();
             // Pooled connections outlive the host and keep the database open: Windows then refuses the delete, Linux deletes it anyway.
             if (connectionString is not null) SqliteConnection.ClearPool(new SqliteConnection(connectionString));
-            if (!keepDataDir)
+            if (!keepDataDir) DeleteDataDir();
+        }
+    }
+
+    private void DeleteDataDir()
+    {
+        // A request or background loop still finishing can return its connection to the pool after the clear above, which
+        // reopens the hold on rimlink.db; clear again until the delete goes through (measured: under a second when it happens).
+        var waited = Stopwatch.StartNew();
+        while (true)
+        {
+            try
             {
-                try { Directory.Delete(DataDir, recursive: true); } catch (IOException) { }
+                if (Directory.Exists(DataDir)) Directory.Delete(DataDir, recursive: true);
+                return;
             }
+            catch (IOException) when (waited.Elapsed < TimeSpan.FromSeconds(5))
+            {
+                Thread.Sleep(50);
+                if (connectionString is not null) SqliteConnection.ClearPool(new SqliteConnection(connectionString));
+            }
+            catch (IOException) { return; }
         }
     }
 
